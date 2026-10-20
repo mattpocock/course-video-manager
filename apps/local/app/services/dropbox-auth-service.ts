@@ -1,7 +1,7 @@
 import { Config, Data, Effect } from "effect";
 import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
 import { getValidOAuthAccessToken } from "@/services/oauth-token-refresh";
-import { dropboxApiUrl } from "./dropbox-http-client";
+import { dropboxApiUrl } from "./dropbox-fetch";
 
 export class DropboxAuthError extends Data.TaggedError("DropboxAuthError")<{
   message: string;

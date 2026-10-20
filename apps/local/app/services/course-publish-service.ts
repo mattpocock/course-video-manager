@@ -1,4 +1,4 @@
-import { Cause, Deferred, Effect, Exit, Schedule } from "effect";
+import { Cause, Deferred, Effect, Exit } from "effect";
 import { SidecarContext } from "./sidecar-context";
 import { makeCoursePublishReads } from "./course-publish-reads";
 import { dropboxAppCredentials } from "./dropbox-auth-service";
@@ -360,15 +360,30 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         // in-flight (`sync_failed` only), then auto-Discard. The sync is
         // content-addressed and idempotent, so a later re-publish re-uploads
         // nothing that already landed.
+        const discardPending = (why: string) =>
+          Effect.logWarning(
+            `publish: discarding Pending Version ${latestVersion.id}: ${why}`
+          ).pipe(
+            Effect.zipRight(versionOps.discardPendingVersion(latestVersion.id))
+          );
+
+        const commitOnce = syncFrozenCourseVersionToDropbox({
+          courseId,
+          courseVersionId: latestVersion.id,
+          includeTodoLessons,
+          placeholderFloor,
+          onDetailEvent,
+          awaitVideoReady,
+        });
         const commitPhase = Effect.exit(
-          syncFrozenCourseVersionToDropbox({
-            courseId,
-            courseVersionId: latestVersion.id,
-            includeTodoLessons,
-            placeholderFloor,
-            onDetailEvent,
-            awaitVideoReady,
-          }).pipe(Effect.retry(Schedule.recurs(1)))
+          commitOnce.pipe(
+            Effect.catchAll((error) =>
+              Effect.logWarning(
+                "publish: Dropbox commit failed, retrying it once",
+                error
+              ).pipe(Effect.zipRight(commitOnce))
+            )
+          )
         );
 
         // The two pools run side by side. The Commit is captured as an Exit,
@@ -385,11 +400,11 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
             // it rather than strand it for manual reconciliation. The error
             // the caller sees is the failed export, ahead of whatever the
             // commit made of it.
-            versionOps.discardPendingVersion(latestVersion.id)
+            discardPending("an export failed")
           )
         );
         if (Exit.isFailure(commitExit)) {
-          yield* versionOps.discardPendingVersion(latestVersion.id);
+          yield* discardPending("the Dropbox commit failed");
           return yield* new PublishCommitFailedError({
             discardedVersionId: latestVersion.id,
             newDraftVersionId: newDraft.id,
@@ -401,7 +416,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         if (commitExit.value.missingVideos.length > 0) {
           // Missing assets are deterministic — retrying cannot conjure the
           // files — so Discard immediately, naming the missing Videos.
-          yield* versionOps.discardPendingVersion(latestVersion.id);
+          yield* discardPending("video files are missing");
           return yield* new PublishCommitFailedError({
             discardedVersionId: latestVersion.id,
             newDraftVersionId: newDraft.id,
@@ -413,7 +428,9 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         }
 
         // Promote: the receipt landed, so the Pending Version is Published.
+        yield* Effect.logInfo("publish: promoting", latestVersion.id);
         yield* versionOps.promotePendingVersion(latestVersion.id);
+        yield* Effect.logInfo("publish: promoted", latestVersion.id);
 
         // Reclaim stale exports LAST, once every byte has gone past and the
         // Version is Published. GC deletes any Exported Video whose Export

@@ -181,11 +181,23 @@ export function createShipVideo(deps: {
     missingVideos,
   } = deps;
 
-  const emitVideoError = (videoId: string, message: string) =>
-    onDetailEvent?.({
-      event: "upload-video-error",
-      data: { videoId, message },
-    });
+  /**
+   * A Video's failure, as a Job Event for its row AND a line in the job log,
+   * which otherwise says nothing between the copy batch and the receipt.
+   */
+  const reportVideoError = (entry: VideoEntry, message: string) =>
+    Effect.sync(() =>
+      onDetailEvent?.({
+        event: "upload-video-error",
+        data: { videoId: entry.videoId, message },
+      })
+    ).pipe(
+      Effect.zipRight(
+        Effect.logWarning(
+          `publish: upload failed for ${entry.relativeAssetPath}: ${message}`
+        )
+      )
+    );
 
   /**
    * Adopt a landed Video with NO local file to check it against.
@@ -350,7 +362,7 @@ export function createShipVideo(deps: {
             videoTitle: entry.videoTitle,
             lessonPath: entry.lessonPath,
           });
-          emitVideoError(entry.videoId, "No exported file to upload");
+          yield* reportVideoError(entry, "No exported file to upload");
           return null;
         }
 
@@ -390,15 +402,18 @@ export function createShipVideo(deps: {
     },
     // Whatever went wrong for this Video — a missing file, a rejected request,
     // a hash that did not verify — belongs to that Video by name rather than
-    // to the Publish as an undifferentiated whole.
+    // to the Publish as an undifferentiated whole. Every log line under it —
+    // a Dropbox request's retry included — names the Video's file.
     (effect, entry) =>
-      Effect.tapError(effect, (error) => {
-        emitVideoError(
-          entry.videoId,
-          extractErrorMessage(error, "Upload failed unexpectedly")
-        );
-        return Effect.void;
-      })
+      effect.pipe(
+        Effect.tapError((error) =>
+          reportVideoError(
+            entry,
+            extractErrorMessage(error, "Upload failed unexpectedly")
+          )
+        ),
+        Effect.annotateLogs("video", entry.relativeAssetPath)
+      )
   );
 
   return shipVideo;

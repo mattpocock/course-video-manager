@@ -445,6 +445,12 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
     .filter(Either.isRight)
     .map((result) => result.right);
   const shipFailure = allResults.find(Either.isLeft);
+  yield* Effect.logInfo("publish: upload pool done", {
+    shipped: receipts.filter((receipt) => receipt !== null).length,
+    copied: copyReceipts.size,
+    failed: allResults.length - receipts.length,
+    missing: missingVideos.length,
+  });
 
   if (missingVideos.length > 0) return { missingVideos };
 
@@ -482,6 +488,7 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
 
   // Schema and manifest are content-identical for a given bundle path, so
   // whichever of them a previous attempt landed is left alone.
+  yield* Effect.logInfo("publish: writing schema and manifest");
   const schemaRemotePath = `${remoteBundleDir}/course.schema.json`;
   const manifestRemotePath = `${remoteBundleDir}/manifest.json`;
   if (!remoteFilesByPath.has(schemaRemotePath.toLowerCase())) {
@@ -499,6 +506,7 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
     });
   }
 
+  yield* Effect.logInfo("publish: writing the course.json receipt");
   // Write the root course.json receipt with overwrite mode — the sole
   // commit marker. This is the last write; consumers read it to know
   // which bundle is current.
@@ -508,6 +516,7 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
     content: Buffer.from(manifestJson, "utf-8"),
     mode: "overwrite",
   });
+  yield* Effect.logInfo("publish: course.json receipt written");
 
   input.onDetailEvent?.({ event: "progress", data: { percentage: 100 } });
 

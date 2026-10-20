@@ -19,11 +19,45 @@ type RequestSpan = {
 
 type RequestMatcher = (url: string, init: RequestInit) => boolean;
 
+/**
+ * How an injected failure answers: an HTTP status, or no answer at all —
+ * `"drop"` rejects the way undici does when the connection dies, `"hang"`
+ * never settles until the caller aborts.
+ */
+type FailureAnswer =
+  { status: number; retryAfterSeconds?: number } | { network: "drop" | "hang" };
+
 type InjectedFailure = {
   match: RequestMatcher;
   remaining: number;
-  status: number;
-  retryAfterSeconds?: number;
+  answer: FailureAnswer;
+};
+
+/** undici's own shape for a connection that died mid-request. */
+const fetchFailed = () =>
+  new TypeError("fetch failed", {
+    cause: Object.assign(new Error("read ECONNRESET"), { code: "ECONNRESET" }),
+  });
+
+const hangUntilAborted = (signal: AbortSignal | null | undefined) =>
+  new Promise<never>((_resolve, reject) => {
+    signal?.addEventListener("abort", () => reject(signal.reason));
+  });
+
+const answerFailure = (answer: FailureAnswer, init: RequestInit) => {
+  if ("network" in answer) {
+    return answer.network === "drop"
+      ? Promise.reject(fetchFailed())
+      : hangUntilAborted(init.signal);
+  }
+  return Promise.resolve(
+    new Response(JSON.stringify({ error_summary: "injected" }), {
+      status: answer.status,
+      headers: answer.retryAfterSeconds
+        ? { "Retry-After": String(answer.retryAfterSeconds) }
+        : undefined,
+    })
+  );
 };
 
 export const createFakeDropbox = () => {
@@ -114,19 +148,13 @@ export const createFakeDropbox = () => {
   // ── Fault injection ────────────────────────────────────────────────
   const injectedFailures: InjectedFailure[] = [];
 
-  /** Answer the next `times` matching requests with `status`. */
-  const failNextRequests = (opts: {
-    match: RequestMatcher;
-    times: number;
-    status: number;
-    retryAfterSeconds?: number;
-  }) => {
-    injectedFailures.push({
-      match: opts.match,
-      remaining: opts.times,
-      status: opts.status,
-      retryAfterSeconds: opts.retryAfterSeconds,
-    });
+  /** Answer the next `times` matching requests with a failure. */
+  const failNextRequests = ({
+    match,
+    times,
+    ...answer
+  }: { match: RequestMatcher; times: number } & FailureAnswer) => {
+    injectedFailures.push({ match, remaining: times, answer });
   };
 
   const takeInjectedFailure = (url: string, init: RequestInit) => {
@@ -400,14 +428,7 @@ export const createFakeDropbox = () => {
       }
 
       const failure = takeInjectedFailure(urlStr, reqInit);
-      if (failure) {
-        return new Response(JSON.stringify({ error_summary: "injected" }), {
-          status: failure.status,
-          headers: failure.retryAfterSeconds
-            ? { "Retry-After": String(failure.retryAfterSeconds) }
-            : undefined,
-        });
-      }
+      if (failure) return await answerFailure(failure.answer, reqInit);
 
       return await dispatch(urlStr, reqInit);
     } finally {

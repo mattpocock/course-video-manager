@@ -4,12 +4,19 @@
  * These run the real publish logic against an in-memory Dropbox and pin four
  * things: the Bundle is addressed by the recipe rather than by the bytes,
  * several Videos go up at once, an interrupted Publish finishes rather than
- * restarts, and a rate-limited upload is retried.
+ * restarts, and a rate-limited or dropped upload is retried — and one that
+ * still fails says so in the job log.
  */
 
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
+import path from "node:path";
+import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
+import { Effect, Logger } from "effect";
+import { ANNOUNCE_NOTHING } from "@/packages/course-json";
+import { makeJsonLogger } from "../../sidecar/json-logger";
+import { syncFrozenCourseVersionToDropbox } from "./course-publish-dropbox";
 import {
   fakeDropbox,
   manifestVideos,
@@ -223,4 +230,62 @@ describe("Dropbox publish upload — transient failures", () => {
 
     expect(remoteBundleVideoPaths()).toHaveLength(2);
   }, 20_000);
+
+  // The 2026-10-20 Publish lost two Videos to undici's "fetch failed": a
+  // dropped connection was a final answer, never retried.
+  it("retries an upload whose connection dropped rather than failing", async () => {
+    const { sync } = await setupUploads({ videoCount: 2 });
+
+    fakeDropbox.failNextRequests({
+      match: isVideoUploadRequest,
+      times: 1,
+      network: "drop",
+    });
+
+    await sync();
+
+    expect(remoteBundleVideoPaths()).toHaveLength(2);
+  }, 20_000);
+
+  // The same Publish's job log went silent for twelve minutes: a Video's
+  // failure was a Job Event only, so a hang looked like progress.
+  it("writes a failed Video's upload to the job log by its file", async () => {
+    const { course, version, run } = await setupUploads({ videoCount: 1 });
+    const logDir = fs.mkdtempSync(path.join(tmpdir(), "publish-job-log-"));
+    fakeDropbox.failNextRequests({
+      match: isVideoUploadRequest,
+      times: 1,
+      status: 400,
+    });
+
+    await run(
+      syncFrozenCourseVersionToDropbox({
+        courseId: course.id,
+        courseVersionId: version.id,
+        includeTodoLessons: true,
+        placeholderFloor: ANNOUNCE_NOTHING,
+        awaitVideoReady: () => Effect.void,
+      }).pipe(
+        Effect.ignore,
+        Effect.annotateLogs("jobId", "job-1"),
+        Effect.provide(
+          Logger.replace(
+            Logger.defaultLogger,
+            makeJsonLogger({ logDir, write: () => {} })
+          )
+        )
+      )
+    );
+
+    const lines = fs
+      .readFileSync(path.join(logDir, "job-1.jsonl"), "utf-8")
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line) as { message: unknown });
+    expect(lines.map((line) => line.message)).toContainEqual(
+      expect.stringMatching(
+        /^publish: upload failed for .*\/Explainer1\.mp4: HTTP 400/
+      )
+    );
+  });
 });
