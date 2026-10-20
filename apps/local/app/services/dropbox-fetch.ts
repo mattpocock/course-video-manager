@@ -38,8 +38,8 @@ const SLOWEST_UPLOAD_BYTES_PER_SECOND = 256 * 1024;
 
 /**
  * How long one request may take, start to last response byte, before it is
- * abandoned and retried: two minutes, plus its body at 256 KiB/s. A 16 MB
- * session chunk gets about three minutes, a 150 MB single-shot upload about
+ * abandoned and retried: two minutes, plus its body at 256 KiB/s. A 64 MB
+ * session chunk gets about six minutes, a 150 MB single-shot upload about
  * twelve. Size-aware rather than idle-based, because `fetch` reports nothing
  * while a buffered body is going up, so there is no stall to watch for.
  */

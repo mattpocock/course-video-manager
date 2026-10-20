@@ -26,6 +26,7 @@ import {
   getValidDropboxAccessToken,
 } from "./dropbox-auth-service";
 import { uploadConcurrency } from "./dropbox-upload-config";
+import { makeUploadMeter } from "./dropbox-upload-throughput";
 import {
   createShipVideo,
   toVideoEntries,
@@ -268,6 +269,8 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
   };
 
   const uploadConcurrencyLimit = yield* uploadConcurrency;
+  // What has actually left this machine, for the job log's speed lines.
+  const uploadMeter = yield* makeUploadMeter;
 
   // Videos whose file never appeared. Under pipelining this is only knowable
   // per Video, after its handoff — so other Videos may already have shipped by
@@ -296,6 +299,7 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
     videoByteSizes,
     uploadedByVideo,
     reportProgress,
+    onBytesSent: uploadMeter.addSent,
     missingVideos,
   });
 
@@ -424,9 +428,8 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
     return yield* copyPhase();
   });
 
-  const [shipResults, refusedEntries] = yield* Effect.all(
-    [uploadPool, copyPipeline],
-    { concurrency: 2 }
+  const [shipResults, refusedEntries] = yield* uploadMeter.reportWhile(
+    Effect.all([uploadPool, copyPipeline], { concurrency: 2 })
   );
 
   // A Video that left the pool for a batch that then refused it has nothing
@@ -435,10 +438,12 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
   const fallbackEntries = refusedEntries.filter((entry) =>
     steppedOutOfPool.has(entry.videoId)
   );
-  const fallbackResults = yield* Effect.forEach(
-    fallbackEntries,
-    (entry) => Effect.either(shipVideo(entry, input.awaitVideoReady)),
-    { concurrency: uploadConcurrencyLimit }
+  const fallbackResults = yield* uploadMeter.reportWhile(
+    Effect.forEach(
+      fallbackEntries,
+      (entry) => Effect.either(shipVideo(entry, input.awaitVideoReady)),
+      { concurrency: uploadConcurrencyLimit }
+    )
   );
   const allResults = [...shipResults, ...fallbackResults];
   const receipts = allResults
@@ -450,7 +455,7 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
     copied: copyReceipts.size,
     failed: allResults.length - receipts.length,
     missing: missingVideos.length,
-  });
+  }).pipe(Effect.annotateLogs(yield* uploadMeter.snapshot));
 
   if (missingVideos.length > 0) return { missingVideos };
 

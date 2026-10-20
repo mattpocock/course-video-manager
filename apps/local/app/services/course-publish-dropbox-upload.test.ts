@@ -112,17 +112,17 @@ describe("Dropbox publish upload — bundle addressing", () => {
 });
 
 describe("Dropbox publish upload — concurrency", () => {
-  it("uploads several Videos at once, up to the default limit of 4", async () => {
-    const { sync } = await setupUploads({ videoCount: 6 });
+  it("uploads several Videos at once, up to the default limit of 8", async () => {
+    const { sync } = await setupUploads({ videoCount: 10 });
 
-    // Deterministic: the barrier only trips if four uploads are genuinely in
+    // Deterministic: the barrier only trips if eight uploads are genuinely in
     // flight together. A serial implementation hangs rather than passing.
-    fakeDropbox.holdUntilInFlight(4, isVideoUploadRequest);
+    fakeDropbox.holdUntilInFlight(8, isVideoUploadRequest);
 
     await sync();
 
-    expect(fakeDropbox.peakConcurrentRequests(isVideoUploadRequest)).toBe(4);
-    expect(remoteBundleVideoPaths()).toHaveLength(6);
+    expect(fakeDropbox.peakConcurrentRequests(isVideoUploadRequest)).toBe(8);
+    expect(remoteBundleVideoPaths()).toHaveLength(10);
   });
 
   it("never exceeds the configured concurrency limit", async () => {
@@ -287,5 +287,64 @@ describe("Dropbox publish upload — transient failures", () => {
         /^publish: upload failed for .*\/Explainer1\.mp4: HTTP 400/
       )
     );
+  });
+
+  // "Upload is taking forever" could not be checked: the job log said which
+  // Video failed, never how fast any of them went.
+  it("writes each uploaded Video's speed, and the pool's total, to the job log", async () => {
+    const { course, version, videos, run } = await setupUploads({
+      videoCount: 2,
+    });
+    const logDir = fs.mkdtempSync(path.join(tmpdir(), "publish-job-log-"));
+
+    await run(
+      syncFrozenCourseVersionToDropbox({
+        courseId: course.id,
+        courseVersionId: version.id,
+        includeTodoLessons: true,
+        placeholderFloor: ANNOUNCE_NOTHING,
+        awaitVideoReady: () => Effect.void,
+      }).pipe(
+        Effect.annotateLogs("jobId", "job-1"),
+        Effect.provide(
+          Logger.replace(
+            Logger.defaultLogger,
+            makeJsonLogger({ logDir, write: () => {} })
+          )
+        )
+      )
+    );
+
+    const lines = fs
+      .readFileSync(path.join(logDir, "job-1.jsonl"), "utf-8")
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line) as Record<string, unknown>);
+    const sizes = videos.map((video) => fs.statSync(video.exportPath).size);
+
+    const perVideo = lines.filter((line) =>
+      String(line.message).startsWith("publish: uploaded ")
+    );
+    expect(perVideo).toHaveLength(2);
+    for (const line of perVideo) {
+      expect(line).toMatchObject({
+        path: expect.stringMatching(/^\/Courses\/.*\.mp4$/),
+        bytes: expect.any(Number),
+        seconds: expect.any(Number),
+        mbPerSecond: expect.any(Number),
+      });
+    }
+    expect(perVideo.map((line) => line.bytes).sort()).toEqual(
+      [...sizes].sort()
+    );
+
+    const poolDone = lines.find((line) =>
+      JSON.stringify(line.message).includes("publish: upload pool done")
+    );
+    expect(poolDone).toMatchObject({
+      bytes: sizes.reduce((sum, bytes) => sum + bytes, 0),
+      seconds: expect.any(Number),
+      mbPerSecond: expect.any(Number),
+    });
   });
 });

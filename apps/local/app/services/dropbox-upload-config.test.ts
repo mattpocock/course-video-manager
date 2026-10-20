@@ -37,4 +37,19 @@ describe("Dropbox upload configuration", () => {
       readWith(uploadChunkSizeBytes, { DROPBOX_UPLOAD_CHUNK_SIZE_MB: "1" })
     ).rejects.toBeDefined();
   });
+
+  it("rejects a chunk size that is not a multiple of 4 MB", async () => {
+    await expect(
+      readWith(uploadChunkSizeBytes, { DROPBOX_UPLOAD_CHUNK_SIZE_MB: "30" })
+    ).rejects.toBeDefined();
+  });
+
+  it("rejects a chunk size over Dropbox's 150 MB request limit", async () => {
+    await expect(
+      readWith(uploadChunkSizeBytes, { DROPBOX_UPLOAD_CHUNK_SIZE_MB: "152" })
+    ).rejects.toBeDefined();
+    await expect(
+      readWith(uploadChunkSizeBytes, { DROPBOX_UPLOAD_CHUNK_SIZE_MB: "148" })
+    ).resolves.toBe(148 * 1024 * 1024);
+  });
 });

@@ -240,13 +240,16 @@ export const uploadFileFromDisk = Effect.fn("dropboxUploadFileFromDisk")(
       });
       const buffer = Buffer.from(content);
       onChunk?.(buffer);
-      onProgress?.(fileSize, fileSize);
-      return yield* upload({
+      const metadata = yield* upload({
         accessToken,
         path: remotePath,
         content: buffer,
         mode,
       });
+      // Reported once the request lands, not before it is sent: a whole
+      // 150 MB file must not read as delivered while it is still going up.
+      onProgress?.(fileSize, fileSize);
+      return metadata;
     }
 
     return yield* Effect.acquireUseRelease(

@@ -162,7 +162,7 @@ LOCAL-ONLY
 CONCURRENCY
   Export and upload are separate pools with separate budgets, connected by a
   per-Video handoff: encoding stays six-way concurrent (GPU-bound) while
-  uploads run at DROPBOX_UPLOAD_CONCURRENCY (default 4, network-bound). A
+  uploads run at DROPBOX_UPLOAD_CONCURRENCY (default 8, network-bound). A
   Publish therefore costs roughly the longer of the two phases rather than
   their sum. Export garbage collection runs only once every upload has
   finished, so it can never unlink a file mid-transfer.

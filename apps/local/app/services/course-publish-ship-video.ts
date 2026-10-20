@@ -1,4 +1,4 @@
-import { Effect, Stream } from "effect";
+import { Clock, Effect, Stream } from "effect";
 import { FileSystem } from "@effect/platform";
 import { createHash } from "node:crypto";
 import {
@@ -20,6 +20,7 @@ import {
 import type { ReusableSource } from "./course-publish-reuse-plan";
 import { DropboxContentHasher } from "./dropbox-content-hash";
 import { readExportDigest, writeExportDigest } from "./export-sha256-sidecar";
+import { throughputFields } from "./dropbox-upload-throughput";
 
 /**
  * One Video's place in the bundle, all of it read off the DATABASE: where it
@@ -160,6 +161,11 @@ export function createShipVideo(deps: {
   videoByteSizes: Map<string, number>;
   uploadedByVideo: Map<string, number>;
   reportProgress: () => void;
+  /**
+   * Bytes that have just left this machine for Dropbox — the upload pool's
+   * running total. Copied and adopted Videos send nothing and never call it.
+   */
+  onBytesSent: (bytes: number) => void;
   /** Mutated in place — Videos whose file never appeared are pushed here. */
   missingVideos: Array<{
     videoId: string;
@@ -178,6 +184,7 @@ export function createShipVideo(deps: {
     videoByteSizes,
     uploadedByVideo,
     reportProgress,
+    onBytesSent,
     missingVideos,
   } = deps;
 
@@ -276,10 +283,13 @@ export function createShipVideo(deps: {
     const sha256Hash = createHash("sha256");
     const contentHasher = new DropboxContentHasher();
     let streamedBytes = 0;
+    let sentBytes = 0;
+    const remotePath = remoteVideoPath(entry);
+    const startedAt = yield* Clock.currentTimeMillis;
 
     const metadata = yield* uploadFileFromDisk({
       accessToken,
-      path: remoteVideoPath(entry),
+      path: remotePath,
       filePath: entry.localPath,
       fileSize,
       onChunk: (chunk) => {
@@ -288,6 +298,8 @@ export function createShipVideo(deps: {
         streamedBytes += chunk.byteLength;
       },
       onProgress: (uploaded, total) => {
+        onBytesSent(uploaded - sentBytes);
+        sentBytes = uploaded;
         uploadedByVideo.set(entry.videoId, uploaded);
         reportProgress();
         onDetailEvent?.({
@@ -300,6 +312,14 @@ export function createShipVideo(deps: {
         });
       },
     });
+
+    const finishedAt = yield* Clock.currentTimeMillis;
+    yield* Effect.logInfo(`publish: uploaded ${entry.relativeAssetPath}`).pipe(
+      Effect.annotateLogs({
+        path: remotePath,
+        ...throughputFields(fileSize, finishedAt - startedAt),
+      })
+    );
 
     const contentHash = contentHasher.digest();
     if (metadata.content_hash !== contentHash) {
