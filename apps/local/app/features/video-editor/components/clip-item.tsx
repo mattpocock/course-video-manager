@@ -37,6 +37,7 @@ import { openDiagramPlaygroundForClip } from "./open-diagram-playground-for-clip
 import { clipStillUrl } from "../clip-still-url";
 import { holdsStillsOf, stillRound } from "../cvm-recorder-reducer";
 import { HeldStill } from "./held-still";
+import { QueuedStill } from "./queued-still";
 import { isTranscriptionPending } from "@/features/videos/transcription-status";
 import {
   overlayKindLabel,
@@ -135,12 +136,11 @@ export const ClipItem = (props: ClipItemProps) => {
             });
           }}
         >
-          {/* Thumbnail image */}
           {clip.type === "on-database" && stillHeld ? (
             <HeldStill isPortrait={isPortrait} timecode={timecode} />
           ) : clip.type === "on-database" ? (
             <div className="flex-shrink-0 relative">
-              <img
+              <QueuedStill
                 key={round}
                 src={clipStillUrl(clip, "first")}
                 alt="First frame"
@@ -150,7 +150,6 @@ export const ClipItem = (props: ClipItemProps) => {
                   isBeingTranscribed && "opacity-50 grayscale"
                 )}
               />
-              {/* Loading spinner overlay */}
               {isBeingTranscribed && (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <Loader2 className="w-6 h-6 animate-spin text-white" />

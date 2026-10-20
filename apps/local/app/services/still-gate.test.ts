@@ -13,6 +13,7 @@ import { describe, expect, it, vi } from "vitest";
 import { makeLoader } from "./route-action.server";
 import {
   makeStillGate,
+  STILL_DECODES_AT_ONCE,
   StillHeldError,
   type RecordingSignal,
 } from "./still-gate";
@@ -110,12 +111,17 @@ describe("the still gate", () => {
     await run(
       Effect.gen(function* () {
         const release = yield* Deferred.make<void>();
-        const first = yield* Effect.fork(gate(Deferred.await(release)));
+        const running = yield* Effect.forEach(
+          Array.from({ length: STILL_DECODES_AT_ONCE }),
+          () => Effect.fork(gate(Deferred.await(release)))
+        );
         const waiting = yield* Effect.fork(gate(Effect.succeed("still.png")));
         yield* settle;
         recorder.set(true);
         yield* settle;
-        expect(Exit.isFailure(yield* Fiber.await(first))).toBe(true);
+        for (const fiber of running) {
+          expect(Exit.isFailure(yield* Fiber.await(fiber))).toBe(true);
+        }
         const exit = yield* Fiber.await(waiting);
         expect(exit).toEqual(Exit.fail(expect.any(StillHeldError)));
       })
@@ -142,7 +148,7 @@ describe("the still gate", () => {
     expect(thrown?.init.status).toBe(503);
   });
 
-  it("decodes one still at a time", async () => {
+  it("decodes at most STILL_DECODES_AT_ONCE stills at a time", async () => {
     const recorder = fakeRecorder(false);
     const gate = makeStillGate(recorder.signal);
     await run(
@@ -157,15 +163,18 @@ describe("the still gate", () => {
           yield* Ref.update(running, (n) => n - 1);
         });
         const fiber = yield* Effect.fork(
-          Effect.all([gate(decode), gate(decode), gate(decode)], {
-            concurrency: "unbounded",
-          })
+          Effect.all(
+            Array.from({ length: STILL_DECODES_AT_ONCE + 2 }, () =>
+              gate(decode)
+            ),
+            { concurrency: "unbounded" }
+          )
         );
         yield* settle;
-        expect(yield* Ref.get(running)).toBe(1);
+        expect(yield* Ref.get(running)).toBe(STILL_DECODES_AT_ONCE);
         yield* Deferred.succeed(release, undefined);
         yield* Fiber.join(fiber);
-        expect(yield* Ref.get(most)).toBe(1);
+        expect(yield* Ref.get(most)).toBe(STILL_DECODES_AT_ONCE);
       })
     );
   });

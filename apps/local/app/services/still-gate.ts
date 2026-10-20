@@ -8,8 +8,9 @@ import { Context, Data, Effect, Option } from "effect";
  * Recording Session 24ad7e82 lost 278 camera frames while DirectShow's buffer
  * sat 63-77% full, right over a run of them.
  *
- * So a still's decode only runs while nothing records, one at a time, and a
- * Record that starts while one runs stops it (its ffmpeg is killed). Linux
+ * So a still's decode only runs while nothing records, at most
+ * {@link STILL_DECODES_AT_ONCE} at a time, and a Record that starts while any
+ * run stops them (their ffmpeg is killed). Linux
  * `nice` cannot do this: it never reaches the Windows scheduler the camera
  * capture runs under.
  *
@@ -23,6 +24,14 @@ import { Context, Data, Effect, Option } from "effect";
  * overlay of the previous Take's last frame needs it mid-session (#2294).
  * The first-frame still stays gated.
  */
+
+/**
+ * How many stills decode at once while nothing records. Two, to match the
+ * editor's Still Queue (`still-queue-reducer.ts`, #2323): the browser sends
+ * at most two still requests at a time, so none waits here holding a
+ * connection, and a Video's stills arrive twice as fast as one at a time.
+ */
+export const STILL_DECODES_AT_ONCE = 2;
 
 /** A still asked for while the recorder records: ask again after the Stop. */
 export class StillHeldError extends Data.TaggedError("StillHeldError")<{
@@ -54,18 +63,19 @@ const until = (signal: RecordingSignal, want: boolean) =>
   });
 
 /**
- * Runs each decode handed to it only while nothing records, one at a time.
+ * Runs each decode handed to it only while nothing records, at most
+ * {@link STILL_DECODES_AT_ONCE} at a time.
  * While recording, or once a Record interrupts it, it fails with
  * `StillHeldError` instead of waiting.
  */
 export const makeStillGate = (signal: RecordingSignal) => {
-  const one = Effect.unsafeMakeSemaphore(1);
+  const slots = Effect.unsafeMakeSemaphore(STILL_DECODES_AT_ONCE);
   return <A, E, R>(
     decode: Effect.Effect<A, E, R>
   ): Effect.Effect<A, E | StillHeldError, R> =>
     Effect.gen(function* () {
       if (signal.recording()) return yield* held();
-      return yield* one.withPermits(1)(
+      return yield* slots.withPermits(1)(
         Effect.gen(function* () {
           // Record may have started while this waited its turn.
           if (signal.recording()) return yield* held();
