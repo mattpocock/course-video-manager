@@ -28,7 +28,7 @@ import {
 /** `MAX_CONCURRENT_EXPORTS`: encodes, for both Export All and a Publish. */
 export const EXPORT_POOL_CONCURRENCY = 6;
 /** `DEFAULT_UPLOAD_CONCURRENCY`: a Publish's Dropbox upload pool. */
-export const UPLOAD_POOL_CONCURRENCY = 4;
+export const UPLOAD_POOL_CONCURRENCY = 8;
 /** `AUTOFILL_CONCURRENCY`: Videos an Autofill writes at once. */
 export const AUTOFILL_POOL_CONCURRENCY = 6;
 

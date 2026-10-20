@@ -60,19 +60,30 @@ const publishHistory: HistoryData = {
 };
 
 describe("a Publish's estimate", () => {
-  it("replays its encodes six at a time and its uploads four at a time", () => {
-    // 8 Videos: encodes finish at 60s (×6) and 120s (×2). Upload slots go in
-    // roster order and wait on each Video's encode: v1–v4 upload 60→80s,
-    // v5–v6 80→100s, v7–v8 wait for their encode then upload 120→140s.
+  it("replays its encodes six at a time", () => {
+    // 8 Videos: encodes finish at 60s (×6) and 120s (×2). Eight upload slots
+    // never make one wait on another, so each upload follows its own encode:
+    // v1–v6 upload 60→80s, v7–v8 120→140s.
     const etas = estimate(run(publishOf(8)), 0, publishHistory);
     expect(msOf(etas.v1)).toBe(80_000);
-    expect(msOf(etas.v5)).toBe(100_000);
+    expect(msOf(etas.v6)).toBe(80_000);
     expect(msOf(etas.v8)).toBe(140_000);
     expect(etas.p).toEqual({
       kind: "remaining",
       ms: 140_000 + 30_000,
       scope: "job",
     });
+  });
+
+  it("replays its uploads eight at a time", () => {
+    // 10 Videos already on disk: v1–v8 upload 0→20s, v9–v10 20→40s.
+    const etas = estimate(
+      run(publishOf(10, { exported: true })),
+      0,
+      publishHistory
+    );
+    expect(msOf(etas.v8)).toBe(20_000);
+    expect(msOf(etas.v9)).toBe(40_000);
   });
 
   it("does not wait on an encode for a Video already on disk", () => {
