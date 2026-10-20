@@ -53,6 +53,7 @@ describe("SidecarContext", () => {
       onProgress: undefined,
       onLog: () => {},
       errorPrefix: "",
+      permit: "encode-slot",
     });
     expectTypeOf<NeedsSidecar<typeof encode>>().toEqualTypeOf<SidecarContext>();
     const composite = Effect.flatMap(FFmpegEncodeService, (ffmpeg) =>

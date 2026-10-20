@@ -40,8 +40,17 @@ export class FFmpegEncodeService extends Effect.Service<FFmpegEncodeService>()(
       // Built once per process; every encode below draws its slot from it,
       // through `runFfmpegWithProgress`.
       const permits = yield* FfmpegPermitsService;
-      const runEncode = (opts: Parameters<typeof runFfmpegWithProgress>[0]) =>
-        runFfmpegWithProgress(opts).pipe(
+      type RunOptions = Omit<
+        Parameters<typeof runFfmpegWithProgress>[0],
+        "permit"
+      >;
+      const runEncode = (opts: RunOptions) =>
+        runFfmpegWithProgress({ ...opts, permit: "encode-slot" }).pipe(
+          Effect.provideService(FfmpegPermitsService, permits)
+        );
+      // A pass that stream-copies the video: a CPU permit, not an encode slot.
+      const runCopyPass = (opts: RunOptions) =>
+        runFfmpegWithProgress({ ...opts, permit: "cpu-permit" }).pipe(
           Effect.provideService(FfmpegPermitsService, permits)
         );
 
@@ -229,7 +238,9 @@ export class FFmpegEncodeService extends Effect.Service<FFmpegEncodeService>()(
           outputFile,
         ];
 
-        yield* runEncode({
+        // Video is stream-copied (no NVENC), so it runs on a CPU permit,
+        // alongside the encodes rather than in one of their slots.
+        yield* runCopyPass({
           args,
           // Video is stream-copied, so the output duration is the input's.
           totalDurationSeconds: videoDuration,

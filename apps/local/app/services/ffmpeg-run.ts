@@ -104,12 +104,18 @@ export {
  * Publish re-sends that Video (ADR 0027). A failed Job can be re-run once the
  * GPU is free.
  *
- * And it is where the process-wide limit on heavy encodes is kept: every run
- * takes one of `FfmpegPermitsService`'s encode slots (default 2) for its whole
- * length, fallback included, and logs when it has to wait for one. A Publish,
- * a Batch export and a Short running side by side share those slots, so no
- * mix of Jobs can stack more encodes than that on the machine's memory
- * (Publish Job 859b8689: six 100-input concats at once ran it out of RAM).
+ * And it is where the process-wide limit on heavy encodes is kept: a run
+ * with `permit: "encode-slot"` — every pass that encodes video — takes one of
+ * `FfmpegPermitsService`'s encode slots (default 2) for its whole length,
+ * fallback included, and logs when it has to wait for one. A Publish, a Batch
+ * export and a Short running side by side share those slots, so no mix of
+ * Jobs can stack more encodes than that on the machine's memory (Publish Job
+ * 859b8689: six 100-input concats at once ran it out of RAM).
+ *
+ * A pass that only stream-copies the video — the audio normalize — takes a
+ * CPU permit instead (`permit: "cpu-permit"`). It never opens NVENC and holds
+ * one input, so it has no business keeping a concat out of a slot: with two
+ * slots NVENC sat at 99% while a normalize held one of them idle.
  */
 export const runFfmpegWithProgress = Effect.fn("runFfmpegWithProgress")(
   function* (opts: {
@@ -122,21 +128,29 @@ export const runFfmpegWithProgress = Effect.fn("runFfmpegWithProgress")(
     // A caller with nothing to do about it passes a no-op explicitly.
     onLog: (info: FfmpegLogInfo) => void;
     errorPrefix: string;
+    // Required: which of the process-wide limits this pass counts against.
+    // "encode-slot" for anything that encodes video; "cpu-permit" for a pass
+    // that stream-copies it (see above).
+    permit: "encode-slot" | "cpu-permit";
   }) {
     // An encode is a Job's: only the Sidecar provides this.
     yield* SidecarContext;
-    const { withEncodeSlot } = yield* FfmpegPermitsService;
+    const { withEncodeSlot, cpuSemaphore } = yield* FfmpegPermitsService;
+    const withPermit =
+      opts.permit === "encode-slot"
+        ? withEncodeSlot(opts.errorPrefix)
+        : cpuSemaphore.withPermits(1);
     const toError = (cause: unknown, detail: string, stderrTail: string) =>
       new FFmpegError({
         cause,
         message: withStderrTail(`${opts.errorPrefix}${detail}`, stderrTail),
       });
 
-    // The slot is held across the fallback too: the CPU re-run is the
+    // The permit is held across the fallback too: the CPU re-run is the
     // hungrier of the two, and must not start outside the limit. And across
     // the NVENC waits: a pass that let go of its slot to wait would only
     // let in another encode that wants the same missing session.
-    yield* withEncodeSlot(opts.errorPrefix)(
+    yield* withPermit(
       Effect.gen(function* () {
         let first = yield* runOnce(opts.args);
         if (first.code === 0) return;
