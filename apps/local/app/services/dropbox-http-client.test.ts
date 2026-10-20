@@ -1,6 +1,8 @@
-import { describe, expect, it } from "@effect/vitest";
-import { ConfigProvider, Effect } from "effect";
-import { resolveDropboxUrl } from "./dropbox-http-client";
+import { afterEach, describe, expect, it } from "@effect/vitest";
+import { ConfigProvider, Effect, Fiber, TestClock } from "effect";
+import { resolveDropboxUrl } from "./dropbox-fetch";
+import { getMetadata } from "./dropbox-http-client";
+import { createFakeDropbox } from "@/test-utils/fake-dropbox";
 
 // A verification run points both Dropbox hosts at a local stub (verify-cvm
 // sets them to a dead port unless the caller exports a loopback URL), so no
@@ -43,5 +45,36 @@ describe("resolveDropboxUrl", () => {
         )
       )
     )
+  );
+});
+
+// A connection that dies without a word would otherwise hold a Publish open
+// for ever: no request had a deadline (2026-10-20, Publish 2d1b2a55).
+describe("a Dropbox request that never answers", () => {
+  const dropbox = createFakeDropbox();
+  afterEach(() => dropbox.cleanup());
+
+  it.effect("is abandoned at its deadline and retried", () =>
+    Effect.gen(function* () {
+      dropbox.install();
+      dropbox.store("/Courses/course.json", Buffer.from("{}"));
+      dropbox.failNextRequests({
+        match: (url) => url.endsWith("/files/get_metadata"),
+        times: 1,
+        network: "hang",
+      });
+
+      const fiber = yield* Effect.fork(
+        getMetadata({ accessToken: "token", path: "/Courses/course.json" })
+      );
+      // Past the two-minute deadline, then past the first backoff.
+      yield* TestClock.adjust("121 seconds");
+      yield* TestClock.adjust("2 seconds");
+
+      const metadata = yield* Fiber.join(fiber);
+      expect(metadata).toMatchObject({ name: "course.json" });
+      expect(dropbox.fetchCalls).toHaveLength(2);
+      expect(dropbox.fetchCalls[0]!.init.signal?.aborted).toBe(true);
+    })
   );
 });

@@ -157,7 +157,7 @@
       "reason": "The author watches: the Article Writer's document conversation, streamed to the person writing."
     },
     {
-      "file": "apps/local/app/services/dropbox-http-client.ts",
+      "file": "apps/local/app/services/dropbox-fetch.ts",
       "count": 1,
       "reason": "The Publish Job's Dropbox calls (Sidecar), plus one read-only course.json read by the Publish page loader when a Version is Pending."
     },

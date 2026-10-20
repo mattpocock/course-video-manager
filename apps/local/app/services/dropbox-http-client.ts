@@ -1,16 +1,11 @@
-import { Config, Data, Duration, Effect, Schedule } from "effect";
+import { Duration, Effect } from "effect";
 import {
   open as fsOpen,
   readFile as fsReadFile,
   type FileHandle,
 } from "node:fs/promises";
 import { uploadChunkSizeBytes } from "./dropbox-upload-config";
-
-export class DropboxApiError extends Data.TaggedError("DropboxApiError")<{
-  message: string;
-  status?: number;
-  endpoint?: string;
-}> {}
+import { DropboxApiError, dropboxFetch } from "./dropbox-fetch";
 
 type DropboxFileMetadata = {
   ".tag": "file";
@@ -30,115 +25,6 @@ type DropboxEntry = DropboxFileMetadata | DropboxFolderMetadata;
 
 export type { DropboxFileMetadata, DropboxEntry };
 
-const isTransient = (status: number) =>
-  status === 429 || (status >= 500 && status <= 599);
-
-const retrySchedule = Schedule.intersect(
-  Schedule.exponential(Duration.seconds(1)),
-  Schedule.recurs(5)
-);
-
-const DROPBOX_API_HOST = "https://api.dropboxapi.com";
-const DROPBOX_CONTENT_HOST = "https://content.dropboxapi.com";
-
-const baseUrl = (name: string, fallback: string) =>
-  Config.string(name).pipe(
-    Config.withDefault(fallback),
-    Config.map((url) => url.replace(/\/+$/, ""))
-  );
-
-/**
- * Where Dropbox's two hosts live: the RPC API (and its OAuth token endpoint)
- * and the content API that moves bytes. Overridable (`DROPBOX_API_URL`,
- * `DROPBOX_CONTENT_URL`) so a verification run points every Dropbox call at
- * a local stub; nothing sets them day to day. verify-cvm defaults both to a
- * dead port.
- */
-export const dropboxApiUrl = baseUrl("DROPBOX_API_URL", DROPBOX_API_HOST);
-export const dropboxContentUrl = baseUrl(
-  "DROPBOX_CONTENT_URL",
-  DROPBOX_CONTENT_HOST
-);
-
-/** `url` on whichever host the configuration names for it. */
-export const resolveDropboxUrl = (url: string) =>
-  Effect.gen(function* () {
-    if (url.startsWith(DROPBOX_CONTENT_HOST)) {
-      return (
-        (yield* dropboxContentUrl) + url.slice(DROPBOX_CONTENT_HOST.length)
-      );
-    }
-    if (url.startsWith(DROPBOX_API_HOST)) {
-      return (yield* dropboxApiUrl) + url.slice(DROPBOX_API_HOST.length);
-    }
-    return url;
-  });
-
-const fetchWithRetry = Effect.fn("dropboxFetch")(function* (
-  url: string,
-  init: RequestInit,
-  endpoint: string
-) {
-  const target = yield* resolveDropboxUrl(url).pipe(
-    Effect.mapError(
-      (e) => new DropboxApiError({ message: String(e), endpoint })
-    )
-  );
-  return yield* Effect.tryPromise({
-    try: () => fetch(target, init),
-    catch: (e) =>
-      new DropboxApiError({
-        message: e instanceof Error ? e.message : "Network error",
-        endpoint,
-      }),
-  }).pipe(
-    Effect.flatMap((response) => {
-      if (response.ok) return Effect.succeed(response);
-      if (isTransient(response.status)) {
-        const retryAfter = parseInt(
-          response.headers.get("Retry-After") ?? "0",
-          10
-        );
-        const fail = Effect.fail(
-          new DropboxApiError({
-            message: `Transient error: ${response.status}`,
-            status: response.status,
-            endpoint,
-          })
-        );
-        return retryAfter > 0
-          ? Effect.sleep(Duration.seconds(retryAfter)).pipe(
-              Effect.zipRight(fail)
-            )
-          : fail;
-      }
-      return Effect.tryPromise({
-        try: () => response.text(),
-        catch: () =>
-          new DropboxApiError({
-            message: `HTTP ${response.status}`,
-            status: response.status,
-            endpoint,
-          }),
-      }).pipe(
-        Effect.flatMap((body) =>
-          Effect.fail(
-            new DropboxApiError({
-              message: `HTTP ${response.status}: ${body}`,
-              status: response.status,
-              endpoint,
-            })
-          )
-        )
-      );
-    }),
-    Effect.retry({
-      while: (e) => e._tag === "DropboxApiError" && isTransient(e.status ?? 0),
-      schedule: retrySchedule,
-    })
-  );
-});
-
 const authHeaders = (accessToken: string) => ({
   Authorization: `Bearer ${accessToken}`,
 });
@@ -149,7 +35,7 @@ const upload = Effect.fn("dropboxUpload")(function* (opts: {
   content: Buffer;
   mode?: "add" | "overwrite";
 }) {
-  const response = yield* fetchWithRetry(
+  const response = yield* dropboxFetch(
     "https://content.dropboxapi.com/2/files/upload",
     {
       method: "POST",
@@ -190,7 +76,7 @@ const uploadLargeFile = Effect.fn("dropboxUploadLargeFile")(function* (opts: {
   // Start session
   const firstChunkEnd = Math.min(chunkSize, total);
   const firstChunk = content.subarray(0, firstChunkEnd);
-  const startResponse = yield* fetchWithRetry(
+  const startResponse = yield* dropboxFetch(
     "https://content.dropboxapi.com/2/files/upload_session/start",
     {
       method: "POST",
@@ -221,7 +107,7 @@ const uploadLargeFile = Effect.fn("dropboxUploadLargeFile")(function* (opts: {
   while (offset < total - chunkSize) {
     const chunkEnd = offset + chunkSize;
     const chunk = content.subarray(offset, chunkEnd);
-    yield* fetchWithRetry(
+    yield* dropboxFetch(
       "https://content.dropboxapi.com/2/files/upload_session/append_v2",
       {
         method: "POST",
@@ -244,7 +130,7 @@ const uploadLargeFile = Effect.fn("dropboxUploadLargeFile")(function* (opts: {
   // Finish session with the last chunk
   const lastChunk =
     offset < total ? content.subarray(offset) : new Uint8Array(0);
-  const finishResponse = yield* fetchWithRetry(
+  const finishResponse = yield* dropboxFetch(
     "https://content.dropboxapi.com/2/files/upload_session/finish",
     {
       method: "POST",
@@ -380,7 +266,7 @@ export const uploadFileFromDisk = Effect.fn("dropboxUploadFileFromDisk")(
           const firstChunk = yield* readChunkFromDisk(fh, 0, firstChunkEnd);
           onChunk?.(firstChunk);
 
-          const startResponse = yield* fetchWithRetry(
+          const startResponse = yield* dropboxFetch(
             "https://content.dropboxapi.com/2/files/upload_session/start",
             {
               method: "POST",
@@ -410,7 +296,7 @@ export const uploadFileFromDisk = Effect.fn("dropboxUploadFileFromDisk")(
           while (offset < total - chunkSize) {
             const chunk = yield* readChunkFromDisk(fh, offset, chunkSize);
             onChunk?.(chunk);
-            yield* fetchWithRetry(
+            yield* dropboxFetch(
               "https://content.dropboxapi.com/2/files/upload_session/append_v2",
               {
                 method: "POST",
@@ -437,7 +323,7 @@ export const uploadFileFromDisk = Effect.fn("dropboxUploadFileFromDisk")(
               : Buffer.alloc(0);
           if (lastChunk.length > 0) onChunk?.(lastChunk);
 
-          const finishResponse = yield* fetchWithRetry(
+          const finishResponse = yield* dropboxFetch(
             "https://content.dropboxapi.com/2/files/upload_session/finish",
             {
               method: "POST",
@@ -522,7 +408,7 @@ const postJson = Effect.fn("dropboxPostJson")(function* (opts: {
   endpoint: string;
   body: unknown;
 }) {
-  const response = yield* fetchWithRetry(
+  const response = yield* dropboxFetch(
     `https://api.dropboxapi.com/2/${opts.endpoint}`,
     {
       method: "POST",
@@ -653,7 +539,7 @@ export const download = Effect.fn("dropboxDownload")(function* (opts: {
   accessToken: string;
   path: string;
 }) {
-  const response = yield* fetchWithRetry(
+  const response = yield* dropboxFetch(
     "https://content.dropboxapi.com/2/files/download",
     {
       method: "POST",
@@ -683,7 +569,7 @@ export const getMetadata = Effect.fn("dropboxGetMetadata")(function* (opts: {
   accessToken: string;
   path: string;
 }) {
-  const response = yield* fetchWithRetry(
+  const response = yield* dropboxFetch(
     "https://api.dropboxapi.com/2/files/get_metadata",
     {
       method: "POST",
@@ -722,7 +608,7 @@ export const listFolder = Effect.fn("dropboxListFolder")(function* (opts: {
 }) {
   const entries: DropboxEntry[] = [];
 
-  const firstResponse = yield* fetchWithRetry(
+  const firstResponse = yield* dropboxFetch(
     "https://api.dropboxapi.com/2/files/list_folder",
     {
       method: "POST",
@@ -753,7 +639,7 @@ export const listFolder = Effect.fn("dropboxListFolder")(function* (opts: {
   entries.push(...page.entries);
 
   while (page.has_more) {
-    const contResponse = yield* fetchWithRetry(
+    const contResponse = yield* dropboxFetch(
       "https://api.dropboxapi.com/2/files/list_folder/continue",
       {
         method: "POST",

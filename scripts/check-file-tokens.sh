@@ -37,10 +37,9 @@ EXCLUDE_PATTERNS=(
   # the limit when it landed.
   "scripts/cutover-wizard.sh"
   # Already over the limit when the `--all` sweep first ran against the whole
-  # tree. THIS PAIR ONLY SHRINKS — split one and delete its line. New files get
+  # tree. THIS LIST ONLY SHRINKS — split one and delete its line. New files get
   # no exemption: the staged check still stops them at the commit.
   "apps/local/app/cli/cli-integration.test.ts"
-  "apps/local/app/services/dropbox-http-client.ts"
 )
 
 should_skip() {
