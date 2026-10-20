@@ -258,6 +258,7 @@ exit 0
         onProgress: undefined,
         onLog: (info) => logs.push(info.command),
         errorPrefix: "Failed to create concatenated video",
+        permit: "encode-slot",
       }).pipe(
         Effect.either,
         Effect.provideService(NvencSessionWaits, waits),

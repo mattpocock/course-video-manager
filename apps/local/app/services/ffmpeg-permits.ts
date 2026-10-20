@@ -2,8 +2,10 @@ import { Config, Effect, Option } from "effect";
 
 /**
  * How many heavy ffmpeg encodes the whole process runs at once — every pass
- * through `runFfmpegWithProgress` (a Video's concat, its audio normalize, its
- * Definition Card composite) and a Short's subtitle burn-in.
+ * through `runFfmpegWithProgress` that encodes video (a Video's concat or its
+ * Clip segments, its Definition Card composite) and a Short's subtitle
+ * burn-in. The audio normalize stream-copies the video, so it takes a CPU
+ * permit instead and runs alongside them.
  *
  * Two, from the evidence. Publish Job 859b8689 ran six 100-input concats at
  * once (`MAX_CONCURRENT_EXPORTS` 6, under what was then 6 GPU permits) on a
@@ -39,7 +41,10 @@ const permits = (name: string, fallback: number) =>
  *   `runFfmpegWithProgress` itself, so no caller can forget one, through
  *   {@link FfmpegPermitsService.withEncodeSlot}.
  * - **CPU permits** (`FFMPEG_CPU_PERMITS`, default 12): the quick,
- *   interactive calls a page waits on — silence detection and the like.
+ *   interactive calls a page waits on — silence detection and the like —
+ *   and the audio normalize, which stream-copies the video and never
+ *   touches NVENC, so it overlaps the encodes rather than queueing for a
+ *   slot.
  *
  * A verify-cvm clone run sets both to 1, so an agent's stray encode of a real
  * course runs one ffmpeg at a time.
