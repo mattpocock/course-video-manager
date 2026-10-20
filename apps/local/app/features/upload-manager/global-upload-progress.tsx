@@ -11,6 +11,7 @@ import {
   visibleJobRows,
 } from "@/features/jobs/jobs-selectors";
 import { jobIdOfRow } from "@/features/jobs/jobs-reducer";
+import { rowsInPickupOrder } from "@/features/jobs/jobs-pickup-order";
 import { jobLogHref } from "@/features/jobs/job-wire";
 import { SidecarDownBanner } from "@/features/jobs/sidecar-down-banner";
 import { clockOffsetOf } from "@/features/jobs/jobs-timing";
@@ -64,8 +65,10 @@ export function GlobalUploadProgress() {
   // A child task is already counted inside its parent's bar, so only the
   // top-level jobs speak for the badge counts and the floating indicator.
   // A Job's child rows (an Autofill's Videos) nest under it the same way.
-  const rootEntries: UploadEntry[] = allEntries.filter(
-    (u) => !u.parentUploadId
+  // The top-level rows read in the order their work is picked up.
+  const rootEntries: UploadEntry[] = rowsInPickupOrder(
+    jobs,
+    allEntries.filter((u) => !u.parentUploadId)
   );
   const childrenOf = (parentUploadId: string) =>
     allEntries.filter((u) => u.parentUploadId === parentUploadId);

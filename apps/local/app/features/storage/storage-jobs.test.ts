@@ -22,6 +22,7 @@ const job = (over: Partial<jobsReducer.JobView>): jobsReducer.JobView => ({
   errorMessage: null,
   errorTag: null,
   dependsOn: null,
+  createdAt: 1,
   enqueued: true,
   result: null,
   postCheck: null,

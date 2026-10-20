@@ -26,6 +26,7 @@ const exportJob: WireJob = {
   maxAttempts: 3,
   subjectType: "video",
   subjectId: "video-1",
+  createdAt: "2026-01-01T00:00:00.000Z",
 };
 
 const publishJob: WireJob = {
@@ -36,6 +37,7 @@ const publishJob: WireJob = {
   maxAttempts: 1,
   subjectType: "course",
   subjectId: "course-1",
+  createdAt: "2026-01-01T00:00:00.000Z",
 };
 
 let nextEventId = 1;

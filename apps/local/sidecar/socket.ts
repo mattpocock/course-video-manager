@@ -52,6 +52,7 @@ const toWireJob = (job: JobSummary): WireJob => ({
   maxAttempts: job.maxAttempts,
   subjectType: job.subjectType,
   subjectId: job.subjectId,
+  createdAt: job.createdAt.toISOString(),
 });
 
 const toWireEvent = (event: JobEvent): WireJobEvent => ({

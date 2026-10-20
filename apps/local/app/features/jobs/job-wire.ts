@@ -36,6 +36,11 @@ export const WireJob = Schema.Struct({
   maxAttempts: Schema.Number,
   subjectType: Schema.NullOr(Schema.String),
   subjectId: Schema.NullOr(Schema.String),
+  /**
+   * When it was enqueued (ISO): the order the Sidecar claims a Lane's Jobs in
+   * (`claimNextJob` takes the oldest `created_at` first).
+   */
+  createdAt: Schema.String,
 });
 export type WireJob = typeof WireJob.Type;
 

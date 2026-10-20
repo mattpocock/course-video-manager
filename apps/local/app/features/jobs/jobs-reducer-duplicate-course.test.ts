@@ -23,6 +23,7 @@ const heard = (type: string, data: Record<string, unknown> = {}) => {
         maxAttempts: 2,
         subjectType: "course",
         subjectId: NEW_COURSE_ID,
+        createdAt: "2026-01-01T00:00:00.000Z",
       },
       event: {
         id: ++nextEventId,

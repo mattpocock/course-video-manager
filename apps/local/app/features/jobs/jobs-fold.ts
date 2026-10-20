@@ -7,6 +7,12 @@ import type { jobsReducer } from "./jobs-reducer";
  * alike (`jobs-reducer.ts`).
  */
 
+/** A wire Job's enqueue time, in epoch ms; `null` if it does not parse. */
+const createdAtOf = (job: WireJob): number | null => {
+  const at = Date.parse(job.createdAt);
+  return Number.isFinite(at) ? at : null;
+};
+
 export const viewOf = (
   job: WireJob,
   status: jobsReducer.JobStatus
@@ -23,6 +29,7 @@ export const viewOf = (
   errorMessage: null,
   errorTag: null,
   dependsOn: null,
+  createdAt: createdAtOf(job),
   enqueued: true,
   result: null,
   postCheck: null,
@@ -107,6 +114,8 @@ export const applyStreamAction = (
     ...(known ?? viewOf(action.job, "queued")),
     // The sidecar's word on the title wins over what this tab asked for.
     title: action.job.title,
+    // A Job this tab asked for learns when it was enqueued from its events.
+    createdAt: createdAtOf(action.job),
     lastEventId: action.eventId,
   };
   switch (action.type) {

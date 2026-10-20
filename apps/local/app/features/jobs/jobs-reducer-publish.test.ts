@@ -22,6 +22,7 @@ const publishJob: WireJob = {
   maxAttempts: 1,
   subjectType: "course",
   subjectId: "course-1",
+  createdAt: "2026-01-01T00:00:00.000Z",
 };
 
 let nextEventId = 100;

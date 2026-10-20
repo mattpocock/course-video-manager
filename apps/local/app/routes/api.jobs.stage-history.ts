@@ -29,6 +29,7 @@ export const loader = makeLoader({
             maxAttempts: job.maxAttempts,
             subjectType: job.subjectType,
             subjectId: job.subjectId,
+            createdAt: job.createdAt.toISOString(),
           },
           events: events.map((event) => ({
             id: event.id,

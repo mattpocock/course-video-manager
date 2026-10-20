@@ -10,6 +10,7 @@ const job = (id: string): WireJob => ({
   maxAttempts: 1,
   subjectType: "video",
   subjectId: "video-1",
+  createdAt: "2026-01-01T00:00:00.000Z",
 });
 
 const event = (jobId: string, id: number, type = "started") => ({
