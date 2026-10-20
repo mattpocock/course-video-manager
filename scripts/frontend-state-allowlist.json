@@ -31,11 +31,6 @@
       "reason": "Pre-dates the guard. Migrates in docs/plans/reducer-migration.md, batch 9."
     },
     {
-      "file": "apps/local/app/routes/_app.courses.$courseId.publish.tsx",
-      "count": 4,
-      "reason": "Pre-dates the guard. Migrates in docs/plans/reducer-migration.md, batch 4."
-    },
-    {
       "file": "apps/local/app/routes/_app.pitches.$pitchId.tsx",
       "count": 7,
       "reason": "Pre-dates the guard. Migrates in docs/plans/reducer-migration.md, batch 6."

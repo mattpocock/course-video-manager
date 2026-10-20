@@ -6,13 +6,6 @@ import { useFocusRevalidate } from "@/hooks/use-focus-revalidate";
 import { UploadContext } from "@/features/upload-manager/upload-context";
 import { isFinishedJob } from "@/features/jobs/jobs-reducer";
 import { latestJobFor } from "@/features/jobs/jobs-selectors";
-import {
-  parseSemver,
-  formatSemver,
-  bumpSemver,
-  ZERO_SEMVER,
-  type BumpLevel,
-} from "@/lib/semver";
 import { decidePublishAction } from "@/features/publish/publish-action";
 import {
   AutofillSkipList,
@@ -22,6 +15,11 @@ import {
 } from "@/features/publish/publish-blockers";
 import { PendingRecoveryBanner } from "@/features/publish/pending-recovery-banner";
 import { PlaceholderFloorPanel } from "@/features/publish/placeholder-floor-panel";
+import {
+  readVersionBase,
+  selectVersionName,
+} from "@/features/publish/publish-page-reducer";
+import { usePublishPageReducer } from "@/features/publish/use-publish-page-reducer";
 import { placeholderFloorStorageKey } from "@/features/publish/placeholder-floor";
 import {
   ANNOUNCE_NOTHING_BAND,
@@ -42,15 +40,8 @@ import { classifyPendingRecovery } from "@/services/pending-recovery.server";
 import { makeAction, makeLoader } from "@/services/route-action.server";
 import { Effect } from "effect";
 import { ArrowLeft, ChevronRight } from "lucide-react";
-import {
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import { data, Link, useNavigate, useRevalidator } from "react-router";
+import { useContext, useEffect, useMemo } from "react";
+import { data, Link } from "react-router";
 import type { Route } from "./+types/_app.courses.$courseId.publish";
 
 export const loader = makeLoader({
@@ -208,28 +199,15 @@ export default function Component(props: Route.ComponentProps) {
     withTodo,
     withoutTodo,
   } = props.loaderData;
-  const navigate = useNavigate();
-  const revalidator = useRevalidator();
-  const { jobs, startPublish, startAutofill } = useContext(UploadContext);
+  const { jobs } = useContext(UploadContext);
+  const { state, dispatch } = usePublishPageReducer();
+  const { bumpLevel, description, includeTodoLessons, publishStarted } = state;
 
-  // The version name is never free-typed: it is a lowercase-'v' semver computed
-  // from the previous published version by a patch/minor/major bump, so the UI
-  // can only ever produce a valid semver (matching the CLI's contract). A
-  // non-semver previous name (or a first-ever publish) falls back to v0.0.0.
-  const { baseSemver, previousWasSemver } = useMemo(() => {
-    if (!previousVersionName)
-      return { baseSemver: ZERO_SEMVER, previousWasSemver: true };
-    const parsed = parseSemver(previousVersionName);
-    return {
-      baseSemver: parsed ?? ZERO_SEMVER,
-      previousWasSemver: parsed !== null,
-    };
-  }, [previousVersionName]);
-
-  const [bumpLevel, setBumpLevel] = useState<BumpLevel>("patch");
-  const name = formatSemver(bumpSemver(baseSemver, bumpLevel));
-  const [description, setDescription] = useState("");
-  const [includeTodoLessons, setIncludeTodoLessons] = useState(true);
+  const { baseSemver, previousWasSemver } = useMemo(
+    () => readVersionBase(previousVersionName),
+    [previousVersionName]
+  );
+  const name = selectVersionName(state, baseSemver);
   // The floor, unlike the to-do toggle, is remembered — per Course, so an
   // unlaunched Course and a shipped one never share one setting — and it
   // defaults to announcing nothing, so the first release after this lands
@@ -239,7 +217,6 @@ export default function Component(props: Route.ComponentProps) {
     PLACEHOLDER_FLOOR_BANDS,
     ANNOUNCE_NOTHING_BAND
   );
-  const [publishStarted, setPublishStarted] = useState(false);
 
   // This Course's Publish, a Job the Sidecar runs: one started in this tab,
   // or one still running when the tab was reopened, holds the button and
@@ -255,20 +232,11 @@ export default function Component(props: Route.ComponentProps) {
 
   useFocusRevalidate({ enabled: !publishStarted });
 
-  // When this Course's Publish settles while the page is open (a failed
-  // Autofill fails it too), the page re-reads Publish Readiness: a
-  // Publish that was interrupted may have left a Pending Version, and the
-  // banner that offers Promote / Discard reads it from the loader.
-  const publishWasActive = useRef(false);
+  // Bridge: report this Course's Publish Job to the reducer, which re-reads
+  // Publish Readiness when it settles.
   useEffect(() => {
-    if (hasActivePublish) {
-      publishWasActive.current = true;
-      return;
-    }
-    if (!publishWasActive.current) return;
-    publishWasActive.current = false;
-    revalidator.revalidate();
-  }, [hasActivePublish, revalidator]);
+    dispatch({ type: "publish-job-observed", running: hasActivePublish });
+  }, [hasActivePublish, dispatch]);
 
   // The warnings and the publish button reflect whichever toggle position is
   // currently selected — flipping the toggle switches them instantly, with no
@@ -304,44 +272,18 @@ export default function Component(props: Route.ComponentProps) {
   });
 
   const hasAutofillWork = autofill.candidates.length > 0;
-  const handlePublish = useCallback(() => {
-    setPublishStarted(true);
-    // The Autofill is its own Job, never a stage inside the Publish (ADR
-    // 0024): the Publish waits on it and fails with it, so a model failure
-    // can never strand a Pending Version. A Video it could not fill still
-    // blocks, and the Publish is refused at validation, before Submit.
-    const autofillJobId = hasAutofillWork
-      ? startAutofill(
-          course.id,
-          course.name,
-          latestVersion.id,
-          includeTodoLessons
-        )
-      : undefined;
-    startPublish(
-      course.id,
-      course.name,
-      name,
-      description.trim(),
-      includeTodoLessons,
-      floorBand,
-      autofillJobId
-    );
-    // Navigate back to course — progress shows in GlobalUploadProgress
-    navigate(`/courses/${course.id}`);
-  }, [
-    course.id,
-    course.name,
-    name,
-    description,
-    includeTodoLessons,
-    floorBand,
-    hasAutofillWork,
-    latestVersion.id,
-    startAutofill,
-    startPublish,
-    navigate,
-  ]);
+  const handlePublish = () =>
+    dispatch({
+      type: "publish-clicked",
+      context: {
+        courseId: course.id,
+        courseName: course.name,
+        versionId: latestVersion.id,
+        baseSemver,
+        placeholders: floorBand,
+        hasAutofillWork,
+      },
+    });
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -385,7 +327,9 @@ export default function Component(props: Route.ComponentProps) {
                     key={level}
                     variant={bumpLevel === level ? "default" : "outline"}
                     size="sm"
-                    onClick={() => setBumpLevel(level)}
+                    onClick={() =>
+                      dispatch({ type: "bump-level-clicked", level })
+                    }
                     disabled={publishStarted}
                     className="capitalize"
                   >
@@ -407,7 +351,12 @@ export default function Component(props: Route.ComponentProps) {
               id="version-description"
               placeholder="Describe what changed in this version..."
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={(e) =>
+                dispatch({
+                  type: "description-edited",
+                  description: e.target.value,
+                })
+              }
               disabled={publishStarted}
               rows={3}
             />
@@ -421,7 +370,10 @@ export default function Component(props: Route.ComponentProps) {
               id="include-todo"
               checked={includeTodoLessons}
               onCheckedChange={(checked) =>
-                setIncludeTodoLessons(checked === true)
+                dispatch({
+                  type: "include-todo-toggled",
+                  checked: checked === true,
+                })
               }
               disabled={publishStarted}
               className="mt-0.5"

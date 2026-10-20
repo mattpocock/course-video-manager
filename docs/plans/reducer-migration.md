@@ -196,7 +196,7 @@ props and its five dialogs. All six files are at zero `useState` (70 before:
   remembered toggles stay while the chapter resets. The Write Ledger shows no
   database write.
 
-## Batch 4 — Publish page (score 176)
+## Batch 4 — Publish page (score 176) — Done
 
 `routes/_app.courses.$courseId.publish.tsx`: `bumpLevel`, `description`,
 `includeTodoLessons`, `publishStarted` and `autofillUploadId`, plus an effect
@@ -205,6 +205,30 @@ an autofill becomes an effect, and the upload manager's progress comes back as
 events.
 
 - Delete: no tests render this page.
+
+**Done.** By the time this batch started, #2313 had already dropped
+`autofillUploadId` (the Autofill became the hidden first step of one Publish
+press), leaving four `useState`s and the effect that re-read the loader when
+the Publish Job settled. `features/publish/publish-page-reducer.ts` owns the
+form (`bumpLevel`, `description`, `includeTodoLessons`), `publishStarted`, and
+whether this Course's Publish was last seen running. `publish-clicked` carries
+what the page knew (Course, latest Version, base semver, Placeholder Floor,
+whether there are Autofill Candidates) and declares one `start-publish`, with
+`autofillVersionId` on it as the order (Autofill first, the Publish queued
+behind it, as before), then `open-course`. The jobs list comes back as
+`publish-job-observed`, from a bridge effect, and a running → settled change
+declares `revalidate-readiness`. The version name is a selector
+(`selectVersionName`, with `readVersionBase` for the previous name). The
+runner is `use-publish-page-reducer.ts`. The button's label and enabled rule
+stay in `decidePublishAction`. The route has no `useState` left, so its
+`use-state` entry is gone (8 → 7).
+
+- Tests: `apps/local` went from 4824 to 4830 (+6 reducer scenarios in
+  `publish-page-reducer.test.ts`). No test rendered this page, so none could
+  be deleted.
+- One guard is new but changes nothing a user can reach: once Publish is
+  pressed the reducer ignores form edits and a second press, where before
+  only the disabled controls stopped them.
 
 ## Batch 5 — Posting pages, part 1: post page and Shorts modal (score 142)
 
