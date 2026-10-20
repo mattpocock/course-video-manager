@@ -4,7 +4,6 @@ import { decidePublishAction, type PublishActionInput } from "./publish-action";
 const input = (overrides: Partial<PublishActionInput> = {}) =>
   decidePublishAction({
     pendingRecovery: false,
-    autofillCandidateCount: 0,
     hasBlockers: false,
     hasVersionDescription: true,
     autofillRunning: false,
@@ -12,34 +11,12 @@ const input = (overrides: Partial<PublishActionInput> = {}) =>
     ...overrides,
   });
 
-describe("the publish page's one button", () => {
+describe("the publish page's Publish button", () => {
   it("is hidden while a Pending Version is at rest", () => {
-    // Even with work outstanding: the recovery banner is the only decision.
-    expect(input({ pendingRecovery: true, autofillCandidateCount: 4 })).toEqual(
-      { kind: "hidden" }
-    );
+    expect(input({ pendingRecovery: true })).toEqual({ kind: "hidden" });
   });
 
-  it("offers the Autofill, counted, while candidates exist", () => {
-    expect(input({ autofillCandidateCount: 4, hasBlockers: true })).toEqual({
-      kind: "autofill",
-      count: 4,
-      label: "Autofill 4 Videos",
-      enabled: true,
-    });
-  });
-
-  it("counts one Video in the singular", () => {
-    const action = input({ autofillCandidateCount: 1 });
-    expect(action.kind === "autofill" && action.label).toBe("Autofill 1 Video");
-  });
-
-  // Also the pre-launch case, and the reason this decision needed no change for
-  // ADR 0029: an unfinished Lesson is announced or withheld rather than
-  // blocking, and a Lesson that does not ship in full contributes no Autofill
-  // Candidate — so on a Course with nothing filmed both inputs are already
-  // clean, and the button the author meets is Publish.
-  it("publishes when there are no candidates and readiness is clean", () => {
+  it("publishes when nothing the Autofill leaves behind blocks it", () => {
     expect(input()).toEqual({
       kind: "publish",
       label: "Publish",
@@ -47,7 +24,7 @@ describe("the publish page's one button", () => {
     });
   });
 
-  it("reads Publish and is disabled when blockers the Autofill cannot clear remain", () => {
+  it("is disabled when blockers the Autofill cannot clear remain", () => {
     expect(input({ hasBlockers: true })).toEqual({
       kind: "publish",
       label: "Publish",
@@ -63,29 +40,16 @@ describe("the publish page's one button", () => {
     });
   });
 
-  it("holds both actions while an Autofill is running", () => {
-    expect(input({ autofillCandidateCount: 2, autofillRunning: true })).toEqual(
-      {
-        kind: "autofill",
-        count: 2,
-        label: "Autofilling…",
-        enabled: false,
-      }
-    );
-    // Nothing left to autofill, but the run is still settling: the Publish
-    // waits rather than racing it for the same Draft.
-    expect(input({ autofillRunning: true })).toEqual({
+  it("reads Filling… while the hidden Autofill runs, then Publishing…", () => {
+    // The Publish is queued behind the Autofill, so both are live at first.
+    expect(input({ autofillRunning: true, publishRunning: true })).toEqual({
       kind: "publish",
-      label: "Publish",
+      label: "Filling…",
       enabled: false,
     });
-  });
-
-  it("holds the Autofill while a Publish is running", () => {
-    expect(input({ autofillCandidateCount: 3, publishRunning: true })).toEqual({
-      kind: "autofill",
-      count: 3,
-      label: "Autofill 3 Videos",
+    expect(input({ publishRunning: true })).toEqual({
+      kind: "publish",
+      label: "Publishing…",
       enabled: false,
     });
   });

@@ -69,7 +69,6 @@
   "apps/local/app/packages/storage/lib/trash.server.ts": 1,
   "apps/local/app/routes/_app._index.tsx": 1,
   "apps/local/app/routes/_app.courses.$courseId._index.tsx": 1,
-  "apps/local/app/routes/_app.courses.$courseId.publish.tsx": 1,
   "apps/local/app/routes/_app.videos.$videoId.thumbnails.tsx": 1,
   "apps/local/app/routes/_app.videos.$videoId.tsx": 1,
   "apps/local/app/routes/_app.videos.concatenate.tsx": 1,

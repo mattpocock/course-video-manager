@@ -1,28 +1,17 @@
 /**
- * ONE BUTTON, TWO LABELS.
+ * THE PUBLISH BUTTON.
  *
- * The publish page has a single action, and this pure function decides what it
- * says and whether it can be pressed. It exists apart from the page because
- * the rule is the interesting part: **Missing Chapters** is a blocking lint,
- * so the Publish button is disabled in exactly the situation the **Autofill**
- * exists to fix. A Publish that the gate is certain to refuse is never
- * started; the Autofill is offered instead, and the second press is the
- * author's.
- *
- * The Autofill never rolls on into a Publish. When a run settles the page
- * re-reads **Publish Readiness** and asks this function again — which is how
- * the same button comes back reading "Publish".
+ * The publish page has a single action, Publish, and this pure function
+ * decides what it says and whether it can be pressed. The **Autofill** is a
+ * hidden part of it (ADR 0024, amended): pressing Publish starts the Autofill
+ * first when there are **Autofill Candidates**, and the Publish waits on it.
+ * So the blockers the Autofill will clear never disable the button — only the
+ * ones it leaves behind do, and those are the author's work.
  */
 
 export type PublishAction =
   /** A **Pending Version** at rest — the recovery banner owns the page. */
   | { readonly kind: "hidden" }
-  | {
-      readonly kind: "autofill";
-      readonly label: string;
-      readonly count: number;
-      readonly enabled: boolean;
-    }
   | {
       readonly kind: "publish";
       readonly label: string;
@@ -32,15 +21,22 @@ export type PublishAction =
 export interface PublishActionInput {
   /** A crash-stranded Pending Version is waiting to be reconciled. */
   readonly pendingRecovery: boolean;
-  /** **Autofill Candidates** under the currently selected to-do setting. */
-  readonly autofillCandidateCount: number;
-  /** Anything in **Publish Readiness** that refuses a release. */
+  /**
+   * Anything in **Publish Readiness** that refuses a release and that the
+   * Autofill will not clear (`splitAutofillClearable`'s `mine`).
+   */
   readonly hasBlockers: boolean;
   /** A Published Version always carries a description. */
   readonly hasVersionDescription: boolean;
   readonly autofillRunning: boolean;
   readonly publishRunning: boolean;
 }
+
+const runningLabel = (input: PublishActionInput) => {
+  if (input.autofillRunning) return "Filling…";
+  if (input.publishRunning) return "Publishing…";
+  return "Publish";
+};
 
 export const decidePublishAction = (
   input: PublishActionInput
@@ -49,25 +45,10 @@ export const decidePublishAction = (
   // Submit would collide with the at-most-one-pending invariant anyway.
   if (input.pendingRecovery) return { kind: "hidden" };
 
-  if (input.autofillCandidateCount > 0) {
-    const count = input.autofillCandidateCount;
-    return {
-      kind: "autofill",
-      count,
-      label: input.autofillRunning
-        ? "Autofilling…"
-        : `Autofill ${count} ${count === 1 ? "Video" : "Videos"}`,
-      // Never while a Publish is live: it is writing to the same Draft.
-      enabled: !input.autofillRunning && !input.publishRunning,
-    };
-  }
-
-  // The label always describes what the button WOULD do, even when it can't:
-  // with nothing left for the Autofill and blockers remaining, the only
-  // honest word is "Publish", disabled.
+  // The label always describes what the button WOULD do, even when it can't.
   return {
     kind: "publish",
-    label: input.publishRunning ? "Publishing…" : "Publish",
+    label: runningLabel(input),
     enabled:
       !input.hasBlockers &&
       input.hasVersionDescription &&

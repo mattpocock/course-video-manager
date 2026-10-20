@@ -103,7 +103,9 @@ export interface UploadContextType {
     description: string,
     includeTodoLessons: boolean,
     /** The Placeholder Floor the publish page showed, as its band. */
-    placeholders: PlaceholderFloorBand
+    placeholders: PlaceholderFloorBand,
+    /** The Autofill this Publish waits on, when one runs first. */
+    dependsOn?: string
   ) => string;
   startAutofill: (
     courseId: string,
@@ -317,7 +319,9 @@ export function UploadProvider({
   // A Publish is a background Job: the Sidecar runs it in the `publish`
   // lane, one at a time, so closing the tab no longer stops it. It runs once
   // and is never re-run on its own: a Publish cut off after Submit leaves a
-  // Pending Version for the publish page's Promote / Discard.
+  // Pending Version for the publish page's Promote / Discard. It waits on the
+  // Course Autofill the publish page starts first, when there is one, and
+  // fails with it.
   const startPublish = useCallback(
     (
       courseId: string,
@@ -325,7 +329,8 @@ export function UploadProvider({
       name: string,
       description: string,
       includeTodoLessons: boolean,
-      placeholders: PlaceholderFloorBand
+      placeholders: PlaceholderFloorBand,
+      dependsOn?: string
     ) =>
       startJob({
         kind: "publish",
@@ -339,7 +344,7 @@ export function UploadProvider({
         },
         subject: { type: "course", id: courseId },
         attemptsSpent: 0,
-        dependsOn: null,
+        dependsOn: dependsOn ?? null,
       }),
     [startJob]
   );

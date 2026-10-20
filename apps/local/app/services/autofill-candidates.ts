@@ -6,7 +6,7 @@ import { computeVideoWarnings, type AutofillField } from "./video-warnings";
  * AUTOFILL CANDIDATES — "which Videos has the Autofill got work for?".
  *
  * Exported apart from the run itself, because the publish page's button count
- * ("Autofill 4 Videos") and what the run actually does are the same rule. Two
+ * (whether Publish is enabled) and what the run actually does are the same rule. Two
  * implementations of it would be free to disagree, and the first sign of that
  * would be a button that promises work it then does not do.
  *
