@@ -1,7 +1,5 @@
 import { Button } from "@/components/ui/button";
 import {
-  CLAP_SECONDS,
-  CLAPS_PROMPTED,
   LOUD_LINE,
   MAX_TRUE_PEAK_DBTP,
   READ_SECONDS,
@@ -66,7 +64,6 @@ const Prompt = ({ state }: { state: State }) => {
         <div className={cn("text-4xl font-bold", PROMPT_STYLE[step.kind])}>
           {PROMPT[step.kind]}
           {step.kind === "read" && ` ${line}`}
-          {step.kind === "clap" && ` ${step.clap} of ${CLAPS_PROMPTED}`}
         </div>
         <div className="font-mono tabular-nums text-6xl font-semibold">
           {Math.ceil(remainingSeconds)}
@@ -96,16 +93,12 @@ const Prompt = ({ state }: { state: State }) => {
         )}
         {step.kind === "clap-ready" && (
           <span className="text-muted-foreground">
-            On camera, hands apart, ready. Clap once, sharply, each time a
-            number comes up: {CLAPS_PROMPTED} claps.
+            On camera, hands apart, ready. Clap once, sharply, when Clap comes
+            up.
           </span>
         )}
         {step.kind === "clap" && (
-          <span className="text-muted-foreground">
-            {step.clap === CLAPS_PROMPTED
-              ? "Last one. Then read the lines."
-              : `Next clap in ${CLAP_SECONDS} s.`}
-          </span>
+          <span className="text-muted-foreground">Then read the lines.</span>
         )}
         {step.kind === "countdown" && (
           <span className="text-muted-foreground">
@@ -155,8 +148,8 @@ const ClapMarks = ({ state }: { state: State }) => {
         ))}
       </div>
       <p className="text-sm text-muted-foreground">
-        {seen} of {CLAPS_PROMPTED} heard and seen so far. After the session you
-        line up one clap by eye and ear in the clap step.
+        {seen > 0 ? "Heard and seen." : "Not heard and seen yet."} After the
+        session you line up the clap by eye and ear in the clap step.
       </p>
     </div>
   );
@@ -325,10 +318,10 @@ export const CalibrationSession = ({
             </div>
             <p className="text-muted-foreground">
               About {Math.round(SCRIPT_END_SECONDS)} s, on camera:{" "}
-              {SILENCE_SECONDS} s of silence, {CLAPS_PROMPTED} claps with your
-              hands in front of your face, then {SCRIPT_LINES.length} rounds of
-              reading a line ({READ_SECONDS} s) and pausing ({PAUSE_SECONDS} s),
-              then one line read loudly.
+              {SILENCE_SECONDS} s of silence, one clap with your hands in front
+              of your face, then {SCRIPT_LINES.length} rounds of reading a line
+              ({READ_SECONDS} s) and pausing ({PAUSE_SECONDS} s), then one line
+              read loudly.
             </p>
           </div>
           <Button

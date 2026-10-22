@@ -62,8 +62,8 @@ export const deriveThreshold = (speechLufs: number): number =>
  */
 export const MAX_TRUE_PEAK_DBTP = -6;
 
-/** How many claps the session prompts. */
-export const CLAPS_PROMPTED = 5;
+/** How many claps the session prompts: one good clap is enough. */
+export const CLAPS_PROMPTED = 1;
 /** The camera's frame rate as the CVM recorder records it (29.97). */
 export const CAMERA_FPS = 30000 / 1001;
 
@@ -134,19 +134,17 @@ export const judgeCalibration = (
 /**
  * THE SCRIPT. The same every time, so calibrations compare; bump
  * `SCRIPT_VERSION` whenever a line or a duration below changes. The silence,
- * then 5 claps for the Mic Offset, then the reading rounds. Each line ends on
- * a soft, trailing syllable, so quiet tails are exercised. Then one loud
+ * then one clap for the Mic Offset, then the reading rounds. Each line ends
+ * on a soft, trailing syllable, so quiet tails are exercised. Then one loud
  * line, read as loudly as Matt gets when he is excited, for the peak check
- * (2: the loud line; 3: the claps).
+ * (2: the loud line; 3: the claps; 4: shortened to about half: 5 s of
+ * silence, one clap, two lines).
  */
-export const SCRIPT_VERSION = 3;
+export const SCRIPT_VERSION = 4;
 
 export const SCRIPT_LINES = [
   "Let's open up the editor and take a look at the code below.",
   "This function takes a user, and hands back the name that should follow.",
-  "TypeScript can't know that yet, so we'll have to tell it, gently.",
-  "Run the tests again, and you'll see the error vanish completely.",
-  "That's the whole idea, and we'll build on it in the lesson that follows.",
 ] as const;
 
 /** The loud line: read as loudly as Matt would when excited or animated. */
@@ -156,7 +154,7 @@ export const LOUD_LINE =
 /** Seconds of "get ready" before the silence. */
 export const COUNTDOWN_SECONDS = 3;
 /** Seconds of silence the noise floor is measured over. */
-export const SILENCE_SECONDS = 10;
+export const SILENCE_SECONDS = 5;
 /** Seconds of "hands in front of your face" before the first clap. */
 export const CLAP_READY_SECONDS = 3;
 /** Seconds for each "Clap N": the claps are this far apart. */

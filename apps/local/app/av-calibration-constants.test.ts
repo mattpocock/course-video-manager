@@ -11,6 +11,7 @@ import {
   RECORDER_CAMERA_NAME,
   runMeasurementWindows,
   runSchedule,
+  SCRIPT_END_SECONDS,
   SCRIPT_SCHEDULE,
   type CalibrationMeasures,
   type CalibrationMiss,
@@ -84,26 +85,24 @@ describe("judging an AV Calibration", () => {
 });
 
 describe("the script", () => {
-  it("runs silence, then 5 claps 1.5 s apart, then the reading rounds, ending on the loud line", () => {
+  it("runs 5 s of silence, then one clap, then two reading rounds, ending on the loud line", () => {
     const kinds = SCRIPT_SCHEDULE.map((s) =>
       s.kind === "clap" ? `clap ${s.clap}` : s.kind
     );
-    expect(kinds.slice(0, 9)).toEqual([
+    expect(kinds).toEqual([
       "countdown",
       "silence",
       "clap-ready",
       "clap 1",
-      "clap 2",
-      "clap 3",
-      "clap 4",
-      "clap 5",
       "read",
+      "pause",
+      "read",
+      "pause",
+      "loud",
     ]);
-    expect(kinds.at(-1)).toBe("loud");
-    const claps = SCRIPT_SCHEDULE.filter((s) => s.kind === "clap");
-    expect(claps.map((c) => c.endSeconds - c.startSeconds)).toEqual([
-      1.5, 1.5, 1.5, 1.5, 1.5,
-    ]);
+    const silence = SCRIPT_SCHEDULE.find((s) => s.kind === "silence")!;
+    expect(silence.endSeconds - silence.startSeconds).toBe(5);
+    expect(SCRIPT_END_SECONDS).toBe(38.5);
   });
 
   it("measures the claps in their own window, clear of the silence and every speech window", () => {

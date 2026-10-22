@@ -94,7 +94,7 @@ describe("the AV Calibration page's session", () => {
     receivedAtMs: 1_000 + seconds * 1000,
   });
 
-  it("prompts 5 claps between the silence and the reading, on the files' clock from where the run went live, and sends the clap window to the analysis", () => {
+  it("prompts the clap between the silence and the reading, on the files' clock from where the run went live, and sends the clap window to the analysis", () => {
     const t = new ReducerTester(
       avCalibrationReducer,
       createInitialAVCalibrationState()
@@ -114,7 +114,7 @@ describe("the AV Calibration page's session", () => {
       return currentStep(t.getState())?.step;
     };
     expect(stepAtFile(4.3)).toMatchObject({ kind: "countdown" });
-    expect(stepAtFile(4.2 + 14)).toMatchObject({ kind: "clap-ready" });
+    expect(stepAtFile(4.2 + 9)).toMatchObject({ kind: "clap-ready" });
     const claps = SCRIPT_SCHEDULE.filter((s) => s.kind === "clap");
     claps.forEach((clap, i) =>
       expect(stepAtFile(4.2 + clap.startSeconds + 0.1)).toEqual({
@@ -137,7 +137,7 @@ describe("the AV Calibration page's session", () => {
     });
     if (finish?.type !== "finish-calibration") throw new Error("no finish");
     const { windows } = finish;
-    expect(windows.claps.startSeconds).toBeCloseTo(4.2 + 13, 6);
+    expect(windows.claps.startSeconds).toBeCloseTo(4.2 + 8, 6);
     expect(windows.claps.endSeconds).toBeCloseTo(
       4.2 + claps.at(-1)!.endSeconds + 0.75,
       6
