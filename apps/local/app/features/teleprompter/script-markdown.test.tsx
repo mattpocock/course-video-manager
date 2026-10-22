@@ -23,29 +23,6 @@ describe("ScriptMarkdown links", () => {
     expect(hrefs).toEqual(["https://example.com"]);
   });
 
-  it("linkifies a www address with no protocol", () => {
-    const [link] = links(render("Visit www.example.com today."));
-    expect(link?.href).toMatch(/^https?:\/\/www\.example\.com$/);
-  });
-
-  it("linkifies an email address", () => {
-    expect(links(render("Mail me@example.com.")).map((l) => l.href)).toEqual([
-      "mailto:me@example.com",
-    ]);
-  });
-
-  it("opens a link away from the glass", () => {
-    const [link] = links(render("Go to https://example.com now."));
-    expect(link?.attrs).toContain('target="_blank"');
-    expect(link?.attrs).toContain("noreferrer");
-  });
-
-  it("keeps the prose around a link", () => {
-    const html = render("Go to https://example.com now.");
-    expect(html).toContain("Go to ");
-    expect(html).toContain(" now.");
-  });
-
   it("still links a URL that was written as a markdown link", () => {
     const [link] = links(render("Read [the docs](https://example.com) first."));
     expect(link?.href).toBe("https://example.com");

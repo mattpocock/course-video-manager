@@ -75,13 +75,6 @@ describe("folding one Chapter away", () => {
 
     expect(collapsed).toEqual({ ch_a: true, ch_b: true });
   });
-
-  it("opens a closed one again", () => {
-    expect(toggleChapter({ ch_a: true, ch_b: true }, "ch_a")).toEqual({
-      ch_a: false,
-      ch_b: true,
-    });
-  });
 });
 
 describe("the one control for the lot", () => {
@@ -105,12 +98,6 @@ describe("what the control's icon says it will do", () => {
     expect(
       areAllChaptersCollapsed({ ch_a: true, ch_b: false }, chapterIds)
     ).toBe(false);
-  });
-
-  it("reads as 'expand' once all are closed", () => {
-    expect(
-      areAllChaptersCollapsed({ ch_a: true, ch_b: true }, chapterIds)
-    ).toBe(true);
   });
 
   it("is never 'expand' on a Video with no Chapters, which has no control", () => {

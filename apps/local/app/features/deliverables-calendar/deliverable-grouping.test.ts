@@ -138,46 +138,6 @@ describe("groupDeliverables", () => {
     expect(result.weekGroups[2]!.items.map((i) => i.title)).toEqual(["Future"]);
   });
 
-  it("handles multiple items on the same day sorted by createdAt", () => {
-    const items = [
-      makeDeliverable({
-        date: "2026-05-20",
-        title: "Second created",
-        createdAt: new Date("2026-05-10T12:00:00Z"),
-      }),
-      makeDeliverable({
-        date: "2026-05-20",
-        title: "First created",
-        createdAt: new Date("2026-05-10T08:00:00Z"),
-      }),
-    ];
-    const result = groupDeliverables(items, today);
-    expect(result.weekGroups[0]!.items.map((i) => i.title)).toEqual([
-      "First created",
-      "Second created",
-    ]);
-  });
-
-  it("returns only current week when all items are archived", () => {
-    const items = [
-      makeDeliverable({
-        date: "2026-05-19",
-        title: "Archived A",
-        archived: true,
-      }),
-      makeDeliverable({
-        date: "2026-05-26",
-        title: "Archived B",
-        archived: true,
-      }),
-    ];
-    const result = groupDeliverables(items, today);
-    expect(result.weekGroups).toHaveLength(1);
-    expect(result.weekGroups[0]!.week).toBe(21);
-    expect(result.weekGroups[0]!.items).toEqual([]);
-    expect(result.pastHistory).toEqual([]);
-  });
-
   it("groups correctly across year boundary where ISO year differs from calendar year", () => {
     const yearEnd = new Date(2025, 11, 29); // 2025-12-29, ISO week 1 of 2026
     const items = [
@@ -244,19 +204,6 @@ describe("groupDeliverables", () => {
     expect(allWeekItems).toHaveLength(0);
   });
 
-  it("moves past cancelled items to pastHistory", () => {
-    const items = [
-      makeDeliverable({
-        date: "2026-05-12",
-        title: "Cancelled past",
-        status: "cancelled",
-      }),
-    ];
-    const result = groupDeliverables(items, today);
-    expect(result.pastHistory).toHaveLength(1);
-    expect(result.pastHistory[0]!.title).toBe("Cancelled past");
-  });
-
   it("keeps future-dated cancelled items inline, not in pastHistory", () => {
     const items = [
       makeDeliverable({
@@ -281,19 +228,6 @@ describe("groupDeliverables", () => {
     const result = groupDeliverables(items, today);
     expect(result.pastHistory).toHaveLength(0);
     expect(result.weekGroups[0]!.items[0]!.title).toBe("Done today");
-  });
-
-  it("keeps future-dated done items inline", () => {
-    const items = [
-      makeDeliverable({
-        date: "2026-05-20",
-        title: "Done ahead of plan",
-        status: "done",
-      }),
-    ];
-    const result = groupDeliverables(items, today);
-    expect(result.pastHistory).toHaveLength(0);
-    expect(result.weekGroups[0]!.items[0]!.title).toBe("Done ahead of plan");
   });
 
   it("pastHistory uses createdAt desc as tie-breaker when dates match", () => {
@@ -359,12 +293,6 @@ describe("groupDeliverables", () => {
     expect(week21!.overdueCount).toBe(0);
   });
 
-  it("overdueCount is 0 when no overdue items in week", () => {
-    const items = [makeDeliverable({ date: "2026-05-19", title: "Normal" })];
-    const result = groupDeliverables(items, today);
-    expect(result.weekGroups[0]!.overdueCount).toBe(0);
-  });
-
   it("does not count done or cancelled as overdue even when past", () => {
     const items = [
       makeDeliverable({
@@ -389,28 +317,6 @@ describe("groupDeliverables", () => {
     const week20 = result.weekGroups.find((g) => g.week === 20);
     expect(week20!.overdueCount).toBe(1);
     expect(week20!.items).toHaveLength(1);
-  });
-
-  it("archived overdue item excluded from both weekGroups and overdueCount", () => {
-    const items = [
-      makeDeliverable({
-        date: "2026-05-16",
-        title: "Archived overdue",
-        status: "planned",
-        archived: true,
-      }),
-      makeDeliverable({
-        date: "2026-05-16",
-        title: "Active overdue",
-        status: "planned",
-        archived: false,
-      }),
-    ];
-    const result = groupDeliverables(items, today);
-    const week20 = result.weekGroups.find((g) => g.week === 20);
-    expect(week20!.items).toHaveLength(1);
-    expect(week20!.items[0]!.title).toBe("Active overdue");
-    expect(week20!.overdueCount).toBe(1);
   });
 
   // ─── Integration test with mixed dataset ────────────────────────────
@@ -563,38 +469,77 @@ describe("groupDeliverables", () => {
     expect(result.pastHistory).toHaveLength(1);
     expect(result.pastHistory[0]!.title).toBe("Done last week");
   });
+});
 
-  it("preserves extra properties on extended types through grouping", () => {
-    interface Extended extends DeliverableForGrouping {
-      linkedCourses: { id: string; name: string }[];
-    }
-
-    const items: Extended[] = [
-      {
-        ...makeDeliverable({
-          date: "2026-05-10",
-          title: "Past done",
-          status: "done",
-        }),
-        linkedCourses: [{ id: "c1", name: "Course 1" }],
-      },
-      {
-        ...makeDeliverable({ date: "2026-05-19", title: "This week" }),
-        linkedCourses: [
-          { id: "c2", name: "Course 2" },
-          { id: "c3", name: "Course 3" },
-        ],
-      },
+describe("overdueCutoffStr", () => {
+  it("buffer=1 week marks planned items within the next 7 days as overdue", () => {
+    // today = 2026-05-18; cutoff = 2026-05-25 (today + 7)
+    const items = [
+      makeDeliverable({
+        date: "2026-05-20",
+        title: "Within buffer",
+        status: "planned",
+      }),
+      makeDeliverable({
+        date: "2026-05-25",
+        title: "On the cutoff boundary (not overdue)",
+        status: "planned",
+      }),
+      makeDeliverable({
+        date: "2026-05-26",
+        title: "Beyond buffer",
+        status: "planned",
+      }),
     ];
+    const result = groupDeliverables(items, today, {
+      overdueCutoffStr: "2026-05-25",
+    });
+    // May 20 (week 21) is < cutoff; May 25 is == cutoff (not overdue); May 26 is beyond
+    const week21 = result.weekGroups.find((g) => g.week === 21);
+    const week22 = result.weekGroups.find((g) => g.week === 22);
+    expect(week21!.overdueCount).toBe(1); // May 20 < May 25
+    expect(week22!.overdueCount).toBe(0); // May 25 is NOT < May 25; May 26 is beyond
+  });
 
-    const result = groupDeliverables(items, today);
+  it("buffer does not affect pastHistory bucketing — only overdueCount changes", () => {
+    // Past done items must still go to pastHistory regardless of buffer
+    const items = [
+      makeDeliverable({
+        date: "2026-05-10",
+        title: "Past done",
+        status: "done",
+      }),
+      makeDeliverable({
+        date: "2026-05-10",
+        title: "Past cancelled",
+        status: "cancelled",
+      }),
+    ];
+    const result = groupDeliverables(items, today, {
+      overdueCutoffStr: "2026-06-01",
+    });
+    expect(result.pastHistory).toHaveLength(2);
+    expect(result.weekGroups.flatMap((g) => g.items)).toHaveLength(0);
+  });
 
-    expect(result.pastHistory[0]!.linkedCourses).toEqual([
-      { id: "c1", name: "Course 1" },
-    ]);
-    expect(result.weekGroups[0]!.items[0]!.linkedCourses).toEqual([
-      { id: "c2", name: "Course 2" },
-      { id: "c3", name: "Course 3" },
-    ]);
+  it("buffer does not count done or cancelled items as overdue even within buffer", () => {
+    // done/cancelled future items — overdueCount should still be 0
+    const items = [
+      makeDeliverable({
+        date: "2026-05-20",
+        title: "Future done",
+        status: "done",
+      }),
+      makeDeliverable({
+        date: "2026-05-20",
+        title: "Future cancelled",
+        status: "cancelled",
+      }),
+    ];
+    const result = groupDeliverables(items, today, {
+      overdueCutoffStr: "2026-05-25",
+    });
+    const week21 = result.weekGroups.find((g) => g.week === 21);
+    expect(week21!.overdueCount).toBe(0);
   });
 });

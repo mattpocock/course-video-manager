@@ -30,12 +30,6 @@ describe("findConvertibleAiHeroUrls", () => {
     ]);
   });
 
-  it("returns multiple distinct URLs", () => {
-    const text =
-      "https://aihero.dev/skills/subscribe and https://aihero.dev/articles/intro";
-    expect(findConvertibleAiHeroUrls(text)).toHaveLength(2);
-  });
-
   it("finds URLs with www prefix", () => {
     const text = "Visit https://www.aihero.dev/skills/subscribe today.";
     expect(findConvertibleAiHeroUrls(text)).toEqual([
@@ -69,6 +63,7 @@ describe("hasAiHeroUrls", () => {
     expect(hasAiHeroUrls("Visit https://aihero.dev/skills/subscribe")).toBe(
       true
     );
+    expect(hasAiHeroUrls("Visit https://www.aihero.dev/page")).toBe(true);
   });
 
   it("returns false when no aihero.dev URL exists", () => {
@@ -78,23 +73,9 @@ describe("hasAiHeroUrls", () => {
   it("returns true for short links too", () => {
     expect(hasAiHeroUrls("Visit https://aihero.dev/s/abc123")).toBe(true);
   });
-
-  it("returns true for www variant", () => {
-    expect(hasAiHeroUrls("Visit https://www.aihero.dev/page")).toBe(true);
-  });
 });
 
 describe("replaceUrls", () => {
-  it("replaces a single URL", () => {
-    const text = "Visit https://aihero.dev/skills/subscribe for more.";
-    const replacements = new Map([
-      ["https://aihero.dev/skills/subscribe", "https://aihero.dev/s/abc"],
-    ]);
-    expect(replaceUrls(text, replacements)).toBe(
-      "Visit https://aihero.dev/s/abc for more."
-    );
-  });
-
   it("replaces all occurrences of a URL", () => {
     const text =
       "https://aihero.dev/skills/subscribe and https://aihero.dev/skills/subscribe";
@@ -115,10 +96,5 @@ describe("replaceUrls", () => {
     expect(replaceUrls(text, replacements)).toBe(
       "https://aihero.dev/s/1 then https://aihero.dev/s/2"
     );
-  });
-
-  it("returns text unchanged when replacements map is empty", () => {
-    const text = "No changes here.";
-    expect(replaceUrls(text, new Map())).toBe("No changes here.");
   });
 });

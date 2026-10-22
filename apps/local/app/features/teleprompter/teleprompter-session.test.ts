@@ -167,23 +167,21 @@ describe("session marks", () => {
 });
 
 describe("latest transcript", () => {
-  it("adopts what the editor pushed", () => {
-    const next = reducer(connected(), {
+  it("adopts what the editor pushed, and drops it when the editor moves on", () => {
+    const adopted = reducer(connected(), {
       type: "editor-state",
       videoId: "v1",
       capture: "silence",
       latestTranscript: "So what is a type?",
       at: 2000,
     });
-    expect(next.latestTranscript).toBe("So what is a type?");
-  });
+    expect(adopted.latestTranscript).toBe("So what is a type?");
 
-  it("drops another video's transcript when the editor moves on", () => {
-    const next = reducer(connected({ latestTranscript: "Old" }), {
+    const next = reducer(adopted, {
       type: "editor-state",
       videoId: "v2",
       capture: "not-recording",
-      latestTranscript: "Old",
+      latestTranscript: "So what is a type?",
       at: 2000,
     });
     expect(next.latestTranscript).toBe(null);

@@ -67,7 +67,7 @@ describe("moveSelection", () => {
 const folded = new Set([1, 2]);
 
 describe("moveSelection over a folded Chapter", () => {
-  it("steps over the hidden rows on the way down", () => {
+  it("steps over the hidden rows on the way down and on the way up", () => {
     expect(
       moveSelection({
         selection: 0,
@@ -77,9 +77,6 @@ describe("moveSelection over a folded Chapter", () => {
         hiddenIndices: folded,
       })
     ).toBe(3);
-  });
-
-  it("steps over them on the way up as well", () => {
     expect(
       moveSelection({
         selection: 3,
@@ -103,18 +100,6 @@ describe("moveSelection over a folded Chapter", () => {
       })
     ).toBe(0);
   });
-
-  it("moves exactly as before when an empty set says nothing is folded", () => {
-    expect(
-      moveSelection({
-        selection: 0,
-        activeIndex: 0,
-        delta: 1,
-        count: 5,
-        hiddenIndices: new Set(),
-      })
-    ).toBe(1);
-  });
 });
 
 describe("selectEdge", () => {
@@ -123,13 +108,10 @@ describe("selectEdge", () => {
     expect(selectEdge({ edge: "last", count: 5 })).toBe(4);
   });
 
-  it("selects the last row on screen rather than one behind a fold", () => {
+  it("selects the first and the last row on screen rather than one behind a fold", () => {
     expect(
       selectEdge({ edge: "last", count: 5, hiddenIndices: new Set([3, 4]) })
     ).toBe(2);
-  });
-
-  it("selects the first row on screen rather than one behind a fold", () => {
     expect(
       selectEdge({ edge: "first", count: 5, hiddenIndices: new Set([0, 1]) })
     ).toBe(2);

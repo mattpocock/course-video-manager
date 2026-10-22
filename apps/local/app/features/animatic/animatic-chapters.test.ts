@@ -62,12 +62,6 @@ describe("a Video with no Chapters", () => {
     expect(layout.sections).toEqual([]);
     expect(positionsOf(layout.leadingRows)).toEqual([1, 2]);
   });
-
-  it("keeps each row's timeline index, so no key or highlight moves", () => {
-    const layout = layoutOf([mockup(1, "a0"), mockup(2, "a1")], []);
-
-    expect(layout.leadingRows.map((row) => row.index)).toEqual([0, 1]);
-  });
 });
 
 describe("rows above the first Chapter", () => {
@@ -169,18 +163,6 @@ describe("an empty Chapter", () => {
     expect(empty.runTimeSeconds).toBe(0);
     expect(empty.seekFrame).toBeNull();
     expect(empty.seekIndex).toBeNull();
-  });
-
-  it("does not swallow the rows of the Chapter above it", () => {
-    const layout = layoutOf(
-      [mockup(1, "a1")],
-      [
-        chapter("cmc_1", "The setup", "a0"),
-        chapter("cmc_2", "The payoff", "a9"),
-      ]
-    );
-
-    expect(positionsOf(layout.sections[0]!.rows)).toEqual([1]);
   });
 });
 

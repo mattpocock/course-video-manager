@@ -28,9 +28,7 @@ describe("parseAnimaticPlaybackRate", () => {
   it("falls back for a rate the control does not offer", () => {
     expect(parseAnimaticPlaybackRate("1.75")).toBe(2);
     expect(parseAnimaticPlaybackRate("4")).toBe(2);
-  });
-
-  it("falls back for a value Remotion would refuse", () => {
+    // Values Remotion would refuse outright.
     expect(parseAnimaticPlaybackRate("0")).toBe(2);
     expect(parseAnimaticPlaybackRate("-2")).toBe(2);
     expect(parseAnimaticPlaybackRate("100")).toBe(2);

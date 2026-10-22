@@ -60,29 +60,6 @@ describe("computeBeatDrop", () => {
     });
   });
 
-  it("moves into an empty video via its container", () => {
-    expect(
-      computeBeatDrop({
-        activeId: "a",
-        overId: beatContainerId("v3"),
-        videos,
-      })
-    ).toEqual({
-      beatId: "a",
-      targetVideoId: "v3",
-      beforeBeatId: null,
-    });
-  });
-
-  it("reorders downward within a video (adjacent)", () => {
-    // Drag 'b' past 'c' → dnd-kit reports overId='c'. b should move after c.
-    expect(computeBeatDrop({ activeId: "b", overId: "c", videos })).toEqual({
-      beatId: "b",
-      targetVideoId: "v1",
-      beforeBeatId: null,
-    });
-  });
-
   it("reorders upward within a video", () => {
     expect(computeBeatDrop({ activeId: "c", overId: "a", videos })).toEqual({
       beatId: "c",

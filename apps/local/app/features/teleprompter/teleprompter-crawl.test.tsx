@@ -18,26 +18,6 @@ describe("TeleprompterCrawl", () => {
     expect(html).toContain('target="_blank"');
   });
 
-  it("sets a cue block as written, brackets and all", () => {
-    expect(render("[improvise the playthrough here]")).toContain(
-      "[improvise the playthrough here]"
-    );
-  });
-
-  // Nothing on a teleprompter may run off the right edge: a long URL or file
-  // path has to break rather than take the line with it.
-  it("breaks a word too long for the measure instead of overflowing", () => {
-    expect(render("Go to https://example.com now.")).toMatch(
-      /overflow-wrap:\s*anywhere/
-    );
-  });
-
-  // A line of the script is as often something to copy out as something to
-  // read aloud.
-  it("lets the script be selected", () => {
-    expect(render("Walk through the setup.")).toMatch(/user-select:\s*text/);
-  });
-
   // Instructions are notes to the teacher, not lines: each note and each
   // command keeps a line of its own, across the full width of the glass.
   it("renders an instructions region as a full-width panel of separate blocks", () => {

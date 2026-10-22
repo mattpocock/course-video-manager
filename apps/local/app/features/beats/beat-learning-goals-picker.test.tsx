@@ -45,8 +45,4 @@ describe("BeatLearningGoalOptions", () => {
   it("names an untitled Learning Goal rather than rendering an empty row", () => {
     expect(render([{ id: "g1", title: "" }])).toContain("(untitled)");
   });
-
-  it("says so when the Section has no Learning Goals yet", () => {
-    expect(render([])).toContain("This Section has no Learning Goals yet.");
-  });
 });

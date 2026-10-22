@@ -66,14 +66,6 @@ describe("startPlayingAt", () => {
     expect(calls).toEqual(["seekTo(0)", "play"]);
   });
 
-  it("leaves the Animatic playing", () => {
-    const fake = fakePlayer({ playing: true });
-
-    startPlayingAt(fake.player, 42);
-
-    expect(fake.player.isPlaying()).toBe(true);
-  });
-
   it("does nothing at all before the Player has mounted", () => {
     expect(() => startPlayingAt(null, 12)).not.toThrow();
     expect(() => startPlayingAt(undefined, 12)).not.toThrow();

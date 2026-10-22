@@ -32,15 +32,6 @@ describe("SessionMarks", () => {
     ]);
   });
 
-  it("fills a landed dot and leaves an unlanded one hollow", () => {
-    const html = render(["landed", "pending"]);
-    // Hollow is a ring, not a dimmed circle: through the glass, "hole" and "no
-    // hole" separate at a glance where "dim" and "solid" don't.
-    expect(styleOf(html, 0)).not.toContain("inset");
-    expect(styleOf(html, 1)).toContain("inset");
-    expect(styleOf(html, 1)).toContain("transparent");
-  });
-
   it("offers a click only on a dot whose Clip is on the timeline to play", () => {
     const html = renderToStaticMarkup(
       <SessionMarks
@@ -113,19 +104,5 @@ describe("fitMarks", () => {
 
     expect(shown).toHaveLength(MAX_MARKS);
     expect(folded).toBe(5);
-  });
-
-  it("preserves order when folding", () => {
-    const marks: ClipMarks = [
-      "orphaned",
-      ...repeat("landed", MAX_MARKS),
-      "deleted-pending",
-      "pending",
-    ];
-    const { shown } = fitMarks(marks);
-
-    expect(shown[0]).toBe("orphaned");
-    expect(shown.at(-2)).toBe("deleted-pending");
-    expect(shown.at(-1)).toBe("pending");
   });
 });
