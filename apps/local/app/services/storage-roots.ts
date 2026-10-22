@@ -138,6 +138,19 @@ export const readStorageRootsSync = (): StorageRoots => {
 };
 
 /**
+ * {@link readStorageRootsSync}, or no roots when it can't be read: for the
+ * places that only describe a failure, where the server's startup check has
+ * already refused an unset or invalid `STORAGE_ROOTS`.
+ */
+export const readStorageRootsOrNone = (): readonly string[] => {
+  try {
+    return readStorageRootsSync();
+  } catch {
+    return [];
+  }
+};
+
+/**
  * The startup check on `STORAGE_ROOTS`, run by the app server and the Sidecar
  * before anything is built: `refusal` names the variable when it is missing
  * or invalid (the process must not start), and `offline` lists the roots that

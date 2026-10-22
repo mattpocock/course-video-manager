@@ -11,7 +11,10 @@ import {
   STORAGE_FOLDERS,
   writeFolder,
 } from "@/packages/storage";
-import { findStoragePathSync } from "@/packages/storage/server";
+import {
+  existsOnStorage,
+  findStoragePathSync,
+} from "@/packages/storage/server";
 import { removeUnderBestEffort } from "./remove-best-effort";
 import { installLocationRepoRoot } from "./repo-env";
 import { readStorageRootsSync } from "./storage-roots";
@@ -277,8 +280,10 @@ export const listVideoFiles = (
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const byPath = new Map<string, VideoFileEntry>();
+    const roots = readStorageRootsSync();
     for (const dir of videoDirectories(lineageId)) {
-      if (!(yield* fs.exists(dir))) continue;
+      // A store on an Offline Storage Root has no files until it is back.
+      if (!(yield* existsOnStorage(dir, roots))) continue;
       for (const entry of yield* walkDirectory(fs, dir, "")) {
         if (!byPath.has(entry.path)) byPath.set(entry.path, entry);
       }
@@ -293,14 +298,14 @@ export const listVideoFiles = (
 export const locateVideoFile = (lineageId: string, relativePath: string) =>
   Effect.gen(function* () {
     yield* resolveVideoFilePath(lineageId, relativePath);
-    const fs = yield* FileSystem.FileSystem;
+    const roots = readStorageRootsSync();
     for (const dir of videoDirectories(lineageId)) {
       const candidate = yield* assertUnderEffect(
         dir,
         path.join(dir, relativePath)
       ).pipe(Effect.option);
       if (Option.isNone(candidate)) continue;
-      if (yield* fs.exists(candidate.value)) return candidate;
+      if (yield* existsOnStorage(candidate.value, roots)) return candidate;
     }
     return Option.none<string>();
   });

@@ -1,5 +1,6 @@
 import nodeFs from "node:fs";
 import { FileSystem } from "@effect/platform";
+import type { PlatformError } from "@effect/platform/Error";
 import { Data, Effect, Option } from "effect";
 import {
   rootLabel,
@@ -8,6 +9,7 @@ import {
   type StorageRoots,
 } from "./storage-roots";
 import { realDriveRefusal } from "./real-drives";
+import { storageRootOfflineErrorOf } from "./offline";
 
 /**
  * A root-relative file is on no Storage Root. `offlineRoots` are the roots
@@ -44,6 +46,24 @@ export const rootIsOnline = (root: string) =>
       Effect.orElseSucceed(() => false)
     );
   });
+
+/**
+ * Whether a path exists, where a path on an Offline Storage Root does not:
+ * its files are "not found" until it is back, never a failure. Any other
+ * failure (a permission error, a path under no root) is the caller's.
+ */
+export const existsOnStorage = (
+  path: string,
+  roots: readonly string[]
+): Effect.Effect<boolean, PlatformError, FileSystem.FileSystem> =>
+  Effect.flatMap(FileSystem.FileSystem, (fs) =>
+    fs.exists(path).pipe(
+      Effect.catchIf(
+        (error) => storageRootOfflineErrorOf(error, roots) !== undefined,
+        () => Effect.succeed(false)
+      )
+    )
+  );
 
 /** Where a stored path is, or why an agent's process may not look. */
 type Located =

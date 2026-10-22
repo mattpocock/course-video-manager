@@ -4,10 +4,12 @@ import { UploadProvider } from "@/features/upload-manager/upload-context";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { DrizzleService } from "@/services/drizzle-service.server";
 import { makeLoader } from "@/services/route-action.server";
+import { offlineStorageRoots } from "@/services/storage-root-availability.server";
 import { getFootageStats } from "@cvm/core/services/db-footage-stats.server";
 import { Effect } from "effect";
 import {
   Outlet,
+  useLoaderData,
   useMatches,
   type ShouldRevalidateFunction,
 } from "react-router";
@@ -19,7 +21,7 @@ export const loader = makeLoader({
       const courseOps = yield* CourseOperationsService;
       // The two reads run side by side, so the stats add only what they take
       // beyond the Courses query (a few ms; see db-footage-stats.server.ts).
-      const [topCourses, footageStats] = yield* Effect.all(
+      const [topCourses, footageStats, offlineRoots] = yield* Effect.all(
         [
           courseOps.getTopActiveCourses(3),
           // Days start at midnight where the app runs: the author's machine.
@@ -34,12 +36,16 @@ export const loader = makeLoader({
               )
             )
           ),
+          // Cached and cheap: an unplugged drive shows as one banner on
+          // every page, not as a page that fails.
+          offlineStorageRoots,
         ],
         { concurrency: "unbounded" }
       );
       return {
         topCourses: topCourses.map((c) => ({ id: c.id, name: c.name })),
         footageStats,
+        offlineRoots,
       };
     }),
 });
@@ -54,6 +60,22 @@ export const shouldRevalidate: ShouldRevalidateFunction = ({
   nextUrl,
   defaultShouldRevalidate,
 }) => defaultShouldRevalidate || currentUrl.pathname !== nextUrl.pathname;
+
+/** One line per Offline Storage Root, naming the drive and what to do. */
+function OfflineStorageRootsBanner() {
+  const { offlineRoots } = useLoaderData<typeof loader>();
+  if (offlineRoots.length === 0) return null;
+  return (
+    <div
+      role="alert"
+      className="border-b border-amber-500/40 bg-amber-500/20 px-4 py-2 text-sm text-amber-600"
+    >
+      {offlineRoots.map(({ root, message }) => (
+        <p key={root}>{message}</p>
+      ))}
+    </div>
+  );
+}
 
 export default function AppLayout() {
   const matches = useMatches();
@@ -71,6 +93,7 @@ export default function AppLayout() {
       <div className="flex min-h-screen">
         <AppSidebar variant={isFullscreen ? "floating" : "rail"} />
         <div className="flex-1 min-w-0 flex flex-col">
+          <OfflineStorageRootsBanner />
           <Outlet />
         </div>
       </div>

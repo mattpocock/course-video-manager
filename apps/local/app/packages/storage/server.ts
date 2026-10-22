@@ -6,6 +6,7 @@
 // whose message names the roots that are offline ("E: offline?").
 export {
   StorageFileNotFoundError,
+  existsOnStorage,
   findStoragePath,
   findStoragePathSync,
   resolveStoragePath,

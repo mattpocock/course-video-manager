@@ -2,6 +2,7 @@ import { Cause, Console, Effect, Exit, type ManagedRuntime } from "effect";
 import { data } from "react-router";
 import { type LayerLive, runtimeLive } from "./layer.server";
 import { withRequestTally } from "./slow-request-log.server";
+import { asStorageRootOffline } from "./storage-root-availability.server";
 
 type ErrorTags<E> = E extends { readonly _tag: infer T extends string }
   ? T
@@ -31,13 +32,31 @@ function statusMessage(status: number): string {
   }
 }
 
+/**
+ * An Offline Storage Root is expected, not a bug: the route answers 503 with
+ * the message naming the drive, and the log gets the one line the root's
+ * change of state prints instead of a stack per request.
+ */
+const logUnlessRootOffline = (cause: Cause.Cause<unknown>) =>
+  asStorageRootOffline(Cause.squash(cause)) === undefined
+    ? Console.dir(cause, { depth: null })
+    : Effect.void;
+
+const answerRootOffline = <E>(error: E): Effect.Effect<never, E> => {
+  const offline = asStorageRootOffline(error);
+  return offline === undefined
+    ? Effect.fail(error)
+    : Effect.die(data(offline.message, { status: 503 }));
+};
+
 function buildErrorPipeline<A, E, R>(
   effect: Effect.Effect<A, E, R>,
   errorMap: Record<string, number>,
   customErrors?: Partial<Record<string, number>>
 ): Effect.Effect<A, never, R> {
   return effect.pipe(
-    Effect.tapErrorCause((e) => Console.dir(e, { depth: null })),
+    Effect.tapErrorCause(logUnlessRootOffline),
+    Effect.catchAll(answerRootOffline),
     Effect.catchAll((error: NoInfer<E>) => {
       const tag =
         error != null &&

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { NodeContext } from "@effect/platform-node";
 import { Effect } from "effect";
+import { SystemError } from "@effect/platform/Error";
 import nodeFs from "node:fs";
 import os from "node:os";
 import nodePath from "node:path";
@@ -202,6 +203,42 @@ describe("across Storage Roots and the legacy store", () => {
     expect(nodeFs.existsSync(d)).toBe(false);
     expect(nodeFs.existsSync(e)).toBe(false);
     expect(nodeFs.existsSync(outside)).toBe(true);
+  });
+});
+
+/**
+ * E: dropped out of WSL: every path on it fails ENODEV, as `/mnt/e` did on
+ * 2026-10-22, when the Script tab 500'd on this walk.
+ */
+const withEOffline = Effect.provideServiceEffect(
+  FileSystem.FileSystem,
+  Effect.map(FileSystem.FileSystem, (fs) => ({
+    ...fs,
+    exists: (path: string) =>
+      path.startsWith(rootE)
+        ? Effect.fail(
+            new SystemError({
+              reason: "Unknown",
+              module: "FileSystem",
+              method: "access",
+              pathOrDescriptor: path,
+              cause: Object.assign(new Error("ENODEV: no such device"), {
+                code: "ENODEV",
+              }),
+            })
+          )
+        : fs.exists(path),
+  }))
+);
+
+describe("an Offline Storage Root", () => {
+  it("lists the files on the roots that are there, and fails nothing", async () => {
+    writeFixture("on-d.md");
+    writeIn(nodePath.join(rootE, "video-files"), "on-e.md");
+
+    const entries = await run(withEOffline(listVideoFiles(LINEAGE)));
+
+    expect(entries.map((e) => e.path)).toEqual(["on-d.md"]);
   });
 });
 

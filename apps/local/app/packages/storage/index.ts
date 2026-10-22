@@ -22,3 +22,11 @@ export {
   type StorageFolder,
   type StorageRoots,
 } from "./lib/storage-roots";
+
+// A Storage Root that is Offline (an unplugged drive, a stale WSL mount
+// answering ENODEV) is an expected, typed failure, not a missing file.
+export {
+  StorageRootOfflineError,
+  offlineRootMessage,
+  storageRootOfflineErrorOf,
+} from "./lib/offline";

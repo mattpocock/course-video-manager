@@ -9,6 +9,7 @@ import {
   type ExportOverlay,
   toExportClips,
 } from "./export-hash";
+import { existsOnStorage } from "@/packages/storage/server";
 import { locateExportedVideo } from "./finished-videos.server";
 import { storageRootsConfig } from "./storage-roots";
 import {
@@ -81,7 +82,10 @@ export const makeCoursePublishReads = Effect.gen(function* () {
   ) {
     const exportPath = yield* resolveExportPath(videoOrId);
     if (!exportPath) return false;
-    return yield* effectFs.exists(exportPath);
+    // An Exported Video on an Offline Storage Root is not there for now.
+    return yield* existsOnStorage(exportPath, storageRoots).pipe(
+      Effect.provideService(FileSystem.FileSystem, effectFs)
+    );
   });
 
   // The publish validation gate. The computation itself lives in

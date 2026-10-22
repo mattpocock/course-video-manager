@@ -35,7 +35,6 @@ import { runtimeLive } from "@/services/layer.server";
 import { findClipsWithMissingFootage } from "@/services/clip-source-files.server";
 import { storageRootsConfig } from "@/services/storage-roots";
 import { makeLoader } from "@/services/route-action.server";
-import { FileSystem } from "@effect/platform";
 import { Effect } from "effect";
 import { useEffectReducer } from "use-effect-reducer";
 import { getActiveDiagramId } from "@/lib/diagram-window";
@@ -49,6 +48,8 @@ import { getBackButtonUrl } from "@/features/video-editor/video-editor-selectors
 import { anyClipsMissingTranscriptWords } from "@/features/video-editor/transcript-word-status";
 import type { loader as parentLoader } from "./_app.videos.$videoId";
 import { listVideoFiles, videoFilesDirectory } from "@/services/video-files";
+import { existsOnStorage } from "@/packages/storage/server";
+import { readStorageRootsSync } from "@/services/storage-roots";
 import { sortByOrder } from "@/lib/sort-by-order";
 import {
   createHttpClipService,
@@ -64,12 +65,12 @@ export type FileMetadata = {
 
 const loadVideoEditorFsData = (opts: { lineageId: string }) =>
   Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
     const videoDir = videoFilesDirectory(opts.lineageId);
-
+    // On an Offline Storage Root, neither is there: the page still renders.
+    const roots = readStorageRootsSync();
     const [hasExplainerFolder, dirExists] = yield* Effect.all([
-      fs.exists(path.join(videoDir, "explainer")),
-      fs.exists(videoDir),
+      existsOnStorage(path.join(videoDir, "explainer"), roots),
+      existsOnStorage(videoDir, roots),
     ]);
 
     const files: FileMetadata[] = dirExists

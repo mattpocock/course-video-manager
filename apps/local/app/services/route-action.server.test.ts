@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 import { Data, Effect, Layer, ManagedRuntime, Runtime } from "effect";
 import { createStaticHandler } from "react-router";
+import { SystemError } from "@effect/platform/Error";
+import { offlineRootMessage } from "@/packages/storage";
 import { makeAction, makeLoader } from "./route-action.server";
 
 // The app's layer refuses to load without STORAGE_ROOTS (its startup check);
@@ -481,6 +483,43 @@ describe("makeLoader", () => {
     const result = await loader({ request: dummyRequest, params: {} });
 
     expect(result).toEqual({ items: [1, 2, 3] });
+  });
+
+  it("answers 503 naming the drive when a Storage Root is Offline, with no stack logged", async () => {
+    const root = process.env.STORAGE_ROOTS!.split(",")[0]!;
+    const path = `${root}/video-files/lineage-1`;
+    const dir = vi.spyOn(console, "dir").mockImplementation(() => {});
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const loader = makeLoader(
+      {
+        effect: () =>
+          Effect.fail(
+            new SystemError({
+              reason: "Unknown",
+              module: "FileSystem",
+              method: "access",
+              pathOrDescriptor: path,
+              cause: Object.assign(new Error("ENODEV: no such device"), {
+                code: "ENODEV",
+              }),
+            })
+          ),
+      },
+      makeTestRuntime()
+    );
+
+    try {
+      await loader({ request: dummyRequest, params: {} });
+      expect.unreachable("should have thrown");
+    } catch (error) {
+      const defect = extractDieDefect(error);
+      expect(defect.init.status).toBe(503);
+      expect(defect.data).toBe(offlineRootMessage(root));
+    } finally {
+      expect(dir).not.toHaveBeenCalled();
+      dir.mockRestore();
+      warn.mockRestore();
+    }
   });
 
   describe("error handling", () => {

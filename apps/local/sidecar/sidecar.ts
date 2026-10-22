@@ -15,6 +15,8 @@ import {
   type SidecarLease,
 } from "@cvm/core/services/db-job-operations.server";
 import { formatFailureCause } from "@/services/format-failure-cause";
+import { storageRootOfflineErrorOf } from "@/packages/storage";
+import { readStorageRootsOrNone } from "@/services/storage-roots";
 import {
   isNeverReRun,
   isPostingKind,
@@ -94,8 +96,14 @@ export type SidecarOutcome =
   | { readonly _tag: "LeaseHeld"; readonly lease: SidecarLease | undefined };
 
 /** A Job's failure as `job.error` keeps it: tag, one line, and the whole chain. */
-export const toJobFailure = (cause: Cause.Cause<unknown>): JobFailure => {
-  const error = Cause.squash(cause);
+export const toJobFailure = (
+  cause: Cause.Cause<unknown>,
+  roots: readonly string[] = []
+): JobFailure => {
+  const squashed = Cause.squash(cause);
+  // A Job that needs an Offline Storage Root fails saying which drive, not
+  // with the filesystem's ENODEV.
+  const error = storageRootOfflineErrorOf(squashed, roots) ?? squashed;
   const tag =
     typeof error === "object" &&
     error !== null &&
@@ -112,7 +120,7 @@ export const toJobFailure = (cause: Cause.Cause<unknown>): JobFailure => {
           typeof error.message === "string"
         ? error.message
         : String(error);
-  return { tag, message, cause: formatFailureCause(error) };
+  return { tag, message, cause: formatFailureCause(squashed) };
 };
 
 const logCause = (what: string) =>
@@ -283,7 +291,7 @@ export const runSidecar = <R>(opts: {
             }
             const failure = interrupted
               ? interruptedFailureOf(kindOf(job.kind))
-              : toJobFailure(cause);
+              : toJobFailure(cause, readStorageRootsOrNone());
             return (
               interrupted
                 ? Effect.logWarning(
