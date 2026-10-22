@@ -216,6 +216,9 @@ importers:
       effect:
         specifier: ^3.17.1
         version: 3.22.0
+      esbuild:
+        specifier: ^0.28.1
+        version: 0.28.1
       fractional-indexing:
         specifier: ^3.2.0
         version: 3.4.0

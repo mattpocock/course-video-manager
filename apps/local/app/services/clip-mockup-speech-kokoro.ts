@@ -1,10 +1,4 @@
-import {
-  AutoTokenizer,
-  env as transformersEnv,
-  StyleTextToSpeech2Model,
-} from "@huggingface/transformers";
 import { Data, Effect } from "effect";
-import { KokoroTTS } from "kokoro-js";
 import os from "node:os";
 import nodePath from "node:path";
 
@@ -129,6 +123,15 @@ const describe = (cause: unknown) =>
 export const loadKokoro: Effect.Effect<KokoroVoice, SpeechSynthesisError> =
   Effect.tryPromise({
     try: async () => {
+      // Imported here, not at the top: loading them costs every `cvm` call
+      // ~0.3s, and only voicing a line needs them.
+      const [
+        { AutoTokenizer, env: transformersEnv, StyleTextToSpeech2Model },
+        { KokoroTTS },
+      ] = await Promise.all([
+        import("@huggingface/transformers"),
+        import("kokoro-js"),
+      ]);
       transformersEnv.cacheDir = KOKORO_CACHE_DIR;
       // Errors only, in both of onnxruntime's loggers (the process-wide one
       // and the session's). It warns on every load and every first run, and
