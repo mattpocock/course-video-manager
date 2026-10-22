@@ -2,8 +2,12 @@ import { describe, expect, it } from "vitest";
 import { ConfigProvider, Effect, Layer } from "effect";
 import { FileSystem } from "@effect/platform";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
+import { ClipMockupOperationsService } from "@/services/db-clip-mockup-operations.server";
 import {
+  animaticExportFilename,
+  computeAnimaticExportHash,
   computeExportHash,
+  type AnimaticExportClipMockup,
   type ExportClip,
   type ExportOverlay,
 } from "@/services/export-hash";
@@ -318,6 +322,7 @@ describe("export-hash", () => {
       versions: Array<{
         id: string;
         clips: ExportClip[];
+        clipMockups?: AnimaticExportClipMockup[];
       }>;
       filesOnDisk: string[];
     }) => {
@@ -349,7 +354,8 @@ describe("export-hash", () => {
                     path: "lesson",
                     videos: [
                       {
-                        id: "vid1",
+                        id: `vid-${versionId}`,
+                        lineageId: "lineage-1",
                         path: "video",
                         clips: ver?.clips ?? [],
                       },
@@ -379,7 +385,24 @@ describe("export-hash", () => {
       );
 
       return {
-        layer: Layer.mergeAll(dbLayer, fsLayer, configLayer),
+        layer: Layer.mergeAll(
+          dbLayer,
+          Layer.succeed(ClipMockupOperationsService, {
+            listAnimaticExportRowsByVideoIds: (videoIds: readonly string[]) =>
+              Effect.succeed(
+                opts.versions.flatMap((v) =>
+                  videoIds.includes(`vid-${v.id}`)
+                    ? (v.clipMockups ?? []).map((m) => ({
+                        ...m,
+                        videoId: `vid-${v.id}`,
+                      }))
+                    : []
+                )
+              ),
+          } as any),
+          fsLayer,
+          configLayer
+        ),
         removedFiles,
       };
     };
@@ -546,6 +569,93 @@ describe("export-hash", () => {
       expect(removedFiles).toEqual([
         "/output/finished-videos/course-1-oldstale1234567890123456789012.mp4",
       ]);
+    });
+
+    it("keeps an Exported Animatic a Version still addresses, and collects a stale one", async () => {
+      const clips = [
+        makeClip({
+          videoFilename: "rec.mp4",
+          sourceStartTime: 0,
+          sourceEndTime: 10,
+        }),
+      ];
+      const clipMockups = [
+        { imagePath: "a.png", audioPath: "a.wav", durationSeconds: 2 },
+      ];
+      const hash = computeExportHash(clips, "landscape", [])!;
+      const animaticHash = computeAnimaticExportHash({
+        lineageId: "lineage-1",
+        format: undefined,
+        clipMockups,
+      })!;
+      const staleHash = "deadbeef12345678901234567890abcd";
+
+      const { layer, removedFiles } = makeGCLayer({
+        versions: [{ id: "v1", clips, clipMockups }],
+        filesOnDisk: [
+          `course-1-${hash}.mp4`,
+          animaticExportFilename("course-1", animaticHash),
+          animaticExportFilename("course-1", staleHash),
+          // A Clips export's hash under the Animatic's name is still stale.
+          animaticExportFilename("course-1", hash),
+        ],
+      });
+
+      await Effect.runPromise(
+        garbageCollect("course-1").pipe(Effect.provide(layer))
+      );
+
+      expect(removedFiles.sort()).toEqual([
+        `/output/finished-videos/course-1-${hash}.animatic.mp4`,
+        `/output/finished-videos/course-1-${staleHash}.animatic.mp4`,
+      ]);
+    });
+  });
+
+  describe("computeAnimaticExportHash", () => {
+    const mockups: AnimaticExportClipMockup[] = [
+      { imagePath: "a.png", audioPath: "a.wav", durationSeconds: 2 },
+      { imagePath: "b.png", audioPath: "b.wav", durationSeconds: 3.5 },
+    ];
+    const hashOf = (
+      overrides: Partial<Parameters<typeof computeAnimaticExportHash>[0]>
+    ) =>
+      computeAnimaticExportHash({
+        lineageId: "lineage-1",
+        format: "landscape",
+        clipMockups: mockups,
+        ...overrides,
+      });
+
+    it("is null for an Animatic with no Clip Mockups", () => {
+      expect(hashOf({ clipMockups: [] })).toBeNull();
+    });
+
+    it("moves with every input that changes the render, and with nothing else", () => {
+      const base = hashOf({});
+      expect(hashOf({})).toBe(base);
+      for (const changed of [
+        hashOf({ format: "short" }),
+        hashOf({ lineageId: "lineage-2" }),
+        hashOf({ clipMockups: [mockups[1]!, mockups[0]!] }),
+        hashOf({
+          clipMockups: [{ ...mockups[0]!, imagePath: "c.png" }, mockups[1]!],
+        }),
+        hashOf({
+          clipMockups: [{ ...mockups[0]!, audioPath: "c.wav" }, mockups[1]!],
+        }),
+        hashOf({
+          clipMockups: [{ ...mockups[0]!, durationSeconds: 2.1 }, mockups[1]!],
+        }),
+      ]) {
+        expect(changed).not.toBe(base);
+      }
+    });
+
+    it("is named as an Animatic beside the Video's own export", () => {
+      expect(animaticExportFilename("course-1", "abc")).toBe(
+        "course-1-abc.animatic.mp4"
+      );
     });
   });
 });

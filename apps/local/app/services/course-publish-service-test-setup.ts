@@ -34,6 +34,7 @@ import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
+import { ClipMockupOperationsService } from "@/services/db-clip-mockup-operations.server";
 import { DrizzleService } from "@/services/drizzle-service.server";
 import { VideoExportService } from "@/services/video-export-service";
 import { CoursePublishService } from "@/services/course-publish-service";
@@ -437,6 +438,8 @@ export const setupPublishableCourse = async (opts?: {
     VideoOperationsService.Default,
     VersionOperationsService.Default,
     LinkAuthOperationsService.Default,
+    // Export GC reads Clip Mockups to judge an Exported Animatic.
+    ClipMockupOperationsService.Default,
     mockVideoProcessing,
     overlayRenderCache.layer,
     videoEditorLogger.layer,

@@ -1,5 +1,6 @@
 import { Effect } from "effect";
 import { useFocusRevalidate } from "@/hooks/use-focus-revalidate";
+import { useUploadActions } from "@/features/upload-manager/upload-context";
 import { ClipMockupChapterOperationsService } from "@/services/db-clip-mockup-chapter-operations.server";
 import { ClipMockupCommentOperationsService } from "@/services/db-clip-mockup-comment-operations.server";
 import { ClipMockupOperationsService } from "@/services/db-clip-mockup-operations.server";
@@ -204,6 +205,7 @@ const loadSectionLessons = (videoId: string) =>
 
 export default function AnimaticRoute({ loaderData }: Route.ComponentProps) {
   const { video, mockups, chapters, comments, sectionRunTime } = loaderData;
+  const { startAnimaticExport } = useUploadActions();
 
   // An Animatic is WATCHED WHILE IT IS STILL BEING WRITTEN — an agent redraws a
   // frame or rewrites a line in the background, and the author should see it on
@@ -241,6 +243,9 @@ export default function AnimaticRoute({ loaderData }: Route.ComponentProps) {
         chapters={chapters}
         sectionRunTime={sectionRunTime}
         format={video.format}
+        onExport={() =>
+          startAnimaticExport(video.id, `${video.title} (Animatic)`)
+        }
       />
     </AnimaticCommentsProvider>
   );

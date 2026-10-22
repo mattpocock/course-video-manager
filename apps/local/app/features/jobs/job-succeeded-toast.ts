@@ -30,6 +30,7 @@ export type SucceededToast =
 /** What a kind of Job did, for a generic toast's headline. */
 const DID: Record<string, string> = {
   export: "exported successfully",
+  "export-animatic": "exported to finished-videos",
   "render-vertical": "rendered as a vertical Short",
 };
 

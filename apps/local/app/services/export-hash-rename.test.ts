@@ -6,6 +6,7 @@ import { ConfigProvider, Effect, Either, Layer } from "effect";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { StorageRoots } from "@/packages/storage";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
+import { ClipMockupOperationsService } from "@/services/db-clip-mockup-operations.server";
 import { computeExportHash, toExportClips } from "@/services/export-hash";
 import { garbageCollect } from "@/services/export-hash.server";
 import {
@@ -105,6 +106,8 @@ const gc = (videos: ReturnType<typeof courseVideo>[]) => {
       Effect.provide(
         Layer.mergeAll(
           versionOps,
+          // No Exported Animatic on these disks, so GC never reads one.
+          Layer.succeed(ClipMockupOperationsService, {} as never),
           NodeContext.layer,
           Layer.setConfigProvider(
             ConfigProvider.fromMap(

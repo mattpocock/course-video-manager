@@ -2,7 +2,13 @@ import path from "node:path";
 import { Effect } from "effect";
 import { FileSystem } from "@effect/platform";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
-import { computeExportHash, toExportClips } from "@/services/export-hash";
+import { ClipMockupOperationsService } from "@/services/db-clip-mockup-operations.server";
+import {
+  ANIMATIC_EXPORT_SUFFIX,
+  computeAnimaticExportHash,
+  computeExportHash,
+  toExportClips,
+} from "@/services/export-hash";
 import { SIDECAR_SUFFIX } from "@/services/export-sha256-sidecar";
 import { storageRootsConfig } from "@/services/storage-roots";
 import {
@@ -26,6 +32,11 @@ import { exportHashRenameRecorded } from "@/services/export-hash-rename";
  * no current Video computes — so a GC in that window would delete every
  * export. See `apps/local/scripts/storage-rename-exports.ts`.
  *
+ * An Exported Animatic (`{courseId}-{hash}.animatic.mp4`) is collected by
+ * the same rule against the Animatic Export Hashes of the same Videos. Their
+ * Clip Mockups are read only when there is an Exported Animatic on disk to
+ * judge, so a Course that never exported one costs no extra query.
+ *
  * Returns the list of deleted file paths.
  */
 export const garbageCollect = (courseId: string) =>
@@ -41,39 +52,69 @@ export const garbageCollect = (courseId: string) =>
       return [];
     }
 
+    const prefix = `${courseId}-`;
+    const listed = yield* listFinishedVideosDirectories(roots);
+    const hasExportedAnimatic = listed.some(({ files }) =>
+      files.some(
+        (file) =>
+          file.startsWith(prefix) && file.endsWith(ANIMATIC_EXPORT_SUFFIX)
+      )
+    );
+
     const versionsMeta = yield* versionOps.getCourseVersions(courseId);
     const allValidHashes = new Set<string>();
+    const validAnimaticHashes = new Set<string>();
 
     for (const meta of versionsMeta) {
       const version = yield* versionOps.getVersionWithSections(meta.id);
-      for (const section of version.sections) {
-        for (const lesson of section.lessons) {
-          for (const video of lesson.videos) {
-            const hash = computeExportHash(
-              toExportClips(video.clips),
-              video.format,
-              roots
-            );
-            if (hash) allValidHashes.add(hash);
-          }
-        }
+      const videos = version.sections.flatMap((section) =>
+        section.lessons.flatMap((lesson) => lesson.videos)
+      );
+      for (const video of videos) {
+        const hash = computeExportHash(
+          toExportClips(video.clips),
+          video.format,
+          roots
+        );
+        if (hash) allValidHashes.add(hash);
+      }
+      if (!hasExportedAnimatic) continue;
+      const clipMockupOps = yield* ClipMockupOperationsService;
+      const rows = yield* clipMockupOps.listAnimaticExportRowsByVideoIds(
+        videos.map((video) => video.id)
+      );
+      for (const video of videos) {
+        const hash = computeAnimaticExportHash({
+          lineageId: video.lineageId,
+          format: video.format,
+          clipMockups: rows.filter((row) => row.videoId === video.id),
+        });
+        if (hash) validAnimaticHashes.add(hash);
       }
     }
 
-    const prefix = `${courseId}-`;
     // An export and its digest sidecar share one Export Hash and one fate: the
     // sidecar describes only that file, so it is stale exactly when that file
-    // is. Listed longest-first so `.mp4.sha256` is stripped before `.mp4`.
-    const suffixes = [`.mp4${SIDECAR_SUFFIX}`, ".mp4"];
+    // is. Listed longest-first so `.mp4.sha256` is stripped before `.mp4`,
+    // and `.animatic.mp4` before `.mp4`.
+    const suffixes = [
+      {
+        suffix: `${ANIMATIC_EXPORT_SUFFIX}${SIDECAR_SUFFIX}`,
+        valid: validAnimaticHashes,
+      },
+      { suffix: ANIMATIC_EXPORT_SUFFIX, valid: validAnimaticHashes },
+      { suffix: `.mp4${SIDECAR_SUFFIX}`, valid: allValidHashes },
+      { suffix: ".mp4", valid: allValidHashes },
+    ];
 
     const deleted: string[] = [];
-    for (const { dir, files } of yield* listFinishedVideosDirectories(roots)) {
+    for (const { dir, files } of listed) {
       for (const file of files) {
         if (!file.startsWith(prefix)) continue;
-        const suffix = suffixes.find((s) => file.endsWith(s));
-        if (!suffix) continue;
-        const hash = file.slice(prefix.length, -suffix.length);
-        if (allValidHashes.has(hash)) continue;
+        const match = suffixes.find((s) => file.endsWith(s.suffix));
+        if (!match) continue;
+        const hash = file.slice(prefix.length, -match.suffix.length);
+        if (match.valid.has(hash)) continue;
         const filePath = yield* assertUnderFinishedVideos(
           roots,
           path.join(dir, file)

@@ -125,6 +125,38 @@ const createClipMockupOperations = (db: Database) => {
           })
         );
 
+  /**
+   * What addresses each Video's Exported Animatic — its Clip Mockups' two
+   * file names and measured length, in Animatic order — across several
+   * Videos in one read. The export garbage collector asks it for a whole
+   * Course Version at once.
+   */
+  const listAnimaticExportRowsByVideoIds = (videoIds: readonly string[]) =>
+    videoIds.length === 0
+      ? Effect.succeed(
+          [] as {
+            videoId: string;
+            imagePath: string;
+            audioPath: string | null;
+            durationSeconds: number | null;
+          }[]
+        )
+      : makeDbCall(() =>
+          db.query.clipMockups.findMany({
+            columns: {
+              videoId: true,
+              imagePath: true,
+              audioPath: true,
+              durationSeconds: true,
+            },
+            where: and(
+              inArray(clipMockups.videoId, [...videoIds]),
+              eq(clipMockups.archived, false)
+            ),
+            orderBy: asc(clipMockups.order),
+          })
+        );
+
   const requireClipMockup = (id: string) =>
     Effect.gen(function* () {
       const row = yield* makeDbCall(() =>
@@ -318,6 +350,7 @@ const createClipMockupOperations = (db: Database) => {
   return {
     listClipMockupsByVideoId,
     listClipMockupDurationsByVideoIds,
+    listAnimaticExportRowsByVideoIds,
     getClipMockupById: requireClipMockup,
     createClipMockups,
     updateClipMockups,

@@ -9,6 +9,7 @@ import {
   segmentIndexAtFrame,
   type AnimaticClipMockup,
 } from "./animatic-timeline";
+import { animaticExportBlocker } from "./animatic-export";
 import { AUTO_EDITED_END_PADDING_SECONDS } from "@/silence-detection-constants";
 import { estimateSpokenSeconds } from "@cvm/core/features/clip-mockups/estimate-spoken-seconds";
 
@@ -195,5 +196,25 @@ describe("formatAnimaticRunTime", () => {
     expect(formatAnimaticRunTime(timeline)).toMatch(
       /^~1:0\d \(2 voices pending, 1 failed\)$/
     );
+  });
+});
+
+describe("animaticExportBlocker", () => {
+  it("offers Export once every frame is on disk and every line voiced", () => {
+    expect(animaticExportBlocker([mockup(1, 2), mockup(2, 3)])).toBeNull();
+  });
+
+  it("names, by position, every Clip Mockup that would bake a guess into the file", () => {
+    expect(
+      animaticExportBlocker([
+        mockup(1, null, { voiceStatus: "pending" }),
+        mockup(2, 2, { imageMissing: true }),
+        mockup(3, null, { voiceStatus: "failed" }),
+        mockup(4, 2, { audioMissing: true }),
+      ])
+    ).toBe(
+      "Clip Mockups 1 and 4: no voice yet; Clip Mockup 3: voice failed; Clip Mockup 2: frame missing"
+    );
+    expect(animaticExportBlocker([])).toBe("This Animatic has no Clip Mockups");
   });
 });

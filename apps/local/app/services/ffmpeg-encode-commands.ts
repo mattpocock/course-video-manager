@@ -22,6 +22,11 @@ import {
   buildOverlayCompositeArgs,
   type RenderedOverlay,
 } from "./overlay-compositing";
+import {
+  animaticEncodeDurationSeconds,
+  buildAnimaticEncodeArgs,
+  type AnimaticEncodeSegment,
+} from "./animatic-encode-args";
 
 /**
  * The ffmpeg ENCODES: concatenating a Video's Clips, normalizing its audio,
@@ -364,7 +369,40 @@ export class FFmpegEncodeService extends Effect.Service<FFmpegEncodeService>()(
         return outputPath;
       });
 
+      /**
+       * A Video's Animatic, rendered to one file in the scratch directory:
+       * every frame held for its segment with its voice over it. One encode
+       * slot, NVENC, the CPU fallback — see {@link buildAnimaticEncodeArgs}.
+       */
+      const encodeAnimatic = Effect.fn("encodeAnimatic")(function* (
+        segments: readonly AnimaticEncodeSegment[],
+        dimensions: { width: number; height: number },
+        extras: {
+          onProgress?: (percent: number) => void;
+          // Required, not optional — see the note on runFfmpegWithProgress.
+          onLog: (info: FfmpegLogInfo) => void;
+        }
+      ) {
+        const outputDir = path.join(tmpdir(), "video-processing");
+        yield* fs.makeDirectory(outputDir, { recursive: true });
+        const outputFile = path.join(
+          outputDir,
+          `${crypto.randomUUID()}.animatic.mp4`
+        );
+
+        yield* runEncode({
+          args: buildAnimaticEncodeArgs({ segments, dimensions, outputFile }),
+          totalDurationSeconds: animaticEncodeDurationSeconds(segments),
+          onProgress: extras.onProgress,
+          onLog: extras.onLog,
+          errorPrefix: "Failed to encode the Animatic",
+        });
+
+        return outputFile;
+      });
+
       return {
+        encodeAnimatic,
         createAndConcatenateVideoClipsSinglePass,
         // A Video with a CVM-recorder Clip: per-Clip segments, joined by copy.
         concatenateClipSegments: makeConcatenateClipSegments({

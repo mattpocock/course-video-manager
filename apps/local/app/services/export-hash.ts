@@ -259,6 +259,83 @@ export const computeExportHash = (
 };
 
 /**
+ * Bump to re-render every Exported Animatic (and only those): the frame
+ * timing, gap, picture fit or audio handling of `animatic-encode-args.ts`
+ * changed. The Export Version Key still re-renders them as well.
+ */
+export const ANIMATIC_EXPORT_VERSION = 1;
+
+/** One Clip Mockup as the Exported Animatic's address sees it. */
+export type AnimaticExportClipMockup = {
+  /** The frame, relative to the Video's Clip Mockup directory. */
+  readonly imagePath: string;
+  /** The voice WAV, named by a hash of its line, voice and model. */
+  readonly audioPath: string | null;
+  /** Measured seconds of speech; null while the voice is not ready. */
+  readonly durationSeconds: number | null;
+};
+
+/**
+ * The Export Hash of a Video's ANIMATIC: everything that decides how it
+ * renders, under the same rules as {@link computeExportHash} — the Export
+ * Version Key, the format, and the inputs in playback order — so it is
+ * skipped when it is already there and re-rendered when anything changes.
+ *
+ * A Clip Mockup is addressed by its two file NAMES and its measured length,
+ * never by reading the files. Both names already change with their content:
+ * a new frame is always stored under a fresh random name
+ * (`newFrameFilename`), and a WAV is named by a hash of the line, voice and
+ * model. The Video's `lineageId` is in it because those names are relative
+ * to the lineage's own Clip Mockup directory.
+ *
+ * `k: "animatic"` keeps it apart from every Clips export address, so no
+ * Video's Animatic can ever collide with an Exported Video. `null` for a
+ * Video with no Clip Mockups.
+ */
+export const computeAnimaticExportHash = (input: {
+  readonly lineageId: string;
+  readonly format: string | null | undefined;
+  readonly clipMockups: readonly AnimaticExportClipMockup[];
+}): string | null => {
+  if (input.clipMockups.length === 0) return null;
+
+  const payload = {
+    v: EXPORT_VERSION,
+    k: "animatic",
+    av: ANIMATIC_EXPORT_VERSION,
+    fmt: resolveVideoFormat(input.format),
+    l: input.lineageId,
+    m: input.clipMockups.map((m) => ({
+      i: m.imagePath,
+      a: m.audioPath,
+      d: m.durationSeconds,
+    })),
+  };
+
+  return crypto
+    .createHash("sha256")
+    .update(JSON.stringify(payload))
+    .digest("hex")
+    .slice(0, 32);
+};
+
+/**
+ * What an Exported Animatic's name ends in. Still an `.mp4`, so it plays when
+ * double-clicked; the `.animatic` before it is what tells it apart from the
+ * Video's own export beside it in `finished-videos/`.
+ */
+export const ANIMATIC_EXPORT_SUFFIX = ".animatic.mp4";
+
+/**
+ * The filename of an Exported Animatic: `{courseId}-{hash}.animatic.mp4`,
+ * namespaced exactly as {@link exportFilename} is.
+ */
+export const animaticExportFilename = (
+  namespace: string,
+  hash: string
+): string => `${namespace}-${hash}${ANIMATIC_EXPORT_SUFFIX}`;
+
+/**
  * Build the filename for a content-addressed export: `{courseId}-{hash}.mp4`
  */
 export const exportFilename = (courseId: string, hash: string): string =>

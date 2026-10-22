@@ -48,6 +48,7 @@ export const cancelledOr = <E>(cause: unknown, otherwise: () => E) =>
  */
 export const ENCODING_JOB_KINDS = [
   "export",
+  "export-animatic",
   "batch-export",
   "render-vertical",
   "publish",

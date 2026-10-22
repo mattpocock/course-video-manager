@@ -11,6 +11,7 @@ import {
   useState,
 } from "react";
 import { AnimaticBrokenFiles } from "./animatic-broken-files";
+import { AnimaticExportButton } from "./animatic-export-button";
 import { AnimaticChapterDivider } from "./animatic-chapter-divider";
 import {
   AnimaticCommentContextMenu,
@@ -133,6 +134,11 @@ export const AnimaticPlayer = (props: {
   startAt?: string;
   /** ESC closes the player. Only where it is an overlay — the editor's. */
   onClose?: () => void;
+  /**
+   * Export this Animatic to a finished file (the `export-animatic` Job).
+   * Only the Animatic page offers it; the editor's overlay leaves it out.
+   */
+  onExport?: () => void;
 }) => {
   const playerRef = useRef<PlayerRef>(null);
   const [playbackRate, choosePlaybackRate] = useAnimaticPlaybackRate();
@@ -495,6 +501,9 @@ export const AnimaticPlayer = (props: {
         <div className="absolute right-4 top-4 flex items-center gap-2">
           {activeMockupId && (
             <AnimaticCommentThread {...stageComments.thread} />
+          )}
+          {props.onExport && (
+            <AnimaticExportButton mockups={mockups} onExport={props.onExport} />
           )}
           <AnimaticSubtitlesMenu
             showSubtitles={showSubtitles}

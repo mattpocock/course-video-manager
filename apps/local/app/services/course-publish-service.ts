@@ -9,6 +9,7 @@ import { VideoExportService } from "./video-export-service";
 import { VideoEditorLoggerService } from "./video-editor-logger-service";
 import { OverlayRenderCacheService } from "./overlay-render-cache.server";
 import { garbageCollect } from "./export-hash.server";
+import { ClipMockupOperationsService } from "@/services/db-clip-mockup-operations.server";
 import { storageRootsConfig } from "./storage-roots";
 import {
   exportVideoToItsAddress,
@@ -63,6 +64,13 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
       const reads = yield* makeCoursePublishReads;
       const { validatePublishability } = reads;
       const storageRoots = yield* storageRootsConfig;
+      // Export GC judges Exported Animatics by their Clip Mockups. Closed
+      // over here, so no caller of this service inherits the requirement.
+      const clipMockupOps = yield* ClipMockupOperationsService;
+      const collectGarbage = (courseId: string) =>
+        garbageCollect(courseId).pipe(
+          Effect.provideService(ClipMockupOperationsService, clipMockupOps)
+        );
 
       // The export step itself lives in ./course-publish-export-video so it
       // can be read — and grown — on its own. Its deps are closed over here so
@@ -103,7 +111,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
           onProgress
         );
         if (owner.kind === "course") {
-          yield* garbageCollect(owner.courseId);
+          yield* collectGarbage(owner.courseId);
         }
         return targetPath;
       });
@@ -156,7 +164,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         if (unexportedVideos.length === 0) return;
 
         // GC once after all exports
-        yield* garbageCollect(courseId);
+        yield* collectGarbage(courseId);
       });
 
       const publishUnlocked = Effect.fn("publishUnlocked")(function* (
@@ -440,7 +448,7 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         // its failure is logged, never the Publish's: failing here would
         // leave a published release reported as failed.
         if (unexportedVideos.length > 0) {
-          yield* garbageCollect(courseId).pipe(
+          yield* collectGarbage(courseId).pipe(
             Effect.catchAllCause((cause) =>
               Effect.logWarning(
                 "publish: garbage collection failed",

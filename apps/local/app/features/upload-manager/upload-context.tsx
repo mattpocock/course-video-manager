@@ -88,6 +88,12 @@ export interface UploadContextType {
    */
   startRenderVerticalUpload: (videoId: string, title: string) => string;
   /**
+   * Export a Video's Animatic to `finished-videos/` as
+   * `{courseId}-{hash}.animatic.mp4`: a background Job the Sidecar runs,
+   * drawn as an export row titled `title`.
+   */
+  startAnimaticExport: (videoId: string, title: string) => string;
+  /**
    * Export every Video of a Course Version that is not yet exported: a
    * background Job the Sidecar runs, drawn as one row per Video.
    */
@@ -302,6 +308,19 @@ export function UploadProvider({
     [startJob]
   );
 
+  const startAnimaticExport = useCallback(
+    (videoId: string, title: string) =>
+      startJob({
+        kind: "export-animatic",
+        title,
+        params: { videoId },
+        subject: { type: "video", id: videoId },
+        attemptsSpent: 0,
+        dependsOn: null,
+      }),
+    [startJob]
+  );
+
   const startBatchExportUpload = useCallback(
     (versionId: string, includeTodoLessons: boolean, title: string) => {
       startJob({
@@ -444,6 +463,7 @@ export function UploadProvider({
       startSkillsChangelogUpload,
       startExportUpload,
       startRenderVerticalUpload,
+      startAnimaticExport,
       startBatchExportUpload,
       startPublish,
       startAutofill,
@@ -467,6 +487,7 @@ export function UploadProvider({
       startSkillsChangelogUpload,
       startExportUpload,
       startRenderVerticalUpload,
+      startAnimaticExport,
       startBatchExportUpload,
       startPublish,
       startAutofill,

@@ -63,6 +63,15 @@ const spec = <A, I>(
 export const JOB_KIND_SPECS = {
   noop: spec(RETRYING_JOB_POLICY, JOB_PARAMS.noop),
   export: spec(UPLOAD_MANAGER_POLICIES.export, JOB_PARAMS.export),
+  // A second press while one is queued or running joins it: both would
+  // render the same file to the same address.
+  "export-animatic": {
+    ...spec(
+      UPLOAD_MANAGER_POLICIES["export-animatic"],
+      JOB_PARAMS["export-animatic"]
+    ),
+    coveredBy: () => true,
+  },
   "render-vertical": spec(
     UPLOAD_MANAGER_POLICIES["render-vertical"],
     JOB_PARAMS["render-vertical"]

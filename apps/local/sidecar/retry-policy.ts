@@ -118,6 +118,8 @@ export const POSTING_JOB_POLICY = {
  */
 export const UPLOAD_MANAGER_POLICIES = {
   export: { lane: "default", maxAttempts: 3 },
+  // The Animatic page's Export button: an export, so an export's policy.
+  "export-animatic": { lane: "default", maxAttempts: 3 },
   youtube: POSTING_JOB_POLICY,
   "youtube-shorts": POSTING_JOB_POLICY,
   buffer: POSTING_JOB_POLICY,

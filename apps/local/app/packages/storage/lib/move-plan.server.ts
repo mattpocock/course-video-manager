@@ -46,7 +46,11 @@ export const FILE_KIND_OF = {
   "clip-mockups": "other",
 } as const;
 
-export const ENCODING_JOB_KINDS = ["export", "render-vertical"];
+export const ENCODING_JOB_KINDS = [
+  "export",
+  "export-animatic",
+  "render-vertical",
+];
 export const WHOLE_COURSE_ENCODING_KINDS = ["batch-export", "publish"];
 
 /**

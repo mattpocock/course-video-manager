@@ -200,7 +200,9 @@ export const jobUploadEntry = (
         renderVerticalStage: status === "success" ? null : stage,
       };
     }
-    case "export": {
+    // An Animatic export reports the export's own stage, and is drawn as one.
+    case "export":
+    case "export-animatic": {
       const stage =
         job.stage !== null && isExportStage(job.stage) ? job.stage : null;
       const status = uploadStatusOf(job);

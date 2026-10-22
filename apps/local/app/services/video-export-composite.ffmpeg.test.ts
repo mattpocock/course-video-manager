@@ -379,3 +379,83 @@ describe.skipIf(!hasFfmpeg)("joining CVM-recorder Clips", () => {
     );
   });
 });
+
+/**
+ * A Video's Animatic, encoded through `FFmpegEncodeService.encodeAnimatic`:
+ * two stills of different sizes, each held for its segment, each with its
+ * voice from its onset and silence to the end of the segment.
+ */
+describe.skipIf(!hasFfmpeg)("encoding an Animatic", () => {
+  const dir = path.join(
+    os.tmpdir(),
+    `animatic-export-${process.pid}-${Date.now()}`
+  );
+  let output: string;
+
+  beforeAll(async () => {
+    fs.mkdirSync(dir, { recursive: true });
+    const still = ["-frames:v", "1"];
+    lavfi(dir, "one.png", "color=c=red:s=640x360", still);
+    // Square, so it is fitted inside the 16:9 frame with bars.
+    lavfi(dir, "two.png", "color=c=blue:s=360x360", still);
+    // Kokoro's shape: 24 kHz mono.
+    const wav = ["-ar", "24000", "-ac", "1"];
+    lavfi(dir, "one.wav", "sine=f=440:r=24000:d=1.2", wav);
+    lavfi(dir, "two.wav", "sine=f=660:r=24000:d=0.8", wav);
+
+    output = await Effect.runPromise(
+      Effect.gen(function* () {
+        const encode = yield* FFmpegEncodeService;
+        return yield* encode.encodeAnimatic(
+          [
+            {
+              imageFile: path.join(dir, "one.png"),
+              audioFile: path.join(dir, "one.wav"),
+              speechStartSeconds: 0.2,
+              durationInFrames: 45,
+            },
+            {
+              imageFile: path.join(dir, "two.png"),
+              audioFile: path.join(dir, "two.wav"),
+              speechStartSeconds: 0,
+              durationInFrames: 30,
+            },
+          ],
+          { width: 1920, height: 1080 },
+          { onLog: () => {} }
+        );
+      }).pipe(
+        Effect.provide(
+          Layer.mergeAll(
+            FFmpegEncodeService.Default,
+            NodeContext.layer,
+            SidecarContextTest
+          )
+        )
+      )
+    );
+  }, 120_000);
+
+  afterAll(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+    if (output) fs.rmSync(output, { force: true });
+  });
+
+  it("holds each frame for its segment, fitted to the format's frame", () => {
+    const { streams, format } = probe(output);
+    const video = streams.find((s) => s.codec_type === "video")!;
+    expect([video.width, video.height]).toEqual([1920, 1080]);
+    expect(Number(format.duration)).toBeCloseTo(2.5, 1);
+    // Red for the first 1.5 s, then the square blue one, barred in black.
+    expect(pixel(output, 0.7, 960, 540)[0]).toBeGreaterThan(200);
+    expect(pixel(output, 2.0, 960, 540)[2]).toBeGreaterThan(200);
+    expect(Math.max(...pixel(output, 2.0, 100, 540))).toBeLessThan(30);
+  });
+
+  it("carries the voice as 48 kHz stereo, as long as the picture", () => {
+    const audio = probe(output).streams.find((s) => s.codec_type === "audio")!;
+    expect(Number(audio.sample_rate)).toBe(48000);
+    expect(Number(audio.channels)).toBe(2);
+    expect(Number(audio.duration)).toBeCloseTo(2.5, 1);
+  });
+});

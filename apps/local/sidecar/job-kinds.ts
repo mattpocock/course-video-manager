@@ -7,6 +7,7 @@ import { autofillJobKind } from "./kinds/autofill";
 import { batchExportJobKind } from "./kinds/batch-export";
 import { duplicateCourseJobKind } from "./kinds/duplicate-course";
 import { exportJobKind } from "./kinds/export";
+import { exportAnimaticJobKind } from "./kinds/export-animatic";
 import { noopJobKind } from "./kinds/noop";
 import { publishJobKind } from "./kinds/publish";
 import { renderVerticalJobKind } from "./kinds/render-vertical";
@@ -32,6 +33,7 @@ import { youtubeShortsJobKind } from "./kinds/youtube-shorts";
 export const JOB_KINDS = {
   noop: noopJobKind,
   export: exportJobKind,
+  "export-animatic": exportAnimaticJobKind,
   "render-vertical": renderVerticalJobKind,
   "batch-export": batchExportJobKind,
   autofill: autofillJobKind,

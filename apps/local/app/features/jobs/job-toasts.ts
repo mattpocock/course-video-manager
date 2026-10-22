@@ -9,6 +9,7 @@ type Toast<T extends jobsReducer.Effect["type"]> = Extract<
 
 const FAILED: Record<string, string> = {
   export: "export failed",
+  "export-animatic": "Animatic export failed",
   "render-vertical": "vertical Short render failed",
   youtube: "upload failed",
   "youtube-shorts": "YouTube Short post failed",

@@ -56,6 +56,8 @@ export const JOB_PARAMS = {
     ),
   }),
   export: Schema.Struct({ videoId: Schema.String }),
+  /** A Video's Animatic, rendered to `finished-videos/` like its export. */
+  "export-animatic": Schema.Struct({ videoId: Schema.String }),
   "render-vertical": Schema.Struct({ videoId: Schema.String }),
   "batch-export": Schema.Struct({
     versionId: Schema.String,
