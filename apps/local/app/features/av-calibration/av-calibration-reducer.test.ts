@@ -225,7 +225,7 @@ describe("the AV Calibration page's session", () => {
     expect(liveClaps(t.getState())).toEqual([]);
     t.send({ type: "calibration-claps", calibrationId: "run-1", claps: marks })
       .send({ type: "calibration-claps", calibrationId: "run-0", claps: [] })
-      .send(reading(4.2 + clapsAt.startSeconds + 5));
+      .send(reading(4.2 + clapsAt.startSeconds + 3.5));
     expect(liveClaps(t.getState())).toEqual(marks);
 
     t.send(reading(4.2 + readAt.startSeconds + 0.1));

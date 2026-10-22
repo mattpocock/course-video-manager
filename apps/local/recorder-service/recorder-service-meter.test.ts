@@ -346,8 +346,10 @@ describe("the level meter", () => {
     run.stderr(`${ebur128Line(4.6, -60, -60)}\r\n`);
     const started = await client.next("calibration-started");
     const window = runMeasurementWindows(started.scriptStartSeconds).claps;
-    // Three claps; the camera sees the first two meet, 50 ms after the mic.
-    const clapsS = [1, 2.5, 4].map((s) => window.startSeconds + 3 + s);
+    // Three claps in the window (more than the one prompted: every clap the
+    // mic hears is marked); the camera sees the first two meet, 50 ms after
+    // the mic.
+    const clapsS = [1, 2.5, 4].map((s) => window.startSeconds + s);
     const contactsS = clapsS.slice(0, 2).map((s) => s + 0.05);
 
     // Half a second after the first clap: heard, and seen.
