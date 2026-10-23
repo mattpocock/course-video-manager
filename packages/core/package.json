@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "The domain database: the Drizzle schema, the DrizzleService and every db-* operations service. No filesystem, no child_process, no git — so it can be deployed as well as run locally.",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "exports": {
     "./*": "./dist/*.js"
