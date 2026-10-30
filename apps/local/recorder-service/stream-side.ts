@@ -1,3 +1,4 @@
+import type { MicEq } from "@cvm/core/features/videos/recorder";
 import type { Scene } from "../app/packages/scene-layout";
 import { quitProcess } from "./camera";
 import { lineSplitter, type LaunchedProcess, type Launcher } from "./launcher";
@@ -43,6 +44,7 @@ export type StreamStart = {
   ports: StreamFeedPorts;
   scene: Scene;
   micOffsetMs: number;
+  micEq: MicEq;
   /** The ingest address the key goes after (`YOUTUBE_INGEST`). */
   ingest: string;
   streamKey: string;
@@ -96,6 +98,7 @@ export const createStreamSide = (o: {
         ports: s.ports,
         scene: s.scene,
         micOffsetMs: s.micOffsetMs,
+        micEq: s.micEq,
         url: `${s.ingest}/${s.streamKey}`,
       }),
       cwd: "/mnt/c",

@@ -132,6 +132,7 @@ export const createGoLive = (o: {
           ports,
           scene: state.kind === "closed" ? "Code" : state.scene,
           micOffsetMs: command.micOffsetMs,
+          micEq: command.micEq,
           ingest: o.ingest ?? YOUTUBE_INGEST,
           streamKey: command.streamKey,
         });

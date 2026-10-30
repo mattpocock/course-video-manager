@@ -1,3 +1,6 @@
+import type { MicEq } from "@cvm/core/features/videos/recorder";
+import { STREAM_GAIN_DB } from "../app/features/video-editor/constants";
+import { micEqFilters } from "../app/packages/mic-eq";
 import { liveSceneFilterGraph, type Scene } from "../app/packages/scene-layout";
 import type { StreamFeedPorts } from "./stream-feeds";
 
@@ -7,8 +10,8 @@ import type { StreamFeedPorts } from "./stream-feeds";
  * streamed Recording Session's two feeds (`stream-feeds.ts`), draws the
  * Landscape scene (`liveSceneFilterGraph`) on CUDA, encodes it on NVENC and
  * pushes it to YouTube behind a fifo that retries without limit. Every
- * setting is a constant here; only the ports, the scene, the Mic Offset and
- * the ingest address with its Stream Key come from Go Live, and nothing
+ * setting is a constant here; only the ports, the scene, the Mic Offset, the
+ * Mic EQ and the ingest address with its Stream Key come from Go Live, and nothing
  * rides in an environment variable.
  */
 
@@ -48,14 +51,35 @@ const PUSH_QUEUE = 300;
 
 /**
  * The Mic Offset on the mic (the mic file runs ahead of the picture by it,
- * `protocol.ts`, TIME BASE): later by a delay, earlier by a trim. The rest
- * of the export's sound (Mic EQ, gain, limiter) is #2458.
+ * `protocol.ts`, TIME BASE): later by a delay, earlier by a trim.
  */
 const micOnPicture = (micOffsetMs: number) => {
   if (micOffsetMs >= 0) return `adelay=${micOffsetMs}:all=1`;
   const s = (-micOffsetMs / 1000).toFixed(3);
   return `atrim=start=${s},asetpts=PTS-${s}/TB`;
 };
+
+/**
+ * A brick wall at −2 dBFS for the rare peaks the static gain pushes over
+ * (about 4 dB at most). `latency=1` gives back its 5 ms lookahead, so the
+ * mic stays in sync with the picture; `level=0` adds no make-up gain.
+ */
+const STREAM_LIMITER =
+  "alimiter=limit=0.794:attack=5:release=50:level=0:latency=1";
+
+/**
+ * THE STREAM'S SOUND (spec #2445, stories 31–35): the export's sound,
+ * live. Mic Offset → Mic EQ (the export's own filter) → a static
+ * `STREAM_GAIN_DB` → the limiter. No loudness rider or compressor: they
+ * hold seconds of audio or change the sound. Only in the stream process:
+ * the camera writer's mic, and so mic.mkv, stay raw.
+ */
+const streamSound = (micOffsetMs: number, micEq: MicEq) => [
+  micOnPicture(micOffsetMs),
+  ...micEqFilters(micEq),
+  `volume=${STREAM_GAIN_DB}dB`,
+  STREAM_LIMITER,
+];
 
 /** A listening loopback input: the feed connects to it. */
 const feedInput = (port: number, probesize: number) => [
@@ -74,6 +98,8 @@ export const streamArgs = (o: {
   /** The scene shown from Go Live (switching is #2457). */
   scene: Scene;
   micOffsetMs: number;
+  /** The saved Mic EQ, as read at Go Live. */
+  micEq: MicEq;
   /** The ingest address with the Stream Key on the end: only ever here. */
   url: string;
 }) => {
@@ -84,7 +110,7 @@ export const streamArgs = (o: {
       scene: o.scene,
       output: "v",
     }),
-    `[1:a]${micOnPicture(o.micOffsetMs)},aresample=async=1000[a]`,
+    `[1:a]${[...streamSound(o.micOffsetMs, o.micEq), "aresample=async=1000"].join(",")}[a]`,
   ].join(";");
   const kbps = `${STREAM_ENCODE.videoKbps}k`;
   return [
