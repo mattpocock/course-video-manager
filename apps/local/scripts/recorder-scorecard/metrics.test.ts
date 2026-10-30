@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { analysePicture, readStamp, unwrap } from "./footage-analysis";
 import { METRICS, rank, score } from "./metrics";
 import { renderJson } from "./report";
+import { onlyToSink, readProgress, streamRate } from "./stream-sink";
 import { syntheticFfmpegArgs } from "./synthetic-launcher";
 import {
   CAMERA_FPS,
@@ -99,6 +100,81 @@ describe("renderJson", () => {
     expect(Object.keys(parsed.metrics)).toEqual(METRICS.map((m) => m.id));
     expect(parsed.ranking).toEqual(["record_ack_ms"]);
     expect(json).toContain('    "record_ack_ms": {"value":200,');
+  });
+});
+
+describe("the Live Stream's -progress", () => {
+  /** One -progress block, as ffmpeg.exe prints it each second. */
+  const block = (frame: number, dup = 0, drop = 0) =>
+    `frame=${frame}\nfps=60.12\ndup_frames=${dup}\ndrop_frames=${drop}\nprogress=continue\n`;
+
+  it("measures frames per second of wall time, however late each block arrives", () => {
+    const progress = readProgress();
+    // 60 fps for 100 s; each block reaches the scorecard up to 80 ms late.
+    for (let s = 0; s <= 100; s++)
+      progress.push(block(60 * s), 1000 * s + ((s * 37) % 81));
+    expect(streamRate(progress.samples, 0)).toBeCloseTo(60, 1);
+  });
+
+  it("measures only from the moment given (a stream warming up runs slow)", () => {
+    const progress = readProgress();
+    for (let s = 0; s <= 10; s++) progress.push(block(30 * s), 1000 * s);
+    for (let s = 11; s <= 60; s++)
+      progress.push(block(300 + 60 * (s - 10)), 1000 * s);
+    expect(streamRate(progress.samples, 11_000)).toBeCloseTo(60, 5);
+  });
+
+  it("keeps the latest duplicated and dropped frame counts, even split across chunks", () => {
+    const progress = readProgress();
+    const text = block(60) + block(120, 2, 3);
+    progress.push(text.slice(0, 50), 1000);
+    progress.push(text.slice(50), 2000);
+    expect(progress.samples.at(-1)).toMatchObject({
+      frame: 120,
+      dupFrames: 2,
+      dropFrames: 3,
+    });
+  });
+});
+
+describe("onlyToSink", () => {
+  const launched: string[][] = [];
+  const launcher = onlyToSink((l) => {
+    if (l.tool === "ffmpeg") launched.push([...l.args]);
+    return {
+      onStdout: () => {},
+      onStderr: () => {},
+      writeStdin: () => {},
+      exited: Promise.resolve(0),
+      kill: () => {},
+    };
+  }, "rtmp://127.0.0.1:19350/live");
+  const stream = (url: string) => [
+    "-metadata",
+    "comment=cvm-recorder-stream",
+    "-f",
+    "tee",
+    `[f=flv:onfail=ignore]${url}|[f=null:use_fifo=0]-`,
+  ];
+
+  it("never starts a Live Stream aimed anywhere but the local sink", async () => {
+    const p = launcher({
+      tool: "ffmpeg",
+      args: stream("rtmps://a.rtmps.youtube.com:443/live2/key"),
+      cwd: "/mnt/c",
+    });
+    expect(await p.exited).toBe(1);
+    expect(launched).toEqual([]);
+  });
+
+  it("starts a Live Stream aimed at the local sink, and every other process", () => {
+    launcher({
+      tool: "ffmpeg",
+      args: stream("rtmp://127.0.0.1:19350/live/key"),
+      cwd: "/mnt/c",
+    });
+    launcher({ tool: "ffmpeg", args: ["-i", "x"], cwd: "/mnt/c" });
+    expect(launched).toHaveLength(2);
   });
 });
 

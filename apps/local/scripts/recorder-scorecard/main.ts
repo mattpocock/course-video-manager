@@ -4,13 +4,15 @@
  * targets and OBS (docs/recorder-scorecard/README.md).
  *
  *   pnpm recorder:scorecard [--quick] [--out <dir>] [--long-take <s>]
- *     [--cycles <n>] [--fault-repeats <n>] [--keep-footage]
+ *     [--cycles <n>] [--fault-repeats <n>] [--stream-take <s>] [--keep-footage]
  *     [--only <scenario,…>]   (idle, longTake, previewKill, eventLogFailure,
- *                              cycles, crash; the rest read unmeasured)
+ *                              streamed, cycles, crash; the rest read
+ *                              unmeasured)
  *
  * Writes `scorecard.json` and `scorecard.md` to `--out` (default
  * `.data/recorder-scorecard/<run>/`). Opens no capture device and no real
- * screen. Starts no Windows process unless the Windows guard allows it
+ * screen, and pushes its Live Stream only to a local sink, never YouTube.
+ * Starts no Windows process unless the Windows guard allows it
  * (exits 3 while Matt's recorder service runs, anything records, or OBS
  * runs), and stops everything at once if any of those starts mid-run.
  */
@@ -27,6 +29,8 @@ import { openPreviewProbe } from "./preview-probe";
 import { renderJson, renderMarkdown, type RunInfo } from "./report";
 import { eventLogFailure, idle, longTake, previewKill } from "./scenarios";
 import { connect, isState, startService } from "./service-control";
+import { sinkIngest } from "./stream-sink";
+import { streamed } from "./streamed";
 import { SYNTHETIC_THRESHOLD_DB } from "./synthetic-sources";
 import { Aborted, openRecorder, sleep, watchFeeds, type Ctx } from "./takes";
 import {
@@ -55,6 +59,7 @@ const quick = args.includes("--quick");
 const longTakeSeconds = Number(flag("--long-take") ?? (quick ? 60 : 600));
 const cycleCount = Number(flag("--cycles") ?? (quick ? 10 : 50));
 const faultRepeats = Number(flag("--fault-repeats") ?? (quick ? 3 : 5));
+const streamTakeSeconds = Number(flag("--stream-take") ?? (quick ? 60 : 300));
 const keepFootage = args.includes("--keep-footage");
 /** Only these scenarios run (to prove one fix); unset, all of them. */
 const only = flag("--only")?.split(",").filter(Boolean);
@@ -63,6 +68,7 @@ const SCENARIOS = [
   "longTake",
   "previewKill",
   "eventLogFailure",
+  "streamed",
   "cycles",
   "crash",
 ];
@@ -81,6 +87,8 @@ const outDir = path.resolve(
   flag("--out") ?? path.join(repoRoot, ".data/recorder-scorecard", runId)
 );
 const workDir = path.join(os.tmpdir(), `cvm-recorder-scorecard-${runId}`);
+/** The local RTMP sink the streamed scenario's Live Stream pushes to. */
+const sinkPort = 19350 + (randomBytes(2).readUInt16BE(0) % 600);
 
 const log = (line: string) =>
   console.log(`[scorecard ${new Date().toISOString().slice(11, 19)}] ${line}`);
@@ -177,6 +185,7 @@ const main = async () => {
     marker,
     stateDir,
     logFile: path.join(workDir, "service.log"),
+    streamIngest: sinkIngest(sinkPort),
   });
   stopEverything = async () => {
     await (ctxRef?.service ?? service).kill().catch(() => {});
@@ -231,6 +240,7 @@ const main = async () => {
     ["longTake", () => longTake(ctx, longTakeSeconds, gpuBefore)],
     ["previewKill", () => previewKill(ctx, 15, faultRepeats)],
     ["eventLogFailure", () => eventLogFailure(ctx)],
+    ["streamed", () => streamed(ctx, streamTakeSeconds, sinkPort)],
     ["cycles", () => cycles(ctx, cycleCount)],
     [
       "crash",
