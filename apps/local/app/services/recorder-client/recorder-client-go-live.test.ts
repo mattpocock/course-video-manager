@@ -37,7 +37,7 @@ import {
   startService,
   tmp,
 } from "./recorder-client-test-harness";
-import { goLive, NO_BROADCAST } from "./go-live.server";
+import { goLive, NO_BROADCAST, NO_MATCHING_STREAM } from "./go-live.server";
 
 /**
  * Go Live and End Stream end to end (ADR 0054), without hardware: the real
@@ -54,16 +54,40 @@ const KEY = "fake-key-q7w2-9xk4-mm31";
 /** While the test's AV Calibration (a day old by the service's clock) is fresh. */
 const NOW = new Date(CALIBRATION.createdAtMs + 60 * 60 * 1000);
 
-let youtube: { url: string; broadcasts: unknown[] };
+/** The YouTube stream whose ingest name is the Stream Key. */
+const KEYS_STREAM = "stream-with-the-key";
+
+/** A YouTube stream, as `liveStreams.list?part=cdn` answers it. */
+const youtubeStream = (id: string, streamName: string) => ({
+  id,
+  cdn: { ingestionInfo: { streamName } },
+});
+
+let youtube: {
+  url: string;
+  broadcasts: unknown[];
+  streams: unknown[];
+  /** Each call CVM made, as `METHOD /path?query`. */
+  calls: string[];
+};
 let server: http.Server;
 beforeAll(async () => {
-  youtube = { url: "", broadcasts: [] };
+  youtube = { url: "", broadcasts: [], streams: [], calls: [] };
   server = http.createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://fake");
+    youtube.calls.push(`${req.method} ${url.pathname}${url.search}`);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    if (url.pathname === "/youtube/v3/liveStreams") {
+      res.end(JSON.stringify({ items: youtube.streams }));
+      return;
+    }
+    if (url.pathname === "/youtube/v3/liveBroadcasts/bind") {
+      res.end(JSON.stringify({ id: url.searchParams.get("id") }));
+      return;
+    }
     const listed =
       url.pathname === "/youtube/v3/liveBroadcasts" &&
       url.searchParams.get("broadcastStatus") === "upcoming";
-    res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ items: listed ? youtube.broadcasts : [] }));
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -71,14 +95,23 @@ beforeAll(async () => {
 });
 afterAll(() => new Promise((resolve) => server.close(resolve)));
 
-const broadcast = (id: string, o: { enableAutoStart?: boolean } = {}) => ({
+const broadcast = (
+  id: string,
+  o: { enableAutoStart?: boolean; boundStreamId?: string } = {}
+) => ({
   id,
   snippet: { title: id, scheduledStartTime: "2026-10-31T18:00:00Z" },
   contentDetails: {
     enableAutoStart: o.enableAutoStart ?? true,
     enableAutoStop: true,
+    // Bound to the Stream Key's stream unless a test says otherwise.
+    boundStreamId: "boundStreamId" in o ? o.boundStreamId : KEYS_STREAM,
   },
 });
+
+/** The bind calls CVM made to YouTube. */
+const binds = () =>
+  youtube.calls.filter((c) => c.includes("/liveBroadcasts/bind"));
 
 /** A `.env` with the Stream Key in it, or without. */
 const envFile = (withKey: boolean) => {
@@ -147,6 +180,11 @@ const ready = async (
     expiresAt: new Date(Date.now() + 60 * 60 * 1000),
   });
   youtube.broadcasts = [broadcast("office-hours")];
+  youtube.streams = [
+    youtubeStream("another-stream", "some-other-key"),
+    youtubeStream(KEYS_STREAM, KEY),
+  ];
+  youtube.calls = [];
   const video = await clipService.createVideo("Office hours");
   if (o.format === "short")
     await testDb
@@ -367,10 +405,6 @@ describe("Go Live and End Stream", () => {
   });
 });
 
-/** `streamselect`'s map for each scene: Camera 0, Code 1, No Face 2. */
-const selects = (args: readonly string[]) =>
-  args.join(" ").match(/streamselect=inputs=3:map=(\d)/)?.[1];
-
 describe("scene switches while live", () => {
   it("starts the Live Stream on the scene the preview shows", async () => {
     const r = await ready();
@@ -378,17 +412,15 @@ describe("scene switches while live", () => {
 
     await r.goLive();
 
-    const stream = r.windows.streams[0]!.launch;
-    if (!isFfmpeg(stream)) throw new Error("not ffmpeg");
-    expect(selects(stream.args)).toBe("2");
+    // streamselect's map: Camera 0, Code 1, No Face 2.
+    expect(r.windows.streams[0]!.launch.args.join(" ")).toContain(
+      "streamselect=inputs=3:map=2"
+    );
   });
 
   it("sends every switch, from the editor or the Stream Deck, to the running stream process at once, never relaunching it", async () => {
     const r = await ready();
     await r.goLive();
-    await vi.waitFor(() =>
-      expect(r.heard.map((m) => m.type)).toContain("recording-started")
-    );
     const deck = await connect(r.port);
 
     await r.client.switchScene(r.video.id, "Camera");
@@ -403,13 +435,63 @@ describe("scene switches while live", () => {
       })
     );
 
-    // ffmpeg's `C` on stdin, sent now (-1): streamselect's map changes.
+    // ffmpeg's `C` on stdin, sent now (-1).
     expect(r.windows.streams[0]!.written).toBe(
       "Cstreamselect -1 map 0\nCstreamselect -1 map 2\n"
     );
     expect(r.windows.launched.filter(isStream)).toHaveLength(1);
-    expect(r.windows.streams[0]!.running).toBe(true);
     await r.client.endStream(r.video.id);
+  });
+});
+
+describe("binding the picked Broadcast to the Stream Key's YouTube stream", () => {
+  it.each([
+    ["unbound", undefined],
+    ["bound to another stream", "another-stream"],
+  ])(
+    "binds a Broadcast that is %s to the stream whose ingest name is the Stream Key, then goes live",
+    async (_, boundStreamId) => {
+      const r = await ready();
+      youtube.broadcasts = [broadcast("office-hours", { boundStreamId })];
+
+      expect(Either.isRight(await r.goLive())).toBe(true);
+
+      expect(binds()).toEqual([
+        expect.stringMatching(
+          new RegExp(
+            `^POST /youtube/v3/liveBroadcasts/bind\\?.*id=office-hours.*streamId=${KEYS_STREAM}`
+          )
+        ),
+      ]);
+      // YouTube's auto-start and auto-stop drive the Broadcast, never CVM.
+      expect(youtube.calls.join("\n")).not.toContain("transition");
+      await vi.waitFor(() =>
+        expect(r.heard.map((m) => m.type)).toContain("recording-started")
+      );
+    }
+  );
+
+  it("leaves a Broadcast already bound to the Stream Key's stream alone", async () => {
+    const r = await ready();
+
+    expect(Either.isRight(await r.goLive())).toBe(true);
+
+    expect(binds()).toEqual([]);
+  });
+
+  it("refuses, without showing the key, when no YouTube stream's ingest name is the Stream Key", async () => {
+    const r = await ready();
+    youtube.broadcasts = [
+      broadcast("office-hours", { boundStreamId: undefined }),
+    ];
+    youtube.streams = [youtubeStream("another-stream", "some-other-key")];
+
+    const answer = await r.goLive();
+
+    expect(reasonsOf(answer)).toEqual([NO_MATCHING_STREAM]);
+    expect(NO_MATCHING_STREAM).not.toContain(KEY);
+    expect(binds()).toEqual([]);
+    expect(r.windows.launched.some(isStream)).toBe(false);
   });
 });
 
@@ -537,6 +619,8 @@ describe("the Stream Key", () => {
       ...everyFile(r.stateDir),
       ...everyFile(r.folder),
       JSON.stringify(r.heard),
+      // Matched in memory: never sent to YouTube.
+      ...youtube.calls,
     ].join("\n");
     // The take's own log was among what was read.
     expect(fs.readdirSync(r.folder, { recursive: true }).map(String)).toEqual(

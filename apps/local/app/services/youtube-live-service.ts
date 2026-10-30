@@ -1,4 +1,4 @@
-import { Data, Effect } from "effect";
+import { Data, Effect, Redacted } from "effect";
 import { getValidAccessToken } from "@/services/youtube-auth-service";
 import { youtubeApiUrl } from "@/services/youtube-upload-service";
 import type { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
@@ -153,6 +153,152 @@ export const listBroadcasts = Effect.gen(function* () {
       Effect.fail(new YouTubeLiveError({ message: e.message })),
   })
 );
+
+/** No grant: answered as "reconnect"; any other auth failure fails. */
+const needsConnecting = {
+  NotAuthenticatedError: () =>
+    Effect.succeed({
+      status: "needs-reconnect" as const,
+      reason: "not-connected" as const,
+    }),
+  YouTubeAuthError: (e: { message: string }) =>
+    Effect.fail(new YouTubeLiveError({ message: e.message })),
+};
+
+// ---------------------------------------------------------------------------
+// Binding
+// ---------------------------------------------------------------------------
+
+type LiveStreamItem = {
+  id: string;
+  cdn?: { ingestionInfo?: { streamName?: string } };
+};
+
+/**
+ * One authorised call to the Live API that isn't chat, its JSON body read.
+ * `what` names the call in a failure, which never holds the answer's body
+ * (a stream's ingest name is the Stream Key).
+ */
+const liveApiCall = (opts: {
+  method: "GET" | "POST";
+  path: string;
+  query: Record<string, string>;
+  what: string;
+}) =>
+  Effect.gen(function* () {
+    const accessToken = yield* getValidAccessToken;
+    const apiUrl = yield* youtubeApiUrl;
+    const body = yield* Effect.tryPromise({
+      try: async (signal) => {
+        const response = await fetch(
+          `${apiUrl}/youtube/v3/${opts.path}?${new URLSearchParams(opts.query)}`,
+          {
+            method: opts.method,
+            headers: { Authorization: `Bearer ${accessToken}` },
+            signal,
+          }
+        );
+        const body = (await response.json().catch(() => null)) as {
+          error?: GoogleError;
+        } | null;
+        if (isInsufficientScope(response.status, body)) {
+          return { accessMissing: true as const };
+        }
+        if (!response.ok) {
+          throw new Error(
+            `YouTube answered ${response.status} ${opts.what}: ${body?.error?.message ?? "no message"}`
+          );
+        }
+        return { body: body as unknown };
+      },
+      catch: (e) =>
+        new YouTubeLiveError({
+          message: e instanceof Error ? e.message : String(e),
+        }),
+    });
+    if ("accessMissing" in body) return yield* new LiveAccessMissing();
+    return body.body;
+  });
+
+/** What finding the Stream Key's YouTube stream answered. */
+export type KeysStreamAnswer =
+  | { status: "found"; streamId: string }
+  | { status: "no-match" }
+  | { status: "needs-reconnect"; reason: ReconnectReason };
+
+/**
+ * The channel's YouTube stream whose ingest name is the **Stream Key**. The
+ * key is compared in memory only: it is never sent to YouTube, logged or put
+ * in an answer.
+ */
+export const findKeysStream = (streamKey: Redacted.Redacted<string>) =>
+  Effect.gen(function* () {
+    let pageToken: string | null = null;
+    do {
+      const query: Record<string, string> = {
+        part: "id,cdn",
+        mine: "true",
+        maxResults: "50",
+      };
+      if (pageToken !== null) query.pageToken = pageToken;
+      const page = (yield* liveApiCall({
+        method: "GET",
+        path: "liveStreams",
+        query,
+        what: "listing the channel's streams",
+      })) as { items?: LiveStreamItem[]; nextPageToken?: string } | null;
+      const match = (page?.items ?? []).find(
+        (s) => s.cdn?.ingestionInfo?.streamName === Redacted.value(streamKey)
+      );
+      if (match) {
+        return { status: "found", streamId: match.id } as KeysStreamAnswer;
+      }
+      pageToken = page?.nextPageToken ?? null;
+    } while (pageToken !== null);
+    return { status: "no-match" } as KeysStreamAnswer;
+  }).pipe(
+    Effect.catchTags({
+      ...needsConnecting,
+      LiveAccessMissing: () =>
+        Effect.succeed<KeysStreamAnswer>({
+          status: "needs-reconnect",
+          reason: "missing-live-access",
+        }),
+    })
+  );
+
+/**
+ * Binds the Broadcast to the YouTube stream (`liveBroadcasts.bind`), so the
+ * push to that stream's ingest goes out on it. Only ever binding: CVM never
+ * transitions a Broadcast.
+ */
+export const bindBroadcast = (o: { broadcastId: string; streamId: string }) =>
+  liveApiCall({
+    method: "POST",
+    path: "liveBroadcasts/bind",
+    query: {
+      id: o.broadcastId,
+      part: "id,contentDetails",
+      streamId: o.streamId,
+    },
+    what: "binding the Broadcast to the Stream Key's stream",
+  }).pipe(
+    Effect.asVoid,
+    Effect.catchTags({
+      NotAuthenticatedError: () =>
+        Effect.fail(
+          new YouTubeLiveError({ message: "Google is not connected." })
+        ),
+      LiveAccessMissing: () =>
+        Effect.fail(
+          new YouTubeLiveError({
+            message: "the Google grant has no live-streaming access.",
+          })
+        ),
+      YouTubeAuthError: (e) =>
+        Effect.fail(new YouTubeLiveError({ message: e.message })),
+    })
+  );
 
 // ---------------------------------------------------------------------------
 // Chat
@@ -309,16 +455,6 @@ const chatFetch = (opts: {
         }),
     });
   });
-
-const needsConnecting = {
-  NotAuthenticatedError: () =>
-    Effect.succeed({
-      status: "needs-reconnect" as const,
-      reason: "not-connected" as const,
-    }),
-  YouTubeAuthError: (e: { message: string }) =>
-    Effect.fail(new YouTubeLiveError({ message: e.message })),
-};
 
 /**
  * Opens a `liveChatMessages.streamList` connection: one call (5 quota

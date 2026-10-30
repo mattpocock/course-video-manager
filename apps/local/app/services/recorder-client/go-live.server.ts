@@ -1,4 +1,4 @@
-import { Data, Effect, Either, Option } from "effect";
+import { Data, Effect, Either, Option, Redacted } from "effect";
 import { eq } from "drizzle-orm";
 import { micEqSettings } from "@/db/schema";
 import {
@@ -8,17 +8,25 @@ import {
   type MicEq,
 } from "@cvm/core/features/videos/recorder";
 import type { SilenceLength } from "@/silence-detection-constants";
-import { broadcastRefusal } from "@/features/streaming/broadcast";
+import {
+  type Broadcast,
+  broadcastRefusal,
+} from "@/features/streaming/broadcast";
 import { dbCall } from "@/services/clip-service-handler.helpers";
 import type { Database } from "@/services/drizzle-service.server";
 import {
   pairMicOffsetMs,
   requireFreshAVCalibration,
 } from "@/services/av-calibration.server";
-import { listBroadcasts } from "@/services/youtube-live-service";
+import {
+  bindBroadcast,
+  findKeysStream,
+  listBroadcasts,
+} from "@/services/youtube-live-service";
 import {
   readStreamKey,
   STREAM_KEY_MISSING,
+  STREAM_KEY_SETTING,
 } from "@/services/stream-key.server";
 import type { RecorderClient } from "./client.server";
 import { requireRecordableVideo } from "./record-guard.server";
@@ -44,10 +52,17 @@ export const BROADCAST_GONE =
 export const RECONNECT_GOOGLE =
   "Reconnect Google, so CVM can check the Broadcast with YouTube.";
 
-/** Why the picked Broadcast can't be streamed to, if it can't. */
-const broadcastReasons = (broadcastId: string | null) =>
+/** No YouTube stream's ingest name is the Stream Key: names the setting, never the key. */
+export const NO_MATCHING_STREAM = `No YouTube stream on the channel uses the Stream Key: check ${STREAM_KEY_SETTING} in the .env file at the repo root matches a stream key in YouTube Studio.`;
+
+/** The picked Broadcast, and why it can't be streamed to, if it can't. */
+const checkBroadcast = (broadcastId: string | null) =>
   Effect.gen(function* () {
-    if (broadcastId === null) return [NO_BROADCAST];
+    const refused = (reason: string) => ({
+      broadcast: null,
+      reasons: [reason],
+    });
+    if (broadcastId === null) return refused(NO_BROADCAST);
     const answer = yield* listBroadcasts.pipe(
       Effect.catchTag("YouTubeLiveError", (e) =>
         Effect.succeed({ status: "failed" as const, message: e.message })
@@ -55,19 +70,60 @@ const broadcastReasons = (broadcastId: string | null) =>
     );
     switch (answer.status) {
       case "failed":
-        return [
-          `Could not check the Broadcast with YouTube: ${answer.message}`,
-        ];
+        return refused(
+          `Could not check the Broadcast with YouTube: ${answer.message}`
+        );
       case "needs-reconnect":
-        return [RECONNECT_GOOGLE];
+        return refused(RECONNECT_GOOGLE);
       case "listed": {
         const broadcast = answer.broadcasts.find((b) => b.id === broadcastId);
-        if (!broadcast) return [BROADCAST_GONE];
+        if (!broadcast) return refused(BROADCAST_GONE);
         const refusal = broadcastRefusal(broadcast);
-        return refusal ? [refusal] : [];
+        return { broadcast, reasons: refusal ? [refusal] : [] };
       }
     }
   });
+
+/** The YouTube stream the Stream Key pushes to, and why not, if none. */
+const checkKeysStream = (streamKey: Option.Option<Redacted.Redacted<string>>) =>
+  Effect.gen(function* () {
+    // A missing key is its own reason.
+    if (Option.isNone(streamKey)) return { streamId: null, reasons: [] };
+    const answer = yield* findKeysStream(streamKey.value).pipe(
+      Effect.catchTag("YouTubeLiveError", (e) =>
+        Effect.succeed({ status: "failed" as const, message: e.message })
+      )
+    );
+    const refused = (reason: string) => ({ streamId: null, reasons: [reason] });
+    switch (answer.status) {
+      case "found":
+        return { streamId: answer.streamId, reasons: [] };
+      case "no-match":
+        return refused(NO_MATCHING_STREAM);
+      case "needs-reconnect":
+        return refused(RECONNECT_GOOGLE);
+      case "failed":
+        return refused(
+          `Could not find the Stream Key's stream on YouTube: ${answer.message}`
+        );
+    }
+  });
+
+/**
+ * Binds the Broadcast to the Stream Key's stream unless it already is, so
+ * Matt never fixes the binding in YouTube Studio.
+ */
+const bindIfNeeded = (broadcast: Broadcast, streamId: string) =>
+  broadcast.boundStreamId === streamId
+    ? Effect.void
+    : bindBroadcast({ broadcastId: broadcast.id, streamId }).pipe(
+        Effect.catchTag("YouTubeLiveError", (e) => {
+          const reason = `Could not bind the Broadcast to the Stream Key's stream: ${e.message}`;
+          return Effect.fail(
+            new GoLiveRefusedError({ reasons: [reason], message: reason })
+          );
+        })
+      );
 
 /** The saved Mic EQ, read once at Go Live as a Recording Session reads it. */
 const savedMicEq = (db: Database) =>
@@ -101,15 +157,20 @@ export const goLive = Effect.fn("goLive")(function* (o: {
   const calibration = yield* Effect.either(
     requireFreshAVCalibration(o.db, o.now)
   );
+  const [picked, keys] = yield* Effect.all(
+    [checkBroadcast(o.broadcastId), checkKeysStream(streamKey)],
+    { concurrency: "unbounded" }
+  );
   const reasons = [
-    ...(yield* broadcastReasons(o.broadcastId)),
+    ...new Set([...picked.reasons, ...keys.reasons]),
     ...(Option.isNone(streamKey) ? [STREAM_KEY_MISSING] : []),
     ...(Either.isLeft(calibration) ? [calibration.left.message] : []),
     ...o.client.goLiveRefusals(o.videoId, format),
   ];
   if (
     reasons.length > 0 ||
-    o.broadcastId === null ||
+    picked.broadcast === null ||
+    keys.streamId === null ||
     Option.isNone(streamKey) ||
     Either.isLeft(calibration)
   )
@@ -117,6 +178,7 @@ export const goLive = Effect.fn("goLive")(function* (o: {
       reasons,
       message: reasons.join(" "),
     });
+  yield* bindIfNeeded(picked.broadcast, keys.streamId);
   const { cameraDevice, recorderMic } = calibration.right;
   // The pair the gate checked: the recorder refuses any other at Record.
   const micOffsetMs =
@@ -127,7 +189,7 @@ export const goLive = Effect.fn("goLive")(function* (o: {
           mic: recorderMic,
         });
   const micEq = yield* savedMicEq(o.db);
-  const { broadcastId } = o;
+  const broadcastId = picked.broadcast.id;
   yield* recorderCommand(() =>
     o.client.goLive(o.videoId, {
       broadcastId,
