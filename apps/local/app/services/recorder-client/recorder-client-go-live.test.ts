@@ -1,20 +1,10 @@
 import fs from "node:fs";
-import http from "node:http";
-import type { AddressInfo } from "node:net";
 import path from "node:path";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { ConfigProvider, Effect, Either, Layer, Redacted } from "effect";
-import { eq } from "drizzle-orm";
-import * as schema from "@/db/schema";
-import { DrizzleService } from "@/services/drizzle-service.server";
-import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
+import { describe, expect, it, vi } from "vitest";
+import { Either, Redacted } from "effect";
 import { STREAM_KEY_MISSING } from "@/services/stream-key.server";
-import type { CvmRecorderMessage } from "@/features/video-editor/cvm-recorder-wire";
 import { broadcastRefusal } from "@/features/streaming/broadcast";
-import {
-  GO_LIVE_REFUSALS,
-  type StreamStatus,
-} from "recorder-service/stream-protocol";
+import { GO_LIVE_REFUSALS } from "recorder-service/stream-protocol";
 import {
   CALIBRATION,
   connect,
@@ -23,190 +13,34 @@ import {
   fakeWindows,
   writesFile,
 } from "recorder-service/test-utils/fake-windows";
-import { STREAM_TAG } from "recorder-service/stream-args";
 import type { Launch } from "recorder-service/launcher";
+import { readSession } from "./recorder-client-test-harness";
+import { NO_BROADCAST, NO_MATCHING_STREAM } from "./go-live.server";
 import {
-  clipService,
-  setupClipServiceTests,
-  testDb,
-} from "../clip-service-test-setup";
-import {
-  connectClient,
-  freshCalibration,
-  readSession,
-  startService,
-  tmp,
-} from "./recorder-client-test-harness";
-import { goLive, NO_BROADCAST } from "./go-live.server";
-import { MIC_EQ_SETTING_ID } from "@cvm/core/features/videos/recorder";
+  binds,
+  broadcast,
+  ended,
+  envFile,
+  isFfmpeg,
+  isScreenRecorder,
+  isStream,
+  isStreamedWriter,
+  KEY,
+  KEYS_STREAM,
+  ports,
+  ready,
+  reasonsOf,
+  setupGoLiveTests,
+  youtube,
+  youtubeStream,
+} from "./go-live-test-harness";
 
 /**
- * Go Live and End Stream end to end (ADR 0054), without hardware: the real
- * recorder service on a scripted Windows, whose launcher also stands in for
- * the Live Stream's ffmpeg.exe; the app server's recorder client and Go Live;
- * the test database; and YouTube faked at the HTTP boundary.
+ * Go Live and End Stream end to end (ADR 0054), without hardware
+ * (`go-live-test-harness.ts`).
  */
 
-setupClipServiceTests();
-
-/** A fake Stream Key: it must turn up on the stream's command line and nowhere else. */
-const KEY = "fake-key-q7w2-9xk4-mm31";
-
-/** While the test's AV Calibration (a day old by the service's clock) is fresh. */
-const NOW = new Date(CALIBRATION.createdAtMs + 60 * 60 * 1000);
-
-let youtube: { url: string; broadcasts: unknown[] };
-let server: http.Server;
-beforeAll(async () => {
-  youtube = { url: "", broadcasts: [] };
-  server = http.createServer((req, res) => {
-    const url = new URL(req.url ?? "/", "http://fake");
-    const listed =
-      url.pathname === "/youtube/v3/liveBroadcasts" &&
-      url.searchParams.get("broadcastStatus") === "upcoming";
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ items: listed ? youtube.broadcasts : [] }));
-  });
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  youtube.url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-});
-afterAll(() => new Promise((resolve) => server.close(resolve)));
-
-const broadcast = (id: string, o: { enableAutoStart?: boolean } = {}) => ({
-  id,
-  snippet: { title: id, scheduledStartTime: "2026-10-31T18:00:00Z" },
-  contentDetails: {
-    enableAutoStart: o.enableAutoStart ?? true,
-    enableAutoStop: true,
-  },
-});
-
-/** A `.env` with the Stream Key in it, or without. */
-const envFile = (withKey: boolean) => {
-  const file = path.join(tmp(), ".env");
-  fs.writeFileSync(
-    file,
-    `DATABASE_URL=postgres://nowhere\n${withKey ? `YOUTUBE_STREAM_KEY=${KEY}\n` : ""}`
-  );
-  return file;
-};
-
-const run = <A, E>(
-  effect: Effect.Effect<A, E, LinkAuthOperationsService | DrizzleService>
-) =>
-  Effect.runPromise(
-    Effect.either(effect).pipe(
-      Effect.provide(
-        LinkAuthOperationsService.Default.pipe(
-          Layer.provideMerge(Layer.succeed(DrizzleService, testDb as never))
-        )
-      ),
-      Effect.withConfigProvider(
-        ConfigProvider.fromMap(
-          new Map([
-            ["YOUTUBE_API_URL", youtube.url],
-            ["GOOGLE_OAUTH_TOKEN_URL", "http://127.0.0.1:9/token"],
-          ])
-        )
-      )
-    )
-  );
-
-const isFfmpeg = (l: Launch): l is Extract<Launch, { tool: "ffmpeg" }> =>
-  l.tool === "ffmpeg";
-const isStream = (l: Launch) =>
-  isFfmpeg(l) && l.args.includes(`comment=${STREAM_TAG}`);
-const isStreamedWriter = (l: Launch) =>
-  isFfmpeg(l) &&
-  writesFile(l.args, "camera.mkv") &&
-  l.args.some((a) => a.includes("[streamcam]"));
-const isScreenRecorder = (l: Launch) =>
-  isFfmpeg(l) && writesFile(l.args, "screen.mkv");
-
-/** The loopback ports in `args` that match `pattern`'s one group. */
-const ports = (args: readonly string[], pattern: RegExp) =>
-  [...args.join(" ").matchAll(pattern)].map((m) => Number(m[1]));
-
-/** The recorder open on a fresh Landscape Video, its camera live, ready to Go Live. */
-const ready = async (
-  o: {
-    windows?: ReturnType<typeof fakeWindows>;
-    streamListenBoundMs?: number;
-    format?: "landscape" | "short";
-  } = {}
-) => {
-  const windows = o.windows ?? fakeWindows();
-  const stateDir = tmp();
-  const { port } = await startService(stateDir, windows, {
-    streamListenBoundMs: o.streamListenBoundMs,
-  });
-  const client = connectClient(port);
-  await freshCalibration();
-  await testDb.insert(schema.youtubeAuth).values({
-    accessToken: "stored-access-token",
-    refreshToken: "stored-refresh-token",
-    expiresAt: new Date(Date.now() + 60 * 60 * 1000),
-  });
-  youtube.broadcasts = [broadcast("office-hours")];
-  const video = await clipService.createVideo("Office hours");
-  if (o.format === "short")
-    await testDb
-      .update(schema.videos)
-      .set({ format: "short" })
-      .where(eq(schema.videos.id, video.id));
-  const heard: CvmRecorderMessage[] = [];
-  client.subscribe(video.id, (m) => heard.push(m), o.format);
-  await vi.waitFor(() =>
-    expect(heard).toContainEqual({ type: "camera-went-live" })
-  );
-  // As the editor does: the next take's ordinary writer is armed.
-  client.setSilenceLength(video.id, "short");
-  if (o.format !== "short")
-    await vi.waitFor(() => expect(windows.armedWriters()).toHaveLength(1));
-  const folder = tmp();
-  const goLiveWith = (more: Partial<Parameters<typeof goLive>[0]> = {}) =>
-    run(
-      goLive({
-        db: testDb as never,
-        client,
-        videoId: video.id,
-        broadcastId: "office-hours",
-        silenceLength: "short",
-        folder,
-        envPath: envFile(true),
-        now: NOW,
-        ...more,
-      })
-    );
-  const streamStatuses = () =>
-    heard.flatMap((m): StreamStatus[] =>
-      m.type === "stream-changed" ? [m.stream] : []
-    );
-  return {
-    windows,
-    client,
-    video,
-    heard,
-    folder,
-    stateDir,
-    port,
-    goLive: goLiveWith,
-    streamStatuses,
-  };
-};
-
-/** Every reason Go Live was refused for; fails the test if it was not. */
-const reasonsOf = (
-  answer: Either.Either<unknown, { _tag: string; message: string }>
-): readonly string[] => {
-  if (Either.isRight(answer)) throw new Error("Go Live was let through");
-  if (answer.left._tag !== "GoLiveRefusedError")
-    throw new Error(`Refused another way: ${answer.left.message}`);
-  return (answer.left as unknown as { reasons: readonly string[] }).reasons;
-};
-
-const ended = (statuses: StreamStatus[]) =>
-  statuses.flatMap((s) => (s.kind === "ended" ? [s.reason] : []));
+setupGoLiveTests();
 
 describe("Go Live and End Stream", () => {
   it("arms a streamed writer, starts the stream listening for its feeds, then records; End Stream stops both", async () => {
@@ -368,6 +202,57 @@ describe("Go Live and End Stream", () => {
   });
 });
 
+describe("binding the picked Broadcast to the Stream Key's YouTube stream", () => {
+  it.each([
+    ["unbound", undefined],
+    ["bound to another stream", "another-stream"],
+  ])(
+    "binds a Broadcast that is %s to the stream whose ingest name is the Stream Key, then goes live",
+    async (_, boundStreamId) => {
+      const r = await ready();
+      youtube.broadcasts = [broadcast("office-hours", { boundStreamId })];
+
+      expect(Either.isRight(await r.goLive())).toBe(true);
+
+      expect(binds()).toEqual([
+        expect.stringMatching(
+          new RegExp(
+            `^POST /youtube/v3/liveBroadcasts/bind\\?.*id=office-hours.*streamId=${KEYS_STREAM}`
+          )
+        ),
+      ]);
+      // YouTube's auto-start and auto-stop drive the Broadcast, never CVM.
+      expect(youtube.calls.join("\n")).not.toContain("transition");
+      await vi.waitFor(() =>
+        expect(r.heard.map((m) => m.type)).toContain("recording-started")
+      );
+    }
+  );
+
+  it("leaves a Broadcast already bound to the Stream Key's stream alone", async () => {
+    const r = await ready();
+
+    expect(Either.isRight(await r.goLive())).toBe(true);
+
+    expect(binds()).toEqual([]);
+  });
+
+  it("refuses, without showing the key, when no YouTube stream's ingest name is the Stream Key", async () => {
+    const r = await ready();
+    youtube.broadcasts = [
+      broadcast("office-hours", { boundStreamId: undefined }),
+    ];
+    youtube.streams = [youtubeStream("another-stream", "some-other-key")];
+
+    const answer = await r.goLive();
+
+    expect(reasonsOf(answer)).toEqual([NO_MATCHING_STREAM]);
+    expect(NO_MATCHING_STREAM).not.toContain(KEY);
+    expect(binds()).toEqual([]);
+    expect(r.windows.launched.some(isStream)).toBe(false);
+  });
+});
+
 describe("raw footage first: a stream failure never stops or delays the take", () => {
   it("records anyway once the fixed bound passes, when the stream process never comes up", async () => {
     const r = await ready({
@@ -435,76 +320,6 @@ describe("raw footage first: a stream failure never stops or delays the take", (
   });
 });
 
-describe("the stream sounds like the export", () => {
-  /** The stream's audio chain: its filters from the mic input to `[a]`. */
-  const audioChain = (args: readonly string[]) =>
-    args
-      .join(" ")
-      .match(/\[1:a\](.*?)\[a\]/)![1]!
-      .split(",");
-  const streamLaunch = (r: { windows: ReturnType<typeof fakeWindows> }) =>
-    r.windows.launched.find(isStream) as Extract<Launch, { tool: "ffmpeg" }>;
-  const LIMITER = "alimiter=limit=0.794:attack=5:release=50:level=0:latency=1";
-
-  it("plays the mic through the Mic Offset, the saved Mic EQ, +16 dB and a zero-latency limiter, in that order; the raw mic is untouched", async () => {
-    const r = await ready();
-    await testDb
-      .insert(schema.micEqSettings)
-      .values({ id: MIC_EQ_SETTING_ID, lowDb: -3, midDb: 0, highDb: -6 });
-
-    expect(Either.isRight(await r.goLive())).toBe(true);
-
-    const args = streamLaunch(r).args;
-    const chain = audioChain(args);
-    // The calibrated pair's Mic Offset, 142 ms (`freshCalibration`).
-    expect(chain[0]).toBe("adelay=142:all=1");
-    expect(chain[1]).toBe("aresample=48000");
-    expect(chain[2]).toMatch(/^aiir=z=\S+( \S+)+:p=/);
-    expect(chain.slice(3)).toEqual([
-      "volume=16dB",
-      LIMITER,
-      "aresample=async=1000",
-    ]);
-    expect(args.join(" ")).not.toMatch(/loudnorm|dynaudnorm|acompressor/);
-    // The camera writer's mic (mic.mkv and the stream's feed) is raw.
-    const writer = r.windows.launched.find(isStreamedWriter);
-    if (!writer || !isFfmpeg(writer)) throw new Error("no streamed writer");
-    expect(writer.args.join(" ")).not.toMatch(/aiir|volume=|alimiter/);
-    await r.client.endStream(r.video.id);
-  });
-
-  it("adds no EQ filter for a flat Mic EQ, and reads it once: changing it mid-stream leaves the running stream alone", async () => {
-    const r = await ready();
-    await testDb
-      .insert(schema.micEqSettings)
-      .values({ id: MIC_EQ_SETTING_ID, lowDb: 0, midDb: 0, highDb: 0 });
-    await r.goLive();
-    await vi.waitFor(() =>
-      expect(r.heard.map((m) => m.type)).toContain("recording-started")
-    );
-    const before = [...streamLaunch(r).args];
-    expect(audioChain(before)).toEqual([
-      "adelay=142:all=1",
-      "volume=16dB",
-      LIMITER,
-      "aresample=async=1000",
-    ]);
-
-    await testDb
-      .update(schema.micEqSettings)
-      .set({ lowDb: 3 })
-      .where(eq(schema.micEqSettings.id, MIC_EQ_SETTING_ID));
-    r.windows.streams[0]!.stdout("frame=60\nprogress=continue\n");
-    await vi.waitFor(() =>
-      expect(r.streamStatuses().at(-1)).toEqual({ kind: "live" })
-    );
-
-    expect(r.windows.launched.filter(isStream)).toHaveLength(1);
-    expect(streamLaunch(r).args).toEqual(before);
-    await r.client.endStream(r.video.id);
-  });
-});
-
 /** Every file under `dir`, read whole. */
 const everyFile = (dir: string): string[] =>
   fs
@@ -562,6 +377,8 @@ describe("the Stream Key", () => {
       ...everyFile(r.stateDir),
       ...everyFile(r.folder),
       JSON.stringify(r.heard),
+      // Matched in memory: never sent to YouTube.
+      ...youtube.calls,
     ].join("\n");
     // The take's own log was among what was read.
     expect(fs.readdirSync(r.folder, { recursive: true }).map(String)).toEqual(
