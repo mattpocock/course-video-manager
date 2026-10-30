@@ -24,6 +24,11 @@
       "file": "apps/local/app/routes/api.storage.buckets.$bucketId.files.ts",
       "count": 1,
       "reason": "Live, not background work: the per-bucket page's listing (#2108), the Storage page's read-only walk kept to one Storage Bucket. It is for the person watching the page and must stop when the tab goes, like the scan: the opposite of a Job."
+    },
+    {
+      "file": "apps/local/app/routes/api.streaming.chat.events.ts",
+      "count": 1,
+      "reason": "A live stream, not background work: the Streaming tab hears the picked Broadcast's live chat as it's posted (#2453). It only listens: the app server reads the chat from the pick to End Stream whether or not anyone listens, so closing it cancels nothing."
     }
   ],
   "browser-driver": [
@@ -51,6 +56,11 @@
       "file": "apps/local/app/features/storage/use-bucket-page.ts",
       "count": 1,
       "reason": "Live, not background work: the per-bucket page listens to its read-only listing while open, and closing the stream is what stops the walk (#2108). Stays."
+    },
+    {
+      "file": "apps/local/app/features/streaming/broadcast-chat-view.tsx",
+      "count": 1,
+      "reason": "A live stream, not background work: the Streaming tab shows the picked Broadcast's live chat while it is open (#2453). Closing it cancels nothing; the app server keeps reading the chat until End Stream."
     }
   ],
   "spawn": [
@@ -208,8 +218,8 @@
     },
     {
       "file": "apps/local/app/services/youtube-live-service.ts",
-      "count": 1,
-      "reason": "Quick, and watched: the YouTube Live service lists Matt's Broadcasts for the picker he is looking at (#2451), two small reads. Later tickets add binding and chat for a live Recording Session, which must not wait on a Job."
+      "count": 2,
+      "reason": "Quick, and watched: the YouTube Live service lists Matt's Broadcasts for the picker he is looking at (#2451), two small reads. It also reads the picked Broadcast's live chat for the app server's Broadcast chat (#2453), one streamList connection held open from the pick to End Stream: chat belongs to the live stream, is never stored, and is worth nothing once the stream is over, so it must not wait on a Job."
     }
   ]
 }
