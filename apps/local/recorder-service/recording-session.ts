@@ -20,6 +20,7 @@ import {
 import type { VideoFormat } from "@/features/videos/video-format";
 import type { Scene } from "../app/packages/scene-layout";
 import type { RecordingSessionEvent, RecordingSessionFiles } from "./protocol";
+import type { ChatHighlightEvent } from "./chat-highlight-protocol";
 import { repairFile } from "./footage-repair";
 import { createSpeechDetector } from "./speech-detector";
 import { CAMERA_FPS, countFramesLost } from "./frames-lost";
@@ -30,9 +31,9 @@ import type { StopReason, TakeSettings } from "./take-settings";
  * Record (`armTake`): listening on the camera capture's writer relay,
  * dropping every frame. Record (`begin`) tells it T0, and starts the screen
  * recorder; Stop quits both. The devices stay open throughout, in the
- * capture, and the preview never notices. Everything it reports goes
- * through `log`, which numbers it, appends it to `events.jsonl` and only then
- * hands it on, so nothing is sent that a replay could not send again.
+ * capture, and the preview never notices. All it reports goes through
+ * `log`, which numbers it, appends it to `events.jsonl` and only then hands
+ * it on, so nothing is sent that a replay could not send again.
  */
 
 /** How long `q` gets to close the files before the process is killed. */
@@ -124,6 +125,8 @@ export type RecordingSession = {
   lastSeq: () => number;
   /** Logs a scene change at the picture time it is asked for. */
   switchScene: (scene: Scene) => void;
+  /** Logs a Chat Highlight edge; one still shown is closed at Stop. */
+  chatHighlight: (edge: ChatHighlightEvent) => void;
   /**
    * Stops the take at this moment; done once `recording-stopped` is logged.
    * The files close in the background: the take keeps everything up to the
@@ -311,6 +314,7 @@ const beginTake = (
   const eventLog = path.join(dir, EVENT_LOG_NAME);
 
   let seq = 0;
+  let highlight: string | undefined;
   /** Why the event log could not be written, once it could not. */
   let logFailure: string | undefined;
   // `log` runs inside ffmpeg's stderr listener and promise callbacks, where a
@@ -560,6 +564,13 @@ const beginTake = (
       ]);
       framesLost.stop();
       for (const last of speech.stop(lastFileTime)) log(last);
+      if (highlight)
+        log({
+          type: "chat-highlight-hidden",
+          highlightId: highlight,
+          atMs: t0Ms + lastFileTime * 1000,
+          fileTime: lastFileTime,
+        });
       const captureErrors = o.capture.quitWith() ?? [];
       log({
         type: "recording-stopped",
@@ -624,6 +635,12 @@ const beginTake = (
       // Picture time: the wall clock every process stamps its frames with,
       // less T0 (protocol.ts, TIME BASE).
       log({ type: "scene-changed", scene, fileTime: (o.now() - t0Ms) / 1000 });
+    },
+    chatHighlight: (edge) => {
+      if (ended) return;
+      highlight =
+        edge.type === "chat-highlight-shown" ? edge.highlightId : undefined;
+      log(edge);
     },
     stop: () => stopWith("requested"),
     writerQuit: camera.child.exited.then(() => {}),

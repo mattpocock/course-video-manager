@@ -3,7 +3,12 @@ import type { Scene } from "../app/packages/scene-layout";
 import { quitProcess } from "./camera";
 import { lineSplitter, type LaunchedProcess, type Launcher } from "./launcher";
 import { STREAM_IDLE, type StreamStatus } from "./stream-protocol";
-import { streamArgs, streamSceneCommand, STREAM_TAG } from "./stream-args";
+import {
+  streamArgs,
+  streamSceneCommand,
+  STREAM_TAG,
+  type StreamCard,
+} from "./stream-args";
 import type { StreamFeedPorts } from "./stream-feeds";
 
 /**
@@ -53,6 +58,8 @@ export type StreamStart = {
   /** The ingest address the key goes after (`YOUTUBE_INGEST`). */
   ingest: string;
   streamKey: string;
+  /** The Chat Highlight card feed it reads (`card-feed.ts`). */
+  card: StreamCard;
 };
 
 export const createStreamSide = (o: {
@@ -108,6 +115,7 @@ export const createStreamSide = (o: {
         micOffsetMs: s.micOffsetMs,
         micEq: s.micEq,
         url: `${s.ingest}/${s.streamKey}`,
+        card: s.card,
       }),
       cwd: "/mnt/c",
     });

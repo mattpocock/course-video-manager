@@ -57,16 +57,15 @@ import { createPreviewEncoders } from "./preview-encoders";
  *
  * The screen depends on the Video's format. Landscape records the DELL,
  * checked at Record. A Short records the Spacedesk virtual display: opening
- * looks for it and wakes Spacedesk when it is not listed, beside the camera
- * and outside the command queue, and the state says how that went
- * (`ScreenStatus`, `screen-side.ts`). Without it a Short records camera and mic
- * only, and refuses the scenes that draw the screen.
+ * looks for it and wakes Spacedesk if it is not listed, outside the command
+ * queue, and the state says how that went (`ScreenStatus`, `screen-side.ts`).
+ * Without it a Short records camera and mic only, and refuses the scenes
+ * that draw the screen.
  *
- * The level meter (`level-meter.ts`) holds only the mic, and needs no Video:
- * it runs whether the recorder is closed or open, for the client that started
- * it, until it asks to stop or goes. It and a recording never run together,
- * and neither does an AV Calibration's run, which takes the meter's place
- * while it writes the mic and the camera to files (`calibration-run.ts`).
+ * The level meter (`level-meter.ts`) holds only the mic and needs no Video:
+ * it runs, closed or open, for the client that started it, until it asks to
+ * stop or goes. Neither it nor an AV Calibration's run (`calibration-run.ts`,
+ * which takes its place to write mic and camera files) runs with a take.
  * Go Live starts a streamed Recording Session and a Live Stream (`go-live.ts`).
  */
 
@@ -79,7 +78,7 @@ export type RecorderServiceOptions = {
   launch: Launcher;
   /** Windows wall-clock ms: the clock ffmpeg stamps every input with. */
   now: () => number;
-  /** The service's own files: the last NVIDIA driver, the Recording Session index. */
+  /** Its files: the last NVIDIA driver, the Recording Session index. */
   stateDir: string;
   /** How long one try at the Cam Link waits for its first frame. */
   cameraStartTimeoutMs?: number;
@@ -113,7 +112,7 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
     Extract<RecorderCommand, { type: "prepare-record" }> | undefined;
   let listening: () => void = () => {};
   let session: RecordingSession | undefined;
-  /** Takes stopped and still closing their files (#2211). */
+  /** Takes stopped, still closing their files (#2211). */
   const stopping = createTakeStopping({ rearm: () => rearm() });
   let camera: Camera | undefined;
   const feeds = await startPreviewFeeds();
@@ -136,8 +135,8 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
     verifyClient: ({ origin }: { origin?: string }) =>
       isAllowedOrigin(origin || undefined),
   });
-  // An error event nobody listens for kills the process, and with it the
-  // only thing that can send ffmpeg.exe its `q`. No client may do that.
+  // An error event nobody hears kills the process, and with it the only
+  // thing that can send ffmpeg.exe its `q`. No client may do that.
   wss.on("error", (e) => console.error("recorder: WebSocket server error", e));
   const send = (ws: WebSocket, message: RecorderMessage) => {
     if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(message));
@@ -243,6 +242,7 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
 
   const live = createGoLive({
     launch: o.launch,
+    now: o.now,
     ingest: o.streamIngest,
     listenBoundMs: o.streamListenBoundMs,
     onStatus: (stream) => {
@@ -277,7 +277,7 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
     rearm();
   };
 
-  /** Stop (`take-stopping.ts`): open again at the press, the take finalising behind. */
+  /** Stop (`take-stopping.ts`): open at the press, the take finalising behind. */
   const stopTake = (streamEnded = STREAM_ENDED.requested) => {
     if (!session || state.kind !== "recording")
       throw new Refusal("Not recording.");
@@ -502,6 +502,9 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
         return live.goLive(command, forGoLive);
       case "end-stream":
         return live.endStream(forGoLive);
+      case "show-highlight":
+      case "hide-highlight":
+        return live.highlight(command, (m) => send(ws, m));
       case "close":
         if (state.kind === "recording")
           throw new Refusal("Stop recording before closing the recorder.");
@@ -514,9 +517,9 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
   };
 
   let recovered: string[] = [];
-  // Crash recovery runs before any command and any greeting, so a client
-  // hears of every Recording Session it repaired. Only once listening: a
-  // second service that cannot take the port must not touch the files.
+  // Crash recovery runs before any command or greeting, so a client hears
+  // of every Recording Session it repaired; only once listening, so a second
+  // service that cannot take the port never touches the files.
   let queue: Promise<void> = Promise.resolve();
   const recovering = new Promise<void>((resolve) => {
     listening = resolve;

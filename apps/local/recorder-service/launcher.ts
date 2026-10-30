@@ -2,7 +2,8 @@
  * THE PROCESS LAUNCHER: the recorder service's one way to start a process,
  * and so the one seam its tests fake (`recorder-service.test.ts` scripts a
  * fake ffmpeg.exe here). Everything the service runs is a Windows .exe reached
- * through WSL interop; the production half is `windows-launcher.ts`.
+ * through WSL interop, but for the Chat Highlight card server, a Node process
+ * in WSL; the production half is `windows-launcher.ts`.
  */
 
 export type PowerShellScript =
@@ -16,7 +17,9 @@ export type Launch =
   | { tool: "ffmpeg"; args: readonly string[]; cwd: string }
   | { tool: "nvidia-smi"; args: readonly string[] }
   /** One of this folder's PowerShell scripts, with its parameters. */
-  | { tool: "powershell"; script: PowerShellScript; args: readonly string[] };
+  | { tool: "powershell"; script: PowerShellScript; args: readonly string[] }
+  /** The overlay renderer's Chat Highlight card server (`card-server.mjs`). */
+  | { tool: "card-server"; args: readonly string[] };
 
 export interface LaunchedProcess {
   onStdout(listener: (chunk: string) => void): void;

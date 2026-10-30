@@ -33,6 +33,12 @@ export const findFfmpegExe = (): string | undefined => {
     .find((exe) => fs.existsSync(exe));
 };
 
+/** The overlay renderer package: the card server runs from it, so Remotion's browser is its own. */
+const OVERLAY_RENDERER = path.resolve(
+  import.meta.dirname,
+  "../../../packages/overlay-renderer"
+);
+
 const toWindowsPath = (wslPath: string) =>
   execFileSync("wslpath", ["-w", wslPath], { encoding: "utf8" }).trim();
 
@@ -66,6 +72,13 @@ const command = (
           ...launch.args,
         ],
         cwd: "/mnt/c",
+      };
+    case "card-server":
+      // Node in WSL, not a Windows exe; it lowers its own priority.
+      return {
+        file: process.execPath,
+        args: [path.join(OVERLAY_RENDERER, "card-server.mjs"), ...launch.args],
+        cwd: OVERLAY_RENDERER,
       };
   }
 };

@@ -86,6 +86,29 @@ export const easeOverlayTransformProgress = (ramp: number): number => {
 };
 
 /**
+ * ANY unit cubic-bezier as an ease, for curves whose x control points differ
+ * (the Chat Highlight's `cubic-bezier(0.23, 1, 0.32, 1)`), which the closed
+ * form above cannot invert. Same curve definition ({@link bezierAxis}); x is
+ * inverted by bisection, which is fine in JavaScript, where nothing has to
+ * spell it as an ffmpeg expression. Forty halvings put `s` within 1e-12.
+ * Both x control points must be in [0, 1], so x rises with `s`.
+ */
+export const cubicBezierEase =
+  (p: { x1: number; y1: number; x2: number; y2: number }) =>
+  (ramp: number): number => {
+    const x = Math.min(1, Math.max(0, ramp));
+    if (x === 0 || x === 1) return x;
+    let lo = 0;
+    let hi = 1;
+    for (let i = 0; i < 40; i++) {
+      const mid = (lo + hi) / 2;
+      if (bezierAxis(mid, p.x1, p.x2) < x) lo = mid;
+      else hi = mid;
+    }
+    return bezierAxis((lo + hi) / 2, p.y1, p.y2);
+  };
+
+/**
  * Numbers as the filter graph spells them: fixed notation, never exponential,
  * for the same reason `overlay-compositing.ts` formats seconds that way —
  * ffmpeg's expression parser reads `1e-7` as an identifier minus a number.

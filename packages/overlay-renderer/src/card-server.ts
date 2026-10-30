@@ -4,6 +4,7 @@ import readline from "node:readline";
 import { fileURLToPath } from "node:url";
 import { bundle } from "@remotion/bundler";
 import {
+  ensureBrowser,
   openBrowser,
   renderStill,
   selectComposition,
@@ -41,9 +42,17 @@ stdout lines (JSON):
 
 stdin lines (JSON):
   {"id":"<string>","author":"<string>","text":"<string>"}
+  quit                                (as closing stdin: finish, then exit)
 
 The PNG is the card's settled frame on a transparent canvas of the ready
 line's fixed size. The card sits at the canvas's bottom left.`;
+
+/**
+ * Why the card server will not start: Chrome Headless Shell (~109 MB) is not
+ * downloaded. It is fetched once, ahead, never when Matt goes live.
+ */
+export const BROWSER_MISSING =
+  "Chrome Headless Shell is not downloaded: run `pnpm --filter @cvm/overlay-renderer browser:ensure` once, online.";
 
 const requestSchema = chatHighlightCardSchema.extend({ id: z.string() });
 
@@ -95,6 +104,15 @@ export const main = async (argv: string[]): Promise<void> => {
   // (nice 19 on Linux, idle on Windows) and yields to the recorder.
   // Set before Chromium launches, so its processes inherit the priority.
   os.setPriority(os.constants.priority.PRIORITY_LOW);
+
+  // Never a download here: Remotion would fetch the browser on first use,
+  // which at Go Live means ~109 MB before the first card. It is fetched
+  // ahead (`browser:ensure`), or the card server says so and quits.
+  await ensureBrowser({
+    onBrowserDownload: () => {
+      throw new Error(BROWSER_MISSING);
+    },
+  });
 
   const serveUrl = await bundle({
     entryPoint,
@@ -177,6 +195,8 @@ export const main = async (argv: string[]): Promise<void> => {
   const lines = readline.createInterface({ input: process.stdin });
   lines.on("line", (line) => {
     if (line.trim() === "") return;
+    // A parent that cannot close our stdin (the recorder's launcher) says so.
+    if (line.trim() === "quit") return void lines.close();
     queue = queue.then(() => answer(line));
   });
   await new Promise<void>((resolve) => lines.once("close", resolve));

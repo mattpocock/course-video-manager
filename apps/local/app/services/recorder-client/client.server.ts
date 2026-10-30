@@ -401,7 +401,9 @@ export const createRecorderClient = (o: RecorderClientOptions) => {
       case "camera-lost":
       case "frames-lost":
       case "recording-stopped":
-      case "recording-crashed": {
+      case "recording-crashed":
+      case "chat-highlight-shown":
+      case "chat-highlight-hidden": {
         const { ready, replay } = sequencer.accept(message);
         if (replay) send({ type: "replay", ...replay });
         for (const event of ready) ingest(event);

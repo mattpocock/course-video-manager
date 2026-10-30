@@ -122,6 +122,13 @@ export const envFile = (withKey: boolean) => {
   return file;
 };
 
+/** A stand-in for the card server's downloaded browser: only its existence is checked. */
+export const cardBrowserFile = () => {
+  const file = path.join(tmp(), "chrome-headless-shell");
+  fs.writeFileSync(file, "");
+  return file;
+};
+
 const run = <A, E>(
   effect: Effect.Effect<A, E, LinkAuthOperationsService | DrizzleService>
 ) =>
@@ -210,6 +217,7 @@ export const ready = async (
         silenceLength: "short",
         folder,
         envPath: envFile(true),
+        cardBrowser: cardBrowserFile(),
         now: NOW,
         ...more,
       })

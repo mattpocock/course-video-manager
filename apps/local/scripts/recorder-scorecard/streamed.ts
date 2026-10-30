@@ -1,3 +1,5 @@
+import { execFileSync } from "node:child_process";
+import path from "node:path";
 import { DEFAULT_MIC_EQ } from "@cvm/core/features/videos/recorder";
 import type { RecorderMessage } from "../../recorder-service/protocol";
 import { findFfmpegExe } from "../../recorder-service/windows-launcher";
@@ -22,8 +24,9 @@ import { windowsGuard } from "./windows";
  * stream's own picture: frames per second of wall time, duplicated and
  * dropped frames.
  *
- * `during` runs while the Live Stream is live: #2461's Chat Highlight
- * checks (click-to-on-screen time, monotonic card opacity) go there.
+ * `during` runs while the Live Stream is live (#2461's Chat Highlight
+ * clicks, `card-checks.ts`); what it returns runs once End Stream is done
+ * and the sink has closed its copy of the stream (`sinkFile`).
  */
 
 /** Frames after it goes live that the rate leaves out: its encoder settling. */
@@ -33,10 +36,13 @@ const streamOf = (m: RecorderMessage) =>
   m.type === "state" && m.state.kind !== "closed" ? m.state.stream : undefined;
 
 /** The sink: a Windows ffmpeg.exe that takes the push and counts its frames. */
-const startSink = (ctx: Ctx, port: number) => {
+const startSink = (ctx: Ctx, port: number, file: string) => {
   const exe = findFfmpegExe();
   if (!exe) throw new Error("ffmpeg.exe not found for the stream sink");
-  const child = windowsGuard().spawn(exe, sinkArgs(port, ctx.marker), {
+  const winFile = execFileSync("wslpath", ["-w", file], {
+    encoding: "utf8",
+  }).trim();
+  const child = windowsGuard().spawn(exe, sinkArgs(port, ctx.marker, winFile), {
     cwd: "/mnt/c",
   });
   const progress = readProgress();
@@ -149,18 +155,23 @@ export const streamed = async (
   ctx: Ctx,
   seconds: number,
   sinkPort: number,
-  during: (live: { liveAt: number }) => Promise<void> = async () => {}
+  during: (live: {
+    liveAt: number;
+    sinkFile: string;
+  }) => Promise<void | (() => Promise<void>)> = async () => {}
 ) => {
   ctx.log(`streamed: a ${seconds} s Live Stream, pushed to a local sink`);
   await sleep(2000);
-  const sink = startSink(ctx, sinkPort);
+  // Beside the footage, on WSL's disk: never a Windows drive.
+  const sinkFile = path.join(path.dirname(ctx.footageDir), "sink.flv");
+  const sink = startSink(ctx, sinkPort, sinkFile);
   const progress = readProgress();
   const unwatch = ctx.service.onStreamProgress((chunk) =>
     progress.push(chunk, performance.now())
   );
   try {
     const { go, answer, started, live } = await goLive(ctx);
-    await during({ liveAt: live?.at ?? NaN });
+    const afterEnd = await during({ liveAt: live?.at ?? NaN, sinkFile });
     await hold(ctx, Math.max(0, seconds * 1000 - (performance.now() - go.at)));
 
     const end = ctx.client.send({ type: "end-stream" });
@@ -218,6 +229,7 @@ export const streamed = async (
         t0Ms: started.t0Ms,
       }),
     };
+    if (afterEnd) await afterEnd();
     if (!live) throw new Error("The Live Stream never went live");
     if (sink.frames() === 0)
       throw new Error("The local sink received no frame of the Live Stream");

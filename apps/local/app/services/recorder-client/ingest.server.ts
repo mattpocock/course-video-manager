@@ -24,6 +24,7 @@ import { withDbTransaction } from "@/services/with-db-transaction.server";
 import { pairMicOffsetMs } from "@/services/av-calibration.server";
 import { DEFAULT_MIC_OFFSET_MS } from "@cvm/core/features/videos/recorder";
 import type { SequencedEvent } from "./sequencer";
+import { ingestChatHighlight } from "./ingest-chat-highlight.server";
 
 /**
  * What one recorder event means for the database: a Recording Session row
@@ -182,6 +183,10 @@ export const ingestRecorderEvent = Effect.fn("ingestRecorderEvent")(function* (
 
   switch (event.type) {
     case "screen-recorder-tuned":
+      return nothing;
+    case "chat-highlight-shown":
+    case "chat-highlight-hidden":
+      yield* ingestChatHighlight(db, event, videoId);
       return nothing;
     case "scene-changed":
       // One row per logged event: its id is the event's (Recording Session,

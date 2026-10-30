@@ -28,6 +28,7 @@ import {
   STREAM_KEY_MISSING,
   STREAM_KEY_SETTING,
 } from "@/services/stream-key.server";
+import { cardBrowserRefusal } from "@/services/card-browser.server";
 import type { RecorderClient } from "./client.server";
 import { requireRecordableVideo } from "./record-guard.server";
 import { recorderCommand } from "./recorder-command";
@@ -150,6 +151,8 @@ export const goLive = Effect.fn("goLive")(function* (o: {
   folder: string;
   /** The `.env` the Stream Key is read from (default: the repo root's). */
   envPath?: string;
+  /** The card server's browser (default: `cardBrowserPath()`). */
+  cardBrowser?: string;
   now: Date;
 }) {
   const { format } = yield* requireRecordableVideo(o.db, o.videoId);
@@ -165,6 +168,7 @@ export const goLive = Effect.fn("goLive")(function* (o: {
     ...new Set([...picked.reasons, ...keys.reasons]),
     ...(Option.isNone(streamKey) ? [STREAM_KEY_MISSING] : []),
     ...(Either.isLeft(calibration) ? [calibration.left.message] : []),
+    ...cardBrowserRefusal(o.cardBrowser),
     ...o.client.goLiveRefusals(o.videoId, format),
   ];
   if (

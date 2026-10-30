@@ -31,6 +31,7 @@ import { eventLogFailure, idle, longTake, previewKill } from "./scenarios";
 import { connect, isState, startService } from "./service-control";
 import { sinkIngest } from "./stream-sink";
 import { streamed } from "./streamed";
+import { cardChecks } from "./card-checks";
 import { SYNTHETIC_THRESHOLD_DB } from "./synthetic-sources";
 import { Aborted, openRecorder, sleep, watchFeeds, type Ctx } from "./takes";
 import {
@@ -240,7 +241,10 @@ const main = async () => {
     ["longTake", () => longTake(ctx, longTakeSeconds, gpuBefore)],
     ["previewKill", () => previewKill(ctx, 15, faultRepeats)],
     ["eventLogFailure", () => eventLogFailure(ctx)],
-    ["streamed", () => streamed(ctx, streamTakeSeconds, sinkPort)],
+    [
+      "streamed",
+      () => streamed(ctx, streamTakeSeconds, sinkPort, cardChecks(ctx)),
+    ],
     ["cycles", () => cycles(ctx, cycleCount)],
     [
       "crash",

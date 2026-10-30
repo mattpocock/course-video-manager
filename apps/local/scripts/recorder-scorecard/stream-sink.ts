@@ -19,10 +19,10 @@ export const sinkIngest = (port: number) => `rtmp://127.0.0.1:${port}/live`;
 
 /**
  * The sink, an ffmpeg.exe on Windows (where the stream process runs): it
- * listens once, takes the push, throws the packets away and counts them on
- * its own `-progress`.
+ * listens once, takes the push, copies it to `file` (a Windows path, on
+ * WSL's disk) and counts its frames on its own `-progress`.
  */
-export const sinkArgs = (port: number, marker: string) => [
+export const sinkArgs = (port: number, marker: string, file: string) => [
   "-hide_banner",
   "-nostats",
   "-loglevel",
@@ -31,6 +31,8 @@ export const sinkArgs = (port: number, marker: string) => [
   "pipe:1",
   "-stats_period",
   "1",
+  // The stream's own stamps, its file time, kept in the file.
+  "-copyts",
   "-listen",
   "1",
   "-f",
@@ -41,9 +43,11 @@ export const sinkArgs = (port: number, marker: string) => [
   "copy",
   "-metadata",
   `comment=cvm-scorecard-sink ${marker}`,
+  // Kept (a stream copy, no decode) so the card checks can read the picture.
   "-f",
-  "null",
-  "-",
+  "flv",
+  "-y",
+  file,
 ];
 
 /** A process that never started: it says why on stderr, then "exits" 1. */

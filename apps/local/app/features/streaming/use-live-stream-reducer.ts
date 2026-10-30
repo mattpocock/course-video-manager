@@ -90,6 +90,34 @@ export function useLiveStreamReducer() {
           dispatch({ type: "go-live-refused", message: messageOf(e) })
         );
     },
+    // `routes/api.videos.$videoId.recorder.show-highlight.ts`
+    "show-highlight": (_state, { videoId, messageId }, dispatch) => {
+      fetch(
+        `/api/videos/${videoId}/recorder/show-highlight`,
+        postJson({ messageId })
+      )
+        .then(async (response) => {
+          await answered(response);
+          const { highlightId } = (await response.json()) as {
+            highlightId: string;
+          };
+          dispatch({ type: "chat-highlight-shown", messageId, highlightId });
+        })
+        .catch((e: unknown) =>
+          dispatch({ type: "chat-highlight-failed", message: messageOf(e) })
+        );
+    },
+    "hide-highlight": (_state, { videoId, highlightId }, dispatch) => {
+      fetch(
+        `/api/videos/${videoId}/recorder/hide-highlight`,
+        postJson({ highlightId })
+      )
+        .then(answered)
+        .then(() => dispatch({ type: "chat-highlight-hidden", highlightId }))
+        .catch((e: unknown) =>
+          dispatch({ type: "chat-highlight-failed", message: messageOf(e) })
+        );
+    },
     "end-stream": (_state, effect, dispatch) => {
       fetch(`/api/videos/${effect.videoId}/recorder/end-stream`, postJson({}))
         .then(answered)

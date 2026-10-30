@@ -316,6 +316,13 @@
       "when": 1793288020922,
       "tag": "0044_agent_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1793395610323,
+      "tag": "0045_chat_highlight",
+      "breakpoints": true
     }
   ]
 }

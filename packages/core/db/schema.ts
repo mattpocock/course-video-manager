@@ -670,6 +670,46 @@ export const recordingSessionSceneEvents = createTable(
 );
 
 /**
+ * A CHAT HIGHLIGHT (GLOSSARY): a Broadcast chat message Matt showed on the
+ * Live Stream picture, one row per showing. It belongs to the streamed
+ * Recording Session (and so to its Video, whose Draft guard it goes through).
+ * The author and text are as the card showed them. `shownAtMs` and
+ * `hiddenAtMs` are when the card went on and off the picture, on the
+ * recorder's Windows clock, the clock T0 is on: its place in the Footage is
+ * `shownAtMs - t0Ms`. Null `hiddenAtMs`: still showing. It is never an
+ * Overlay and never in an Export Hash; it may be made one later, on request.
+ */
+export const chatHighlights = createTable(
+  "chat_highlight",
+  {
+    id: varchar("id", { length: 255 })
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    /** As the Recording Session's: cleared, not cascaded, when the Video row goes. */
+    videoId: varchar("video_id", { length: 255 }).references(() => videos.id, {
+      onDelete: "set null",
+    }),
+    recordingSessionId: varchar("recording_session_id", { length: 255 })
+      .references(() => recordingSessions.id, { onDelete: "cascade" })
+      .notNull(),
+    broadcastId: text("broadcast_id").notNull(),
+    /** YouTube's id of the chat message. */
+    messageId: text("message_id").notNull(),
+    author: text("author").notNull(),
+    text: text("text").notNull(),
+    shownAtMs: doublePrecision("shown_at_ms").notNull(),
+    hiddenAtMs: doublePrecision("hidden_at_ms"),
+  },
+  (table) => [
+    index("chat_highlight_session_shown_idx").on(
+      table.recordingSessionId,
+      table.shownAtMs
+    ),
+  ]
+);
+
+/**
  * Web pages that were on screen (in a focused Chrome window) while a clip was
  * being recorded. Captured live during the optimistic-clip lifecycle from the
  * browser link-capture extension, one row per distinct URL shown during the

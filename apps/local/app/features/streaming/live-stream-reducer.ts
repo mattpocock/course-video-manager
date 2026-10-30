@@ -12,14 +12,21 @@ import type {
   BroadcastPick,
   ChatSnapshot,
 } from "./broadcast-chat";
+import {
+  chatHighlightReducer,
+  NO_CHAT_HIGHLIGHT,
+  type ChatHighlightAction,
+  type ChatHighlightEffect,
+  type ChatHighlightState,
+} from "./chat-highlight-reducer";
 
 /**
  * The app-wide Live Stream surface, mounted at the app root like the Upload
  * Manager's Jobs, so what it holds survives leaving the Streaming tab. It
  * holds the Broadcast picker, the picked **Broadcast** and its chat buffer,
  * and **Go Live** / **End Stream** with the Live Stream's status as the
- * recorder says it; later tickets add its health and the current Chat
- * Highlight (spec #2445). The app server reads the chat (`services/
+ * recorder says it, and the **Chat Highlight** showing
+ * (`chat-highlight-reducer.ts`); a later ticket adds its health (spec #2445). The app server reads the chat (`services/
  * broadcast-chat.ts`); this buffer is what the Streaming tab has heard of
  * it. Go Live is sent whatever is missing: the app server answers with every
  * reason that applies at once (ADR 0054).
@@ -45,6 +52,8 @@ export namespace liveStreamReducer {
     pending: "going-live" | "ending" | null;
     /** Why the last Go Live or End Stream did not happen, until the next press. */
     refusal: string | null;
+    /** The chat message on the Live Stream picture, if one is. */
+    highlight: ChatHighlightState;
   };
 
   export type Action =
@@ -67,7 +76,8 @@ export namespace liveStreamReducer {
     | { type: "go-live-refused"; message: string }
     | { type: "end-stream-pressed"; videoId: string }
     | { type: "end-stream-answered" }
-    | { type: "end-stream-failed"; message: string };
+    | { type: "end-stream-failed"; message: string }
+    | ChatHighlightAction;
 
   export type Effect =
     | { type: "list-broadcasts" }
@@ -80,7 +90,8 @@ export namespace liveStreamReducer {
         broadcastId: string | null;
         silenceLength: SilenceLength;
       }
-    | { type: "end-stream"; videoId: string };
+    | { type: "end-stream"; videoId: string }
+    | ChatHighlightEffect;
 }
 
 type State = liveStreamReducer.State;
@@ -94,6 +105,7 @@ export const createInitialLiveStreamState = (): State => ({
   stream: null,
   pending: null,
   refusal: null,
+  highlight: NO_CHAT_HIGHLIGHT,
   chat: { broadcastId: null, connection: { state: "idle" }, messages: [] },
 });
 
@@ -233,6 +245,11 @@ export const liveStreamReducer: EffectReducer<State, Action, Effect> = (
     case "end-stream-failed":
     case "end-stream-pressed":
       return goLiveReducer(state, action, exec);
+    case "chat-message-clicked":
+    case "chat-highlight-shown":
+    case "chat-highlight-hidden":
+    case "chat-highlight-failed":
+      return chatHighlightReducer(state, action, exec);
   }
 };
 
@@ -255,14 +272,20 @@ const goLiveReducer = (
   exec: (effect: Effect) => void
 ): State => {
   switch (action.type) {
-    case "stream-status-heard":
-      return {
+    case "stream-status-heard": {
+      const next: State = {
         ...state,
         stream:
           action.status === null
             ? null
             : { videoId: action.videoId, status: action.status },
       };
+      // A Live Stream that ended took its Chat Highlight with it (the
+      // recorder closed it at the stop).
+      return isLiveOn(next, action.videoId)
+        ? next
+        : { ...next, highlight: NO_CHAT_HIGHLIGHT };
+    }
     case "go-live-pressed":
       if (state.pending || isLiveOn(state, action.videoId)) return state;
       exec({
