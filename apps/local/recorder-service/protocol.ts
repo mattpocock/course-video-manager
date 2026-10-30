@@ -3,7 +3,11 @@ import type { Scene } from "../app/packages/scene-layout";
 import type { SilenceLength } from "../app/silence-detection-constants";
 import type { LastPassedCalibration } from "../app/av-calibration-constants";
 import type { ClapMark } from "../app/packages/clap-detection/live";
-import type { StreamCommand, StreamStatus } from "./stream-protocol";
+import type {
+  StreamCommand,
+  StreamHealthMessage,
+  StreamStatus,
+} from "./stream-protocol";
 
 /**
  * THE RECORDER SERVICE'S WIRE: what a client (the app server's recorder
@@ -447,6 +451,7 @@ export type RecorderStatusMessage =
   /** A Stream Deck press the recorder did nothing about, and why. Broadcast. */
   | { type: "stream-deck-ignored"; press: StreamDeckPress; message: string }
   | { type: "replay-done"; recordingSessionId: string; lastSeq: number }
+  | StreamHealthMessage
   /** The level meter: started (on this mic), a reading, stopped. Broadcast. */
   | { type: "meter-started"; mic: string }
   | ({ type: "meter-reading" } & MeterReading)

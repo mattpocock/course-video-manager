@@ -1,5 +1,8 @@
 import type { EffectReducer } from "use-effect-reducer";
-import type { StreamStatus } from "recorder-service/stream-protocol";
+import type {
+  StreamHealth,
+  StreamStatus,
+} from "recorder-service/stream-protocol";
 import type { SilenceLength } from "@/silence-detection-constants";
 import {
   broadcastRefusal,
@@ -18,7 +21,7 @@ import type {
  * Manager's Jobs, so what it holds survives leaving the Streaming tab. It
  * holds the Broadcast picker, the picked **Broadcast** and its chat buffer,
  * and **Go Live** / **End Stream** with the Live Stream's status as the
- * recorder says it; later tickets add its health and the current Chat
+ * recorder says it, and its health; later tickets add the current Chat
  * Highlight (spec #2445). The app server reads the chat (`services/
  * broadcast-chat.ts`); this buffer is what the Streaming tab has heard of
  * it. Go Live is sent whatever is missing: the app server answers with every
@@ -41,6 +44,8 @@ export namespace liveStreamReducer {
     chat: ChatSnapshot;
     /** The Live Stream, as the recorder last said, and the Video it is open for. */
     stream: { videoId: string; status: StreamStatus } | null;
+    /** The Live Stream's health as the recorder last said, for the health line; null from Go Live until it says. */
+    health: { videoId: string; health: StreamHealth } | null;
     /** Go Live or End Stream was pressed and the app server has not answered. */
     pending: "going-live" | "ending" | null;
     /** Why the last Go Live or End Stream did not happen, until the next press. */
@@ -62,6 +67,8 @@ export namespace liveStreamReducer {
         videoId: string;
         status: StreamStatus | null;
       }
+    /** The Streaming tab's recorder said the Live Stream's health. */
+    | { type: "stream-health-heard"; videoId: string; health: StreamHealth }
     | { type: "go-live-pressed"; videoId: string; silenceLength: SilenceLength }
     | { type: "go-live-answered" }
     | { type: "go-live-refused"; message: string }
@@ -92,6 +99,7 @@ export const createInitialLiveStreamState = (): State => ({
   listing: false,
   pickedBroadcast: null,
   stream: null,
+  health: null,
   pending: null,
   refusal: null,
   chat: { broadcastId: null, connection: { state: "idle" }, messages: [] },
@@ -225,6 +233,11 @@ export const liveStreamReducer: EffectReducer<State, Action, Effect> = (
     case "chat-message-received":
     case "chat-connection-changed":
       return chatHeard(state, action);
+    case "stream-health-heard":
+      return {
+        ...state,
+        health: { videoId: action.videoId, health: action.health },
+      };
     case "stream-status-heard":
     case "go-live-pressed":
     case "go-live-answered":
@@ -271,7 +284,7 @@ const goLiveReducer = (
         broadcastId: state.pickedBroadcast?.id ?? null,
         silenceLength: action.silenceLength,
       });
-      return { ...state, pending: "going-live", refusal: null };
+      return { ...state, pending: "going-live", refusal: null, health: null };
     case "go-live-answered":
     case "end-stream-answered":
       return { ...state, pending: null };
