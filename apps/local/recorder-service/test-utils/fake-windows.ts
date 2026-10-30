@@ -3,6 +3,7 @@ import path from "node:path";
 import net from "node:net";
 import { CAPTURE_TAG, PREVIEW_TAGS } from "../capture-args";
 import { STREAM_TAG } from "../stream-args";
+import { playCardServer, readCardFeed } from "./fake-card-server";
 import type { Launch, LaunchedProcess, Launcher } from "../launcher";
 import { flvHeader, flvVideoTag } from "./flv";
 
@@ -350,6 +351,10 @@ export const fakeWindows = (
   const screenPreviews: FakeProcess[] = [];
   /** Each Live Stream process, in launch order. */
   const streams: FakeProcess[] = [];
+  /** Each one's reading of its card feed. */
+  const cardFeeds: ReturnType<typeof readCardFeed>[] = [];
+  /** Each Chat Highlight card server, in launch order. */
+  const cardServers: FakeProcess[] = [];
   const cameraTries = [...(o.cameraTries ?? [])];
   const launchedProcesses: FakeProcess[] = [];
   const launch: Launcher = (l) => {
@@ -357,6 +362,11 @@ export const fakeWindows = (
     launchedProcesses.push(p);
     if (l.tool === "nvidia-smi")
       return answer(p, { stdout: `${o.driver ?? "591.74"}\r\n` });
+    if (l.tool === "card-server") {
+      cardServers.push(p);
+      playCardServer(p);
+      return p;
+    }
     if (l.tool === "powershell" && l.script === "screens.ps1") {
       // The older 7-column listing for the first two, as a Windows with an
       // old screens.ps1 would print them; the adapter column after that.
@@ -473,6 +483,7 @@ export const fakeWindows = (
     if (tagged(l, STREAM_TAG)) {
       streams.push(p);
       p.stuck = o.stream === "never";
+      if (o.stream !== "never") cardFeeds.push(readCardFeed(p, l.args));
       if (o.stream !== "never")
         setImmediate(() =>
           p.stderr(
@@ -591,6 +602,8 @@ export const fakeWindows = (
     cameraPreviews,
     screenPreviews,
     streams,
+    cardFeeds,
+    cardServers,
     armedWriters,
     camerasRunning,
     meter,

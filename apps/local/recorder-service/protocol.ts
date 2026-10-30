@@ -8,6 +8,10 @@ import type {
   StreamHealthMessage,
   StreamStatus,
 } from "./stream-protocol";
+import type {
+  ChatHighlightCommand,
+  ChatHighlightEvent,
+} from "./chat-highlight-protocol";
 
 /**
  * THE RECORDER SERVICE'S WIRE: what a client (the app server's recorder
@@ -68,11 +72,12 @@ export const IDLE_STOP = { type: "idle-stop" } as const;
  * counted, and the capture and writer at High priority; 17: `frames-lost`
  * and `recording-stopped` carry where in the take each loss fell,
  * `lostFrameSpans`; 18: the Live Stream, `start-stream`, `end-stream` and
- * the state's `stream`). The app server reloads on a change and the service does not
+ * the state's `stream`; 19: Chat Highlights,
+ * `chat-highlight-protocol.ts`). The app server reloads on a change and the service does not
  * (ADR 0035), so after a pull mid-session the app may meet a service started
  * from older code; `hello` says which wire it speaks (none before 2).
  */
-export const RECORDER_PROTOCOL_VERSION = 18;
+export const RECORDER_PROTOCOL_VERSION = 19;
 
 export const PREVIEW_FEEDS = ["camera", "screen"] as const;
 export type PreviewFeed = (typeof PREVIEW_FEEDS)[number];
@@ -226,7 +231,8 @@ export type RecorderCommand =
   /** End the run and delete its file: a cancelled calibration keeps nothing. */
   | { type: "cancel-calibration" }
   /** Go Live and End Stream (`stream-protocol.ts`). */
-  | StreamCommand;
+  | StreamCommand
+  | ChatHighlightCommand;
 
 /** A stretch of a calibration's mic file, in its seconds. */
 export type CalibrationWindow = { startSeconds: number; endSeconds: number };
@@ -331,6 +337,8 @@ export type RecordingSessionEvent = Logged<
    * logs the scene it starts in at 0, right after `recording-started`.
    */
   | { type: "scene-changed"; scene: Scene; fileTime: number }
+  /** A Chat Highlight went on or off the Live Stream picture. */
+  | ChatHighlightEvent
   /**
    * Frames were lost mid-take (#2214): the running totals so far, and every
    * span lost so far (#2227), sent at once so the editor can alert while the

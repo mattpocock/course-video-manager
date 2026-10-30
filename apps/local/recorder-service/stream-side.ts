@@ -7,7 +7,12 @@ import {
   type StreamHealth,
   type StreamStatus,
 } from "./stream-protocol";
-import { streamArgs, streamSceneCommand, STREAM_TAG } from "./stream-args";
+import {
+  streamArgs,
+  streamSceneCommand,
+  STREAM_TAG,
+  type StreamCard,
+} from "./stream-args";
 import type { StreamFeedPorts } from "./stream-feeds";
 import {
   NO_HEALTH,
@@ -103,6 +108,8 @@ export type StreamStart = {
   /** The ingest address the key goes after (`YOUTUBE_INGEST`). */
   ingest: string;
   streamKey: string;
+  /** The Chat Highlight card feed it reads (`card-feed.ts`). */
+  card: StreamCard;
 };
 
 /** One stream process, of the Live Stream's one or more. */
@@ -149,6 +156,8 @@ export const createStreamSide = (o: {
   stallMs?: number;
   /** The streamed Recording Session's file time now (s), once it records. */
   fileTime: () => number | null;
+  /** A process is launching, its picture starting at this file time (s). */
+  onLaunch?: (startSeconds: number) => void;
 }) => {
   const stallMs = o.stallMs ?? STREAM_STALL_MS;
   let status: StreamStatus = STREAM_IDLE;
@@ -205,8 +214,13 @@ export const createStreamSide = (o: {
   const launchOne = (
     s: StreamStart,
     log: (line: string) => void,
-    startSeconds?: number
+    relaunchAt?: number
   ) => {
+    // To the millisecond, as the graph spells it, so the card feed (told
+    // here) stamps its frames on exactly the canvas's clock.
+    const startSeconds =
+      relaunchAt === undefined ? undefined : Number(relaunchAt.toFixed(3));
+    o.onLaunch?.(startSeconds ?? 0);
     const p = o.launch({
       tool: "ffmpeg",
       args: streamArgs({
@@ -215,6 +229,7 @@ export const createStreamSide = (o: {
         micOffsetMs: s.micOffsetMs,
         micEq: s.micEq,
         url: `${s.ingest}/${s.streamKey}`,
+        card: s.card,
         startSeconds,
       }),
       cwd: "/mnt/c",

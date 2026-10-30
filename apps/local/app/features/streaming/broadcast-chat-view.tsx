@@ -1,7 +1,10 @@
 import { useEffect, useRef } from "react";
+import { useContextSelector } from "use-context-selector";
 import { MessageSquareIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { VideoEditorContext } from "@/features/video-editor/video-editor-context";
 import { useLiveStream } from "./live-stream-context";
+import { chatRows } from "./chat-highlight-reducer";
 import {
   BROADCAST_CHAT_EVENT_TYPES,
   type BroadcastChatEvent,
@@ -53,10 +56,13 @@ const connectionLine = (
 /**
  * The picked Broadcast's live chat on the Streaming tab, as it's posted. The
  * app server reads it whether or not this shows; on mount this listens and
- * hears everything the app server kept first.
+ * hears everything the app server kept first. While live, clicking a message
+ * shows it on the stream picture as a Chat Highlight, and clicking it again
+ * hides it (`chat-highlight-reducer.ts`).
  */
 export const BroadcastChatView = () => {
   const { state, dispatch } = useLiveStream();
+  const videoId = useContextSelector(VideoEditorContext, (ctx) => ctx.videoId);
   const bottom = useRef<HTMLLIElement>(null);
 
   // Bridges the app server's chat into the Live Stream surface.
@@ -78,6 +84,7 @@ export const BroadcastChatView = () => {
   }, [messages]);
 
   const line = connectionLine(connection);
+  const { error } = state.highlight;
 
   return (
     <div
@@ -98,16 +105,39 @@ export const BroadcastChatView = () => {
           {line.text}
         </p>
       )}
+      {error && <p className="text-xs shrink-0 text-amber-600">{error}</p>}
       {messages.length === 0 && connection.state === "streaming" && (
         <p className="text-xs text-muted-foreground">No messages yet.</p>
       )}
       <ul className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-1.5 text-sm">
-        {messages.map((message) => (
-          <li key={message.id} className="break-words">
-            <span className="font-medium text-muted-foreground mr-1.5">
-              {message.author}
-            </span>
-            <span>{message.text}</span>
+        {chatRows(state).map((row) => (
+          <li key={row.id}>
+            <button
+              type="button"
+              aria-pressed={row.highlighted}
+              title={
+                row.highlighted
+                  ? "On the stream: click to hide it"
+                  : "Click to show it on the stream"
+              }
+              onClick={() =>
+                dispatch({
+                  type: "chat-message-clicked",
+                  videoId,
+                  messageId: row.id,
+                })
+              }
+              className={cn(
+                "w-full text-left break-words rounded px-1.5 py-1 hover:bg-muted",
+                row.highlighted && "bg-amber-500/15 ring-1 ring-amber-500",
+                row.pending && "opacity-60"
+              )}
+            >
+              <span className="font-medium text-muted-foreground mr-1.5">
+                {row.author}
+              </span>
+              <span>{row.text}</span>
+            </button>
           </li>
         ))}
         <li ref={bottom} aria-hidden />

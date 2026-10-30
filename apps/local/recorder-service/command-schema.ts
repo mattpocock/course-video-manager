@@ -102,7 +102,19 @@ const Command = Schema.Union(
     }),
     record: Schema.Struct(RecordWith),
   }),
-  Schema.Struct({ type: Schema.Literal("end-stream") })
+  Schema.Struct({ type: Schema.Literal("end-stream") }),
+  Schema.Struct({
+    type: Schema.Literal("show-highlight"),
+    highlightId: Schema.String,
+    broadcastId: Schema.String,
+    messageId: Schema.String,
+    author: Schema.String,
+    text: Schema.String,
+  }),
+  Schema.Struct({
+    type: Schema.Literal("hide-highlight"),
+    highlightId: Schema.String,
+  })
 );
 export const decodeCommand = Schema.decodeUnknownEither(
   Schema.parseJson(Command)

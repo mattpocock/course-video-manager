@@ -534,8 +534,8 @@ export const METRICS: readonly MetricDef[] = [
     scale: 1,
   },
   // THE STREAMED RECORDING SESSION (#2455): raw footage first, then the
-  // Live Stream's picture against a local sink. #2461 adds the Chat
-  // Highlight's click-to-on-screen time and monotonic card opacity here.
+  // Live Stream's picture against a local sink, then its Chat Highlights
+  // (#2461): click-to-on-screen time and monotonic card opacity.
   {
     id: "streamed_camera_frames_lost",
     label:
@@ -626,6 +626,30 @@ export const METRICS: readonly MetricDef[] = [
     obs: null,
     scale: 0.05,
     note: "As `stream_fps_off_60`, from 5 s after the relaunched process went live to End Stream. Details: `streamed.faults.relaunchedPicture`.",
+  },
+  {
+    id: "card_click_to_screen_ms",
+    label:
+      "Chat Highlight click to on screen, slowest click (service gets it → card's first visible frame)",
+    group: "speed",
+    unit: "ms",
+    better: "lower",
+    target: 1000,
+    obs: null,
+    scale: 1000,
+    note: "Per click, the service's stamp of the card's first changed frame less when its show-highlight arrived: the card server's still, its decode, and the wait for the next frame. Every click is `chatHighlights.clickToScreenMs` in the details.",
+  },
+  {
+    id: "card_opacity_wrong_frames",
+    label:
+      "Chat Highlight frames out of step: the card's opacity moving the wrong way, or before its stamp",
+    group: "reliability",
+    unit: "frames",
+    better: "lower",
+    target: 0,
+    obs: null,
+    scale: 1,
+    note: "Read off the sink's copy of the stream, from the card's accent bar, around every edge of the scripted clicks (`card-checks.ts`). The spike saw 13 early frames in 17 clicks.",
   },
   {
     id: "disk_full",

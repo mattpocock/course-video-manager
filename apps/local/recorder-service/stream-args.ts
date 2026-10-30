@@ -110,6 +110,42 @@ const feedInput = (port: number, probesize: number) => [
 ];
 
 /**
+ * THE CARD FEED'S INPUT (#2461, `card-feed.ts`): raw yuva420p at 60 fps from
+ * the service's loopback listener, which the stream connects to. Its frames
+ * are stamped by their count, so frame n is picture time n/60 under
+ * `-copyts`: the feed's own clock, never arrival time.
+ */
+const cardInput = (card: StreamCard) => [
+  "-probesize",
+  "32",
+  "-analyzeduration",
+  "0",
+  "-f",
+  "rawvideo",
+  "-pixel_format",
+  "yuva420p",
+  "-video_size",
+  `${card.width}x${card.height}`,
+  "-framerate",
+  String(STREAM_ENCODE.fps),
+  "-i",
+  `tcp://127.0.0.1:${card.port}?tcp_nodelay=1`,
+];
+
+/** The Chat Highlight card's frames: where they come from, and their size. */
+export type StreamCard = { port: number; width: number; height: number };
+
+/**
+ * Where the card's frame sits on the picture: at the bottom left, its
+ * settled card 48 px in from the left and 60 px up (the still's shadow
+ * margin, plus the travel room under it), clear of the Code scene's camera.
+ */
+const cardPlace = (card: StreamCard) => ({
+  x: 0,
+  y: STREAM_SOURCES.screen.height - card.height,
+});
+
+/**
  * What a scene switch writes to the running stream process's stdin: ffmpeg's
  * `C`, the writer's T0 mechanism (`takeStartCommand`), sent now (time -1)
  * rather than queued: the graph's frames are on the canvas's clock, not the
@@ -129,6 +165,7 @@ export const streamArgs = (o: {
   micEq: MicEq;
   /** The ingest address with the Stream Key on the end: only ever here. */
   url: string;
+  card: StreamCard;
   /**
    * Where its picture starts, in the Recording Session's file time (s): 0
    * at Go Live, before Record; a relaunch starts where the feeds are now.
@@ -141,6 +178,7 @@ export const streamArgs = (o: {
       inputs: { screen: "0:v", camera: "1:v" },
       scene: o.scene,
       output: "v",
+      card: { input: "2:v", ...cardPlace(o.card) },
       canvasStartSeconds: o.startSeconds,
     }),
     `[1:a]${[...streamSound(o.micOffsetMs, o.micEq), "aresample=async=1000"].join(",")}[a]`,
@@ -172,6 +210,7 @@ export const streamArgs = (o: {
     "cu",
     ...feedInput(o.ports.screen, 100_000),
     ...feedInput(o.ports.camera, 32),
+    ...cardInput(o.card),
     "-filter_complex",
     graph,
     "-map",

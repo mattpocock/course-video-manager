@@ -3,7 +3,10 @@ import type {
   LaunchedProcess,
   Launcher,
 } from "../../recorder-service/launcher";
-import { findFfmpegExe } from "../../recorder-service/windows-launcher";
+import {
+  findFfmpegExe,
+  windowsLauncher,
+} from "../../recorder-service/windows-launcher";
 import {
   CAMERA_SOURCE,
   CAMERA_TO_4K_ON_GPU,
@@ -226,6 +229,9 @@ export const syntheticLauncher = (o: {
         o.onLaunch?.(args);
         return idleProcess(exe, args, launch.cwd);
       }
+      case "card-server":
+        // The real card server: a Node process in WSL, not a Windows exe.
+        return windowsLauncher(launch);
       case "nvidia-smi":
         return idleProcess(
           "C:\\Windows\\System32\\nvidia-smi.exe",

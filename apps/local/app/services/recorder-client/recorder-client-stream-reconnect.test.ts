@@ -68,7 +68,8 @@ const kept = (args: readonly string[]) =>
   args.map((a) =>
     a
       .replace(/streamselect=inputs=3:map=\d/, "<scene>")
-      .replace(/setpts=PTS\+[\d.]+\/TB,/, "")
+      // Its picture's start: the canvas's, and the card's with it (#2461).
+      .replace(/setpts=PTS\+[\d.]+\/TB,/g, "")
   );
 
 /** Where its picture's canvas starts, in the Recording Session's file time. */

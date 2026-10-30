@@ -25,6 +25,19 @@ export interface LiveSceneFilterGraphInput {
    * frames as fast as it can until it catches up with them.
    */
   readonly canvasStartSeconds?: number;
+  /**
+   * The Chat Highlight card (#2461): a `yuva420p` input, in system memory,
+   * drawn over whichever scene shows, at a fixed place. Its frames are
+   * stamped on the same 1/60 grid as the canvas, from the same start
+   * (`canvasStartSeconds`), so each picture frame pairs with the card frame of
+   * its own slot. A card that ends leaves the picture as it is
+   * (`eof_action=pass`).
+   */
+  readonly card?: {
+    readonly input: string;
+    readonly x: number;
+    readonly y: number;
+  };
 }
 
 /** The Live Stream's frame rate: true 60, never 30 (spec #2445). */
@@ -118,6 +131,7 @@ export const liveSceneFilterGraph = ({
   scene,
   output = "v",
   canvasStartSeconds = 0,
+  card,
 }: LiveSceneFilterGraphInput): string => {
   const canvas = CANVASES.landscape;
   const chains: string[] = [];
@@ -169,6 +183,13 @@ export const liveSceneFilterGraph = ({
   const canvasChain = `color=c=black:s=${canvas.width}x${canvas.height}:r=${LIVE_FPS},${canvasStart}format=yuv420p,${BT709_LIMITED},hwupload_cuda,split=${SCENES.length}${bases}`;
 
   const scenes = SCENES.map((_, k) => `[live_scene${k}]`).join("");
-  const select = `${scenes}streamselect=inputs=${SCENES.length}:map=${liveSceneSwitch(scene).arg}[${output}]`;
-  return [...splits, canvasChain, ...chains, select].join(";");
+  const selected = card ? "live_selected" : output;
+  const select = `${scenes}streamselect=inputs=${SCENES.length}:map=${liveSceneSwitch(scene).arg}[${selected}]`;
+  const cardChains = card
+    ? [
+        `[${card.input}]${canvasStart}${BT709_LIMITED},hwupload_cuda[live_card]`,
+        `[live_selected][live_card]overlay_cuda=x=${card.x}:y=${card.y}:eof_action=pass:repeatlast=1[${output}]`,
+      ]
+    : [];
+  return [...splits, canvasChain, ...chains, select, ...cardChains].join(";");
 };

@@ -24,6 +24,12 @@ const isStateOf = (
   videoId: string
 ) => m.type === "state" && m.state.kind === kind && m.state.videoId === videoId;
 
+/** Refuses unless `videoId` is the Video recording, as a Live Stream always is. */
+const refuseUnlessLive = (state: RecorderState, videoId: string) => {
+  if (state.kind !== "recording" || state.videoId !== videoId)
+    throw new RecorderRefusedError("This Video is not live.");
+};
+
 /**
  * The recorder client's Live Stream commands (`client.server.ts`, ADR 0054):
  * Go Live and End Stream, each one command that waits until the recorder
@@ -117,6 +123,48 @@ export const liveStreamCommands = (o: {
       },
       (m) => isStateOf(m, "recording", videoId)
     );
+  },
+
+  /**
+   * SHOW A CHAT HIGHLIGHT on the Live Stream picture (replacing any other):
+   * answers with the service's stamp once the card is on the picture, which
+   * the service logs and the app server saves (`ingest-chat-highlight`).
+   */
+  async showHighlight(
+    videoId: string,
+    highlight: Omit<
+      Extract<RecorderCommand, { type: "show-highlight" }>,
+      "type"
+    >
+  ): Promise<{ shownAtMs: number; clickToScreenMs: number }> {
+    refuseUnlessLive(o.recorder().state, videoId);
+    let answer = { shownAtMs: 0, clickToScreenMs: 0 };
+    await o.command({ type: "show-highlight", ...highlight }, (m) => {
+      if (
+        m.type !== "chat-highlight-shown" ||
+        m.highlightId !== highlight.highlightId
+      )
+        return false;
+      answer = { shownAtMs: m.atMs, clickToScreenMs: m.atMs - m.receivedAtMs };
+      return true;
+    });
+    return answer;
+  },
+
+  /** HIDE THE CHAT HIGHLIGHT showing: answers with the service's stamp. */
+  async hideHighlight(
+    videoId: string,
+    highlightId: string
+  ): Promise<{ hiddenAtMs: number }> {
+    refuseUnlessLive(o.recorder().state, videoId);
+    let hiddenAtMs = 0;
+    await o.command({ type: "hide-highlight", highlightId }, (m) => {
+      if (m.type !== "chat-highlight-hidden" || m.highlightId !== highlightId)
+        return false;
+      hiddenAtMs = m.atMs;
+      return true;
+    });
+    return { hiddenAtMs };
   },
 
   /** END STREAM: the push and the streamed Recording Session stop together. */

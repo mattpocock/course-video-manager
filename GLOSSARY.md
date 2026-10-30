@@ -329,6 +329,10 @@ _Avoid_: Start/Stop stream, Stop Stream, Go Offline
 A YouTube live event on Matt's channel (upcoming or active), picked before Go Live. The Live Stream is pushed to it, and its live chat is the chat shown. CVM lists Broadcasts, and at Go Live binds the picked one to the YouTube stream whose ingest name is the **Stream Key** if it isn't already, but never creates one or moves it between states: YouTube's auto-start and auto-stop start and end it, so one with either turned off is marked in the picker and Go Live refuses it.
 _Avoid_: Stream, Event, Destination (YouTube is the only one)
 
+**Chat Highlight**:
+A **Broadcast** chat message Matt showed on the **Live Stream** picture, StreamYard-style, by clicking it: clicking it again hides it, and clicking another replaces it, so at most one shows. It stores the author and text as shown, and when the card went on and off the picture, on the recorder's clock (the one T0 is on). It belongs to the **Streamed Recording Session**; one still showing when that ends is closed with its end. It is not an **Overlay**, and never changes an **Export Hash**. It may be turned into one later, on request.
+_Avoid_: Pinned message (a YouTube feature), Overlay, Callout
+
 **Scene Override**:
 A marker on a **Clip** from a CVM-recorder **Recording Session** naming one scene (Camera, Code or No Face) to draw the whole Clip in, in place of the scenes that were live while it was filmed. With none, the Clip follows its Recording Session's scene timeline. An OBS Clip cannot have one: its scene is baked into its Footage.
 _Avoid_: Scene change (a live switch during a Recording Session), Layout

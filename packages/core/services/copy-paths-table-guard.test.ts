@@ -113,6 +113,15 @@ async function seedEveryTable() {
   await testDb
     .insert(schema.recordingSessionSceneEvents)
     .values({ recordingSessionId: session!.id, fileTime: 0, scene: "Camera" });
+  await testDb.insert(schema.chatHighlights).values({
+    videoId,
+    recordingSessionId: session!.id,
+    broadcastId: "broadcast",
+    messageId: "message",
+    author: "@fake_viewer",
+    text: "Fake question",
+    shownAtMs: 1_000,
+  });
   await testDb
     .update(schema.clips)
     .set({ recordingSessionId: session!.id })

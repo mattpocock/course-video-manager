@@ -20,6 +20,7 @@
     "studio:card": "remotion studio remotion/card-server-index.ts",
     "render": "node bin.mjs",
     "card-server": "node card-server.mjs",
+    "browser:ensure": "remotion browser ensure",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

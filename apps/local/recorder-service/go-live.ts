@@ -1,7 +1,14 @@
 import type { Scene } from "../app/packages/scene-layout";
 import type { Capture } from "./camera";
 import type { Launcher } from "./launcher";
-import type { RecorderCommand, RecorderState } from "./protocol";
+import type {
+  RecorderCommand,
+  RecorderMessage,
+  RecorderState,
+} from "./protocol";
+import type { ChatHighlightCommand } from "./chat-highlight-protocol";
+import { CHAT_HIGHLIGHT_REFUSALS } from "./chat-highlight-protocol";
+import { startChatHighlights, type ChatHighlights } from "./chat-highlights";
 import {
   BUSY_STREAMING,
   GO_LIVE_REFUSALS,
@@ -101,13 +108,25 @@ export const createGoLive = (
     listenBoundMs: o.streamListenBoundMs,
     stallMs: o.streamStallMs,
     fileTime: () => (streamed ? (o.now() - streamed.t0Ms) / 1000 : null),
-    onStatus: o.onStatus,
+    onStatus: (status) => {
+      // The card server warms once the stream is live (`chat-highlights.ts`).
+      if (status.kind === "live") highlights?.warm();
+      o.onStatus(status);
+    },
     onHealth: o.onHealth,
+    // Each launch, a relaunch too, reads the card from its picture's start.
+    onLaunch: (startSeconds) => highlights?.launching(startSeconds),
   });
   /** The Recording Session Go Live started: its end ends the Live Stream. */
   let streamed: RecordingSession | undefined;
   /** What Go Live arms the streamed writer with, until Record has begun. */
   let goingLive: TakeSettings | undefined;
+  /** The Live Stream's Chat Highlights: its card server and card feed. */
+  let highlights: ChatHighlights | undefined;
+  const endHighlights = () => {
+    void highlights?.close();
+    highlights = undefined;
+  };
 
   /** Every reason the recorder refuses Go Live for now. */
   const refusals = (r: GoLiveRecorder): string[] => {
@@ -144,6 +163,7 @@ export const createGoLive = (
       if (streamed !== session) return;
       streamed = undefined;
       side.end(why);
+      endHighlights();
     },
 
     /**
@@ -171,6 +191,10 @@ export const createGoLive = (
           streamed: ports,
         };
         await r.prepare(goingLive);
+        highlights = await startChatHighlights({
+          launch: o.launch,
+          now: o.now,
+        });
         const state = r.state();
         await side.start({
           ports,
@@ -179,15 +203,18 @@ export const createGoLive = (
           micEq: command.micEq,
           ingest: o.streamIngest ?? YOUTUBE_INGEST,
           streamKey: command.streamKey,
+          card: highlights.card,
         });
         await r.record({ type: "record", ...command.record }, ports);
         streamed = r.session();
+        if (streamed) highlights.begin(streamed);
         console.log(
           `recorder: Go Live: streamed Recording Session ${streamed?.id} for Broadcast ${command.broadcastId}`
         );
       } catch (e) {
         const message = redact(e instanceof Error ? e.message : String(e));
         side.end(`Go Live failed: ${message}`);
+        endHighlights();
         if (!(e instanceof Refusal))
           console.error(`recorder: Go Live failed: ${message}`);
         throw new Refusal(message);
@@ -204,6 +231,29 @@ export const createGoLive = (
       r.stop(ENDED_BY_END_STREAM);
     },
 
-    close: () => side.close("The recorder service stopped."),
+    /**
+     * A CHAT HIGHLIGHT command, outside the command queue: a card takes a
+     * moment to draw, and nothing else waits behind it. Its answer is the
+     * edge logged in the streamed Recording Session; a refusal is `reply`d.
+     */
+    highlight: (
+      command: ChatHighlightCommand,
+      reply: (message: RecorderMessage) => void
+    ) => {
+      const refuse = (e: unknown) => {
+        const message = e instanceof Error ? e.message : String(e);
+        if (!(e instanceof Refusal))
+          console.error(`recorder: ${command.type} failed: ${message}`);
+        reply({ type: "refused", command: command.type, message });
+      };
+      if (!highlights)
+        return refuse(new Refusal(CHAT_HIGHLIGHT_REFUSALS.notLive));
+      void highlights.command(command).catch(refuse);
+    },
+
+    close: () => {
+      endHighlights();
+      return side.close("The recorder service stopped.");
+    },
   };
 };
