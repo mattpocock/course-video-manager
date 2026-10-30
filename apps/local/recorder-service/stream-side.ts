@@ -29,7 +29,7 @@ export const STREAM_LISTEN_BOUND_MS = 1_500;
 /** How long `q` gets before the stream process is killed. */
 const STREAM_QUIT_TIMEOUT_MS = 5_000;
 
-/** Lines of its stderr logged per minute, at most. */
+/** Lines of its stderr (warnings and errors only) logged per minute, at most. */
 const STDERR_LINES_PER_MINUTE = 20;
 
 /** What ffmpeg prints first, before it opens (and listens on) its inputs. */
@@ -71,7 +71,7 @@ export const createStreamSide = (o: {
     let windowStart = Date.now();
     return lineSplitter((raw) => {
       const line = redact(raw);
-      if (!line.trim() || BANNER.test(line)) return;
+      if (!/\[(warning|error|fatal)\]/.test(line)) return;
       if (Date.now() - windowStart > 60_000) {
         windowStart = Date.now();
         logged = 0;

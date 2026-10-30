@@ -65,14 +65,6 @@ const onCanvas = (i: DrawInstruction): DrawInstruction => {
   };
 };
 
-/** Whether the item is the whole canvas, so it can be the scene's base. */
-const fillsCanvas = (i: DrawInstruction) => {
-  const canvas = CANVASES.landscape;
-  return (
-    i.dx === 0 && i.dy === 0 && i.dw === canvas.width && i.dh === canvas.height
-  );
-};
-
 /**
  * The screen comes in on CUDA, where it is never cropped: in Landscape every
  * scene draws it whole or not at all.
@@ -94,11 +86,15 @@ const cameraItem = (i: DrawInstruction) =>
  * CUDA from `drawInstructions`, side by side, and one picked with
  * `streamselect`, whose `map` a scene switch changes at runtime (#2457), so
  * the stream is never restarted. Each scene is drawn bottom to top with
- * `overlay_cuda` on a black canvas, or on its bottom item when that fills the
- * canvas (the screen, in Code and No Face). Everything is yuv420p, which
- * `overlay_cuda` needs to blend a card (`yuva420p`) on top later (#2461).
- * The output is `[output]`, CUDA frames at the 60 fps of the screen, which
- * clocks every scene (`overlay_cuda`'s main input).
+ * `overlay_cuda` on one black canvas, uploaded once a frame. The canvas is
+ * always the base, never the screen: `overlay_cuda` copies its base into a
+ * frame from the base's pool, and `scale_cuda`'s pool is 32-row aligned, so
+ * a screen base came out 1920x1088 with 8 rows of garbage (ffmpeg 8.0.1,
+ * measured). The canvas ticks at exactly 60 fps and clocks every scene; the
+ * screen's stamps (Matroska's whole ms) are put on the same 1/60 grid, so
+ * each slot pairs with its own screen frame, never the one before. A screen
+ * that ends ends the picture, and the stream with it. Everything is yuv420p,
+ * which `overlay_cuda` needs to blend a card (`yuva420p`) on top (#2461).
  */
 export const liveSceneFilterGraph = ({
   sources,
@@ -121,38 +117,37 @@ export const liveSceneFilterGraph = ({
   };
 
   SCENES.forEach((s, k) => {
-    const drawn = drawInstructions(s, sources, "landscape").map(onCanvas);
-    const [bottom, ...rest] = drawn;
     let base = `live_base${k}`;
-    let above = drawn;
-    if (bottom && fillsCanvas(bottom)) {
-      item(bottom, base);
-      above = rest;
-    } else {
-      chains.push(
-        `color=c=black:s=${canvas.width}x${canvas.height}:r=${LIVE_FPS},format=yuv420p,${BT709_LIMITED},hwupload_cuda[${base}]`
-      );
-    }
-    above.forEach((i, j) => {
-      const label = `live_item${k}_${j}`;
-      item(i, label);
-      const next = `live_scene${k}_${j}`;
-      chains.push(
-        `[${base}][${label}]overlay_cuda=x=${i.dx}:y=${i.dy}:repeatlast=1[${next}]`
-      );
-      base = next;
-    });
+    drawInstructions(s, sources, "landscape")
+      .map(onCanvas)
+      .forEach((i, j) => {
+        const label = `live_item${k}_${j}`;
+        item(i, label);
+        const next = `live_scene${k}_${j}`;
+        const eof = i.source === "screen" ? "endall" : "repeat";
+        chains.push(
+          `[${base}][${label}]overlay_cuda=x=${i.dx}:y=${i.dy}:eof_action=${eof}[${next}]`
+        );
+        base = next;
+      });
     chains.push(`[${base}]null[live_scene${k}]`);
   });
 
+  /** Each source's head: the screen onto the canvas's 1/60 grid, tagged. */
+  const head: Record<LayoutSource, string> = {
+    screen: `fps=${LIVE_FPS}:round=near,${BT709_LIMITED},`,
+    camera: "",
+  };
   const splits = (["screen", "camera"] as const).map((source) => {
     const labels = branches[source];
     return labels.length === 0
       ? `[${inputs[source]}]nullsink`
-      : `[${inputs[source]}]split=${labels.length}${labels.map((l) => `[${l}]`).join("")}`;
+      : `[${inputs[source]}]${head[source]}split=${labels.length}${labels.map((l) => `[${l}]`).join("")}`;
   });
+  const bases = SCENES.map((_, k) => `[live_base${k}]`).join("");
+  const canvasChain = `color=c=black:s=${canvas.width}x${canvas.height}:r=${LIVE_FPS},format=yuv420p,${BT709_LIMITED},hwupload_cuda,split=${SCENES.length}${bases}`;
 
   const scenes = SCENES.map((_, k) => `[live_scene${k}]`).join("");
   const select = `${scenes}streamselect=inputs=${SCENES.length}:map=${SCENES.indexOf(scene)}[${output}]`;
-  return [...splits, ...chains, select].join(";");
+  return [...splits, canvasChain, ...chains, select].join(";");
 };

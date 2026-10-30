@@ -88,11 +88,12 @@ export const streamArgs = (o: {
   ].join(";");
   const kbps = `${STREAM_ENCODE.videoKbps}k`;
   return [
-    // No -hide_banner: the banner is how the service hears it has started,
-    // just before it listens for its first feed (`stream-side.ts`).
+    // No -hide_banner, and info: the banner (an info line) is how the
+    // service hears it has started, just before it listens for its first
+    // feed (`stream-side.ts`). Only warnings and errors reach the log.
     "-nostats",
     "-loglevel",
-    "level+warning",
+    "level+info",
     "-progress",
     "pipe:1",
     "-stats_period",
