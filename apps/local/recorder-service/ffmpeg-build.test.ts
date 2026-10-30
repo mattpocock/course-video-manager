@@ -28,6 +28,20 @@ describe("CVM's ffmpeg build", () => {
     }
   });
 
+  it("refuses to build without the Live Stream composite's components", () => {
+    const inside = fs.readFileSync(path.join(FFMPEG_DIR, "inside.sh"), "utf8");
+    const required = /^REQUIRED="([^"]*)"/m.exec(inside)![1]!.split(/\s+/);
+    expect(required).toEqual(
+      expect.arrayContaining([
+        "OVERLAY_CUDA_FILTER",
+        "STREAMSELECT_FILTER",
+        "RTMP_PROTOCOL",
+        "RTMPS_PROTOCOL",
+        "H264_CUVID_DECODER",
+      ])
+    );
+  });
+
   it("is GPL-3.0-or-later and never nonfree, as ffmpeg/NOTICE says", () => {
     const inside = fs.readFileSync(path.join(FFMPEG_DIR, "inside.sh"), "utf8");
     expect(inside).toContain("--enable-gpl");
