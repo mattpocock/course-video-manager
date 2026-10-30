@@ -16,10 +16,23 @@ const postJson = (body: unknown): RequestInit => ({
   body: JSON.stringify(body),
 });
 
+/** The reason a route refused with: its message, a JSON string or plain text. */
+const reasonOf = (body: string) => {
+  try {
+    const parsed: unknown = JSON.parse(body);
+    if (typeof parsed === "string") return parsed;
+  } catch {
+    // Plain text: the reason as it is.
+  }
+  return body;
+};
+
 /** Rejects with the app server's reason when it refused. */
 const answered = async (response: Response) => {
   if (!response.ok)
-    throw new Error((await response.text()) || `HTTP ${response.status}`);
+    throw new Error(
+      reasonOf(await response.text()) || `HTTP ${response.status}`
+    );
 };
 
 const messageOf = (e: unknown) => (e instanceof Error ? e.message : String(e));
