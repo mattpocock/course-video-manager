@@ -97,6 +97,32 @@ cat props.json | node bin.mjs --out overlay.mov
 `bin.mjs` prints the render result (dimensions, fps, frames, output path) as
 JSON on stdout; progress goes to stderr.
 
+## Chat Highlight card server
+
+A second, long-lived entry point for the Live Stream. It renders the **Chat
+Highlight** card (a Broadcast chat message shown on the stream picture) as a
+transparent PNG still, once per click. It never renders per frame: the
+recorder service's card feed eases the still.
+
+```bash
+node card-server.mjs [--frame-width 1920]
+```
+
+- It bundles once, opens one headless Chromium with **software GL**
+  (`gl: "swangle"`, so it takes no GPU from NVENC or ddagrab), renders a
+  warm-up card, then prints a `ready` line with the still's fixed canvas size.
+- Each JSON line on stdin (`{"id","author","text"}`) gets one JSON line back on
+  stdout: the PNG as base64, or an error. `--help` has the full protocol.
+  stdout carries only the protocol; all logs go to stderr.
+- It runs at the lowest CPU priority, set before Chromium launches.
+- It has its own Remotion root (`remotion/card-server-index.ts`) holding only
+  the card. The card loads **DM Sans from the bundled `@fontsource-variable`
+  files**, not Google Fonts, so it renders with no network at all.
+  `pnpm run studio:card` previews the card.
+- The card reads the Definition Card's shared tokens
+  (`src/definition-card-tokens.ts`). Its geometry and canvas size are in
+  `src/chat-highlight-card.ts`.
+
 ## Develop
 
 ```bash
