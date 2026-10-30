@@ -38,10 +38,13 @@ const SHARED_FOOTAGE =
   "same Recording Session, as an OBS Clip keeps its Footage path, so the " +
   "copy draws the same picture.";
 
-/** A Recording Session and its scene timeline: shared by every copy. */
+/** A Recording Session, its scene timeline and Chat Highlights: shared by every copy. */
 const RECORDING_SESSION_TABLES: Record<string, CopyDecision> = {
   recording_session: { notCopied: SHARED_FOOTAGE },
   recording_session_scene_event: { notCopied: SHARED_FOOTAGE },
+  // A Chat Highlight belongs to its streamed Recording Session (#2461), on
+  // that Footage's clock: shared with it, never copied.
+  chat_highlight: { notCopied: SHARED_FOOTAGE },
 };
 
 /** Every table below a Course Version, decided for a whole-version copy. */
