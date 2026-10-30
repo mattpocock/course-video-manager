@@ -31,12 +31,17 @@ import {
   MonitorSmartphone,
   PenTool,
   Plus,
+  RadioIcon,
   VideoIcon,
 } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import type { appSidebarReducer } from "./app-sidebar-reducer";
 import { useAppSidebarReducer } from "./use-app-sidebar-reducer";
 import { NEW_SHORT_ACTION, newShortFormData } from "@/lib/new-short";
+import {
+  NEW_STREAM_VIDEO_ACTION,
+  newStreamVideoFormData,
+} from "@/features/streaming/new-stream-video";
 
 type AppSidebarModal = appSidebarReducer.Modal;
 import {
@@ -102,6 +107,7 @@ export function AppSidebar({ variant }: AppSidebarProps) {
   };
   const createPitchFetcher = useFetcher();
   const createShortFetcher = useFetcher();
+  const createStreamVideoFetcher = useFetcher();
 
   const { state, dispatch } = useAppSidebarReducer();
 
@@ -226,6 +232,20 @@ export function AppSidebar({ variant }: AppSidebarProps) {
           });
         }}
         addDisabled={createShortFetcher.state !== "idle"}
+      />
+
+      <EntityCard
+        icon={<RadioIcon className="w-4 h-4 text-muted-foreground" />}
+        label="Streaming"
+        href="/streaming"
+        active={location.pathname.startsWith("/streaming")}
+        onAdd={() => {
+          void createStreamVideoFetcher.submit(newStreamVideoFormData(), {
+            method: "post",
+            action: NEW_STREAM_VIDEO_ACTION,
+          });
+        }}
+        addDisabled={createStreamVideoFetcher.state !== "idle"}
       />
 
       <EntityCard

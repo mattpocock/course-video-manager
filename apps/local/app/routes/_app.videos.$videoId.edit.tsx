@@ -64,6 +64,7 @@ export const ComponentInner = (props: Route.ComponentProps) => {
   return (
     <VideoEditor
       {...wiring}
+      replay
       layout={({ sidePanel }) => (
         <EditorLayout navigation={navigation} sidePanel={sidePanel} />
       )}

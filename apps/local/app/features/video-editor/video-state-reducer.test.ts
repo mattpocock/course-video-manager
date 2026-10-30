@@ -16,6 +16,7 @@ const createInitialState = (
   showLastFrameOfVideo: false,
   scrubSeekTime: undefined,
   animatic: null,
+  replay: true,
   ...overrides,
 });
 
@@ -47,6 +48,30 @@ describe("videoStateReducer", () => {
       runningState: "playing",
     });
     expect(tester.getEffects()).toEqual([{ type: "stop-recording" }]);
+  });
+
+  it("a layout with no replay (the Streaming tab) never plays a Clip or edits the timeline from a key or a teleprompter mark", () => {
+    const clip1 = "clip-1" as FrontendId;
+    const clip2 = "clip-2" as FrontendId;
+    const initial = createInitialState({
+      currentClipId: clip1,
+      selectedClipsSet: new Set([clip1]),
+      replay: false,
+    });
+    const tester = new ReducerTester(
+      makeVideoEditorReducer([clip1, clip2], [clip1, clip2]),
+      initial
+    );
+
+    tester
+      .send({ type: "press-space-bar" })
+      .send({ type: "press-l" })
+      .send({ type: "press-delete" })
+      .send({ type: "press-arrow-down" })
+      .send({ type: "click-teleprompter-mark", clipId: clip2 });
+
+    expect(tester.getState()).toBe(initial);
+    expect(tester.getExec()).not.toHaveBeenCalled();
   });
 
   it("keeps only the Clips around the playhead preloaded, however many have played", () => {

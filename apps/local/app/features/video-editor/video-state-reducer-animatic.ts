@@ -65,6 +65,18 @@ export const isKeyOwnedByAnimatic = (
 ) => state.animatic !== null && EDITOR_SHORTCUT_ACTIONS.has(action.type);
 
 /**
+ * Whether a layout with no replay drops this event: every editor key, and a
+ * teleprompter mark, which would play its Clip in place of the live picture.
+ */
+export const isDroppedWithoutReplay = (
+  state: videoStateReducer.State,
+  action: videoStateReducer.Action
+) =>
+  !state.replay &&
+  (EDITOR_SHORTCUT_ACTIONS.has(action.type) ||
+    action.type === "click-teleprompter-mark");
+
+/**
  * Opening the player stops what would play or record under it: the editor's
  * playback pauses, and a recording Take is stopped.
  */
