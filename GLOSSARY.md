@@ -309,6 +309,22 @@ _Avoid_: Session, Take session, Recording (a Video's _Avoid_)
 What films a **Clip**. The **CVM recorder** (CVM's own, which stores a **Recording Session** of separate camera, screen and mic Footage) is the only Recorder: every **Video** records with it (ADR 0051). Older Clips were filmed with **OBS** (one Footage file with the scene baked in), which no longer records. A Clip's Recorder is its own (a Clip with a Recording Session was filmed with the CVM recorder), so one Video may hold both, and each Clip exports from its own Footage (ADR 0036).
 _Avoid_: Recording mode, Capture backend, New recorder (its old name; stored as `cvm`, formerly `new-recorder`)
 
+**Live Stream**:
+The composite of the open recorder's camera, screen and mic, drawn in the scene the preview shows and pushed to one YouTube **Broadcast**. It starts with **Go Live** and ends with **End Stream**. A Live Stream always runs with exactly one **Recording Session**, which it starts and stops: if that Recording Session ends on its own (the camera lost), the Live Stream ends with it, saying why. It keeps no file and never stops or changes the recording: a Live Stream that fails only ends (or restarts) itself (ADR 0054).
+_Avoid_: Stream (alone; it clashes with the Stream Deck and the preview streams), Livestream recording, Broadcast
+
+**Streamed Recording Session**:
+A **Recording Session** started by **Go Live**. It differs from others only in that its camera writer and screen recorder also feed the **Live Stream** (behind fifos that drop rather than wait), and leaving the page doesn't stop it. Every other Recording Session runs exactly as it always did, with no extra process.
+_Avoid_: Stream recording, Live take
+
+**Stream Key**:
+The YouTube ingest key, kept in the local `.env` only (`YOUTUBE_STREAM_KEY`), read from that file at **Go Live** and held redacted. It is never stored in the database, never shown and never logged: it appears only on the Live Stream process's command line.
+_Avoid_: Stream name, Ingest key (YouTube's own words for it)
+
+**Go Live** / **End Stream**:
+The gestures that start and stop a **Live Stream** and its **Streamed Recording Session** together, from the Streaming tab's one main button. Go Live is refused, with every reason that applies, when the recorder couldn't record or the stream couldn't go out. End Stream lets the last **Take** go exactly as Stop does. Reconnecting is not ending.
+_Avoid_: Start/Stop stream, Stop Stream, Go Offline
+
 **Broadcast**:
 A YouTube live event on Matt's channel (upcoming or active), picked before Go Live. The Live Stream is pushed to it, and its live chat is the chat shown. CVM lists Broadcasts and never creates one or moves it between states: YouTube's auto-start and auto-stop start and end it, so one with either turned off is marked in the picker and Go Live refuses it.
 _Avoid_: Stream, Event, Destination (YouTube is the only one)

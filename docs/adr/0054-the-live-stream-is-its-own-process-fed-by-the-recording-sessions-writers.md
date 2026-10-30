@@ -1,0 +1,34 @@
+---
+status: accepted
+---
+
+# The Live Stream is its own process, fed by the Recording Session's writers
+
+Decided on 2026-10-30 (spec #2445, built in #2452). It extends [ADR 0047](0047-the-recorder-holds-its-devices-open.md) points 4 and 5.
+
+## Context
+
+Matt wants to go live on YouTube from the CVM recorder, with everything that goes out also recorded ("I always want to record everything that goes out on stream"). He wants true 1080p60, never 30, and no extra processes while he isn't streaming, which is most of the time.
+
+A rig test (2026-10-30) pushed a 1080p60 NVENC composite from a separate ffmpeg.exe while recording, with 0 recording frames lost. On real devices, a stream that read the screen preview logged about 10 duplicated frames a second: the preview's ddagrab skips slots once a take's GPU work starts. A synthetic run that read the screen recorder's own packets had 60.0 fps, 0 dups and 0 drops (`live-streaming-feasibility.md`, true-60).
+
+## Decision
+
+1. **The Live Stream is one ffmpeg.exe of its own** (`stream-side.ts`, tagged `cvm-recorder-stream`). It holds no device and writes no file. It draws every Landscape scene on CUDA from the scene layout's `drawInstructions` and picks one with `streamselect` (`liveSceneFilterGraph`). It encodes 1920x1080 at 60 fps CFR on NVENC (CBR 9 Mbps, a keyframe every 2 s, AAC 160k) and pushes to YouTube's RTMPS ingest behind a fifo that retries without limit. Every setting is a constant in code.
+2. **It is fed by the streamed Recording Session's own processes, only while it records.** Go Live arms the take's camera writer again as a streamed writer (`streamed` in its settings), starts the stream listening, then records:
+   - the camera writer gets a second output: the very frames and sound camera.mkv and mic.mkv get, raw, in Matroska with their stamps kept;
+   - the screen recorder writes through a tee: screen.mkv as before, plus a CPU copy of the same encoded packets, which the stream decodes on NVDEC. It is never a second GPU stream (ADR 0047 point 5). The tee needs `-flags +global_header`, or Matroska refuses its header and screen.mkv gets no frames.
+
+   The long-lived capture and previews never change, and every other Recording Session runs today's args exactly.
+
+3. **Raw footage first.** Every feed sits behind tee's fifo, which drops when full and ignores failure. Record waits for the stream to be listening only `STREAM_LISTEN_BOUND_MS` (1.5 s), and records anyway past it. Nothing the stream side does stops a take, releases the camera or restarts a preview. A stream process that quits only ends the Live Stream, with its reason; the take carries on until End Stream. Relaunching it is #2459.
+4. **A Live Stream always has its Recording Session.** End Stream stops both, the last Take let go as Stop lets it go (ADR 0048). The streamed Recording Session ending in any other way (Stop, the camera lost, a process quitting) ends the Live Stream, saying why.
+5. **The Stream Key is read from `.env` at Go Live** with the repo's own parser, never from an inherited environment variable, and held as `Redacted`. It travels only in `start-stream` over loopback and appears only on the stream process's command line. The stream's stderr, the service's log of an unreadable command, every refusal, `events.jsonl` and the service's state folder are kept free of it.
+
+## Consequences
+
+- A streamed take's screen.mkv is muxed through a tee with global headers. The synthetic scorecard showed framesLost 0 for camera and screen (120 s, with the sink and then the stream process killed mid-take). A real-device take must confirm it before shipping (#2463).
+- `overlay_cuda` copies its base into a frame from the base's own pool, and `scale_cuda`'s pool is 32-row aligned. A scene drawn on the screen came out 1920x1088 (ffmpeg 8.0.1, measured). So every scene is drawn on one black canvas uploaded once a frame, which also clocks every scene at exactly 60 fps; the screen's whole-millisecond stamps are put on that grid. With both, the stream measured 60.1 fps, 0 dups and 0 drops on the synthetic rig.
+- All three scenes are drawn every frame, so a scene switch (#2457) is a runtime `streamselect` command and never restarts the stream.
+- Go Live is refused, with every reason that applies, for a Short, while recording, with the camera not live, or while the screen preview has fallen back to the CPU encoder. The app server adds a missing Broadcast, a Broadcast YouTube won't auto-start or auto-stop, a missing Stream Key and a stale AV Calibration.
+- RTMPS was not tried on the rig; the spike pushed plain RTMP. The first real Go Live is its test.
