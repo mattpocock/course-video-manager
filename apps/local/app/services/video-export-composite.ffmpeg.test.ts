@@ -9,7 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { clipComposite, clipSource } from "@/packages/clip-source";
 import { sceneFilterGraph } from "@/packages/scene-layout";
 import { DEFAULT_MIC_EQ } from "@cvm/core/features/videos/recorder";
-import { micEqFilters } from "./clip-segment-args";
+import { micEqFilters } from "@/packages/mic-eq";
 import { FFmpegCommandsService } from "./ffmpeg-commands";
 import { FFmpegEncodeService } from "./ffmpeg-encode-commands";
 import { SidecarContextTest } from "./sidecar-context";

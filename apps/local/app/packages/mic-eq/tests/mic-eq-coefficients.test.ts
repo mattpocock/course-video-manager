@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { micEqCoefficients } from "./clip-segment-args";
+import { micEqCoefficients } from "@/packages/mic-eq";
 
 /**
  * OBS's 3-Band Equaliser as obs-filters/eq-filter.c runs it, one sample at a
