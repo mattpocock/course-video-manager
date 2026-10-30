@@ -1,10 +1,6 @@
 import type { FootageNotFound } from "@/services/clip-source-files.server";
-import { EditorCompactHeader } from "./components/editor-compact-header";
 import { EditorVideoMenuProvider } from "./editor-video-menu";
 import { EditorModals } from "./components/editor-modals";
-import { VideoPlayerPanel } from "./components/video-player-panel";
-import { PortraitStudioPanel } from "./components/portrait-studio-panel";
-import { ClipTimeline } from "./components/clip-timeline";
 import { ErrorOverlay } from "./components/error-overlay";
 import { type ReferenceCandidate } from "./components/reference-panel";
 import { EditorSidePanel } from "./components/editor-side-panel";
@@ -68,7 +64,15 @@ import {
   isCaptureInProgress,
 } from "./video-editor-selectors";
 
-export const VideoEditor = (props: {
+/** The parts of the editor a layout places. */
+export type VideoEditorLayoutParts = {
+  /** The Script, Beats, Reference, Animatic and Suggestions tabs. */
+  sidePanel: ReactNode;
+};
+
+export type VideoEditorLayout = (parts: VideoEditorLayoutParts) => ReactNode;
+
+export type VideoEditorProps = {
   videoFormat: VideoFormat;
   /**
    * Whether at least one of this Video's Clips has no Transcript Words —
@@ -84,16 +88,11 @@ export const VideoEditor = (props: {
   repoName?: string;
   repoId?: string;
   lessonId?: string;
-  navigation?: {
-    backButtonUrl: string;
-    breadcrumb: string;
-    nextVideoId: string | null;
-    previousVideoId: string | null;
-    showTabSwitcher: boolean;
-    videoId: string;
-    lessonId: string | null;
-    hasAnimatic: boolean;
-  };
+  /**
+   * Lays the editor out. The edit route's is `EditorLayout`; another route may
+   * supply its own, drawn from `VideoEditorContext`'s components.
+   */
+  layout: VideoEditorLayout;
   videoId: string;
   speechDetectorState: FrontendSpeechDetectorState;
   silenceLength: SilenceLength;
@@ -157,7 +156,13 @@ export const VideoEditor = (props: {
   ) => void;
   onUpdateClipDiagramPin: UpdateClipDiagramPinFn;
   onRemoveWebLink: (clipId: FrontendId, linkId: DatabaseId) => void;
-}) => {
+};
+
+/**
+ * The video editor's context, its Stream Deck, keyboard, teleprompter and
+ * Suggestions wiring, and its dialogs, around a layout the caller supplies.
+ */
+export const VideoEditor = (props: VideoEditorProps) => {
   // Filter items for the main timeline (excludes optimistic clips and archived items)
   const timelineItems = useMemo(
     () => getTimelineItems(props.items),
@@ -579,53 +584,34 @@ export const VideoEditor = (props: {
     />
   );
 
-  const isShort = props.videoFormat === "short";
-
-  const playerPanel = isShort ? <PortraitStudioPanel /> : <VideoPlayerPanel />;
-
-  // The Script tab is always available, so the side slot always renders (three
-  // columns): timeline, side panel, player.
-  const body: ReactNode = (
-    <>
-      <ClipTimeline />
-      <div className="order-3 lg:order-2 lg:w-[40ch] shrink-0 h-full min-h-0">
-        <EditorSidePanel
-          activeTab={activeTab}
-          hasBeats={hasBeats}
-          hasReference={hasReference}
-          animatic={props.animatic}
-          onTabChange={setPersistedBeatTab}
-          videoId={props.videoId}
-          beats={props.beats}
-          isBeatsReadOnly={captureInProgress}
-          onBeatEvent={submitBeatEvent}
-          suggestions={suggestions}
-          referenceCandidates={props.referenceCandidates}
-          referenceVideoId={activeReference}
-          onRemoveReference={() => handleSetReferenceVideoId(null)}
-          onAddReferenceChapterAt={props.onAddReferenceChapterAt}
-          onEditReferenceChapterName={props.onEditReferenceChapterName}
-          onDeleteReferenceChapter={props.onDeleteReferenceChapter}
-          onAutofillReferenceChapters={() => {
-            if (activeReference) onOpenAutofillForReference(activeReference);
-          }}
-        />
-      </div>
-      <div className="order-1 lg:order-3 lg:flex-[1.5] h-full min-h-0 flex flex-col">
-        {playerPanel}
-      </div>
-    </>
+  const sidePanel: ReactNode = (
+    <EditorSidePanel
+      activeTab={activeTab}
+      hasBeats={hasBeats}
+      hasReference={hasReference}
+      animatic={props.animatic}
+      onTabChange={setPersistedBeatTab}
+      videoId={props.videoId}
+      beats={props.beats}
+      isBeatsReadOnly={captureInProgress}
+      onBeatEvent={submitBeatEvent}
+      suggestions={suggestions}
+      referenceCandidates={props.referenceCandidates}
+      referenceVideoId={activeReference}
+      onRemoveReference={() => handleSetReferenceVideoId(null)}
+      onAddReferenceChapterAt={props.onAddReferenceChapterAt}
+      onEditReferenceChapterName={props.onEditReferenceChapterName}
+      onDeleteReferenceChapter={props.onDeleteReferenceChapter}
+      onAutofillReferenceChapters={() => {
+        if (activeReference) onOpenAutofillForReference(activeReference);
+      }}
+    />
   );
 
   return (
     <VideoEditorContext.Provider value={contextValue}>
       <EditorVideoMenuProvider>
-        <div className="flex flex-col h-full p-2 gap-2">
-          {props.navigation && <EditorCompactHeader {...props.navigation} />}
-          <div className="flex flex-col lg:flex-row flex-1 min-h-0 gap-2">
-            {body}
-          </div>
-        </div>
+        {props.layout({ sidePanel })}
         {modals}
       </EditorVideoMenuProvider>
     </VideoEditorContext.Provider>
