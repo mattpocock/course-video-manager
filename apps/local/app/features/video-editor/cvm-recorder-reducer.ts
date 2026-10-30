@@ -10,9 +10,10 @@ import type {
   LostFrameSpan,
   ScreenStatus,
 } from "recorder-service/protocol";
-import type {
-  StreamHealth,
-  StreamStatus,
+import {
+  isStreamOn,
+  type StreamHealth,
+  type StreamStatus,
 } from "recorder-service/stream-protocol";
 import { isSceneAvailable, isScreenWaking } from "./cvm-recorder-screen";
 import { placeClips } from "./cvm-recorder-clips";
@@ -257,13 +258,15 @@ export const isCvmRecorderRecording = (state: cvmRecorderReducer.State) =>
 
 /**
  * Whether the editor's Recording Session still needs the recorder: it is
- * recording or stopping, or its last Take is still being placed. An editor
- * never lets the recorder go meanwhile (`recorder-attention-reducer.ts`).
+ * recording or stopping, or its last Take is still being placed, or its
+ * Live Stream is on (from Go Live). An editor never lets the recorder go
+ * meanwhile (`recorder-attention-reducer.ts`), focused or not.
  */
 export const holdsRecordingSession = (state: cvmRecorderReducer.State) =>
   isCvmRecorderRecording(state) ||
   state.recordingSessionId !== null ||
-  state.placing !== null;
+  state.placing !== null ||
+  isStreamOn(state.stream);
 
 /**
  * Whether a Clip's stills are held (#2214): it belongs to the Recording
@@ -315,6 +318,7 @@ const sessionEventOf = (
         type: "recorder-reported",
         reachable: message.reachable,
         recordingSessionId: message.recordingSessionId,
+        streamed: message.streamed,
         silenceLength: state.silenceLength ?? DEFAULT_SILENCE_LENGTH,
       };
     case "recording-started":

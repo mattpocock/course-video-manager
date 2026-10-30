@@ -41,6 +41,7 @@ const open = (format: "short" | "landscape", scene: Scene = "Code") =>
         starting: false,
         problem: null,
         recordingSessionId: null,
+        streamed: false,
         previews: { camera: "http://r/camera", screen: "http://r/screen" },
         still: "http://r/still",
       })

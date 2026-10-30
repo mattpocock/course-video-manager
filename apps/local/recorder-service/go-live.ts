@@ -3,6 +3,7 @@ import type { Capture } from "./camera";
 import type { Launcher } from "./launcher";
 import type { RecorderCommand, RecorderState } from "./protocol";
 import {
+  BUSY_STREAMING,
   GO_LIVE_REFUSALS,
   type StreamHealth,
   type StreamStatus,
@@ -20,7 +21,19 @@ import { createStreamSide, redactStreamKey } from "./stream-side";
  * together and ended together. End Stream, or the streamed Recording Session
  * ending in any way, ends the Live Stream. The Live Stream never stops or
  * delays the recording: nothing here stops a take but End Stream.
+ *
+ * Busy streaming (ADR 0055): from Go Live until its streamed Recording
+ * Session ends, only End Stream ends it. Stop, close and open (for another
+ * Video, or anything) are refused, and the service counts as busy, so its
+ * idle stop is refused too.
  */
+
+/** What the service refuses while live: only End Stream ends a streamed Recording Session. */
+const REFUSED_WHILE_LIVE: readonly RecorderCommand["type"][] = [
+  "stop",
+  "close",
+  "open",
+];
 
 /** Why a streamed Recording Session's Live Stream ended with it. */
 export const STREAM_ENDED: Record<StopReason, string> = {
@@ -108,8 +121,17 @@ export const createGoLive = (
     ].filter((reason) => typeof reason === "string");
   };
 
+  /** From Go Live until its streamed Recording Session ends. */
+  const streaming = () => streamed !== undefined || goingLive !== undefined;
+
   return {
     status: () => side.status(),
+    streaming,
+    /** Refuses what would end, or take, the recorder while live. */
+    refuseWhileLive: (command: RecorderCommand["type"]) => {
+      if (streaming() && REFUSED_WHILE_LIVE.includes(command))
+        throw new Refusal(BUSY_STREAMING);
+    },
     /** The streamed writer Go Live is arming, if it is. */
     goingLive: () => goingLive,
     /** The service's scene changed: the Live Stream follows it. */

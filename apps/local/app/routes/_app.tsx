@@ -3,6 +3,8 @@ import { RemountCommand } from "@/components/remount-command";
 import { GlobalUploadProgress } from "@/features/upload-manager/global-upload-progress";
 import { UploadProvider } from "@/features/upload-manager/upload-context";
 import { LiveStreamProvider } from "@/features/streaming/live-stream-context";
+import { LiveIndicator } from "@/features/streaming/live-indicator";
+import { existingRecorderClient } from "@/services/recorder-client/existing-client.server";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { DrizzleService } from "@/services/drizzle-service.server";
 import { makeLoader } from "@/services/route-action.server";
@@ -49,13 +51,16 @@ export const loader = makeLoader({
         topCourses: topCourses.map((c) => ({ id: c.id, name: c.name })),
         footageStats,
         offlineRoots,
+        // For the Live indicator: read, never a socket of its own.
+        liveStream: existingRecorderClient()?.liveStream() ?? null,
       };
     }),
 });
 
 /**
  * Also reload on every move to a new page, not only after a form submit, so
- * the sidebar's footage stats pick up a take recorded on the page just left.
+ * the sidebar's footage stats pick up a take recorded on the page just left,
+ * and the Live indicator what the Live Stream is doing now.
  * It runs alongside the new page's own loader. Toggling the Storage Root
  * filter (#2431) only filters what the page already has: no reload.
  */
@@ -94,6 +99,7 @@ function OfflineStorageRootsBanner() {
 }
 
 export default function AppLayout() {
+  const { liveStream } = useLoaderData<typeof loader>();
   const matches = useMatches();
   const isFullscreen = matches.some(
     (m) => (m.handle as { fullscreen?: boolean } | undefined)?.fullscreen
@@ -113,6 +119,7 @@ export default function AppLayout() {
         <div className="flex min-h-screen">
           <AppSidebar variant={isFullscreen ? "floating" : "rail"} />
           <div className="flex-1 min-w-0 flex flex-col">
+            <LiveIndicator liveStream={liveStream} />
             <OfflineStorageRootsBanner />
             <Outlet />
           </div>
