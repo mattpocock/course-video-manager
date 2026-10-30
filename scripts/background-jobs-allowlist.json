@@ -200,6 +200,16 @@
       "file": "apps/local/app/features/video-editor/latest-frame.ts",
       "count": 1,
       "reason": "Live, not background work: the recorder's camera and screen previews, pulled a frame at a time from the local recorder service while the editor (or the thumbnail camera) shows them (#2144). It stops with the view, the opposite of a Job."
+    },
+    {
+      "file": "apps/local/app/features/streaming/use-live-stream-reducer.ts",
+      "count": 1,
+      "reason": "Quick, and watched: the Streaming tab's Broadcast picker asks the app server for Matt's YouTube Broadcasts while he looks at the picker, before Go Live (#2451). Nothing is left to finish if he walks away."
+    },
+    {
+      "file": "apps/local/app/services/youtube-live-service.ts",
+      "count": 1,
+      "reason": "Quick, and watched: the YouTube Live service lists Matt's Broadcasts for the picker he is looking at (#2451), two small reads. Later tickets add binding and chat for a live Recording Session, which must not wait on a Job."
     }
   ]
 }

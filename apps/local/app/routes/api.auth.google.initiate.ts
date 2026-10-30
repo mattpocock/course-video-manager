@@ -2,9 +2,18 @@ import { Config, ConfigProvider, Console, Effect } from "effect";
 import { redirect } from "react-router";
 
 /**
- * Initiates Google OAuth2 flow for YouTube uploads.
- * Redirects to Google's consent screen with the youtube.upload scope.
+ * Initiates Google OAuth2 flow for YouTube.
+ * Redirects to Google's consent screen asking, in one grant, for
+ * `youtube.upload` (posting Videos) and `youtube.force-ssl` (the Streaming
+ * tab's Broadcasts, binding and live chat). A grant given before
+ * `youtube.force-ssl` was asked for keeps uploading; the Streaming tab asks
+ * Matt to reconnect once.
  */
+export const GOOGLE_SCOPES = [
+  "https://www.googleapis.com/auth/youtube.upload",
+  "https://www.googleapis.com/auth/youtube.force-ssl",
+];
+
 export const loader = async ({ request }: { request: Request }) => {
   const url = new URL(request.url);
   const returnTo = url.searchParams.get("returnTo") || "/";
@@ -21,10 +30,7 @@ export const loader = async ({ request }: { request: Request }) => {
     authUrl.searchParams.set("client_id", clientId);
     authUrl.searchParams.set("redirect_uri", redirectUri);
     authUrl.searchParams.set("response_type", "code");
-    authUrl.searchParams.set(
-      "scope",
-      "https://www.googleapis.com/auth/youtube.upload"
-    );
+    authUrl.searchParams.set("scope", GOOGLE_SCOPES.join(" "));
     authUrl.searchParams.set("access_type", "offline");
     authUrl.searchParams.set("prompt", "consent");
     // Store returnTo in state so we can redirect back after auth
