@@ -97,6 +97,17 @@ const streamSound = (micOffsetMs: number, micEq: MicEq) => [
   STREAM_LIMITER,
 ];
 
+/**
+ * The sound from where the picture starts, moved back to 0 with it
+ * (`liveSceneFilterGraph`'s output, #2482): a relaunch's picture starts
+ * ahead of the feeds' file time, so its sound must too.
+ */
+const soundFrom = (startSeconds: number) => {
+  if (startSeconds <= 0) return [];
+  const s = startSeconds.toFixed(3);
+  return [`atrim=start=${s}`, `asetpts=PTS-${s}/TB`];
+};
+
 /** A listening loopback input: the feed connects to it. */
 const feedInput = (port: number, probesize: number) => [
   "-probesize",
@@ -181,7 +192,7 @@ export const streamArgs = (o: {
       card: { input: "2:v", ...cardPlace(o.card) },
       canvasStartSeconds: o.startSeconds,
     }),
-    `[1:a]${[...streamSound(o.micOffsetMs, o.micEq), "aresample=async=1000"].join(",")}[a]`,
+    `[1:a]${[...soundFrom(o.startSeconds ?? 0), ...streamSound(o.micOffsetMs, o.micEq), "aresample=async=1000"].join(",")}[a]`,
   ].join(";");
   const kbps = `${STREAM_ENCODE.videoKbps}k`;
   return [

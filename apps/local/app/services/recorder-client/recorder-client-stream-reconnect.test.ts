@@ -70,7 +70,28 @@ const kept = (args: readonly string[]) =>
       .replace(/streamselect=inputs=3:map=\d/, "<scene>")
       // Its picture's start: the canvas's, and the card's with it (#2461).
       .replace(/setpts=PTS\+[\d.]+\/TB,/g, "")
+      // Its output moved back to 0 by that start (#2482).
+      .replace(
+        /\[live_picture\];\[live_picture\]setpts=PTS-[\d.]+\/TB\[v\]/,
+        "[v]"
+      )
+      .replace(/\[1:a\]atrim=start=[\d.]+,asetpts=PTS-[\d.]+\/TB,/, "[1:a]")
   );
+
+/**
+ * Where its output's picture and sound start from 0: moved back by its
+ * picture's start, or -copyts and CFR fill everything before it with
+ * duplicated frames, encoded as fast as NVENC can (#2482).
+ */
+const outputShift = (args: readonly string[]) => {
+  const a = args.join(" ");
+  return {
+    picture: Number(a.match(/setpts=PTS-([\d.]+)\/TB\[v\]/)?.[1] ?? 0),
+    sound: Number(
+      a.match(/\[1:a\]atrim=start=([\d.]+),asetpts=PTS-\1\/TB,/)?.[1] ?? 0
+    ),
+  };
+};
 
 /** Where its picture's canvas starts, in the Recording Session's file time. */
 const canvasStart = (args: readonly string[]) =>
@@ -102,6 +123,8 @@ describe("the stream reconnects for ever, and the recording carries on", () => {
     // where it would be drawn as fast as it could until it caught up.
     expect(canvasStart(first.launch.args)).toBe(0);
     expect(canvasStart(second.launch.args)).toBe(45);
+    expect(outputShift(first.launch.args)).toEqual({ picture: 0, sound: 0 });
+    expect(outputShift(second.launch.args)).toEqual({ picture: 45, sound: 45 });
     expect(second.launch.args.join(" ")).toContain(
       "streamselect=inputs=3:map=2"
     );

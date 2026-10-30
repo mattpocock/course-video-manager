@@ -200,8 +200,9 @@ export const streamed = async (
     path.join(path.dirname(ctx.footageDir), `sink-${n}.flv`);
   const sink = sinksOn(ctx, sinkPort, sinkFile);
   const progress = readProgress();
-  const unwatch = ctx.service.onStreamProgress((chunk) =>
-    progress.push(chunk, performance.now())
+  // A block the service could not stamp on the Windows clock is left out of its rate.
+  const unwatch = ctx.service.onStreamProgress((chunk, windowsMs) =>
+    progress.push(chunk, performance.now(), windowsMs ?? NaN)
   );
   try {
     const { go, answer, started, live } = await goLive(ctx);

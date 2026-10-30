@@ -22,7 +22,8 @@ export interface LiveSceneFilterGraphInput {
   /**
    * Where the canvas's clock starts, in the inputs' time (s). Default 0. The
    * canvas clocks every scene, so one that starts behind its inputs makes
-   * frames as fast as it can until it catches up with them.
+   * frames as fast as it can until it catches up with them. The output is
+   * moved back by it, so it starts at 0 (#2482).
    */
   readonly canvasStartSeconds?: number;
   /**
@@ -182,14 +183,29 @@ export const liveSceneFilterGraph = ({
       : "";
   const canvasChain = `color=c=black:s=${canvas.width}x${canvas.height}:r=${LIVE_FPS},${canvasStart}format=yuv420p,${BT709_LIMITED},hwupload_cuda,split=${SCENES.length}${bases}`;
 
+  // Its output from 0: under -copyts, CFR fills every slot before a first
+  // frame stamped later with a duplicate, encoded as fast as it can (#2482).
+  const shifted = canvasStartSeconds > 0;
+  const picture = shifted ? "live_picture" : output;
+  const outputChain = shifted
+    ? [`[${picture}]setpts=PTS-${canvasStartSeconds.toFixed(3)}/TB[${output}]`]
+    : [];
+
   const scenes = SCENES.map((_, k) => `[live_scene${k}]`).join("");
-  const selected = card ? "live_selected" : output;
+  const selected = card ? "live_selected" : picture;
   const select = `${scenes}streamselect=inputs=${SCENES.length}:map=${liveSceneSwitch(scene).arg}[${selected}]`;
   const cardChains = card
     ? [
         `[${card.input}]${canvasStart}${BT709_LIMITED},hwupload_cuda[live_card]`,
-        `[live_selected][live_card]overlay_cuda=x=${card.x}:y=${card.y}:eof_action=pass:repeatlast=1[${output}]`,
+        `[live_selected][live_card]overlay_cuda=x=${card.x}:y=${card.y}:eof_action=pass:repeatlast=1[${picture}]`,
       ]
     : [];
-  return [...splits, canvasChain, ...chains, select, ...cardChains].join(";");
+  return [
+    ...splits,
+    canvasChain,
+    ...chains,
+    select,
+    ...cardChains,
+    ...outputChain,
+  ].join(";");
 };

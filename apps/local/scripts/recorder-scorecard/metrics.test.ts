@@ -116,6 +116,17 @@ describe("the Live Stream's -progress", () => {
     expect(streamRate(progress.samples, 0)).toBeCloseTo(60, 1);
   });
 
+  it("measures on the Windows clock its frames are stamped on, not WSL's, which wanders (#2482)", () => {
+    const progress = readProgress();
+    // 60 fps for 100 s of Windows time; WSL's clock runs 0.2% fast and
+    // steps 250 ms back halfway, as the rig's does under load.
+    for (let s = 0; s <= 100; s++) {
+      const wsl = 1002 * s - (s >= 50 ? 250 : 0);
+      progress.push(block(60 * s), wsl, 1_000_000 + 1000 * s);
+    }
+    expect(streamRate(progress.samples, 0)).toBeCloseTo(60, 3);
+  });
+
   it("measures only from the moment given (a stream warming up runs slow)", () => {
     const progress = readProgress();
     for (let s = 0; s <= 10; s++) progress.push(block(30 * s), 1000 * s);

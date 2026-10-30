@@ -66,12 +66,25 @@ const launch: Launcher = onlyToSink((l) => {
   const p = synthetic(l);
   if (l.tool === "ffmpeg" && l.args.includes(`comment=${STREAM_TAG}`))
     p.onStdout((chunk) => {
-      if (process.connected) process.send?.({ type: "stream-progress", chunk });
+      if (process.connected)
+        process.send?.({
+          type: "stream-progress",
+          chunk,
+          windowsMs: windowsNow(),
+        });
     });
   return p;
 }, streamIngest);
 
 const clock = await startWindowsClock({ spawnTicker: idleTicker });
+/** The Windows clock now, or nothing while it is stale. */
+function windowsNow() {
+  try {
+    return clock.now();
+  } catch {
+    return undefined;
+  }
+}
 const service = await startRecorderService({
   port: 0,
   launch,

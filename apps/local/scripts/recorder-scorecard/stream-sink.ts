@@ -90,6 +90,12 @@ export const onlyToSink =
 /** One `-progress` block, and when (ms, any clock) it reached the scorecard. */
 export type ProgressSample = {
   at: number;
+  /**
+   * When it reached the service, on the Windows clock (ms): the clock the
+   * stream's frames are stamped on. WSL's own wanders from it by tens of ms
+   * (#2482). `at` where the service did not say.
+   */
+  windowsAt: number;
   frame: number;
   /** ffmpeg's own figure: frames over its whole run, start-up included. */
   fps: number;
@@ -102,6 +108,7 @@ export const readProgress = () => {
   const samples: ProgressSample[] = [];
   let block: Record<string, string> = {};
   let at = 0;
+  let windowsAt = 0;
   const split = lineSplitter((line) => {
     const eq = line.indexOf("=");
     if (eq === -1) return;
@@ -113,6 +120,7 @@ export const readProgress = () => {
     }
     samples.push({
       at,
+      windowsAt,
       frame: Number(block.frame ?? 0),
       fps: Number(block.fps ?? 0),
       dupFrames: Number(block.dup_frames ?? 0),
@@ -122,32 +130,33 @@ export const readProgress = () => {
   });
   return {
     samples,
-    push: (chunk: string, arrivedAt: number) => {
+    push: (chunk: string, arrivedAt: number, windowsMs = arrivedAt) => {
       at = arrivedAt;
+      windowsAt = windowsMs;
       split(chunk);
     },
   };
 };
 
 /**
- * Frames per second of wall time from `from` on: the least-squares slope of
- * frames against arrival time, so no one late block moves it. Null with
- * fewer than ten blocks.
+ * Frames per second of wall time from `from` on (`at`): the least-squares
+ * slope of frames against the Windows clock (`windowsAt`), so no one late
+ * block moves it, nor WSL's clock wandering. Null with fewer than ten blocks.
  */
 export const streamRate = (
   samples: readonly ProgressSample[],
   from: number
 ) => {
-  const xs = samples.filter((s) => s.at >= from);
+  const xs = samples.filter((s) => s.at >= from && !isNaN(s.windowsAt));
   if (xs.length < 10) return null;
   const n = xs.length;
-  const mt = xs.reduce((a, s) => a + s.at, 0) / n;
+  const mt = xs.reduce((a, s) => a + s.windowsAt, 0) / n;
   const mf = xs.reduce((a, s) => a + s.frame, 0) / n;
   let num = 0;
   let den = 0;
   for (const s of xs) {
-    num += (s.at - mt) * (s.frame - mf);
-    den += (s.at - mt) ** 2;
+    num += (s.windowsAt - mt) * (s.frame - mf);
+    den += (s.windowsAt - mt) ** 2;
   }
   return den ? (num / den) * 1000 : null;
 };

@@ -23,6 +23,7 @@ import type { RecordingSessionEvent, RecordingSessionFiles } from "./protocol";
 import type { ChatHighlightEvent } from "./chat-highlight-protocol";
 import { repairFile } from "./footage-repair";
 import { createSpeechDetector } from "./speech-detector";
+import { writerGraphUp } from "./writer-graph";
 import { CAMERA_FPS, countFramesLost } from "./frames-lost";
 import type { StopReason, TakeSettings } from "./take-settings";
 
@@ -110,7 +111,7 @@ export type BeginOptions = {
 
 export type ArmedTake = {
   settings: TakeSettings;
-  /** Resolves once the writer reads the relay; rejects if it quits first. */
+  /** Resolves once the writer reads the relay and will hear T0 (`writerGraphUp`); rejects if it quits first. */
   ready: Promise<void>;
   /** Starts the take now: T0 is this moment. */
   begin: (o: BeginOptions) => RecordingSession;
@@ -150,9 +151,6 @@ const errorTail = (log: string) =>
 /** An error line about the Cam Link, from the capture: dshow naming its video input. */
 const namesCamera = (line: string) =>
   /\bin#0\b|\[video input\]|video=/.test(line);
-
-/** What the writer prints once it has the relay: its input opened. */
-const READS_RELAY = /Input #0, .*from 'tcp:/;
 
 /**
  * Arms a take: makes its folder, and starts its camera + mic writer on the
@@ -227,16 +225,10 @@ export const armTake = (o: {
       console.error(`recorder: could not remove ${dir}`, e);
     }
   };
-  const ready = new Promise<void>((resolve, reject) => {
-    camera.child.onStderr(
-      lineSplitter((line) => {
-        if (READS_RELAY.test(line)) resolve();
-      })
-    );
-    void camera.child.exited.then(() =>
-      reject(new Error(camera.errors().join(" ") || "The writer quit."))
-    );
-  });
+  const ready = writerGraphUp(
+    camera.child,
+    () => camera.errors().join(" ") || "The writer quit."
+  );
   // Nobody may be waiting on it; a quit is told through `onQuit`.
   ready.catch(() => {});
   void camera.child.exited.then(async () => {
