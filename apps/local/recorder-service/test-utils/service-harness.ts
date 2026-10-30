@@ -101,7 +101,7 @@ afterEach(() => {
 export const start = async (
   windows = fakeWindows(),
   stateDir = tmp(),
-  o: { previewStallMs?: number } = {}
+  o: { previewStallMs?: number; streamListenBoundMs?: number } = {}
 ) => {
   const service = await startRecorderService({
     port: 0,
@@ -111,6 +111,7 @@ export const start = async (
     cameraStartTimeoutMs: 100,
     previewStallMs: o.previewStallMs,
     wakeSpacedesk: windows.wakeSpacedesk,
+    streamListenBoundMs: o.streamListenBoundMs,
   });
   cleanups.unshift(() => service.close());
   return {

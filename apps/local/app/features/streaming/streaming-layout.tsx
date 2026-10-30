@@ -10,6 +10,7 @@ import { LivePreviewFrame } from "@/features/video-editor/components/live-previe
 import { CvmRecorderControls } from "@/features/video-editor/components/cvm-recorder-controls";
 import { StreamClipListView } from "./stream-clip-list-view";
 import { BroadcastPicker } from "./broadcast-picker";
+import { GoLiveControls } from "./go-live-controls";
 import { BroadcastChatView } from "./broadcast-chat-view";
 
 /** The composite preview, or a frame saying there is none yet. */
@@ -80,7 +81,8 @@ export const StreamingLayout = (props: { sidePanel: ReactNode }) => {
               <StreamPicture />
             </div>
           </div>
-          <div className="shrink-0 max-h-[40%] overflow-y-auto">
+          <div className="shrink-0 max-h-[40%] overflow-y-auto flex flex-col gap-2">
+            <GoLiveControls />
             <CvmRecorderControls />
           </div>
         </section>

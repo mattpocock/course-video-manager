@@ -11,9 +11,9 @@ import type { Scene } from "@/packages/scene-layout";
 import type { VideoFormat } from "@/features/videos/video-format";
 import {
   cameraMessage,
-  sceneMessage,
-  screenMessage,
   serviceUrls,
+  WHILE_OPEN_MESSAGES,
+  type WhileOpenKind,
 } from "./editor-messages";
 import { helloProblem } from "./service-version";
 import type { AskEditor, IngestResult } from "./ingest.server";
@@ -28,6 +28,7 @@ import {
 import { createRecorderEventSequencer, type SequencedEvent } from "./sequencer";
 import { meterRelay, isMeterMessage } from "./meter-relay";
 import { calibrationCommands } from "./calibration-commands";
+import { liveStreamCommands } from "./live-stream-commands";
 import { streamDeckPreparation } from "./stream-deck-prepare";
 import { watchRecorder } from "./recorder-watch";
 
@@ -158,14 +159,17 @@ export const createRecorderClient = (o: RecorderClientOptions) => {
     publish(videoId, message);
   };
   /**
-   * The scene or a Short's screen, to an editor, only when it changed. Once
-   * the recorder is not its Video's (closed, another Video's, unreachable)
-   * its editor has neither, so it hears them again when the recorder is back.
+   * `WHILE_OPEN_MESSAGES`, each only when it changed. Once the recorder is
+   * not its Video's its editor has none: it hears them again when it is.
    */
-  const publishWhileOpen = (
+  const publishWhileOpen = (videoId: string, listener?: Listener) => {
+    for (const [kind, of] of Object.entries(WHILE_OPEN_MESSAGES))
+      publishOne(videoId, of(state, videoId), kind as WhileOpenKind, listener);
+  };
+  const publishOne = (
     videoId: string,
     message: CvmRecorderMessage | undefined,
-    kind: "scene" | "screen",
+    kind: WhileOpenKind,
     listener?: Listener
   ) => {
     const key = `${videoId}:${kind}`;
@@ -180,8 +184,7 @@ export const createRecorderClient = (o: RecorderClientOptions) => {
     for (const videoId of listeners.keys()) {
       publish(videoId, statusFor(videoId));
       publishCamera(videoId);
-      publishWhileOpen(videoId, sceneMessage(state, videoId), "scene");
-      publishWhileOpen(videoId, screenMessage(state, videoId), "screen");
+      publishWhileOpen(videoId);
     }
   };
 
@@ -470,18 +473,7 @@ export const createRecorderClient = (o: RecorderClientOptions) => {
         lastCamera.set(videoId, JSON.stringify(camera));
         listener(camera);
       }
-      publishWhileOpen(
-        videoId,
-        sceneMessage(state, videoId),
-        "scene",
-        listener
-      );
-      publishWhileOpen(
-        videoId,
-        screenMessage(state, videoId),
-        "screen",
-        listener
-      );
+      publishWhileOpen(videoId, listener);
       wanted = [...wanted.filter((v) => v !== videoId), videoId];
       reconcile();
       demandChanged();
@@ -491,8 +483,8 @@ export const createRecorderClient = (o: RecorderClientOptions) => {
         listeners.delete(videoId);
         demandChanged();
         lastCamera.delete(videoId);
-        lastOpen.delete(`${videoId}:scene`);
-        lastOpen.delete(`${videoId}:screen`);
+        for (const kind of Object.keys(WHILE_OPEN_MESSAGES))
+          lastOpen.delete(`${videoId}:${kind}`);
         setTimeout(() => {
           if (listeners.has(videoId)) return;
           wanted = wanted.filter((v) => v !== videoId);
@@ -527,6 +519,12 @@ export const createRecorderClient = (o: RecorderClientOptions) => {
         (m) => isState(m, "recording", videoId)
       );
     },
+
+    ...liveStreamCommands({
+      command,
+      calibration: o.calibration,
+      recorder: () => ({ reachable, problem, state }),
+    }),
 
     /** Tries the Cam Link again, after it did not start or was busy. */
     async retryCamera(videoId: string) {

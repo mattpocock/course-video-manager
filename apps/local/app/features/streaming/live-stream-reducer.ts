@@ -1,4 +1,6 @@
 import type { EffectReducer } from "use-effect-reducer";
+import type { StreamStatus } from "recorder-service/stream-protocol";
+import type { SilenceLength } from "@/silence-detection-constants";
 import {
   broadcastRefusal,
   type Broadcast,
@@ -14,10 +16,13 @@ import type {
 /**
  * The app-wide Live Stream surface, mounted at the app root like the Upload
  * Manager's Jobs, so what it holds survives leaving the Streaming tab. It
- * holds the Broadcast picker, the picked **Broadcast** and its chat buffer;
- * later tickets add the Live Stream's status and health and the current Chat
+ * holds the Broadcast picker, the picked **Broadcast** and its chat buffer,
+ * and **Go Live** / **End Stream** with the Live Stream's status as the
+ * recorder says it; later tickets add its health and the current Chat
  * Highlight (spec #2445). The app server reads the chat (`services/
- * broadcast-chat.ts`); this buffer is what the Streaming tab has heard of it.
+ * broadcast-chat.ts`); this buffer is what the Streaming tab has heard of
+ * it. Go Live is sent whatever is missing: the app server answers with every
+ * reason that applies at once (ADR 0054).
  */
 export namespace liveStreamReducer {
   export type BroadcastList =
@@ -34,6 +39,12 @@ export namespace liveStreamReducer {
     pickedBroadcast: Broadcast | null;
     /** The chat buffer: the picked Broadcast's chat, as the app server relays it. */
     chat: ChatSnapshot;
+    /** The Live Stream, as the recorder last said, and the Video it is open for. */
+    stream: { videoId: string; status: StreamStatus } | null;
+    /** Go Live or End Stream was pressed and the app server has not answered. */
+    pending: "going-live" | "ending" | null;
+    /** Why the last Go Live or End Stream did not happen, until the next press. */
+    refusal: string | null;
   };
 
   export type Action =
@@ -44,12 +55,32 @@ export namespace liveStreamReducer {
     | { type: "broadcast-listing-failed"; message: string }
     | { type: "broadcast-clicked"; broadcastId: string }
     /** Heard from the app server's chat (`GET /api/streaming/chat/events`). */
-    | BroadcastChatEvent;
+    | BroadcastChatEvent
+    /** The Streaming tab's recorder said the Live Stream's status (null: not open for it). */
+    | {
+        type: "stream-status-heard";
+        videoId: string;
+        status: StreamStatus | null;
+      }
+    | { type: "go-live-pressed"; videoId: string; silenceLength: SilenceLength }
+    | { type: "go-live-answered" }
+    | { type: "go-live-refused"; message: string }
+    | { type: "end-stream-pressed"; videoId: string }
+    | { type: "end-stream-answered" }
+    | { type: "end-stream-failed"; message: string };
 
   export type Effect =
     | { type: "list-broadcasts" }
     /** The app server reads this Broadcast's chat from now on. */
-    | { type: "pick-broadcast"; pick: BroadcastPick };
+    | { type: "pick-broadcast"; pick: BroadcastPick }
+    /** Start a streamed Recording Session and its Live Stream on `videoId`. */
+    | {
+        type: "go-live";
+        videoId: string;
+        broadcastId: string | null;
+        silenceLength: SilenceLength;
+      }
+    | { type: "end-stream"; videoId: string };
 }
 
 type State = liveStreamReducer.State;
@@ -60,6 +91,9 @@ export const createInitialLiveStreamState = (): State => ({
   broadcastList: { status: "unlisted" },
   listing: false,
   pickedBroadcast: null,
+  stream: null,
+  pending: null,
+  refusal: null,
   chat: { broadcastId: null, connection: { state: "idle" }, messages: [] },
 });
 
@@ -153,6 +187,13 @@ const chatHeard = (state: State, event: BroadcastChatEvent): State => {
   };
 };
 
+/** Whether the Live Stream on `videoId` is running: from Go Live until it ended. */
+export const isLiveOn = (state: State, videoId: string) => {
+  const status =
+    state.stream?.videoId === videoId ? state.stream.status.kind : "idle";
+  return status !== "idle" && status !== "ended";
+};
+
 export const liveStreamReducer: EffectReducer<State, Action, Effect> = (
   state,
   action,
@@ -184,7 +225,99 @@ export const liveStreamReducer: EffectReducer<State, Action, Effect> = (
     case "chat-message-received":
     case "chat-connection-changed":
       return chatHeard(state, action);
+    case "stream-status-heard":
+    case "go-live-pressed":
+    case "go-live-answered":
+    case "end-stream-answered":
+    case "go-live-refused":
+    case "end-stream-failed":
+    case "end-stream-pressed":
+      return goLiveReducer(state, action, exec);
   }
+};
+
+/** Go Live and End Stream: one press out at a time, the answer shown. */
+const goLiveReducer = (
+  state: State,
+  action: Extract<
+    Action,
+    {
+      type:
+        | "stream-status-heard"
+        | "go-live-pressed"
+        | "go-live-answered"
+        | "end-stream-answered"
+        | "go-live-refused"
+        | "end-stream-failed"
+        | "end-stream-pressed";
+    }
+  >,
+  exec: (effect: Effect) => void
+): State => {
+  switch (action.type) {
+    case "stream-status-heard":
+      return {
+        ...state,
+        stream:
+          action.status === null
+            ? null
+            : { videoId: action.videoId, status: action.status },
+      };
+    case "go-live-pressed":
+      if (state.pending || isLiveOn(state, action.videoId)) return state;
+      exec({
+        type: "go-live",
+        videoId: action.videoId,
+        broadcastId: state.pickedBroadcast?.id ?? null,
+        silenceLength: action.silenceLength,
+      });
+      return { ...state, pending: "going-live", refusal: null };
+    case "go-live-answered":
+    case "end-stream-answered":
+      return { ...state, pending: null };
+    case "go-live-refused":
+    case "end-stream-failed":
+      return { ...state, pending: null, refusal: action.message };
+    case "end-stream-pressed":
+      if (state.pending || !isLiveOn(state, action.videoId)) return state;
+      exec({ type: "end-stream", videoId: action.videoId });
+      return { ...state, pending: "ending", refusal: null };
+  }
+};
+
+/** The Streaming tab's one main button, and what it says under it. */
+export type GoLiveControl = {
+  /** What a press does: the button reads Go Live or End Stream. */
+  press: "go-live" | "end-stream";
+  /** A press is out: the button waits. */
+  busy: boolean;
+  /** The Live Stream's state in words, or null before any Go Live. */
+  status: string | null;
+  refusal: string | null;
+};
+
+const STATUS_WORDS: Record<StreamStatus["kind"], string | null> = {
+  idle: null,
+  starting: "Starting the Live Stream…",
+  connecting: "Connecting to YouTube…",
+  live: "Live",
+  reconnecting: "Reconnecting to YouTube…",
+  ended: null,
+};
+
+export const goLiveControl = (state: State, videoId: string): GoLiveControl => {
+  const status = state.stream?.videoId === videoId ? state.stream.status : null;
+  return {
+    press: isLiveOn(state, videoId) ? "end-stream" : "go-live",
+    busy: state.pending !== null,
+    status:
+      status?.kind === "ended"
+        ? `The Live Stream ended: ${status.reason}`
+        : status
+          ? STATUS_WORDS[status.kind]
+          : null,
+    refusal: state.refusal,
+  };
 };
 
 export type BroadcastPickerRow = {

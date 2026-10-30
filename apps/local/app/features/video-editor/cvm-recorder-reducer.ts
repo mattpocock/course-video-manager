@@ -10,6 +10,7 @@ import type {
   LostFrameSpan,
   ScreenStatus,
 } from "recorder-service/protocol";
+import type { StreamStatus } from "recorder-service/stream-protocol";
 import { isSceneAvailable, isScreenWaking } from "./cvm-recorder-screen";
 import { placeClips } from "./cvm-recorder-clips";
 import {
@@ -113,6 +114,8 @@ export namespace cvmRecorderReducer {
     scene: Scene | null;
     /** A Short's screen; null while not open for this Video, and for Landscape. */
     screen: ScreenStatus | null;
+    /** The Live Stream (ADR 0054); null while the recorder is not open for this Video. */
+    stream: StreamStatus | null;
     /** Wake Spacedesk again was pressed and the recorder is not waking it yet. */
     wakingAgain: boolean;
     /** The last thing that went wrong, until the next Record. */
@@ -196,6 +199,7 @@ export const createInitialCvmRecorderState = (
   previews: null,
   scene: null,
   screen: null,
+  stream: null,
   wakingAgain: false,
   error: null,
   alert: null,
@@ -347,6 +351,7 @@ const sessionEventOf = (
     case "camera-closed":
     case "scene-changed":
     case "screen-changed":
+    case "stream-changed":
     case "frames-lost":
     case "recorder-failed":
     case "clips-saved":
@@ -394,6 +399,7 @@ const deviceHeard = (
         camera: message.reachable ? state.camera : { kind: "closed" },
         scene: message.reachable ? state.scene : null,
         screen: message.reachable ? state.screen : null,
+        stream: message.reachable ? state.stream : null,
       };
     case "camera-opening":
       return cameraHeard(state, { kind: "opening", attempt: message.attempt });
@@ -411,11 +417,14 @@ const deviceHeard = (
         ...cameraHeard(state, { kind: "closed" }),
         scene: null,
         screen: null,
+        stream: null,
       };
     case "scene-changed":
       return { ...state, scene: message.scene };
     case "screen-changed":
       return { ...state, screen: message.screen, wakingAgain: false };
+    case "stream-changed":
+      return { ...state, stream: message.stream };
     case "recording-started":
       return { ...state, error: null };
     case "camera-lost":

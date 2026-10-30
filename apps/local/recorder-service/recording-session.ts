@@ -2,10 +2,7 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { finished as streamFinished } from "node:stream/promises";
-import {
-  silenceLengthToSeconds,
-  type SilenceLength,
-} from "../app/silence-detection-constants";
+import { silenceLengthToSeconds } from "../app/silence-detection-constants";
 import { quitProcess, tuneProcess, type Capture } from "./camera";
 import { FILE_NAMES } from "./capture-args";
 import {
@@ -26,6 +23,7 @@ import type { RecordingSessionEvent, RecordingSessionFiles } from "./protocol";
 import { repairFile } from "./footage-repair";
 import { createSpeechDetector } from "./speech-detector";
 import { CAMERA_FPS, countFramesLost } from "./frames-lost";
+import type { StopReason, TakeSettings } from "./take-settings";
 
 /**
  * ONE RECORDING SESSION (#2207). Its camera + mic writer is armed before
@@ -86,23 +84,6 @@ type Unlogged = RecordingSessionEvent extends infer E
     : never
   : never;
 
-/** What a writer is armed with: a Record that asks for anything else arms another. */
-export type TakeSettings = {
-  /** The folder (WSL path) the Recording Session's own folder goes in. */
-  folder: string;
-  silenceLength: SilenceLength;
-  /** The silence threshold its silencedetect cuts with, in dB. */
-  thresholdDb: number;
-  /** The camera capture's writer relay it listens on. */
-  relayPort: number;
-};
-
-export const sameTake = (a: TakeSettings, b: TakeSettings) =>
-  a.folder === b.folder &&
-  a.silenceLength === b.silenceLength &&
-  a.thresholdDb === b.thresholdDb &&
-  a.relayPort === b.relayPort;
-
 export type BeginOptions = {
   videoId: string;
   /** The AV Calibration that set it; null: none had passed. */
@@ -122,8 +103,8 @@ export type BeginOptions = {
   scene: Scene;
   /** Each event, after it is in the log. */
   emit: (event: RecordingSessionEvent) => void;
-  /** Once, after `recording-stopped`. */
-  onEnded: () => void;
+  /** Once, after `recording-stopped`, with its reason. */
+  onEnded: (reason: StopReason) => void;
 };
 
 export type ArmedTake = {
@@ -225,6 +206,7 @@ export const armTake = (o: {
       tag,
       silenceLength: o.settings.silenceLength,
       thresholdDb: o.settings.thresholdDb,
+      streamPort: o.settings.streamed?.camera,
     })
   );
   const writerTuned = tuneProcess(o.launch, {
@@ -368,7 +350,12 @@ const beginTake = (
       ? null
       : o.run(
           "screen",
-          screenRecorderArgs({ t0Ms, tag, screenIndex: o.screenIndex })
+          screenRecorderArgs({
+            t0Ms,
+            tag,
+            screenIndex: o.screenIndex,
+            streamPort: o.settings.streamed?.screen,
+          })
         );
 
   // The capture's own log for the take: its mic stalls and DirectShow's
@@ -527,12 +514,7 @@ const beginTake = (
 
   /** The one stop, whoever asked first: done once `recording-stopped` is logged. */
   let stopped: Promise<void> | undefined;
-  const stopWith = (
-    reason: Extract<
-      RecordingSessionEvent,
-      { type: "recording-stopped" }
-    >["reason"]
-  ): Promise<void> => {
+  const stopWith = (reason: StopReason): Promise<void> => {
     // A second stop (the service closing during a camera-lost stop) waits
     // for the whole first one, not just the processes' exits.
     if (stopped) return stopped;
@@ -605,7 +587,7 @@ const beginTake = (
         ],
       });
       ended = true;
-      o.onEnded();
+      o.onEnded(reason);
     });
     return stopped;
   };

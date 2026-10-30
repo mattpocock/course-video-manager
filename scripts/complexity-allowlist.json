@@ -85,7 +85,7 @@
   "apps/local/app/services/writer-stream-errors.ts": 1,
   "apps/local/app/test-utils/fake-dropbox.ts": 1,
   "apps/local/recorder-service/flv-video.ts": 1,
-  "apps/local/recorder-service/recorder-service.ts": 2,
+  "apps/local/recorder-service/recorder-service.ts": 1,
   "apps/local/recorder-service/test-utils/fake-windows.ts": 1,
   "apps/local/scripts/recorder-scorecard/main.ts": 1,
   "apps/local/scripts/recorder-scorecard/synthetic-launcher.ts": 1,

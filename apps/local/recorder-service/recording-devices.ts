@@ -67,10 +67,14 @@ export const createRecordingDevices = (launch: Launcher) => {
         mic: findByName(names("audio"), (n) => n, MIC_NAME),
       };
     },
-    /** The pair Record records, gated; refuses with why. */
+    /**
+     * The pair Record records, gated; refuses with why, and when it is not
+     * the pair the recorder `opened`.
+     */
     forRecord: async (
       calibration: LastPassedCalibration | null,
-      now: () => number
+      now: () => number,
+      opened?: { camera: string; mic: string }
     ) => {
       const cached = listed && pairIn(listed, calibration, now());
       const fromCache = cached?.gate?.valid === true;
@@ -86,6 +90,10 @@ export const createRecordingDevices = (launch: Launcher) => {
       }
       if (!gate.valid)
         throw new Refusal(describeCalibrationRefusal(gate.reason));
+      if (opened && (camera !== opened.camera || mic !== opened.mic))
+        throw new Refusal(
+          `The recorder opened ${opened.camera} and ${opened.mic}, but the devices now listed are ${camera} and ${mic}: close the recorder and open it again.`
+        );
       return { camera, mic, calibration: gate.calibration, fromCache };
     },
   };

@@ -3,6 +3,7 @@ import {
   MOTION_KEY,
 } from "../app/packages/clap-detection/live";
 import { BT709, SCREEN_TO_NV12 } from "./colour";
+import { RAW_RELAY, teeWith } from "./relay-tee";
 
 /**
  * THE CAPTURE (#2207): the devices open once, when the recorder opens, and
@@ -127,16 +128,6 @@ export const WALLCLOCK = [
  */
 const teeToFeed = (port: number, format: string, queueSize: number) =>
   teeWith(queueSize, `${feedSlave(port, format)}|[f=null:use_fifo=0]-`);
-
-const teeWith = (queueSize: number, slaves: string) => [
-  "-f",
-  "tee",
-  "-use_fifo",
-  "1",
-  "-fifo_options",
-  `attempt_recovery=1:recover_any_error=1:recovery_wait_time=0.5:max_recovery_attempts=0:drop_pkts_on_overflow=1:queue_size=${queueSize}`,
-  slaves,
-];
 
 const feedSlave = (port: number, format: string) =>
   `[f=${format}:onfail=ignore]tcp://127.0.0.1:${port}?timeout=2000000&tcp_nodelay=1`;
@@ -358,13 +349,6 @@ const CAMERA_RELAY_SIZE = "2560x1440";
 /** The picture both relays carry: camera.mkv's size, scaled on the GPU as the recording always scaled it. */
 const CAMERA_RELAY_PICTURE =
   "hwupload_cuda,scale_cuda=2560:1440:interp_algo=bicubic,hwdownload,format=nv12";
-
-/**
- * The relays' raw picture. One thread: ffmpeg's rawvideo encoder is
- * frame-threaded, and its threads hold each frame until the next one comes,
- * a whole frame (33 ms) late on every relay (#2207, measured).
- */
-const RAW_RELAY = ["-c:v", "rawvideo", "-threads:v", "1"];
 
 /** Packets the preview relay may queue: a preview that falls behind drops frames instead of showing them late. */
 const PREVIEW_RELAY_QUEUE = 4;
