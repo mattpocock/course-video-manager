@@ -11,7 +11,8 @@
   "exports": {
     ".": "./src/render.ts",
     "./preview": "./src/preview.tsx",
-    "./props": "./src/props.ts"
+    "./props": "./src/props.ts",
+    "./definition-card-tokens": "./src/definition-card-tokens.ts"
   },
   "scripts": {
     "studio": "remotion studio remotion/index.ts",
