@@ -1,10 +1,16 @@
 import { Data, Effect } from "effect";
 import { getValidAccessToken } from "@/services/youtube-auth-service";
 import { youtubeApiUrl } from "@/services/youtube-upload-service";
+import type { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
 import type {
   Broadcast,
   BroadcastListAnswer,
+  ReconnectReason,
 } from "@/features/streaming/broadcast";
+import type {
+  ChatMessage,
+  ChatOverReason,
+} from "@/features/streaming/broadcast-chat";
 
 /**
  * The YouTube Live service: what CVM asks YouTube about **Broadcasts**. It
@@ -12,6 +18,10 @@ import type {
  * YouTube API URL override, so a test fakes YouTube at the HTTP boundary.
  * CVM never calls the Broadcast transition API and never creates a
  * Broadcast: YouTube's auto-start and auto-stop drive it.
+ *
+ * It also reads a Broadcast's live chat, a page at a time
+ * (`openChatStream`, `listChatPage`); the app server's chat
+ * (`broadcast-chat.ts`) decides when.
  */
 
 export class YouTubeLiveError extends Data.TaggedError("YouTubeLiveError")<{
@@ -143,3 +153,239 @@ export const listBroadcasts = Effect.gen(function* () {
       Effect.fail(new YouTubeLiveError({ message: e.message })),
   })
 );
+
+// ---------------------------------------------------------------------------
+// Chat
+// ---------------------------------------------------------------------------
+
+/** One page of chat: a `liveChatMessageListResponse`, as CVM reads it. */
+export type ChatPage = {
+  messages: ChatMessage[];
+  nextPageToken: string | null;
+  /** How long YouTube asks a poller to wait before the next `list`. */
+  pollingIntervalMillis: number | null;
+};
+
+/** Why YouTube didn't give chat, by what CVM does next. */
+export type ChatRefusal =
+  /** The stream connection was refused: poll `list` instead. */
+  | { status: "refused"; message: string }
+  /** Worth asking again after a pause (a 5xx, a rate limit). */
+  | { status: "dropped"; message: string }
+  /** No more chat for this Broadcast will come. */
+  | { status: "over"; reason: ChatOverReason }
+  | { status: "needs-reconnect"; reason: ReconnectReason };
+
+export type ChatStreamAnswer =
+  { status: "open"; pages: AsyncIterable<ChatPage> } | ChatRefusal;
+
+export type ChatListAnswer = { status: "page"; page: ChatPage } | ChatRefusal;
+
+type LiveChatMessageItem = {
+  id?: string;
+  snippet?: { displayMessage?: string; publishedAt?: string };
+  authorDetails?: { displayName?: string };
+};
+
+type LiveChatMessageList = {
+  items?: LiveChatMessageItem[];
+  nextPageToken?: string;
+  pollingIntervalMillis?: number;
+};
+
+const toChatPage = (body: LiveChatMessageList): ChatPage => ({
+  messages: (body.items ?? []).flatMap((item) =>
+    item.id && item.snippet?.displayMessage
+      ? [
+          {
+            id: item.id,
+            author: item.authorDetails?.displayName ?? "",
+            text: item.snippet.displayMessage,
+            publishedAt: item.snippet.publishedAt ?? "",
+          },
+        ]
+      : []
+  ),
+  nextPageToken: body.nextPageToken ?? null,
+  pollingIntervalMillis: body.pollingIntervalMillis ?? null,
+});
+
+const CHAT_OVER_REASONS: Record<string, ChatOverReason> = {
+  liveChatEnded: "ended",
+  liveChatNotFound: "not-found",
+  liveChatDisabled: "disabled",
+};
+
+/** What YouTube's error answer to a chat call means for CVM. */
+const chatRefusal = (status: number, body: unknown): ChatRefusal => {
+  if (isInsufficientScope(status, body)) {
+    return { status: "needs-reconnect", reason: "missing-live-access" };
+  }
+  const error = (body as { error?: GoogleError } | null)?.error;
+  const reasons = (error?.errors ?? []).map((e) => e.reason ?? "");
+  const over = reasons.map((r) => CHAT_OVER_REASONS[r]).find(Boolean);
+  if (over) return { status: "over", reason: over };
+  const message = `YouTube answered ${status}: ${error?.message ?? "no message"}`;
+  if (
+    status >= 500 ||
+    status === 429 ||
+    reasons.includes("rateLimitExceeded")
+  ) {
+    return { status: "dropped", message };
+  }
+  return { status: "refused", message };
+};
+
+/**
+ * Each top-level JSON object in a server-streamed REST answer, as it
+ * arrives. YouTube frames one as a JSON array sent an element at a time
+ * (`[{…}\r\n,{…}…]`); the array's brackets and commas are skipped.
+ */
+async function* jsonObjects(body: ReadableStream<Uint8Array>) {
+  const decoder = new TextDecoder();
+  let pending = "";
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for await (const chunk of body) {
+    const text = decoder.decode(chunk, { stream: true });
+    for (const char of text) {
+      if (depth > 0) pending += char;
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (char === "\\") escaped = true;
+        else if (char === '"') inString = false;
+        continue;
+      }
+      if (char === '"' && depth > 0) inString = true;
+      else if (char === "{") {
+        if (depth === 0) pending = char;
+        depth++;
+      } else if (char === "}" && depth > 0) {
+        depth--;
+        if (depth === 0) yield JSON.parse(pending) as unknown;
+      }
+    }
+  }
+}
+
+/**
+ * One authorised chat call to YouTube, with its JSON body read unless it is
+ * an open stream (whose pages the caller reads as they come).
+ */
+const chatFetch = (opts: {
+  path: "liveChat/messages/stream" | "liveChat/messages";
+  liveChatId: string;
+  pageToken: string | null;
+  signal: AbortSignal;
+}) =>
+  Effect.gen(function* () {
+    const accessToken = yield* getValidAccessToken;
+    const apiUrl = yield* youtubeApiUrl;
+    const query = new URLSearchParams({
+      liveChatId: opts.liveChatId,
+      part: "snippet,authorDetails",
+    });
+    if (opts.pageToken !== null) query.set("pageToken", opts.pageToken);
+    return yield* Effect.tryPromise({
+      try: async () => {
+        const response = await fetch(
+          `${apiUrl}/youtube/v3/${opts.path}?${query}`,
+          {
+            headers: { Authorization: `Bearer ${accessToken}` },
+            signal: opts.signal,
+          }
+        );
+        const streaming =
+          opts.path === "liveChat/messages/stream" && response.ok;
+        const body: unknown = streaming
+          ? null
+          : await response.json().catch(() => null);
+        return { response, body };
+      },
+      catch: (e) =>
+        new YouTubeLiveError({
+          message: e instanceof Error ? e.message : String(e),
+        }),
+    });
+  });
+
+const needsConnecting = {
+  NotAuthenticatedError: () =>
+    Effect.succeed({
+      status: "needs-reconnect" as const,
+      reason: "not-connected" as const,
+    }),
+  YouTubeAuthError: (e: { message: string }) =>
+    Effect.fail(new YouTubeLiveError({ message: e.message })),
+};
+
+/**
+ * Opens a `liveChatMessages.streamList` connection: one call (5 quota
+ * units) that YouTube keeps open, sending each new page of chat on it.
+ * `pageToken` resumes after the last page heard. Aborting `signal` closes
+ * it. A network failure fails with `YouTubeLiveError`, as does a stream
+ * that breaks while its pages are read.
+ */
+export const openChatStream = (opts: {
+  liveChatId: string;
+  pageToken: string | null;
+  signal: AbortSignal;
+}) =>
+  Effect.gen(function* () {
+    const { response, body: error } = yield* chatFetch({
+      ...opts,
+      path: "liveChat/messages/stream",
+    });
+    if (!response.ok || response.body === null) {
+      return chatRefusal(response.status, error);
+    }
+    const body = response.body;
+    const pages = (async function* () {
+      for await (const object of jsonObjects(body)) {
+        yield toChatPage(object as LiveChatMessageList);
+      }
+    })();
+    return { status: "open", pages } satisfies ChatStreamAnswer;
+  }).pipe(Effect.catchTags(needsConnecting));
+
+/** One `liveChatMessages.list` poll: only once the stream was refused. */
+export const listChatPage = (opts: {
+  liveChatId: string;
+  pageToken: string | null;
+  signal: AbortSignal;
+}) =>
+  Effect.gen(function* () {
+    const { response, body } = yield* chatFetch({
+      ...opts,
+      path: "liveChat/messages",
+    });
+    if (!response.ok) return chatRefusal(response.status, body);
+    return {
+      status: "page",
+      page: toChatPage((body ?? {}) as LiveChatMessageList),
+    } satisfies ChatListAnswer;
+  }).pipe(Effect.catchTags(needsConnecting));
+
+/** What the app server's chat asks YouTube, run by the caller's runtime. */
+export type ChatYouTube = {
+  openStream: (opts: {
+    liveChatId: string;
+    pageToken: string | null;
+    signal: AbortSignal;
+  }) => Promise<ChatStreamAnswer>;
+  listPage: (opts: {
+    liveChatId: string;
+    pageToken: string | null;
+    signal: AbortSignal;
+  }) => Promise<ChatListAnswer>;
+};
+
+export const chatYouTube = (
+  run: <A, E>(
+    effect: Effect.Effect<A, E, LinkAuthOperationsService>
+  ) => Promise<A>
+): ChatYouTube => ({
+  openStream: (opts) => run(openChatStream(opts)),
+  listPage: (opts) => run(listChatPage(opts)),
+});

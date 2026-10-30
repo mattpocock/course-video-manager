@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ReducerTester } from "@/test-utils/reducer-tester";
 import type { Broadcast } from "./broadcast";
+import type { ChatMessage } from "./broadcast-chat";
 import {
   broadcastPickerRows,
   createInitialLiveStreamState,
@@ -156,6 +157,133 @@ describe("the Live Stream surface's Broadcast picker", () => {
   });
 });
 
+const fakeMessage = (n: number): ChatMessage => ({
+  id: `msg-${n}`,
+  author: `@fake_viewer_${n}`,
+  text: `Fake question number ${n}`,
+  publishedAt: "2026-10-30T18:00:00Z",
+});
+
+const listed = (...broadcasts: Broadcast[]) =>
+  start()
+    .send({ type: "broadcast-picker-shown" })
+    .send({
+      type: "broadcasts-answered",
+      answer: { status: "listed", broadcasts },
+    });
+
+describe("the Live Stream surface's chat buffer", () => {
+  it("picking a Broadcast hands its chat to the app server, and its messages fill the buffer as they arrive", () => {
+    const tester = listed(officeHours, qa)
+      .send({ type: "broadcast-clicked", broadcastId: "office-hours" })
+      // Clicking it again changes nothing.
+      .send({ type: "broadcast-clicked", broadcastId: "office-hours" })
+      .send({
+        type: "chat-connection-changed",
+        broadcastId: "office-hours",
+        connection: { state: "streaming" },
+      })
+      .send({
+        type: "chat-message-received",
+        broadcastId: "office-hours",
+        messages: [fakeMessage(1)],
+      })
+      .send({
+        type: "chat-message-received",
+        broadcastId: "office-hours",
+        messages: [fakeMessage(2), fakeMessage(3)],
+      });
+
+    expect(tester.getEffects()).toEqual([
+      { type: "list-broadcasts" },
+      {
+        type: "pick-broadcast",
+        pick: { broadcastId: "office-hours", liveChatId: "chat-office-hours" },
+      },
+    ]);
+    expect(tester.getState().chat).toEqual({
+      broadcastId: "office-hours",
+      connection: { state: "streaming" },
+      messages: [fakeMessage(1), fakeMessage(2), fakeMessage(3)],
+    });
+  });
+
+  it("picking another Broadcast switches chat, and a late message from the old one is dropped", () => {
+    const tester = listed(officeHours, qa)
+      .send({ type: "broadcast-clicked", broadcastId: "office-hours" })
+      .send({
+        type: "chat-message-received",
+        broadcastId: "office-hours",
+        messages: [fakeMessage(1)],
+      })
+      .send({ type: "broadcast-clicked", broadcastId: "qa" })
+      .send({
+        type: "chat-message-received",
+        broadcastId: "office-hours",
+        messages: [fakeMessage(2)],
+      });
+
+    expect(tester.getEffects().at(-1)).toEqual({
+      type: "pick-broadcast",
+      pick: { broadcastId: "qa", liveChatId: "chat-qa" },
+    });
+    expect(tester.getState().chat).toEqual({
+      broadcastId: "qa",
+      connection: { state: "connecting" },
+      messages: [],
+    });
+  });
+
+  it("after a reload, re-attaches to the chat the app server kept, and re-picks its Broadcast without asking again", () => {
+    const tester = start()
+      .send({
+        type: "chat-attached",
+        chat: {
+          broadcastId: "qa",
+          connection: { state: "streaming" },
+          messages: [fakeMessage(1), fakeMessage(2)],
+        },
+      })
+      .send({ type: "broadcast-picker-shown" })
+      .send({
+        type: "broadcasts-answered",
+        answer: { status: "listed", broadcasts: [officeHours, qa] },
+      })
+      .send({ type: "broadcast-clicked", broadcastId: "qa" });
+
+    expect(tester.getState().pickedBroadcast).toEqual(qa);
+    expect(tester.getState().chat.messages).toEqual([
+      fakeMessage(1),
+      fakeMessage(2),
+    ]);
+    expect(tester.getEffects()).toEqual([{ type: "list-broadcasts" }]);
+  });
+
+  it("End Stream's empty chat clears the buffer", () => {
+    const tester = listed(officeHours)
+      .send({ type: "broadcast-clicked", broadcastId: "office-hours" })
+      .send({
+        type: "chat-message-received",
+        broadcastId: "office-hours",
+        messages: [fakeMessage(1)],
+      })
+      .send({
+        type: "chat-attached",
+        chat: {
+          broadcastId: null,
+          connection: { state: "idle" },
+          messages: [],
+        },
+      });
+
+    expect(tester.getState().chat).toEqual({
+      broadcastId: null,
+      connection: { state: "idle" },
+      messages: [],
+    });
+  });
+});
+
 describe("Go Live and End Stream on the Live Stream surface", () => {
   const VIDEO = "video-1";
   /** The picker listed and Office Hours picked. */
@@ -239,7 +367,9 @@ describe("Go Live and End Stream on the Live Stream surface", () => {
       .send({ type: "end-stream-pressed", videoId: VIDEO })
       .send({ type: "end-stream-pressed", videoId: VIDEO });
     expect(
-      tester.getEffects().filter((e) => e.type !== "list-broadcasts")
+      tester
+        .getEffects()
+        .filter((e) => e.type === "go-live" || e.type === "end-stream")
     ).toEqual([
       {
         type: "go-live",

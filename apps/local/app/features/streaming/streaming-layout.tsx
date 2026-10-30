@@ -1,12 +1,7 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { useContextSelector } from "use-context-selector";
-import {
-  ChevronLeftIcon,
-  MessageSquareIcon,
-  MonitorSpeaker,
-  VideoOffIcon,
-} from "lucide-react";
+import { ChevronLeftIcon, MonitorSpeaker, VideoOffIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { teleprompterChannel } from "@/lib/teleprompter-protocol";
 import { VideoEditorContext } from "@/features/video-editor/video-editor-context";
@@ -16,6 +11,7 @@ import { CvmRecorderControls } from "@/features/video-editor/components/cvm-reco
 import { StreamClipListView } from "./stream-clip-list-view";
 import { BroadcastPicker } from "./broadcast-picker";
 import { GoLiveControls } from "./go-live-controls";
+import { BroadcastChatView } from "./broadcast-chat-view";
 
 /** The composite preview, or a frame saying there is none yet. */
 const StreamPicture = () => {
@@ -94,15 +90,7 @@ export const StreamingLayout = (props: { sidePanel: ReactNode }) => {
           <div className="shrink-0 max-h-[50%] flex flex-col min-h-0">
             <BroadcastPicker />
           </div>
-          <div
-            className="flex-1 flex flex-col items-center justify-center gap-2 text-center"
-            data-testid="stream-chat"
-          >
-            <MessageSquareIcon className="size-6 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              The Broadcast's live chat shows here.
-            </p>
-          </div>
+          <BroadcastChatView />
         </aside>
       </div>
       <div className="flex flex-col lg:flex-row gap-2 min-h-0 lg:flex-[2]">

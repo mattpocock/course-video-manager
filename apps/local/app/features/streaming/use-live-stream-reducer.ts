@@ -1,3 +1,4 @@
+import { toastError } from "@/components/ui/toast";
 import { useEffectReducer } from "@/hooks/use-effect-reducer";
 import type { BroadcastListAnswer } from "./broadcast";
 import {
@@ -42,6 +43,24 @@ export function useLiveStreamReducer() {
             type: "broadcast-listing-failed",
             message: e instanceof Error ? e.message : String(e),
           })
+        );
+    },
+    // `routes/api.streaming.broadcast-pick.ts`
+    "pick-broadcast": (_state, { pick }) => {
+      fetch("/api/streaming/broadcast-pick", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(pick),
+      })
+        .then(async (response) => {
+          if (!response.ok) {
+            throw new Error(
+              (await response.text()) || `HTTP ${response.status}`
+            );
+          }
+        })
+        .catch((e: unknown) =>
+          toastError(e, "Couldn't start the Broadcast's chat.")
         );
     },
     "go-live": (_state, effect, dispatch) => {
