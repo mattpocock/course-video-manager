@@ -59,8 +59,8 @@ import { createPreviewEncoders } from "./preview-encoders";
  * checked at Record. A Short records the Spacedesk virtual display: opening
  * looks for it and wakes Spacedesk when it is not listed, beside the camera
  * and outside the command queue, and the state says how that went
- * (`ScreenStatus`, `screen-side.ts`). With it unavailable a Short records camera and mic only,
- * and refuses the scenes that draw the screen.
+ * (`ScreenStatus`, `screen-side.ts`). Without it a Short records camera and mic
+ * only, and refuses the scenes that draw the screen.
  *
  * The level meter (`level-meter.ts`) holds only the mic, and needs no Video:
  * it runs whether the recorder is closed or open, for the client that started
@@ -79,7 +79,7 @@ export type RecorderServiceOptions = {
   launch: Launcher;
   /** Windows wall-clock ms: the clock ffmpeg stamps every input with. */
   now: () => number;
-  /** The service's own files: the last NVIDIA driver seen, the Recording Session index. */
+  /** The service's own files: the last NVIDIA driver, the Recording Session index. */
   stateDir: string;
   /** How long one try at the Cam Link waits for its first frame. */
   cameraStartTimeoutMs?: number;
@@ -106,7 +106,7 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
   const index = createSessionIndex(o.stateDir);
 
   let state: RecorderState = { kind: "closed" };
-  /** The scene the picture is drawn in; kept while the service runs. */
+  /** The scene the picture and the Live Stream show. */
   let scene: Scene = DEFAULT_SCENE;
   /** What a Stream Deck Record records with, from the app server. */
   let recordWith:
@@ -322,7 +322,7 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
       scene
     );
     const screenMs = Date.now();
-    // Straight after a Stop the last take's writer may still hold the relay.
+    // After a Stop the last take's writer may still hold the relay.
     const relayWasHeld = stopping.relayHeld();
     await stopping.relayFree();
     const wasArmed = arming.isArmed();
@@ -459,6 +459,7 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
         // the switch rather than showing a scene the Footage never got.
         session?.switchScene(command.scene);
         scene = command.scene;
+        live.sceneSwitched(scene);
         return setState({ ...state, scene });
       case "record":
         return record(command);

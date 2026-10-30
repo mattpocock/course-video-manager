@@ -12,7 +12,8 @@
 // canvas draws a scene (live preview, editor playback) and `sceneFilterGraph`
 // says how ffmpeg draws a run of segments (export, stills). `LAYOUT_VERSIONS`
 // goes into the Export Hash. `liveSceneFilterGraph` draws every Landscape
-// scene at once on CUDA for the Live Stream and picks one, switchable live.
+// scene at once on CUDA for the Live Stream and picks one; `liveSceneSwitch`
+// is the filter command that switches it live.
 export {
   DEFAULT_SCENE,
   LAYOUT_VERSIONS,
@@ -39,6 +40,7 @@ export {
 
 export {
   liveSceneFilterGraph,
+  liveSceneSwitch,
   type LiveSceneFilterGraphInput,
 } from "./lib/live-scene-graph";
 

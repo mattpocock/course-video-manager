@@ -367,6 +367,52 @@ describe("Go Live and End Stream", () => {
   });
 });
 
+/** `streamselect`'s map for each scene: Camera 0, Code 1, No Face 2. */
+const selects = (args: readonly string[]) =>
+  args.join(" ").match(/streamselect=inputs=3:map=(\d)/)?.[1];
+
+describe("scene switches while live", () => {
+  it("starts the Live Stream on the scene the preview shows", async () => {
+    const r = await ready();
+    await r.client.switchScene(r.video.id, "No Face");
+
+    await r.goLive();
+
+    const stream = r.windows.streams[0]!.launch;
+    if (!isFfmpeg(stream)) throw new Error("not ffmpeg");
+    expect(selects(stream.args)).toBe("2");
+  });
+
+  it("sends every switch, from the editor or the Stream Deck, to the running stream process at once, never relaunching it", async () => {
+    const r = await ready();
+    await r.goLive();
+    await vi.waitFor(() =>
+      expect(r.heard.map((m) => m.type)).toContain("recording-started")
+    );
+    const deck = await connect(r.port);
+
+    await r.client.switchScene(r.video.id, "Camera");
+    deck.send({
+      type: "stream-deck",
+      press: { action: "switch-scene", scene: "No Face" },
+    });
+    await vi.waitFor(() =>
+      expect(r.heard).toContainEqual({
+        type: "scene-changed",
+        scene: "No Face",
+      })
+    );
+
+    // ffmpeg's `C` on stdin, sent now (-1): streamselect's map changes.
+    expect(r.windows.streams[0]!.written).toBe(
+      "Cstreamselect -1 map 0\nCstreamselect -1 map 2\n"
+    );
+    expect(r.windows.launched.filter(isStream)).toHaveLength(1);
+    expect(r.windows.streams[0]!.running).toBe(true);
+    await r.client.endStream(r.video.id);
+  });
+});
+
 describe("raw footage first: a stream failure never stops or delays the take", () => {
   it("records anyway once the fixed bound passes, when the stream process never comes up", async () => {
     const r = await ready({
