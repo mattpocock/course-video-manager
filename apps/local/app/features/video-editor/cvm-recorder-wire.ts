@@ -49,6 +49,12 @@ export type CvmRecorderMessage =
       problem: string | null;
       /** The Recording Session in progress for this Video, if any. */
       recordingSessionId: string | null;
+      /**
+       * That Recording Session is streamed (Go Live's), its Live Stream on:
+       * only End Stream ends it, so leaving the page or Attaching never
+       * stops it (ADR 0055).
+       */
+      streamed: boolean;
       /** Where the browser watches the raw camera and screen (H.264 streams, `latest-frame.ts`). */
       previews: { camera: string; screen: string };
       /** Where the browser fetches the camera's still (a 1280x720 JPEG): the thumbnail camera. */

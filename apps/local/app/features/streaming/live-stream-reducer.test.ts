@@ -6,6 +6,7 @@ import {
   broadcastPickerRows,
   createInitialLiveStreamState,
   goLiveControl,
+  liveIndicator,
   liveStreamReducer,
 } from "./live-stream-reducer";
 
@@ -417,5 +418,70 @@ describe("Go Live and End Stream on the Live Stream surface", () => {
       status:
         "The Live Stream ended: The Recording Session ended on its own: the camera was lost.",
     });
+  });
+});
+
+describe("the Live indicator, on every page while live", () => {
+  const heardOnLoad = (
+    stream: liveStreamReducer.State["stream"]
+  ): liveStreamReducer.Action => ({ type: "recorder-live-heard", stream });
+
+  it("shows on any page while the recorder says it is live, linking back to that Video's Streaming tab, and goes once it ends", () => {
+    const tester = start().send(
+      heardOnLoad({ videoId: "v1", status: { kind: "live" } })
+    );
+    expect(liveIndicator(tester.getState())).toEqual({
+      videoId: "v1",
+      href: "/streaming/v1",
+      words: "Live",
+    });
+
+    tester.send(
+      heardOnLoad({ videoId: "v1", status: { kind: "reconnecting" } })
+    );
+    expect(liveIndicator(tester.getState())?.words).toBe(
+      "Reconnecting to YouTube…"
+    );
+
+    tester.send(
+      heardOnLoad({
+        videoId: "v1",
+        status: { kind: "ended", reason: "End Stream." },
+      })
+    );
+    expect(liveIndicator(tester.getState())).toBeNull();
+    expect(liveIndicator(tester.send(heardOnLoad(null)).getState())).toBeNull();
+  });
+
+  it("stays while another Video's Streaming tab opens, whose recorder is not its own", () => {
+    const tester = start()
+      .send(heardOnLoad({ videoId: "v1", status: { kind: "live" } }))
+      .send({ type: "stream-status-heard", videoId: "v2", status: null });
+    expect(liveIndicator(tester.getState())?.href).toBe("/streaming/v1");
+    expect(goLiveControl(tester.getState(), "v1").press).toBe("end-stream");
+    // Going back to it re-attaches: End Stream, not Go Live.
+    tester.send({
+      type: "stream-status-heard",
+      videoId: "v1",
+      status: { kind: "live" },
+    });
+    expect(goLiveControl(tester.getState(), "v1").press).toBe("end-stream");
+  });
+
+  it("follows the Streaming tab's recorder as it goes live and ends", () => {
+    const tester = start().send({
+      type: "stream-status-heard",
+      videoId: "v1",
+      status: { kind: "connecting" },
+    });
+    expect(liveIndicator(tester.getState())?.words).toBe(
+      "Connecting to YouTube…"
+    );
+    tester.send({
+      type: "stream-status-heard",
+      videoId: "v1",
+      status: { kind: "ended", reason: "End Stream." },
+    });
+    expect(liveIndicator(tester.getState())).toBeNull();
   });
 });

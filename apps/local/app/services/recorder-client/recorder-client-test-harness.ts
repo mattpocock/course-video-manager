@@ -46,8 +46,8 @@ export const startService = async (
   windows = fakeWindows(),
   o: Parameters<typeof start>[2] = {}
 ) => {
-  const { port } = await start(windows, stateDir, o);
-  return { windows, port, stateDir };
+  const { port, busy } = await start(windows, stateDir, o);
+  return { windows, port, stateDir, busy };
 };
 
 export type Ingest = RecorderClientOptions["ingest"];

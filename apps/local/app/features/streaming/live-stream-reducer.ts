@@ -1,5 +1,8 @@
 import type { EffectReducer } from "use-effect-reducer";
-import type { StreamStatus } from "recorder-service/stream-protocol";
+import {
+  isStreamOn,
+  type StreamStatus,
+} from "recorder-service/stream-protocol";
 import type { SilenceLength } from "@/silence-detection-constants";
 import {
   broadcastRefusal,
@@ -23,6 +26,10 @@ import type {
  * broadcast-chat.ts`); this buffer is what the Streaming tab has heard of
  * it. Go Live is sent whatever is missing: the app server answers with every
  * reason that applies at once (ADR 0054).
+ *
+ * The Live Stream outlives the Streaming tab (ADR 0055): every page hears
+ * it from the app server (`recorder-live-heard`), and the Live indicator
+ * links back to its Streaming tab while it is on.
  */
 export namespace liveStreamReducer {
   export type BroadcastList =
@@ -61,6 +68,11 @@ export namespace liveStreamReducer {
         type: "stream-status-heard";
         videoId: string;
         status: StreamStatus | null;
+      }
+    /** Any page heard the recorder's Live Stream from the app server (null: closed). */
+    | {
+        type: "recorder-live-heard";
+        stream: { videoId: string; status: StreamStatus } | null;
       }
     | { type: "go-live-pressed"; videoId: string; silenceLength: SilenceLength }
     | { type: "go-live-answered" }
@@ -188,10 +200,20 @@ const chatHeard = (state: State, event: BroadcastChatEvent): State => {
 };
 
 /** Whether the Live Stream on `videoId` is running: from Go Live until it ended. */
-export const isLiveOn = (state: State, videoId: string) => {
-  const status =
-    state.stream?.videoId === videoId ? state.stream.status.kind : "idle";
-  return status !== "idle" && status !== "ended";
+export const isLiveOn = (state: State, videoId: string) =>
+  state.stream?.videoId === videoId && isStreamOn(state.stream.status);
+
+/** The Live indicator every page shows while live, linking back to its Streaming tab. */
+export type LiveIndicator = { videoId: string; href: string; words: string };
+
+export const liveIndicator = (state: State): LiveIndicator | null => {
+  const stream = state.stream;
+  if (!stream || !isStreamOn(stream.status)) return null;
+  return {
+    videoId: stream.videoId,
+    href: `/streaming/${stream.videoId}`,
+    words: STATUS_WORDS[stream.status.kind] ?? "Live",
+  };
 };
 
 export const liveStreamReducer: EffectReducer<State, Action, Effect> = (
@@ -225,6 +247,8 @@ export const liveStreamReducer: EffectReducer<State, Action, Effect> = (
     case "chat-message-received":
     case "chat-connection-changed":
       return chatHeard(state, action);
+    case "recorder-live-heard":
+      return { ...state, stream: action.stream };
     case "stream-status-heard":
     case "go-live-pressed":
     case "go-live-answered":
@@ -256,13 +280,15 @@ const goLiveReducer = (
 ): State => {
   switch (action.type) {
     case "stream-status-heard":
-      return {
-        ...state,
-        stream:
-          action.status === null
-            ? null
-            : { videoId: action.videoId, status: action.status },
-      };
+      if (action.status !== null)
+        return {
+          ...state,
+          stream: { videoId: action.videoId, status: action.status },
+        };
+      // A tab the recorder is not open for says nothing of another Video's.
+      return state.stream?.videoId === action.videoId
+        ? { ...state, stream: null }
+        : state;
     case "go-live-pressed":
       if (state.pending || isLiveOn(state, action.videoId)) return state;
       exec({

@@ -168,7 +168,7 @@ export const ready = async (
 ) => {
   const windows = o.windows ?? fakeWindows();
   const stateDir = tmp();
-  const { port } = await startService(stateDir, windows, {
+  const { port, busy } = await startService(stateDir, windows, {
     streamListenBoundMs: o.streamListenBoundMs,
   });
   const client = connectClient(port);
@@ -226,6 +226,8 @@ export const ready = async (
     folder,
     stateDir,
     port,
+    /** The service's busy check, which its idle stop asks (ADR 0053). */
+    busy,
     goLive: goLiveWith,
     streamStatuses,
   };

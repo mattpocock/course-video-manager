@@ -27,6 +27,7 @@ const status = (
     starting: false,
     problem: null,
     recordingSessionId: null,
+    streamed: false,
     previews: {
       camera: "http://r/preview/camera",
       screen: "http://r/preview/screen",
