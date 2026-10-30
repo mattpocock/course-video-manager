@@ -533,6 +533,62 @@ export const METRICS: readonly MetricDef[] = [
     obs: null,
     scale: 1,
   },
+  // THE STREAMED RECORDING SESSION (#2455): raw footage first, then the
+  // Live Stream's picture against a local sink. #2461 adds the Chat
+  // Highlight's click-to-on-screen time and monotonic card opacity here.
+  {
+    id: "streamed_camera_frames_lost",
+    label:
+      "Camera frames the service reports lost in a streamed Recording Session",
+    group: "reliability",
+    unit: "frames",
+    better: "lower",
+    target: 0,
+    obs: null,
+    scale: 1,
+  },
+  {
+    id: "streamed_screen_frames_lost",
+    label:
+      "Screen frames the service reports lost in a streamed Recording Session",
+    group: "reliability",
+    unit: "frames",
+    better: "lower",
+    target: 0,
+    obs: null,
+    scale: 1,
+  },
+  {
+    id: "stream_fps_off_60",
+    label: "Live Stream frame rate's distance from 60.0 fps",
+    group: "reliability",
+    unit: "fps",
+    better: "lower",
+    target: 0.05,
+    obs: null,
+    scale: 0.05,
+    note: "Frames the stream's encoder put out per second of wall time (its -progress, least-squares, from 5 s after it went live to End Stream). The rate itself is `streamed.streamFps` in the details.",
+  },
+  {
+    id: "stream_dup_frames",
+    label: "Live Stream frames duplicated (its whole run)",
+    group: "reliability",
+    unit: "frames",
+    better: "lower",
+    target: 0,
+    obs: null,
+    scale: 1,
+  },
+  {
+    id: "stream_drop_frames",
+    label: "Live Stream frames dropped (its whole run)",
+    group: "reliability",
+    unit: "frames",
+    better: "lower",
+    target: 0,
+    obs: null,
+    scale: 1,
+  },
   {
     id: "disk_full",
     label: "Disk full mid-take",

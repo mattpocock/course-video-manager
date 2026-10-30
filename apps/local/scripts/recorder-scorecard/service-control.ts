@@ -26,6 +26,8 @@ export type ServiceProcess = {
   stop: () => Promise<void>;
   /** SIGKILL: as a crash would end it. */
   kill: () => Promise<void>;
+  /** Each chunk of the Live Stream process's `-progress`, as it comes. */
+  onStreamProgress: (listener: (chunk: string) => void) => () => void;
 };
 
 export const startService = (o: {
@@ -33,11 +35,20 @@ export const startService = (o: {
   stateDir: string;
   /** Where its output is also appended. */
   logFile?: string;
+  /** The only place a Live Stream may push (the local sink); unset, none starts. */
+  streamIngest?: string;
 }) =>
   new Promise<ServiceProcess>((resolve, reject) => {
     const child = spawn(
       process.execPath,
-      ["--import", "tsx", CHILD, o.marker, o.stateDir],
+      [
+        "--import",
+        "tsx",
+        CHILD,
+        o.marker,
+        o.stateDir,
+        ...(o.streamIngest ? [o.streamIngest] : []),
+      ],
       {
         cwd: path.join(import.meta.dirname, "../.."),
         stdio: ["ignore", "pipe", "pipe", "ipc"],
@@ -66,6 +77,15 @@ export const startService = (o: {
           kill: async () => {
             child.kill("SIGKILL");
             await exited;
+          },
+          onStreamProgress: (listener) => {
+            const on = (m: unknown) => {
+              const msg = m as { type?: string; chunk?: string };
+              if (msg.type === "stream-progress" && msg.chunk)
+                listener(msg.chunk);
+            };
+            child.on("message", on);
+            return () => void child.off("message", on);
           },
         });
       }
