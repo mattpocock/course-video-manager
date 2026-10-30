@@ -56,6 +56,4 @@ export type ChatHighlightEvent =
 export const CHAT_HIGHLIGHT_REFUSALS = {
   notLive: "There is no Live Stream to show a Chat Highlight on.",
   notShowing: "That Chat Highlight is not showing.",
-  feedGone:
-    "The Live Stream's card feed has stopped: Chat Highlights are off until the stream restarts.",
 } as const;

@@ -301,6 +301,7 @@ export const status = (
   starting: false,
   problem: null,
   recordingSessionId,
+  streamed: false,
   previews: { camera: "c", screen: "s" },
   still: "still",
 });

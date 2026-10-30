@@ -11,6 +11,7 @@ import type { Scene } from "@/packages/scene-layout";
 import type { VideoFormat } from "@/features/videos/video-format";
 import {
   cameraMessage,
+  recorderStatus,
   serviceUrls,
   WHILE_OPEN_MESSAGES,
   type WhileOpenKind,
@@ -43,17 +44,16 @@ import { watchRecorder } from "./recorder-watch";
  *
  * An event it could not save is not lost: the rest of that Recording Session
  * waits, and after a pause the whole of it is asked for again (saving is
- * idempotent, so what was saved stays saved), the pause doubling each time,
- * until `MAX_SAVE_RETRIES`; the next greeting from the recorder service tries
- * again after that.
+ * idempotent), the pause doubling each time, until `MAX_SAVE_RETRIES`; the
+ * next greeting from the recorder service tries again after that.
  *
  * Something listening (an editor, or an AV Calibration page's meter) is
  * also what starts the recorder service, when the client has a `launcher`
  * (`service-on-demand.ts`, ADR 0053), and its going what lets it idle out.
  *
  * An editor listening is what keeps the recorder open: the first editor on a
- * CVM recorder Video opens the recorder for it (which opens the Cam Link and
- * the previews), and once the last editor has gone, for longer than a page
+ * CVM recorder Video opens the recorder for it (the Cam Link and the
+ * previews), and once the last editor has gone, for longer than a page
  * reload takes, the recorder closes and lets the camera go. Several Videos
  * listening: the one most recently opened has it. A recording is never
  * closed this way; it closes once stopped, if nobody listens by then.
@@ -135,18 +135,15 @@ export const createRecorderClient = (o: RecorderClientOptions) => {
     for (const listener of listeners.get(videoId) ?? []) listener(message);
   };
   const placer = createTakePlacer({ timeoutMs: o.placeTimeoutMs, publish });
-  const statusFor = (videoId: string): CvmRecorderMessage => ({
-    type: "recorder-status",
-    reachable,
-    problem,
-    starting: !reachable && (onDemand?.launched() ?? false),
-    recordingSessionId:
-      state.kind === "recording" && state.videoId === videoId
-        ? state.recordingSessionId
-        : null,
-    previews,
-    still,
-  });
+  const statusFor = (videoId: string): CvmRecorderMessage =>
+    recorderStatus(videoId, {
+      reachable,
+      problem,
+      state,
+      previews,
+      still,
+      starting: !reachable && (onDemand?.launched() ?? false),
+    });
   /** The camera's state, to an editor, only when it changed. */
   const publishCamera = (videoId: string) => {
     const message = reachable
@@ -388,6 +385,9 @@ export const createRecorderClient = (o: RecorderClientOptions) => {
               message: message.message,
             });
         }
+        return;
+      case "stream-health":
+        if (state.kind !== "closed") publish(state.videoId, message);
         return;
       case "replay-done":
         return;

@@ -3,6 +3,7 @@ import { repairFiles } from "./footage-repair";
 import { stopTagged } from "./camera";
 import { CAPTURE_TAG, METER_TAG, PREVIEW_TAGS } from "./capture-args";
 import type { Launcher } from "./launcher";
+import { STREAM_TAG } from "./stream-args";
 import type { RecordingSessionEvent } from "./protocol";
 import { recorderTag } from "./recording-session";
 import { endSpeech } from "./speech-detector";
@@ -19,7 +20,8 @@ import { endSpeech } from "./speech-detector";
  *
  * Every start, crash or not, first stops any preview ffmpeg.exe a service
  * that died left behind: a preview never exits by itself, and one left
- * holding the Cam Link would make every open fail as "in use".
+ * holding the Cam Link would make every open fail as "in use". So is a Live
+ * Stream process: one left behind would keep pushing to YouTube.
  */
 
 export type IndexEntry = { recordingSessionId: string; eventLog: string };
@@ -78,14 +80,16 @@ export const recoverCrashedSessions = async (o: {
   });
 
   // A service that died leaves its ffmpeg.exe processes running on Windows:
-  // the camera capture holding the Cam Link and the mic, previews, a level meter holding the mic, recorders holding their files. None can
-  // be asked to finish, so they are stopped, and the files repaired like any
-  // other cut off.
+  // the camera capture holding the Cam Link and the mic, previews, a level
+  // meter holding the mic, a Live Stream still pushing to YouTube, recorders
+  // holding their files. None can be asked to finish, so they are stopped,
+  // and the files repaired like any other cut off.
   await stopTagged(o.launch, [
     PREVIEW_TAGS.camera,
     PREVIEW_TAGS.screen,
     CAPTURE_TAG,
     METER_TAG,
+    STREAM_TAG,
     ...cutOff.map((s) => recorderTag(s.recordingSessionId)),
   ]);
   if (cutOff.length === 0) return [];

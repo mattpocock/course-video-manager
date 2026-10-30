@@ -3,7 +3,6 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Effect, Either } from "effect";
 import type { ChatSnapshot } from "@/features/streaming/broadcast-chat";
-import { CHAT_HIGHLIGHT_REFUSALS } from "recorder-service/chat-highlight-protocol";
 import { CARD_BROWSER_MISSING } from "@/services/card-browser.server";
 import { clock } from "recorder-service/test-utils/service-harness";
 import { testDb } from "../clip-service-test-setup";
@@ -146,33 +145,39 @@ describe("Chat Highlights", () => {
     expect(await testDb.query.overlays.findMany()).toEqual([]);
   });
 
-  it("keeps the stream and the take going when the card server or the card feed dies; the next click starts the card server again", async () => {
+  it("keeps the stream and the take going when the card server dies; the next click starts it again", async () => {
     const r = await live();
-    const stream = r.windows.streams[0]!;
 
     r.windows.cardServers[0]!.exit(1);
     const shown = await r.show("msg-1");
+
     expect(r.windows.cardServers).toHaveLength(2);
     await vi.waitFor(async () =>
       expect((await r.rows()).map((h) => h.id)).toEqual([shown.highlightId])
     );
+    expect(r.windows.streams[0]!.running).toBe(true);
+    expect(r.windows.recorder("camera").running).toBe(true);
+    await r.client.endStream(r.video.id);
+  });
 
-    r.windows.cardFeeds[0]!.cut();
-    await vi.waitFor(async () =>
-      expect(
-        await Effect.runPromise(
-          Effect.either(
-            showChatHighlight({
-              client: r.client,
-              chat,
-              videoId: r.video.id,
-              messageId: "msg-2",
-            })
-          )
-        )
-      ).toMatchObject({ left: { message: CHAT_HIGHLIGHT_REFUSALS.feedGone } })
+  it("carries the card on to a relaunched stream process, on the same clock as its picture", async () => {
+    const r = await live();
+
+    r.windows.streams[0]!.exit(1);
+    await vi.waitFor(() => expect(r.windows.streams).toHaveLength(2));
+
+    // The relaunched picture starts where the feeds are; so does its card.
+    const graph = r.windows.streams[1]!.launch.args.join(" ");
+    const canvasStart = graph.match(/r=60,setpts=PTS\+([\d.]+)\/TB/)?.[1];
+    expect(canvasStart).toBeDefined();
+    expect(graph).toContain(`[2:v]setpts=PTS+${canvasStart}/TB,`);
+    // And a click shows on it, once its frames reach the picture's start.
+    await vi.waitFor(
+      () => expect(r.windows.cardFeeds[1]!.bytes()).toBeGreaterThan(0),
+      { timeout: 10_000 }
     );
-    expect(stream.running).toBe(true);
+    const shown = await r.show("msg-2");
+    expect(shown.shownAtMs).toBeGreaterThan(0);
     expect(r.windows.recorder("camera").running).toBe(true);
     await r.client.endStream(r.video.id);
   });

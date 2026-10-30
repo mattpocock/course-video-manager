@@ -34,17 +34,7 @@ export const startChatHighlights = async (o: {
   now: () => number;
 }) => {
   const server = createCardServer({ launch: o.launch });
-  let feedGone = false;
-  const feed = createCardFeed({
-    now: o.now,
-    still: CARD_CANVAS,
-    onGone: (why) => {
-      feedGone = true;
-      console.error(
-        `recorder: the card feed stopped (${why}); the stream carries on without Chat Highlights`
-      );
-    },
-  });
+  const feed = createCardFeed({ now: o.now, still: CARD_CANVAS });
   const card: StreamCard = {
     port: await feed.port(),
     ...cardFrameSize(CARD_CANVAS),
@@ -64,8 +54,7 @@ export const startChatHighlights = async (o: {
     receivedAtMs: number
   ) => {
     const still = await server.render({ author: c.author, text: c.text });
-    if (!session || feedGone)
-      throw new Refusal(CHAT_HIGHLIGHT_REFUSALS.feedGone);
+    if (!session) throw new Refusal(CHAT_HIGHLIGHT_REFUSALS.notLive);
     const { hidden, shown } = feed.show(still);
     const replaced = showing;
     if (replaced && hidden)
@@ -114,6 +103,8 @@ export const startChatHighlights = async (o: {
      * the stream's camera feed to it).
      */
     warm: () => server.start(),
+    /** A stream process is launching, its picture starting at this file time (s). */
+    launching: (startSeconds: number) => feed.launching(startSeconds),
     /** The streamed Recording Session began: frame 0 is its T0. */
     begin: (s: Session) => {
       session = s;
@@ -124,19 +115,17 @@ export const startChatHighlights = async (o: {
       const receivedAtMs = o.now();
       const run = async () => {
         if (!session || !feed.running())
-          throw new Refusal(
-            feedGone
-              ? CHAT_HIGHLIGHT_REFUSALS.feedGone
-              : CHAT_HIGHLIGHT_REFUSALS.notLive
-          );
+          throw new Refusal(CHAT_HIGHLIGHT_REFUSALS.notLive);
         if (c.type === "show-highlight") return show(c, receivedAtMs);
         return hide(c.highlightId);
       };
-      // A feed that stops mid-command fails it: says so as a refusal.
+      // The Live Stream ending mid-command fails it: said as a refusal.
       const done = queue.then(run).catch((e: unknown) => {
-        throw feedGone && !(e instanceof Refusal)
-          ? new Refusal(CHAT_HIGHLIGHT_REFUSALS.feedGone)
-          : e;
+        throw e instanceof Refusal
+          ? e
+          : new Refusal(
+              `${CHAT_HIGHLIGHT_REFUSALS.notLive} (${e instanceof Error ? e.message : String(e)})`
+            );
       });
       queue = done.catch(() => {});
       return done;

@@ -306,38 +306,7 @@ describe("raw footage first: a stream failure never stops or delays the take", (
     );
     expect(r.streamStatuses().map((s) => s.kind)).not.toContain("connecting");
     r.windows.streams[0]!.exit(null);
-  });
-
-  it("keeps recording when the stream process dies mid-take, and End Stream still stops the take", async () => {
-    const r = await ready();
-    await r.goLive();
-    await vi.waitFor(() =>
-      expect(r.heard.map((m) => m.type)).toContain("recording-started")
-    );
-    const screen = r.windows.recorder("screen");
-    const writer = r.windows.recorder("camera");
-
-    // The stream process is killed (its own handle): YouTube gone, a crash.
-    r.windows.streams[0]!.exit(1);
-
-    await vi.waitFor(() =>
-      expect(ended(r.streamStatuses())).toEqual([
-        expect.stringContaining("The stream process quit"),
-      ])
-    );
-    expect(r.heard.map((m) => m.type)).not.toContain("recording-stopped");
-    // Nothing asked the take's processes to stop.
-    expect(screen.written).toBe("");
-    expect(writer.written).not.toContain("q");
-    expect(screen.running && writer.running).toBe(true);
-
     await r.client.endStream(r.video.id);
-
-    await vi.waitFor(() =>
-      expect(r.heard).toContainEqual(
-        expect.objectContaining({ type: "recording-stopped", errors: [] })
-      )
-    );
   });
 
   it("ends the Live Stream, saying why, when the Recording Session ends on its own", async () => {

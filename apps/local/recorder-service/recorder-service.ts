@@ -7,7 +7,7 @@ import { corsHeaders, isAllowedOrigin } from "./allowed-origin";
 import { recoverCrashedSessions } from "./crash-recovery";
 import { CAMERA_START_TIMEOUT_MS, openCamera, type Camera } from "./camera";
 import type { Launcher } from "./launcher";
-import { pressedCommand } from "./stream-deck-press";
+import { pressedCommand, pressStreamDeck } from "./stream-deck-press";
 import { DEFAULT_SCENE, type Scene } from "../app/packages/scene-layout";
 import { startPreviewFeeds } from "./preview-feeds";
 import { serveStill } from "./still";
@@ -27,7 +27,12 @@ import {
 import type { RecordingSession } from "./recording-session";
 import type { TakeSettings } from "./take-settings";
 import { createTakeArming, recordTook } from "./take-arming";
-import { createGoLive, STREAM_ENDED, type GoLiveRecorder } from "./go-live";
+import {
+  createGoLive,
+  STREAM_ENDED,
+  type GoLiveRecorder,
+  type LiveStreamOptions,
+} from "./go-live";
 import type { StreamFeedPorts } from "./stream-feeds";
 import { createTakeStopping } from "./take-stopping";
 import { serveHealth } from "./health";
@@ -89,10 +94,7 @@ export type RecorderServiceOptions = {
    * message that says why it could not.
    */
   wakeSpacedesk: () => Promise<void>;
-  /** Where a Live Stream goes: YouTube, or the scorecard's sink. */
-  streamIngest?: string;
-  streamListenBoundMs?: number;
-};
+} & LiveStreamOptions;
 
 export const startRecorderService = async (o: RecorderServiceOptions) => {
   const ffmpeg = await checkFfmpeg(o.launch);
@@ -241,13 +243,11 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
   });
 
   const live = createGoLive({
-    launch: o.launch,
-    now: o.now,
-    ingest: o.streamIngest,
-    listenBoundMs: o.streamListenBoundMs,
+    ...o,
     onStatus: (stream) => {
       if (state.kind !== "closed") setState({ ...state, stream });
     },
+    onHealth: (health) => broadcast({ type: "stream-health", health }),
   });
 
   const onEvent = (event: RecordingSessionEvent) => {
@@ -410,6 +410,7 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
       return replay(ws, command.recordingSessionId, command.afterSeq);
     }
     if (!ffmpeg.ok) throw new Refusal(ffmpeg.message);
+    live.refuseWhileLive(command.type);
     switch (command.type) {
       case "open": {
         if (state.kind === "recording") {
@@ -469,21 +470,13 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
         recordWith = command;
         return rearm();
       case "stream-deck":
-        // Whatever the reason, the press does nothing; every client hears why.
-        return Promise.resolve()
-          .then(() =>
-            handle(ws, pressedCommand(command.press, state, recordWith))
-          )
-          .catch((e: unknown) => {
-            if (!(e instanceof Refusal))
-              console.error("recorder: a Stream Deck press failed", e);
-            const message = e instanceof Error ? e.message : String(e);
-            broadcast({
-              type: "stream-deck-ignored",
-              press: command.press,
-              message,
-            });
-          });
+        return pressStreamDeck(
+          command.press,
+          () =>
+            pressedCommand(command.press, state, recordWith, live.streaming()),
+          (pressed) => handle(ws, pressed),
+          broadcast
+        );
       case "start-meter":
         if (state.kind === "recording")
           throw new Refusal(METER_WHILE_RECORDING);
@@ -585,8 +578,9 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
 
   return {
     port: (server.address() as AddressInfo).port,
-    /** Recording, or a take closing its files. */
-    busy: () => state.kind === "recording" || stopping.closing(),
+    /** Recording, live, or a take closing its files. */
+    busy: () =>
+      state.kind === "recording" || live.streaming() || stopping.closing(),
     /** Stops a recording cleanly, then closes every socket. */
     close: async () => {
       await queue;

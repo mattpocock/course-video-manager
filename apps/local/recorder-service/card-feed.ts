@@ -25,9 +25,11 @@ import {
  *
  * It never skips a frame (their count is their time): while the stream is
  * slow to read (its start-up), it waits for the socket to drain, holding at
- * most `MAX_BUFFERED_SECONDS` of frames. Raw footage first: it only feeds
- * the stream; if the stream goes, the feed ends, and a stream whose card
- * input ends carries on without it (`eof_action=pass`).
+ * most `MAX_BUFFERED_SECONDS` of frames. Each stream process connects afresh
+ * (a relaunch, #2459), its frames starting at its own picture's start, so
+ * the card follows the canvas there too. Raw footage first: it only feeds
+ * the stream, and a stream whose card input ends carries on without it
+ * (`eof_action=pass`).
  */
 
 export const CARD_FPS = 60;
@@ -147,16 +149,22 @@ const drawFrame = (
   return out;
 };
 
-/** Frames an exit lasts: the last is fully faded. */
-const EXIT_FRAMES = Math.ceil(CHAT_HIGHLIGHT_MOTION.exit.ms / FRAME_MS);
+/** How long an exit lasts on the picture, in whole frames: the last is fully faded. */
+const EXIT_MS = Math.ceil(CHAT_HIGHLIGHT_MOTION.exit.ms / FRAME_MS) * FRAME_MS;
 
 type Phase =
   | { kind: "hidden" }
-  | { kind: "entering"; card: Planes; start: number; from: ChatHighlightPose }
+  | {
+      kind: "entering";
+      card: Planes;
+      /** The Windows time of its first frame. */
+      startMs: number;
+      from: ChatHighlightPose;
+    }
   | {
       kind: "exiting";
       card: Planes;
-      start: number;
+      startMs: number;
       from: ChatHighlightPose;
       /** A card to enter once this one has gone (a replace). */
       next?: { card: Planes; shown: (s: CardStamp) => void };
@@ -167,23 +175,32 @@ export const createCardFeed = (o: {
   now: () => number;
   /** The card server's canvas: every still is this size. */
   still: { width: number; height: number };
-  /** Said once, when the feed stops by itself (the stream went or fell behind). */
-  onGone: (why: string) => void;
 }) => {
   const size = cardFrameSize(o.still);
   let t0Ms: number | undefined;
-  let socket: net.Socket | undefined;
+  /**
+   * The stream process reading it now, and where its frames start: each
+   * launch (a relaunch too) connects afresh, its picture starting at the
+   * file time `launching` said.
+   */
+  let reader:
+    | {
+        socket: net.Socket;
+        startSeconds: number;
+        frame: number;
+        draining: boolean;
+      }
+    | undefined;
+  /** Where the next launch's picture starts, in file time (s). */
+  let nextStartSeconds = 0;
   let gone = false;
-  let n = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let phase: Phase = { kind: "hidden" };
-  /** Changes asked for, applied before the next frame is drawn. */
-  let pending: { notBeforeMs: number; apply: (frame: number) => void }[] = [];
-  /** Waiting for the socket to drain. */
-  let draining = false;
+  /** Changes asked for, applied from the first frame at or after their time. */
+  let pending: { notBeforeMs: number; apply: (at: CardStamp) => void }[] = [];
   let cache: { key: string; frame: Buffer } | undefined;
   const hiddenFrame = drawFrame(size, null, CHAT_HIGHLIGHT_HIDDEN);
-  /** Fails every stamp still to come once the feed has stopped. */
+  /** Fails every stamp still to come once the feed has closed. */
   let failStamps!: (e: Error) => void;
   const stopped = new Promise<never>((_, reject) => (failStamps = reject));
   stopped.catch(() => {});
@@ -194,64 +211,54 @@ export const createCardFeed = (o: {
     return raced;
   };
 
-  const stamp = (frame: number): CardStamp => ({
-    frame,
-    atMs: t0Ms! + frame * FRAME_MS,
+  /** The reader's frame `i`: its Windows time. */
+  const stampOf = (r: NonNullable<typeof reader>, i: number): CardStamp => ({
+    frame: i,
+    atMs: t0Ms! + r.startSeconds * 1000 + i * FRAME_MS,
   });
 
-  /** The card's pose on frame `f` (`f - start + 1` frames into its move). */
-  const poseAt = (f: number): ChatHighlightPose => {
+  /** The card's pose on the frame at `atMs`, the first of a move counting as one frame in. */
+  const poseAt = (atMs: number): ChatHighlightPose => {
     if (phase.kind === "hidden") return CHAT_HIGHLIGHT_HIDDEN;
-    const ms = (f - phase.start + 1) * FRAME_MS;
+    const ms = atMs - phase.startMs + FRAME_MS;
     return phase.kind === "entering"
       ? enteringPose(ms, phase.from)
       : exitingPose(ms, phase.from);
   };
 
-  /** Moves the phase on at frame `f`: an exit over, the next card enters. */
-  const advance = (f: number) => {
-    if (phase.kind !== "exiting" || f - phase.start < EXIT_FRAMES) return;
+  /** Moves the phase on at `at`: an exit over, the next card enters. */
+  const advance = (at: CardStamp) => {
+    if (phase.kind !== "exiting" || at.atMs - phase.startMs < EXIT_MS - 0.5)
+      return;
     const next = phase.next;
     phase = next
       ? {
           kind: "entering",
           card: next.card,
-          start: f,
+          startMs: at.atMs,
           from: CHAT_HIGHLIGHT_HIDDEN,
         }
       : { kind: "hidden" };
-    next?.shown(stamp(f));
+    next?.shown(at);
   };
 
-  const frameAt = (f: number) => {
-    advance(f);
-    // A change asked for at a time applies from that time's frame on.
-    const due = pending.filter(
-      (c) => stamp(f).atMs >= c.notBeforeMs - FRAME_MS / 2
-    );
+  const frameAt = (at: CardStamp) => {
+    advance(at);
+    const due = pending.filter((c) => at.atMs >= c.notBeforeMs - FRAME_MS / 2);
     pending = pending.filter((c) => !due.includes(c));
-    for (const c of due) c.apply(f);
+    for (const c of due) c.apply(at);
     if (phase.kind === "hidden") return hiddenFrame;
-    const pose = poseAt(f);
+    const pose = poseAt(at.atMs);
     const key = `${pose.opacity.toFixed(4)}:${pose.offsetY.toFixed(3)}`;
     if (cache?.key !== key)
       cache = { key, frame: drawFrame(size, phase.card, pose) };
     return cache.frame;
   };
 
-  const stop = (why: string | null) => {
-    if (gone) return;
-    gone = true;
-    failStamps(new Error(`The card feed stopped: ${why ?? "closed"}.`));
-    clearTimeout(timer);
-    socket?.destroy();
-    server.close();
-    if (why) o.onGone(why);
-  };
-
   const tick = () => {
     clearTimeout(timer);
-    if (gone || !socket || t0Ms === undefined) return;
+    const r = reader;
+    if (gone || !r || t0Ms === undefined) return;
     let now: number;
     try {
       now = o.now();
@@ -259,33 +266,46 @@ export const createCardFeed = (o: {
       timer = setTimeout(tick, FRAME_MS);
       return;
     }
-    while (stamp(n).atMs <= now) {
+    while (stampOf(r, r.frame).atMs <= now) {
       if (
-        socket.writableLength >
+        r.socket.writableLength >
         MAX_BUFFERED_SECONDS * CARD_FPS * hiddenFrame.length
       ) {
-        if (!draining) {
-          draining = true;
-          socket.once("drain", () => {
-            draining = false;
+        if (!r.draining) {
+          r.draining = true;
+          r.socket.once("drain", () => {
+            r.draining = false;
             tick();
           });
         }
         return;
       }
-      socket.write(frameAt(n));
-      n += 1;
+      r.socket.write(frameAt(stampOf(r, r.frame)));
+      r.frame += 1;
     }
-    timer = setTimeout(tick, Math.max(1, stamp(n).atMs - now));
+    timer = setTimeout(tick, Math.max(1, stampOf(r, r.frame).atMs - now));
+  };
+
+  /** Its reader went (the stream process quit): the next launch connects again. */
+  const readerGone = (r: NonNullable<typeof reader>) => {
+    if (reader !== r) return;
+    reader = undefined;
+    clearTimeout(timer);
   };
 
   const server = net.createServer((s) => {
-    // One stream process reads it; a second connection is not a reader.
-    if (socket || gone) return void s.destroy();
-    socket = s;
+    // One stream process reads it at a time.
+    if (reader || gone) return void s.destroy();
+    const r = {
+      socket: s,
+      startSeconds: nextStartSeconds,
+      frame: 0,
+      draining: false,
+    };
+    reader = r;
     s.setNoDelay(true);
     s.on("error", () => {});
-    s.on("close", () => stop("the stream closed the card feed"));
+    s.on("close", () => readerGone(r));
     tick();
   });
   const listening = new Promise<number>((resolve, reject) => {
@@ -295,8 +315,8 @@ export const createCardFeed = (o: {
     );
   });
 
-  /** Asks for a change at the next frame drawn; settles with its stamp. */
-  const change = (apply: (frame: number) => void) => {
+  /** Asks for a change from the first frame at or after now; settles with its stamp. */
+  const change = (apply: (at: CardStamp) => void) => {
     let notBeforeMs: number;
     try {
       notBeforeMs = o.now();
@@ -306,16 +326,27 @@ export const createCardFeed = (o: {
     pending.push({ notBeforeMs, apply });
   };
 
+  /** Starts an exit at `at` from wherever the card is. */
+  const exitAt = (at: CardStamp, card: Planes) => {
+    const from = poseAt(at.atMs - FRAME_MS);
+    phase = { kind: "exiting", card, startMs: at.atMs, from };
+    return phase;
+  };
+
   return {
     /** The loopback port the stream reads the card from. */
     port: () => listening,
-    /** The streamed Recording Session's T0: frame 0's Windows time. */
+    /** The streamed Recording Session's T0: frames flow from here on. */
     begin: (t0: number) => {
       t0Ms = t0;
       tick();
     },
-    /** Whether it is feeding a stream now. */
-    running: () => !gone && socket !== undefined && t0Ms !== undefined,
+    /** A stream process is launching; its picture starts at this file time (s). */
+    launching: (startSeconds: number) => {
+      nextStartSeconds = startSeconds;
+    },
+    /** Whether it can take a change: until it is closed, once T0 is known. */
+    running: () => !gone && t0Ms !== undefined,
     /**
      * Shows `still`: at once if no card shows, else after the shown one has
      * gone (`hidden` then stamps its exit). `shown` stamps the first frame
@@ -330,25 +361,21 @@ export const createCardFeed = (o: {
           ? new Promise<CardStamp>((r) => (hide = r))
           : null;
       const shown = new Promise<CardStamp>((resolveShown) => {
-        change((f) => {
+        change((at) => {
           if (phase.kind === "entering") {
-            const from = poseAt(f - 1);
-            phase = { kind: "exiting", card: phase.card, start: f, from };
-            phase.next = { card, shown: resolveShown };
-            hide?.(stamp(f));
+            exitAt(at, phase.card).next = { card, shown: resolveShown };
           } else if (phase.kind === "exiting") {
             phase.next = { card, shown: resolveShown };
-            hide?.(stamp(f));
           } else {
             phase = {
               kind: "entering",
               card,
-              start: f,
+              startMs: at.atMs,
               from: CHAT_HIGHLIGHT_HIDDEN,
             };
-            hide?.(stamp(f));
-            resolveShown(stamp(f));
+            resolveShown(at);
           }
+          hide?.(at);
         });
       });
       return {
@@ -360,15 +387,20 @@ export const createCardFeed = (o: {
     hide: () =>
       stamped(
         new Promise<CardStamp>((resolve) =>
-          change((f) => {
-            if (phase.kind === "entering") {
-              const from = poseAt(f - 1);
-              phase = { kind: "exiting", card: phase.card, start: f, from };
-            } else if (phase.kind === "exiting") phase.next = undefined;
-            resolve(stamp(f));
+          change((at) => {
+            if (phase.kind === "entering") exitAt(at, phase.card);
+            else if (phase.kind === "exiting") phase.next = undefined;
+            resolve(at);
           })
         )
       ),
-    close: () => stop(null),
+    close: () => {
+      if (gone) return;
+      gone = true;
+      failStamps(new Error("The card feed closed."));
+      clearTimeout(timer);
+      reader?.socket.destroy();
+      server.close();
+    },
   };
 };

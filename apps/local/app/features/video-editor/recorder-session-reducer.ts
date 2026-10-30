@@ -23,12 +23,15 @@ import {
  * - **Attaching.** The first report a page hears that names a recording
  *   asks the Recorder to stop it: a page refreshed or closed mid-take left
  *   it going. A later report (a reconnect) of the Recording Session followed
- *   re-attaches to it and stops nothing (#2198).
+ *   re-attaches to it and stops nothing (#2198). A streamed Recording
+ *   Session (Go Live's) is never stopped this way: a page that first hears
+ *   it re-attaches to it, as the Streaming tab does on return (ADR 0055).
  * - **Leaving.** As the page goes away (New Short, any other page, a
  *   reload, closing the tab) it hands the Recording Session it follows,
  *   recording or stopping (`followedOnLeave`), back to the Recorder: it is
  *   stopped as Stop stops it, and its last Take is placed at the editor's
- *   Insertion Point as it went (`use-cvm-recorder.ts`).
+ *   Insertion Point as it went (`use-cvm-recorder.ts`). Not a streamed
+ *   one: only End Stream ends it, so leaving hands nothing back.
  * - **Unexpected events** are ignored, never thrown. A late event of a
  *   Recording Session not followed is expected (a replay after a failed
  *   save, #2163) and ignored quietly; a device event that cannot happen in
@@ -52,6 +55,11 @@ export namespace recorderSessionReducer {
     endedRecordingSessionIds: readonly string[];
     /** The Recorder has reported in to this page (Attaching). */
     attached: boolean;
+    /**
+     * The Recording Session followed is streamed (Go Live's), as the
+     * Recorder last reported: leaving the page and Attaching never stop it.
+     */
+    streamed: boolean;
   };
 
   export type Event =
@@ -63,6 +71,8 @@ export namespace recorderSessionReducer {
         type: "recorder-reported";
         reachable: boolean;
         recordingSessionId: string | null;
+        /** It is a streamed Recording Session, which only End Stream ends. */
+        streamed: boolean;
         silenceLength: SilenceLength;
       }
     | {
@@ -102,6 +112,7 @@ export const createInitialRecorderSessionState =
     recordingSessionId: null,
     endedRecordingSessionIds: [],
     attached: false,
+    streamed: false,
   });
 
 /** Whether Stop may be pressed. */
@@ -110,11 +121,13 @@ export const canPressStop = (state: recorderSessionReducer.State) =>
 
 /**
  * The Recording Session a page going away hands back to the Recorder: the
- * one it follows, still recording or stopping; null when idle.
+ * one it follows, still recording or stopping; null when idle, and for a
+ * streamed one, which leaving never stops (ADR 0055).
  */
 export const followedOnLeave = (
   state: recorderSessionReducer.State
-): string | null => (state.phase === "idle" ? null : state.recordingSessionId);
+): string | null =>
+  state.phase === "idle" || state.streamed ? null : state.recordingSessionId;
 
 /** Enough to recognise any late replay; a page records far fewer. */
 const ENDED_KEPT = 50;
@@ -203,6 +216,7 @@ const over = <S extends recorderSessionReducer.State>(
   speech: createInitialSpeechDetectorState(),
   recordingSessionId: null,
   endedRecordingSessionIds: ended(state, id),
+  streamed: false,
 });
 
 /**
@@ -236,9 +250,13 @@ export const recorderSessionReducer = <S extends recorderSessionReducer.State>(
               : state.speech,
         };
       }
+      if (next.recordingSessionId !== null)
+        next = { ...next, streamed: event.streamed };
       followChanged(state, next, exec, event);
       if (next.attached || !event.reachable) return next;
-      if (next.phase !== "recording") return { ...next, attached: true };
+      // A streamed one is re-attached to: only End Stream ends it.
+      if (next.phase !== "recording" || next.streamed)
+        return { ...next, attached: true };
       exec({ type: "stop-recording" });
       return { ...next, attached: true, phase: "stopping" };
     }

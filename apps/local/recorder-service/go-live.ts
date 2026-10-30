@@ -9,7 +9,12 @@ import type {
 import type { ChatHighlightCommand } from "./chat-highlight-protocol";
 import { CHAT_HIGHLIGHT_REFUSALS } from "./chat-highlight-protocol";
 import { startChatHighlights, type ChatHighlights } from "./chat-highlights";
-import { GO_LIVE_REFUSALS, type StreamStatus } from "./stream-protocol";
+import {
+  BUSY_STREAMING,
+  GO_LIVE_REFUSALS,
+  type StreamHealth,
+  type StreamStatus,
+} from "./stream-protocol";
 import type { RecordingSession } from "./recording-session";
 import type { StopReason, TakeSettings } from "./take-settings";
 import { Refusal } from "./refusal";
@@ -23,7 +28,19 @@ import { createStreamSide, redactStreamKey } from "./stream-side";
  * together and ended together. End Stream, or the streamed Recording Session
  * ending in any way, ends the Live Stream. The Live Stream never stops or
  * delays the recording: nothing here stops a take but End Stream.
+ *
+ * Busy streaming (ADR 0055): from Go Live until its streamed Recording
+ * Session ends, only End Stream ends it. Stop, close and open (for another
+ * Video, or anything) are refused, and the service counts as busy, so its
+ * idle stop is refused too.
  */
+
+/** What the service refuses while live: only End Stream ends a streamed Recording Session. */
+const REFUSED_WHILE_LIVE: readonly RecorderCommand["type"][] = [
+  "stop",
+  "close",
+  "open",
+];
 
 /** Why a streamed Recording Session's Live Stream ended with it. */
 export const STREAM_ENDED: Record<StopReason, string> = {
@@ -67,22 +84,38 @@ export type GoLiveRecorder = {
   stop: (streamReason: string) => void;
 };
 
-export const createGoLive = (o: {
+/** The recorder service's options for its Live Stream. */
+export type LiveStreamOptions = {
   launch: Launcher;
-  /** The recorder's Windows clock: the card feed's frames are stamped on it. */
+  /** Where a Live Stream goes: YouTube (`YOUTUBE_INGEST`), or the scorecard's sink. */
+  streamIngest?: string;
+  /** `STREAM_LISTEN_BOUND_MS` (tests). */
+  streamListenBoundMs?: number;
+  /** `STREAM_STALL_MS` (tests). */
+  streamStallMs?: number;
+  /** Windows wall-clock ms, the Recording Session's T0's clock. */
   now: () => number;
-  /** Where the Live Stream is pushed (`YOUTUBE_INGEST`). */
-  ingest?: string;
-  listenBoundMs?: number;
-  onStatus: (status: StreamStatus) => void;
-}) => {
+};
+
+export const createGoLive = (
+  o: LiveStreamOptions & {
+    onStatus: (status: StreamStatus) => void;
+    onHealth: (health: StreamHealth) => void;
+  }
+) => {
   const side = createStreamSide({
     launch: o.launch,
-    listenBoundMs: o.listenBoundMs,
+    listenBoundMs: o.streamListenBoundMs,
+    stallMs: o.streamStallMs,
+    fileTime: () => (streamed ? (o.now() - streamed.t0Ms) / 1000 : null),
     onStatus: (status) => {
+      // The card server warms once the stream is live (`chat-highlights.ts`).
       if (status.kind === "live") highlights?.warm();
       o.onStatus(status);
     },
+    onHealth: o.onHealth,
+    // Each launch, a relaunch too, reads the card from its picture's start.
+    onLaunch: (startSeconds) => highlights?.launching(startSeconds),
   });
   /** The Recording Session Go Live started: its end ends the Live Stream. */
   let streamed: RecordingSession | undefined;
@@ -110,8 +143,17 @@ export const createGoLive = (o: {
     ].filter((reason) => typeof reason === "string");
   };
 
+  /** From Go Live until its streamed Recording Session ends. */
+  const streaming = () => streamed !== undefined || goingLive !== undefined;
+
   return {
     status: () => side.status(),
+    streaming,
+    /** Refuses what would end, or take, the recorder while live. */
+    refuseWhileLive: (command: RecorderCommand["type"]) => {
+      if (streaming() && REFUSED_WHILE_LIVE.includes(command))
+        throw new Refusal(BUSY_STREAMING);
+    },
     /** The streamed writer Go Live is arming, if it is. */
     goingLive: () => goingLive,
     /** The service's scene changed: the Live Stream follows it. */
@@ -159,7 +201,7 @@ export const createGoLive = (o: {
           scene: state.kind === "closed" ? "Code" : state.scene,
           micOffsetMs: command.micOffsetMs,
           micEq: command.micEq,
-          ingest: o.ingest ?? YOUTUBE_INGEST,
+          ingest: o.streamIngest ?? YOUTUBE_INGEST,
           streamKey: command.streamKey,
           card: highlights.card,
         });

@@ -567,11 +567,11 @@ export const METRICS: readonly MetricDef[] = [
     target: 0.05,
     obs: null,
     scale: 0.05,
-    note: "Frames the stream's encoder put out per second of wall time (its -progress, least-squares, from 5 s after it went live to End Stream). The rate itself is `streamed.streamFps` in the details.",
+    note: "Frames the stream's encoder put out per second of wall time (its -progress, least-squares, from 5 s after it went live until its process is killed mid-take). The rate itself is `streamed.streamFps` in the details.",
   },
   {
     id: "stream_dup_frames",
-    label: "Live Stream frames duplicated (its whole run)",
+    label: "Live Stream frames duplicated (its first process's whole run)",
     group: "reliability",
     unit: "frames",
     better: "lower",
@@ -581,13 +581,51 @@ export const METRICS: readonly MetricDef[] = [
   },
   {
     id: "stream_drop_frames",
-    label: "Live Stream frames dropped (its whole run)",
+    label: "Live Stream frames dropped (its first process's whole run)",
     group: "reliability",
     unit: "frames",
     better: "lower",
     target: 0,
     obs: null,
     scale: 1,
+  },
+  // #2459: it reconnects for ever, and the take never notices (the
+  // streamed framesLost above cover the take).
+  {
+    id: "stream_back_after_sink_drop",
+    label:
+      "Sink dropped and back mid-take: the Live Stream reconnects inside its process",
+    group: "reliability",
+    unit: "bool",
+    better: "higher",
+    target: 1,
+    obs: null,
+    scale: 1,
+    note: "Reconnecting heard, live again once the sink listens again, no relaunch, and the new sink got frames. Details: `streamed.faults.sinkDrop`.",
+  },
+  {
+    id: "stream_back_after_kill",
+    label:
+      "Stream process killed mid-take: launched again, and live onto a new sink",
+    group: "reliability",
+    unit: "bool",
+    better: "higher",
+    target: 1,
+    obs: null,
+    scale: 1,
+    note: "Details: `streamed.faults.kill`.",
+  },
+  {
+    id: "stream_relaunched_fps_off_60",
+    label:
+      "Relaunched Live Stream frame rate's distance from 60.0 fps (its picture starts where the feeds are, so it never races to catch up)",
+    group: "reliability",
+    unit: "fps",
+    better: "lower",
+    target: 0.05,
+    obs: null,
+    scale: 0.05,
+    note: "As `stream_fps_off_60`, from 5 s after the relaunched process went live to End Stream. Details: `streamed.faults.relaunchedPicture`.",
   },
   {
     id: "card_click_to_screen_ms",

@@ -13,8 +13,9 @@ import {
   streamRate,
 } from "./stream-sink";
 import { CAMERA_FPS, SCREEN_FPS } from "./synthetic-sources";
+import { streamFaults, type Sinks } from "./stream-faults";
 import { hold, sleep, type Ctx } from "./takes";
-import { windowsGuard } from "./windows";
+import { killMarked, windowsGuard } from "./windows";
 
 /**
  * THE STREAMED RECORDING SESSION (#2455): Go Live on the real service and
@@ -22,7 +23,9 @@ import { windowsGuard } from "./windows";
  * YouTube, with a fake Stream Key), for `seconds`, then End Stream. Raw
  * footage first: the take's camera and screen framesLost; then the
  * stream's own picture: frames per second of wall time, duplicated and
- * dropped frames.
+ * dropped frames. Mid-take the sink drops and comes back, then the stream
+ * process is killed (`stream-faults.ts`, #2459): the Live Stream must come
+ * back on its own each time, and the take must not notice.
  *
  * `during` runs while the Live Stream is live (#2461's Chat Highlight
  * clicks, `card-checks.ts`); what it returns runs once End Stream is done
@@ -34,6 +37,9 @@ const WARM_UP_MS = 5_000;
 
 const streamOf = (m: RecorderMessage) =>
   m.type === "state" && m.state.kind !== "closed" ? m.state.stream : undefined;
+
+/** What the sink carries in its command line, beside the run's marker. */
+const SINK_TAG = "cvm-scorecard-sink";
 
 /** The sink: a Windows ffmpeg.exe that takes the push and counts its frames. */
 const startSink = (ctx: Ctx, port: number, file: string) => {
@@ -143,6 +149,33 @@ const streamPicture = (
   };
 };
 
+/** Every sink of the take, one after another on the same address. */
+const sinksOn = (ctx: Ctx, port: number, file: (n: number) => string) => {
+  const all = [startSink(ctx, port, file(1))];
+  const sinks: Sinks = {
+    current: () => all.at(-1)!,
+    drop: async () => {
+      await killMarked(ctx.marker, [SINK_TAG]);
+      await all.at(-1)!.close(5_000);
+    },
+    restore: () => void all.push(startSink(ctx, port, file(all.length + 1))),
+  };
+  return {
+    ...sinks,
+    frames: () => all.map((s) => s.frames()),
+    stderr: () => all.map((s) => s.stderr()),
+    close: (ms: number) => Promise.all(all.map((s) => s.close(ms))),
+  };
+};
+
+/** The Live Stream's health as the service sent it: how many, the first and the last few. */
+const healthOf = (received: readonly Received[]) => {
+  const all = received.flatMap((r) =>
+    r.message.type === "stream-health" ? [r.message.health] : []
+  );
+  return { heard: all.length, first: all[0] ?? null, last: all.slice(-5) };
+};
+
 /** The Live Stream's statuses in order, each once. */
 const statusesFrom = (received: readonly Received[]) =>
   received
@@ -158,20 +191,31 @@ export const streamed = async (
   during: (live: {
     liveAt: number;
     sinkFile: string;
-  }) => Promise<void | (() => Promise<void>)> = async () => {}
+  }) => Promise<() => Promise<void>> = async () => async () => {}
 ) => {
   ctx.log(`streamed: a ${seconds} s Live Stream, pushed to a local sink`);
   await sleep(2000);
   // Beside the footage, on WSL's disk: never a Windows drive.
-  const sinkFile = path.join(path.dirname(ctx.footageDir), "sink.flv");
-  const sink = startSink(ctx, sinkPort, sinkFile);
+  const sinkFile = (n: number) =>
+    path.join(path.dirname(ctx.footageDir), `sink-${n}.flv`);
+  const sink = sinksOn(ctx, sinkPort, sinkFile);
   const progress = readProgress();
   const unwatch = ctx.service.onStreamProgress((chunk) =>
     progress.push(chunk, performance.now())
   );
   try {
     const { go, answer, started, live } = await goLive(ctx);
-    const afterEnd = await during({ liveAt: live?.at ?? NaN, sinkFile });
+    // The first sink's copy holds everything `during` did.
+    const afterEnd = await during({
+      liveAt: live?.at ?? NaN,
+      sinkFile: sinkFile(1),
+    });
+    const faults = await streamFaults(ctx, {
+      goAt: go.at,
+      seconds,
+      sinks: sink,
+      samples: progress.samples,
+    });
     await hold(ctx, Math.max(0, seconds * 1000 - (performance.now() - go.at)));
 
     const end = ctx.client.send({ type: "end-stream" });
@@ -191,7 +235,9 @@ export const streamed = async (
 
     const endedEarly = stopped.at < end.at || s.reason !== "requested";
     const lost = footageLost(s, endedEarly, (end.wall - answer.wall) / 1000);
-    const picture = streamPicture(progress.samples, live?.at, end.at);
+    // The first stream process's picture, until it was killed.
+    const picture = streamPicture(progress.samples, live?.at, faults.killAt);
+    const fault = faults.result();
     const m = ctx.measured;
     m.streamed_camera_frames_lost = lost.camera;
     m.streamed_screen_frames_lost = lost.screen;
@@ -199,6 +245,15 @@ export const streamed = async (
       picture.fps === null ? null : Math.abs(picture.fps - 60);
     m.stream_dup_frames = picture.dupFrames;
     m.stream_drop_frames = picture.dropFrames;
+    m.stream_back_after_sink_drop = fault.backAfterSinkDrop ? 1 : 0;
+    m.stream_back_after_kill = fault.backAfterKill ? 1 : 0;
+    // The relaunched process's own picture, from once it is live again.
+    const relaunched =
+      faults.relaunchedLiveAt === null
+        ? null
+        : streamPicture(progress.samples, faults.relaunchedLiveAt, end.at);
+    m.stream_relaunched_fps_off_60 =
+      relaunched?.fps == null ? null : Math.abs(relaunched.fps - 60);
 
     ctx.details.streamed = {
       seconds,
@@ -210,6 +265,8 @@ export const streamed = async (
       ffmpegFps: picture.ffmpegFps,
       encodedFrames: picture.encodedFrames,
       sinkFrames: sink.frames(),
+      faults: { ...fault.details, relaunchedPicture: relaunched },
+      health: healthOf(ctx.client.received.slice(go.from)),
       sinkStderr: sink.stderr(),
       endedBeforeEndStream: endedEarly,
       stopped: {
@@ -229,9 +286,9 @@ export const streamed = async (
         t0Ms: started.t0Ms,
       }),
     };
-    if (afterEnd) await afterEnd();
+    await afterEnd();
     if (!live) throw new Error("The Live Stream never went live");
-    if (sink.frames() === 0)
+    if (sink.frames()[0] === 0)
       throw new Error("The local sink received no frame of the Live Stream");
   } finally {
     unwatch();

@@ -5,6 +5,8 @@ status: accepted
 # One recording-session reducer, two effect sets
 
 > OBS's effect set is deleted by [ADR 0051](0051-the-cvm-recorder-is-the-only-recorder.md); the shared reducer and the save-take interface stay, with one implementation each.
+>
+> Point 4 does not apply to a Streamed Recording Session: leaving the page and Attaching never stop it, and only End Stream ends it ([ADR 0055](0055-go-live-records-a-streamed-recording-session-survives-leaving-the-page.md)).
 
 Decided by Matt on 2026-10-15 (#2196, #2200). Extends [ADR 0044](0044-the-cvm-recorder-is-an-adapter-onto-obs-clip-logic.md).
 
