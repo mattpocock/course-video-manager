@@ -1,3 +1,4 @@
+import type { Scene } from "../app/packages/scene-layout";
 import type { Capture } from "./camera";
 import type { Launcher } from "./launcher";
 import type { RecorderCommand, RecorderState } from "./protocol";
@@ -95,6 +96,8 @@ export const createGoLive = (o: {
     status: () => side.status(),
     /** The streamed writer Go Live is arming, if it is. */
     goingLive: () => goingLive,
+    /** The service's scene changed: the Live Stream follows it. */
+    sceneSwitched: (scene: Scene) => side.switchScene(scene),
     /** A Recording Session stopped: if it was streamed, the Live Stream ends. */
     sessionEnded: (session: RecordingSession, why: string) => {
       if (streamed !== session) return;

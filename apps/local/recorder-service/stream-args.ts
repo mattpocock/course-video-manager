@@ -1,4 +1,8 @@
-import { liveSceneFilterGraph, type Scene } from "../app/packages/scene-layout";
+import {
+  liveSceneFilterGraph,
+  liveSceneSwitch,
+  type Scene,
+} from "../app/packages/scene-layout";
 import type { StreamFeedPorts } from "./stream-feeds";
 
 /**
@@ -37,8 +41,13 @@ export const STREAM_ENCODE = {
   audioKbps: 160,
 } as const;
 
-/** -progress period, in seconds: how often the stream says how it is doing. */
-export const STREAM_PROGRESS_SECONDS = 1;
+/**
+ * -progress and keyboard period, in seconds: how often the stream says how
+ * it is doing, and looks for a scene switch on its stdin (ffmpeg reads a key
+ * at most every 0.1 s, and only once a period). A switch shows within
+ * about a tenth of a second.
+ */
+export const STREAM_PROGRESS_SECONDS = 0.05;
 
 /**
  * Packets the push may queue while YouTube is unreachable: about three
@@ -69,9 +78,20 @@ const feedInput = (port: number, probesize: number) => [
   `tcp://127.0.0.1:${port}?listen=1&tcp_nodelay=1`,
 ];
 
+/**
+ * What a scene switch writes to the running stream process's stdin: ffmpeg's
+ * `C`, the writer's T0 mechanism (`takeStartCommand`), sent now (time -1)
+ * rather than queued: the graph's frames are on the canvas's clock, not the
+ * Recording Session's, so there is no time to queue it for.
+ */
+export const streamSceneCommand = (scene: Scene) => {
+  const c = liveSceneSwitch(scene);
+  return `C${c.target} -1 ${c.command} ${c.arg}\n`;
+};
+
 export const streamArgs = (o: {
   ports: StreamFeedPorts;
-  /** The scene shown from Go Live (switching is #2457). */
+  /** The scene it starts on: the service's scene at its launch. */
   scene: Scene;
   micOffsetMs: number;
   /** The ingest address with the Stream Key on the end: only ever here. */
