@@ -5,6 +5,7 @@ import type { RecorderCommand, RecorderState } from "./protocol";
 import {
   BUSY_STREAMING,
   GO_LIVE_REFUSALS,
+  type StreamHealth,
   type StreamStatus,
 } from "./stream-protocol";
 import type { RecordingSession } from "./recording-session";
@@ -76,17 +77,32 @@ export type GoLiveRecorder = {
   stop: (streamReason: string) => void;
 };
 
-export const createGoLive = (o: {
+/** The recorder service's options for its Live Stream. */
+export type LiveStreamOptions = {
   launch: Launcher;
-  /** Where the Live Stream is pushed (`YOUTUBE_INGEST`). */
-  ingest?: string;
-  listenBoundMs?: number;
-  onStatus: (status: StreamStatus) => void;
-}) => {
+  /** Where a Live Stream goes: YouTube (`YOUTUBE_INGEST`), or the scorecard's sink. */
+  streamIngest?: string;
+  /** `STREAM_LISTEN_BOUND_MS` (tests). */
+  streamListenBoundMs?: number;
+  /** `STREAM_STALL_MS` (tests). */
+  streamStallMs?: number;
+  /** Windows wall-clock ms, the Recording Session's T0's clock. */
+  now: () => number;
+};
+
+export const createGoLive = (
+  o: LiveStreamOptions & {
+    onStatus: (status: StreamStatus) => void;
+    onHealth: (health: StreamHealth) => void;
+  }
+) => {
   const side = createStreamSide({
     launch: o.launch,
-    listenBoundMs: o.listenBoundMs,
+    listenBoundMs: o.streamListenBoundMs,
+    stallMs: o.streamStallMs,
+    fileTime: () => (streamed ? (o.now() - streamed.t0Ms) / 1000 : null),
     onStatus: o.onStatus,
+    onHealth: o.onHealth,
   });
   /** The Recording Session Go Live started: its end ends the Live Stream. */
   let streamed: RecordingSession | undefined;
@@ -161,7 +177,7 @@ export const createGoLive = (o: {
           scene: state.kind === "closed" ? "Code" : state.scene,
           micOffsetMs: command.micOffsetMs,
           micEq: command.micEq,
-          ingest: o.ingest ?? YOUTUBE_INGEST,
+          ingest: o.streamIngest ?? YOUTUBE_INGEST,
           streamKey: command.streamKey,
         });
         await r.record({ type: "record", ...command.record }, ports);

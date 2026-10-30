@@ -12,6 +12,7 @@ import type {
 } from "recorder-service/protocol";
 import {
   isStreamOn,
+  type StreamHealth,
   type StreamStatus,
 } from "recorder-service/stream-protocol";
 import { isSceneAvailable, isScreenWaking } from "./cvm-recorder-screen";
@@ -119,6 +120,8 @@ export namespace cvmRecorderReducer {
     screen: ScreenStatus | null;
     /** The Live Stream (ADR 0054); null while the recorder is not open for this Video. */
     stream: StreamStatus | null;
+    /** The Live Stream's latest health; null until it says, and while not open for this Video. */
+    streamHealth: StreamHealth | null;
     /** Wake Spacedesk again was pressed and the recorder is not waking it yet. */
     wakingAgain: boolean;
     /** The last thing that went wrong, until the next Record. */
@@ -203,6 +206,7 @@ export const createInitialCvmRecorderState = (
   scene: null,
   screen: null,
   stream: null,
+  streamHealth: null,
   wakingAgain: false,
   error: null,
   alert: null,
@@ -358,6 +362,7 @@ const sessionEventOf = (
     case "scene-changed":
     case "screen-changed":
     case "stream-changed":
+    case "stream-health":
     case "frames-lost":
     case "recorder-failed":
     case "clips-saved":
@@ -406,6 +411,7 @@ const deviceHeard = (
         scene: message.reachable ? state.scene : null,
         screen: message.reachable ? state.screen : null,
         stream: message.reachable ? state.stream : null,
+        streamHealth: message.reachable ? state.streamHealth : null,
       };
     case "camera-opening":
       return cameraHeard(state, { kind: "opening", attempt: message.attempt });
@@ -424,6 +430,7 @@ const deviceHeard = (
         scene: null,
         screen: null,
         stream: null,
+        streamHealth: null,
       };
     case "scene-changed":
       return { ...state, scene: message.scene };
@@ -431,6 +438,8 @@ const deviceHeard = (
       return { ...state, screen: message.screen, wakingAgain: false };
     case "stream-changed":
       return { ...state, stream: message.stream };
+    case "stream-health":
+      return { ...state, streamHealth: message.health };
     case "recording-started":
       return { ...state, error: null };
     case "camera-lost":

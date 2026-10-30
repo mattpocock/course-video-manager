@@ -53,6 +53,13 @@ export const STREAM_ENCODE = {
 export const STREAM_PROGRESS_SECONDS = 0.05;
 
 /**
+ * What starts each encoded packet's line on its stderr, with the packet's
+ * size: -progress has no size for a tee, so the health line's bitrate is
+ * added up from these (`stream-health.ts`).
+ */
+export const STREAM_PACKET_LINE = "cvm-packet ";
+
+/**
  * Packets the push may queue while YouTube is unreachable: about three
  * seconds. On overflow the fifo drops them and starts again at a keyframe.
  */
@@ -122,6 +129,11 @@ export const streamArgs = (o: {
   micEq: MicEq;
   /** The ingest address with the Stream Key on the end: only ever here. */
   url: string;
+  /**
+   * Where its picture starts, in the Recording Session's file time (s): 0
+   * at Go Live, before Record; a relaunch starts where the feeds are now.
+   */
+  startSeconds?: number;
 }) => {
   const graph = [
     liveSceneFilterGraph({
@@ -129,6 +141,7 @@ export const streamArgs = (o: {
       inputs: { screen: "0:v", camera: "1:v" },
       scene: o.scene,
       output: "v",
+      canvasStartSeconds: o.startSeconds,
     }),
     `[1:a]${[...streamSound(o.micOffsetMs, o.micEq), "aresample=async=1000"].join(",")}[a]`,
   ].join(";");
@@ -197,6 +210,10 @@ export const streamArgs = (o: {
     `${STREAM_ENCODE.audioKbps}k`,
     "-ar",
     "48000",
+    "-stats_enc_post",
+    "pipe:2",
+    "-stats_enc_post_fmt",
+    `${STREAM_PACKET_LINE}{size}`,
     "-metadata",
     `comment=${STREAM_TAG}`,
     // FLV needs its headers up front behind the tee.

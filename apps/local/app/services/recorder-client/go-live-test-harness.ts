@@ -163,6 +163,7 @@ export const ready = async (
   o: {
     windows?: ReturnType<typeof fakeWindows>;
     streamListenBoundMs?: number;
+    streamStallMs?: number;
     format?: "landscape" | "short";
   } = {}
 ) => {
@@ -170,6 +171,7 @@ export const ready = async (
   const stateDir = tmp();
   const { port, busy } = await startService(stateDir, windows, {
     streamListenBoundMs: o.streamListenBoundMs,
+    streamStallMs: o.streamStallMs,
   });
   const client = connectClient(port);
   await freshCalibration();

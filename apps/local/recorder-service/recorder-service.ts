@@ -27,7 +27,12 @@ import {
 import type { RecordingSession } from "./recording-session";
 import type { TakeSettings } from "./take-settings";
 import { createTakeArming, recordTook } from "./take-arming";
-import { createGoLive, STREAM_ENDED, type GoLiveRecorder } from "./go-live";
+import {
+  createGoLive,
+  STREAM_ENDED,
+  type GoLiveRecorder,
+  type LiveStreamOptions,
+} from "./go-live";
 import type { StreamFeedPorts } from "./stream-feeds";
 import { createTakeStopping } from "./take-stopping";
 import { serveHealth } from "./health";
@@ -90,10 +95,7 @@ export type RecorderServiceOptions = {
    * message that says why it could not.
    */
   wakeSpacedesk: () => Promise<void>;
-  /** Where a Live Stream goes: YouTube, or the scorecard's sink. */
-  streamIngest?: string;
-  streamListenBoundMs?: number;
-};
+} & LiveStreamOptions;
 
 export const startRecorderService = async (o: RecorderServiceOptions) => {
   const ffmpeg = await checkFfmpeg(o.launch);
@@ -242,12 +244,11 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
   });
 
   const live = createGoLive({
-    launch: o.launch,
-    ingest: o.streamIngest,
-    listenBoundMs: o.streamListenBoundMs,
+    ...o,
     onStatus: (stream) => {
       if (state.kind !== "closed") setState({ ...state, stream });
     },
+    onHealth: (health) => broadcast({ type: "stream-health", health }),
   });
 
   const onEvent = (event: RecordingSessionEvent) => {

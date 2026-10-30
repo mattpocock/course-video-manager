@@ -8,6 +8,7 @@ import {
   PREVIEW_TAGS,
 } from "./capture-args";
 import { quitProcess } from "./camera";
+import { STREAM_TAG } from "./stream-args";
 import { fakeFootage, fakeWindows } from "./test-utils/fake-windows";
 import { connect, recordOnce, start, tmp } from "./test-utils/service-harness";
 
@@ -60,7 +61,7 @@ describe("crash recovery", () => {
         script: "stop-recorders.ps1",
         args: [
           "-Tags",
-          `${PREVIEW_TAGS.camera},${PREVIEW_TAGS.screen},${CAPTURE_TAG},${METER_TAG},cvm-recorder-${recordingSessionId}`,
+          `${PREVIEW_TAGS.camera},${PREVIEW_TAGS.screen},${CAPTURE_TAG},${METER_TAG},${STREAM_TAG},cvm-recorder-${recordingSessionId}`,
         ],
       })
     );

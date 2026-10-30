@@ -7,7 +7,10 @@ import type {
   LostFrameSpan,
   ScreenStatus,
 } from "recorder-service/protocol";
-import type { StreamStatus } from "recorder-service/stream-protocol";
+import type {
+  StreamHealthMessage,
+  StreamStatus,
+} from "recorder-service/stream-protocol";
 
 /** A Clip the app server saved from speech, with its Recording Session, so the editor plays it as the composite. */
 export type SavedRecorderClip = DB.Clip & {
@@ -88,6 +91,11 @@ export type CvmRecorderMessage =
    * sent when the editor starts listening and whenever it changes.
    */
   | { type: "stream-changed"; stream: StreamStatus }
+  /**
+   * The Live Stream's health, as the recorder service sends it: about once
+   * a second while its process runs, and at each reconnect. Never saved.
+   */
+  | StreamHealthMessage
   | {
       type: "recording-started";
       recordingSessionId: string;
@@ -190,6 +198,7 @@ export const CVM_RECORDER_MESSAGE_TYPES = [
   "scene-changed",
   "screen-changed",
   "stream-changed",
+  "stream-health",
   "recording-started",
   "warmed-up",
   "speech-started",
