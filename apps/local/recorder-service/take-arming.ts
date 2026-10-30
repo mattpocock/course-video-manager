@@ -1,11 +1,7 @@
 import type { Launcher } from "./launcher";
 import { Refusal } from "./refusal";
-import {
-  armTake,
-  sameTake,
-  type ArmedTake,
-  type TakeSettings,
-} from "./recording-session";
+import { armTake, type ArmedTake } from "./recording-session";
+import { sameTake, type TakeSettings } from "./take-settings";
 
 /** How long Record waits for a writer it had to arm on the spot. */
 const ARM_TIMEOUT_MS = 10_000;
@@ -68,6 +64,15 @@ export const createTakeArming = (o: {
   return {
     rearm,
     disarm,
+    /**
+     * Arms a writer with these settings now, the one armed with others quit
+     * first (Go Live arms a streamed writer before it starts the stream).
+     * Done once it is starting; `takeFor` waits for it to be ready.
+     */
+    prepare: async (settings: TakeSettings) => {
+      if (armed && !sameTake(armed.settings, settings)) await disarm();
+      if (!armed) arm(settings);
+    },
     /** Whether a writer is armed now. */
     isArmed: () => armed !== undefined,
     /**
@@ -101,3 +106,15 @@ export const createTakeArming = (o: {
     },
   };
 };
+
+/** Record's log line: how long each step to T0 took, and how the writer was armed. */
+export const recordTook = (o: {
+  startedMs: number;
+  devicesMs: number;
+  screenMs: number;
+  armedMs: number;
+  fromCache: boolean;
+  wasArmed: boolean;
+  relayWasHeld: boolean;
+}) =>
+  `recorder: Record took ${o.armedMs - o.startedMs} ms to T0 (devices ${o.devicesMs - o.startedMs} ms${o.fromCache ? ", cached" : ""}, screen ${o.screenMs - o.devicesMs} ms, writer ${o.armedMs - o.screenMs} ms, ${o.wasArmed && o.armedMs - o.screenMs < 5 ? "armed" : o.relayWasHeld ? "armed at Record: the last take's writer still held the relay" : "armed at Record"}); no device reopened, preview untouched`;

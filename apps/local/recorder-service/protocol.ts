@@ -3,6 +3,7 @@ import type { Scene } from "../app/packages/scene-layout";
 import type { SilenceLength } from "../app/silence-detection-constants";
 import type { LastPassedCalibration } from "../app/av-calibration-constants";
 import type { ClapMark } from "../app/packages/clap-detection/live";
+import type { StreamCommand, StreamStatus } from "./stream-protocol";
 
 /**
  * THE RECORDER SERVICE'S WIRE: what a client (the app server's recorder
@@ -62,11 +63,12 @@ export const IDLE_STOP = { type: "idle-stop" } as const;
  * shows no Take; 16: `frames-lost` mid-take, the screen's lost frames
  * counted, and the capture and writer at High priority; 17: `frames-lost`
  * and `recording-stopped` carry where in the take each loss fell,
- * `lostFrameSpans`). The app server reloads on a change and the service does not
+ * `lostFrameSpans`; 18: the Live Stream, `start-stream`, `end-stream` and
+ * the state's `stream`). The app server reloads on a change and the service does not
  * (ADR 0035), so after a pull mid-session the app may meet a service started
  * from older code; `hello` says which wire it speaks (none before 2).
  */
-export const RECORDER_PROTOCOL_VERSION = 17;
+export const RECORDER_PROTOCOL_VERSION = 18;
 
 export const PREVIEW_FEEDS = ["camera", "screen"] as const;
 export type PreviewFeed = (typeof PREVIEW_FEEDS)[number];
@@ -218,7 +220,9 @@ export type RecorderCommand =
       claps: CalibrationWindow;
     }
   /** End the run and delete its file: a cancelled calibration keeps nothing. */
-  | { type: "cancel-calibration" };
+  | { type: "cancel-calibration" }
+  /** Go Live and End Stream (`stream-protocol.ts`). */
+  | StreamCommand;
 
 /** A stretch of a calibration's mic file, in its seconds. */
 export type CalibrationWindow = { startSeconds: number; endSeconds: number };
@@ -398,6 +402,8 @@ type OpenFor = {
   format: VideoFormat;
   scene: Scene;
   screen: ScreenStatus | null;
+  /** The Live Stream: live only while the streamed Recording Session records. */
+  stream: StreamStatus;
 };
 
 export type RecorderState =

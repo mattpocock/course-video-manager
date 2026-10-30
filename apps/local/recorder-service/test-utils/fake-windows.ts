@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import net from "node:net";
 import { CAPTURE_TAG, PREVIEW_TAGS } from "../capture-args";
+import { STREAM_TAG } from "../stream-args";
 import type { Launch, LaunchedProcess, Launcher } from "../launcher";
 import { flvHeader, flvVideoTag } from "./flv";
 
@@ -250,7 +251,7 @@ export const writesFile = (args: readonly string[], file: string) =>
 const isPreview = (l: Launch, input: string) =>
   l.tool === "ffmpeg" &&
   l.args.some((a) => a.includes("tcp://")) &&
-  !l.args.some((a) => a.endsWith(".mkv")) &&
+  !l.args.some((a) => a.endsWith(".mkv") || a.includes(".mkv|")) &&
   l.args.some((a) => a.includes(input));
 
 const tagged = (l: Launch, tag: string) =>
@@ -292,6 +293,12 @@ export const fakeWindows = (
      * `-Match` it is given (the capture's tag, `camera.mkv`, `screen.mkv`).
      */
     tuneFails?: Record<string, string>;
+    /**
+     * The Live Stream's ffmpeg.exe: `up` prints its banner at once (it is
+     * listening for its feeds); `never` prints nothing and never quits on
+     * `q`, as one stuck starting.
+     */
+    stream?: "up" | "never";
     /** How long screens.ps1 takes to answer (PowerShell's start-up); default the next tick. */
     screensListingMs?: number;
     /**
@@ -341,6 +348,8 @@ export const fakeWindows = (
   const loadSamplers: FakeProcess[] = [];
   const cameraPreviews: FakeProcess[] = [];
   const screenPreviews: FakeProcess[] = [];
+  /** Each Live Stream process, in launch order. */
+  const streams: FakeProcess[] = [];
   const cameraTries = [...(o.cameraTries ?? [])];
   const launchedProcesses: FakeProcess[] = [];
   const launch: Launcher = (l) => {
@@ -460,6 +469,18 @@ export const fakeWindows = (
       }
       return p;
     }
+    // The Live Stream: its banner, then (as ffmpeg) it listens for its feeds.
+    if (tagged(l, STREAM_TAG)) {
+      streams.push(p);
+      p.stuck = o.stream === "never";
+      if (o.stream !== "never")
+        setImmediate(() =>
+          p.stderr(
+            `ffmpeg version ${o.ffmpegVersion ?? "8.0.1-cvm1"} Copyright (c) 2000-2025 the FFmpeg developers\r\n`
+          )
+        );
+      return p;
+    }
     if (isPreview(l, "ddagrab")) {
       screenPreviews.push(p);
       sendFrames(p, l.args);
@@ -569,6 +590,7 @@ export const fakeWindows = (
     loadSamplers,
     cameraPreviews,
     screenPreviews,
+    streams,
     armedWriters,
     camerasRunning,
     meter,

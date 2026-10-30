@@ -11,7 +11,8 @@
 // of the Clip. From one layout definition, `drawInstructions` says how a
 // canvas draws a scene (live preview, editor playback) and `sceneFilterGraph`
 // says how ffmpeg draws a run of segments (export, stills). `LAYOUT_VERSIONS`
-// goes into the Export Hash.
+// goes into the Export Hash. `liveSceneFilterGraph` draws every Landscape
+// scene at once on CUDA for the Live Stream and picks one, switchable live.
 export {
   DEFAULT_SCENE,
   LAYOUT_VERSIONS,
@@ -35,6 +36,11 @@ export {
   type SceneFilterGraphInput,
   type SourceSize,
 } from "./lib/scene-drawing";
+
+export {
+  liveSceneFilterGraph,
+  type LiveSceneFilterGraphInput,
+} from "./lib/live-scene-graph";
 
 /** The Landscape layout's version: part of every Landscape CVM-recorder Export Hash. */
 export { LAYOUT_VERSION } from "./lib/layout-definition";

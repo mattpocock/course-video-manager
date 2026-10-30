@@ -1,5 +1,4 @@
-import { Either } from "effect";
-import { decodeCommand, refusalOfUndecodable } from "./command-schema";
+import { readCommand } from "./command-schema";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 import path from "node:path";
@@ -8,7 +7,7 @@ import { corsHeaders, isAllowedOrigin } from "./allowed-origin";
 import { recoverCrashedSessions } from "./crash-recovery";
 import { CAMERA_START_TIMEOUT_MS, openCamera, type Camera } from "./camera";
 import type { Launcher } from "./launcher";
-import { resolveToggle } from "./stream-deck-press";
+import { pressedCommand } from "./stream-deck-press";
 import { DEFAULT_SCENE, type Scene } from "../app/packages/scene-layout";
 import { startPreviewFeeds } from "./preview-feeds";
 import { serveStill } from "./still";
@@ -24,10 +23,12 @@ import {
   type RecorderMessage,
   type RecorderState,
   type RecordingSessionEvent,
-  type StreamDeckPress,
 } from "./protocol";
-import type { RecordingSession, TakeSettings } from "./recording-session";
-import { createTakeArming } from "./take-arming";
+import type { RecordingSession } from "./recording-session";
+import type { TakeSettings } from "./take-settings";
+import { createTakeArming, recordTook } from "./take-arming";
+import { createGoLive, STREAM_ENDED, type GoLiveRecorder } from "./go-live";
+import type { StreamFeedPorts } from "./stream-feeds";
 import { createTakeStopping } from "./take-stopping";
 import { serveHealth } from "./health";
 import { createSessionIndex } from "./session-index";
@@ -35,11 +36,7 @@ import { checkFfmpeg, checkNvidiaDriver } from "./windows-devices";
 import { Refusal } from "./refusal";
 import { RECORDER_CAMERA_NAME } from "../app/av-calibration-constants";
 import { createRecordingDevices } from "./recording-devices";
-import {
-  createScreenSide,
-  refuseScreenlessScene,
-  refuseWakingScene,
-} from "./screen-side";
+import { createScreenSide, refuseScreenlessScene } from "./screen-side";
 import { createPreviewEncoders } from "./preview-encoders";
 
 /**
@@ -70,6 +67,7 @@ import { createPreviewEncoders } from "./preview-encoders";
  * it, until it asks to stop or goes. It and a recording never run together,
  * and neither does an AV Calibration's run, which takes the meter's place
  * while it writes the mic and the camera to files (`calibration-run.ts`).
+ * Go Live starts a streamed Recording Session and a Live Stream (`go-live.ts`).
  */
 
 /** The devices the rig proved, found by name. */
@@ -92,6 +90,9 @@ export type RecorderServiceOptions = {
    * message that says why it could not.
    */
   wakeSpacedesk: () => Promise<void>;
+  /** Where a Live Stream goes: YouTube, or the scorecard's sink. */
+  streamIngest?: string;
+  streamListenBoundMs?: number;
 };
 
 export const startRecorderService = async (o: RecorderServiceOptions) => {
@@ -155,20 +156,18 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
   /** What the next take records with, if the recorder can arm it now. */
   const wantedTake = (): TakeSettings | undefined => {
     const capture = camera?.capture();
-    if (
-      state.kind !== "open" ||
-      session ||
-      stopping.relayHeld() ||
-      !capture ||
-      recordWith?.videoId !== state.videoId ||
-      !recordWith.calibration
-    )
+    if (state.kind !== "open" || session || stopping.relayHeld() || !capture)
+      return undefined;
+    // Go Live arms the streamed writer for its Record.
+    if (live.goingLive()) return live.goingLive();
+    if (recordWith?.videoId !== state.videoId || !recordWith.calibration)
       return undefined;
     return {
       folder: recordWith.folder,
       silenceLength: recordWith.silenceLength,
       thresholdDb: recordWith.calibration.thresholdDb,
       relayPort: capture.writerRelay,
+      streamed: null,
     };
   };
 
@@ -242,6 +241,15 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
     },
   });
 
+  const live = createGoLive({
+    launch: o.launch,
+    ingest: o.streamIngest,
+    listenBoundMs: o.streamListenBoundMs,
+    onStatus: (stream) => {
+      if (state.kind !== "closed") setState({ ...state, stream });
+    },
+  });
+
   const onEvent = (event: RecordingSessionEvent) => {
     // A stopped take's last events can come after the next take started.
     if (
@@ -264,16 +272,18 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
       scene,
       screen: state.screen,
       camera: camera?.status() ?? startCamera(),
+      stream: live.status(),
     });
     rearm();
   };
 
   /** Stop (`take-stopping.ts`): open again at the press, the take finalising behind. */
-  const stopTake = () => {
+  const stopTake = (streamEnded = STREAM_ENDED.requested) => {
     if (!session || state.kind !== "recording")
       throw new Refusal("Not recording.");
     const startedMs = Date.now();
     stopping.stop(session);
+    live.sessionEnded(session, streamEnded);
     session = undefined;
     reopen(state.videoId);
     console.log(
@@ -282,7 +292,8 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
   };
 
   const record = async (
-    command: Extract<RecorderCommand, { type: "record" }>
+    command: Extract<RecorderCommand, { type: "record" }>,
+    streamed: StreamFeedPorts | null = null
   ) => {
     if (state.kind === "closed")
       throw new Refusal("Open the recorder for a Video first.");
@@ -298,16 +309,11 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
     const startedMs = Date.now();
     const capture = camera?.capture();
     if (!capture) throw new Refusal("The camera is not live yet.");
-    const {
-      camera: cameraName,
-      mic,
-      calibration,
-      fromCache,
-    } = await devices.forRecord(command.calibration, o.now);
-    if (cameraName !== capture.devices.camera || mic !== capture.devices.mic)
-      throw new Refusal(
-        `The recorder opened ${capture.devices.camera} and ${capture.devices.mic}, but the devices now listed are ${cameraName} and ${mic}: close the recorder and open it again.`
-      );
+    const { calibration, fromCache } = await devices.forRecord(
+      command.calibration,
+      o.now,
+      capture.devices
+    );
     const devicesMs = Date.now();
     const { videoId, format } = state;
     const screenIndex = await screenSide.recordIndex(
@@ -325,6 +331,7 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
       silenceLength: command.silenceLength,
       thresholdDb: calibration.thresholdDb,
       relayPort: capture.writerRelay,
+      streamed,
     });
     const armedMs = Date.now();
     try {
@@ -339,7 +346,8 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
         emit: onEvent,
         // A take that stopped on its own (the camera lost, a process quit);
         // one stopped on request was let go at the press (`stopTake`).
-        onEnded: () => {
+        onEnded: (reason) => {
+          live.sessionEnded(begun, STREAM_ENDED[reason]);
           if (session !== begun) return;
           session = undefined;
           reopen(videoId);
@@ -352,7 +360,10 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
     }
     index.add({ recordingSessionId: session.id, eventLog: session.eventLog });
     console.log(
-      `recorder: Record took ${armedMs - startedMs} ms to T0 (devices ${devicesMs - startedMs} ms${fromCache ? ", cached" : ""}, screen ${screenMs - devicesMs} ms, writer ${armedMs - screenMs} ms, ${wasArmed && armedMs - screenMs < 5 ? "armed" : relayWasHeld ? "armed at Record: the last take's writer still held the relay" : "armed at Record"}); no device reopened, preview untouched`
+      recordTook({
+        ...{ startedMs, devicesMs, screenMs, armedMs },
+        ...{ fromCache, wasArmed, relayWasHeld },
+      })
     );
     setState({
       kind: "recording",
@@ -362,7 +373,23 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
       screen: screenStatus(),
       recordingSessionId: session.id,
       lastSeq: session.lastSeq(),
+      stream: live.status(),
     });
+  };
+
+  /** What Go Live and End Stream need of the service. */
+  const forGoLive: GoLiveRecorder = {
+    state: () => state,
+    capture: () => camera?.capture(),
+    screenPreviewOnNvenc: () => encoders.get("screen") === "nvenc",
+    metering: () => meter.running(),
+    gate: async (c) => (await devices.forRecord(c, o.now)).calibration,
+    relayFree: () => stopping.relayFree(),
+    prepare: (settings) => arming.prepare(settings),
+    rearm: () => rearm(),
+    record,
+    session: () => session,
+    stop: stopTake,
   };
 
   const replay = (
@@ -373,33 +400,6 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
     const { events, lastSeq } = index.replay(recordingSessionId, afterSeq);
     for (const event of events) send(ws, event);
     send(ws, { type: "replay-done", recordingSessionId, lastSeq });
-  };
-
-  /** A Stream Deck button: acts on whichever Video the recorder is open for. */
-  const press = async (ws: WebSocket, p: StreamDeckPress): Promise<void> => {
-    if (state.kind === "closed")
-      throw new Refusal(
-        "The recorder is not open: open the editor on a CVM recorder Video first."
-      );
-    const pressed = resolveToggle(p, state);
-    switch (pressed.action) {
-      case "record":
-        if (recordWith?.videoId !== state.videoId)
-          throw new Refusal(
-            "The editor has not said its Silence Length yet: reload the editor."
-          );
-        return record({
-          type: "record",
-          silenceLength: recordWith.silenceLength,
-          folder: recordWith.folder,
-          calibration: recordWith.calibration,
-        });
-      case "stop":
-        return handle(ws, { type: "stop" });
-      case "switch-scene":
-        refuseWakingScene(pressed.scene, state.format, state.screen);
-        return handle(ws, { type: "switch-scene", scene: pressed.scene });
-    }
   };
 
   const handle = async (
@@ -435,6 +435,7 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
           camera: startCamera(),
           scene,
           screen,
+          stream: live.status(),
         });
         return void screenSide.restart();
       }
@@ -468,16 +469,20 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
         return rearm();
       case "stream-deck":
         // Whatever the reason, the press does nothing; every client hears why.
-        return press(ws, command.press).catch((e: unknown) => {
-          if (!(e instanceof Refusal))
-            console.error("recorder: a Stream Deck press failed", e);
-          const message = e instanceof Error ? e.message : String(e);
-          broadcast({
-            type: "stream-deck-ignored",
-            press: command.press,
-            message,
+        return Promise.resolve()
+          .then(() =>
+            handle(ws, pressedCommand(command.press, state, recordWith))
+          )
+          .catch((e: unknown) => {
+            if (!(e instanceof Refusal))
+              console.error("recorder: a Stream Deck press failed", e);
+            const message = e instanceof Error ? e.message : String(e);
+            broadcast({
+              type: "stream-deck-ignored",
+              press: command.press,
+              message,
+            });
           });
-        });
       case "start-meter":
         if (state.kind === "recording")
           throw new Refusal(METER_WHILE_RECORDING);
@@ -492,6 +497,10 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
         return meter.finishCalibration(command);
       case "cancel-calibration":
         return meter.cancelCalibration();
+      case "start-stream":
+        return live.goLive(command, forGoLive);
+      case "end-stream":
+        return live.endStream(forGoLive);
       case "close":
         if (state.kind === "recording")
           throw new Refusal("Stop recording before closing the recorder.");
@@ -546,16 +555,11 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
       })
     );
     ws.on("message", (data) => {
-      const decoded = decodeCommand(data.toString());
-      if (Either.isLeft(decoded)) {
-        const refusal = refusalOfUndecodable(data.toString());
-        if (refusal) return send(ws, { type: "refused", ...refusal });
-        console.error(
-          `recorder: unreadable command ${data.toString().slice(0, 200)}`
-        );
-        return;
-      }
-      const command = decoded.right;
+      const read = readCommand(data.toString());
+      if (!read) return;
+      if ("refusal" in read)
+        return send(ws, { type: "refused", ...read.refusal });
+      const { command } = read;
       queue = queue.then(async () => {
         try {
           await handle(ws, command);
@@ -584,7 +588,12 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
       await queue;
       if (session) await session.stop();
       // releaseCamera waits for every take still closing its files.
-      await Promise.all([releaseCamera(), screenSide.close(), meter.stop()]);
+      await Promise.all([
+        releaseCamera(),
+        screenSide.close(),
+        meter.stop(),
+        live.close(),
+      ]);
       await feeds.close();
       for (const ws of wss.clients) ws.terminate();
       await new Promise<void>((resolve) => wss.close(() => resolve()));

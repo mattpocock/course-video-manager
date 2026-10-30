@@ -43,9 +43,10 @@ afterEach(() => {
 /** The recorder service on a scripted Windows (`fakeWindows`, never the real Spacedesk). */
 export const startService = async (
   stateDir = tmp(),
-  windows = fakeWindows()
+  windows = fakeWindows(),
+  o: Parameters<typeof start>[2] = {}
 ) => {
-  const { port } = await start(windows, stateDir);
+  const { port } = await start(windows, stateDir, o);
   return { windows, port, stateDir };
 };
 

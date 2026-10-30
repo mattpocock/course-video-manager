@@ -7,6 +7,7 @@ import type {
   LostFrameSpan,
   ScreenStatus,
 } from "recorder-service/protocol";
+import type { StreamStatus } from "recorder-service/stream-protocol";
 
 /** A Clip the app server saved from speech, with its Recording Session, so the editor plays it as the composite. */
 export type SavedRecorderClip = DB.Clip & {
@@ -76,6 +77,11 @@ export type CvmRecorderMessage =
    * changes. Never sent for a Landscape Video.
    */
   | { type: "screen-changed"; screen: ScreenStatus }
+  /**
+   * The Live Stream (ADR 0054), while the recorder is open for this Video:
+   * sent when the editor starts listening and whenever it changes.
+   */
+  | { type: "stream-changed"; stream: StreamStatus }
   | {
       type: "recording-started";
       recordingSessionId: string;
@@ -177,6 +183,7 @@ export const CVM_RECORDER_MESSAGE_TYPES = [
   "camera-closed",
   "scene-changed",
   "screen-changed",
+  "stream-changed",
   "recording-started",
   "warmed-up",
   "speech-started",

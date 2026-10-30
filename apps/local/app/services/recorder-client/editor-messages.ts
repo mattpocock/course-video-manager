@@ -50,6 +50,30 @@ export const screenMessage = (
     ? { type: "screen-changed", screen: state.screen }
     : undefined;
 
+/**
+ * The Live Stream, as an editor on `videoId` hears it, while the recorder is
+ * its: sent when the editor starts listening and whenever it changes.
+ */
+export const streamMessage = (
+  state: RecorderState,
+  videoId: string
+): CvmRecorderMessage | undefined =>
+  state.kind !== "closed" && state.videoId === videoId
+    ? { type: "stream-changed", stream: state.stream }
+    : undefined;
+
+/**
+ * What an editor hears only while the recorder is its Video's, by kind,
+ * each sent again whenever it changes.
+ */
+export const WHILE_OPEN_MESSAGES = {
+  scene: sceneMessage,
+  screen: screenMessage,
+  stream: streamMessage,
+} as const;
+
+export type WhileOpenKind = keyof typeof WHILE_OPEN_MESSAGES;
+
 /** Where an editor's browser finds the recorder service's previews and still. */
 export const serviceUrls = (url: string) => {
   const http = url.replace(/^ws/, "http");

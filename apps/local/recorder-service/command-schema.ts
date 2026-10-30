@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Either, Schema } from "effect";
 import type { VideoFormat } from "@/features/videos/video-format";
 import { SCENES } from "../app/packages/scene-layout";
 import { CALIBRATION_REQUIRED, type RecorderCommand } from "./protocol";
@@ -26,6 +26,12 @@ const calibration = {
       cameraDevice: Schema.NullOr(Schema.String),
     })
   ),
+};
+
+const RecordWith = {
+  silenceLength: Schema.Literal("short", "long"),
+  folder: Schema.String,
+  ...calibration,
 };
 
 const Command = Schema.Union(
@@ -83,11 +89,34 @@ const Command = Schema.Union(
     speech: Schema.Array(CalibrationWindowSchema),
     claps: CalibrationWindowSchema,
   }),
-  Schema.Struct({ type: Schema.Literal("cancel-calibration") })
+  Schema.Struct({ type: Schema.Literal("cancel-calibration") }),
+  Schema.Struct({
+    type: Schema.Literal("start-stream"),
+    broadcastId: Schema.String,
+    streamKey: Schema.NonEmptyString,
+    micOffsetMs: Schema.Number,
+    micEq: Schema.Struct({
+      lowDb: Schema.Number,
+      midDb: Schema.Number,
+      highDb: Schema.Number,
+    }),
+    record: Schema.Struct(RecordWith),
+  }),
+  Schema.Struct({ type: Schema.Literal("end-stream") })
 );
 export const decodeCommand = Schema.decodeUnknownEither(
   Schema.parseJson(Command)
 );
+
+/**
+ * The first 200 characters of a command that did not decode, for the log,
+ * with any Stream Key in it blanked out: a `start-stream` cut short or
+ * malformed still carries one, and it must never reach a log.
+ */
+export const excerptOfUndecodable = (raw: string) =>
+  raw
+    .replace(/("streamKey"\s*:\s*")(?:[^"\\]|\\.)*("?)/g, "$1<redacted>$2")
+    .slice(0, 200);
 
 /**
  * A command that did not decode but must be answered, not dropped: a Record
@@ -116,5 +145,23 @@ export const refusalOfUndecodable = (
     (!("calibration" in parsed) || namesNoCamera)
   )
     return { command: type, message: CALIBRATION_REQUIRED };
+  return undefined;
+};
+
+/**
+ * A message off the WebSocket: the command it is, or the refusal its sender
+ * must hear, or neither (logged, its Stream Key blanked, and dropped).
+ */
+export const readCommand = (
+  raw: string
+):
+  | { command: RecorderCommand }
+  | { refusal: { command: RecorderCommand["type"]; message: string } }
+  | undefined => {
+  const decoded = decodeCommand(raw);
+  if (Either.isRight(decoded)) return { command: decoded.right };
+  const refusal = refusalOfUndecodable(raw);
+  if (refusal) return { refusal };
+  console.error(`recorder: unreadable command ${excerptOfUndecodable(raw)}`);
   return undefined;
 };
