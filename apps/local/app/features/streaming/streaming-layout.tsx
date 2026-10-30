@@ -14,6 +14,7 @@ import { getHasLivePreview } from "@/features/video-editor/live-preview";
 import { LivePreviewFrame } from "@/features/video-editor/components/live-preview-frame";
 import { CvmRecorderControls } from "@/features/video-editor/components/cvm-recorder-controls";
 import { StreamClipListView } from "./stream-clip-list-view";
+import { BroadcastPicker } from "./broadcast-picker";
 
 /** The composite preview, or a frame saying there is none yet. */
 const StreamPicture = () => {
@@ -87,14 +88,19 @@ export const StreamingLayout = (props: { sidePanel: ReactNode }) => {
             <CvmRecorderControls />
           </div>
         </section>
-        <aside
-          className="lg:w-[40ch] shrink-0 rounded-lg border bg-card/40 flex flex-col items-center justify-center gap-2 p-4 text-center"
-          data-testid="stream-chat"
-        >
-          <MessageSquareIcon className="size-6 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">
-            The Broadcast's live chat shows here.
-          </p>
+        <aside className="lg:w-[40ch] shrink-0 min-h-0 rounded-lg border bg-card/40 flex flex-col gap-3 p-3">
+          <div className="shrink-0 max-h-[50%] flex flex-col min-h-0">
+            <BroadcastPicker />
+          </div>
+          <div
+            className="flex-1 flex flex-col items-center justify-center gap-2 text-center"
+            data-testid="stream-chat"
+          >
+            <MessageSquareIcon className="size-6 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">
+              The Broadcast's live chat shows here.
+            </p>
+          </div>
         </aside>
       </div>
       <div className="flex flex-col lg:flex-row gap-2 min-h-0 lg:flex-[2]">

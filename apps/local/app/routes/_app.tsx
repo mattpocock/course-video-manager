@@ -2,6 +2,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { RemountCommand } from "@/components/remount-command";
 import { GlobalUploadProgress } from "@/features/upload-manager/global-upload-progress";
 import { UploadProvider } from "@/features/upload-manager/upload-context";
+import { LiveStreamProvider } from "@/features/streaming/live-stream-context";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { DrizzleService } from "@/services/drizzle-service.server";
 import { makeLoader } from "@/services/route-action.server";
@@ -102,16 +103,21 @@ export default function AppLayout() {
   // teleprompter and Diagram Playground windows show no uploads, and each
   // long-lived stream holds one of the browser's six connections to the
   // app, which every CVM window shares.
+  //
+  // The Live Stream surface lives here too, so the picked Broadcast (and the
+  // Live Stream) outlive the Streaming tab.
   return (
     <UploadProvider>
-      <GlobalUploadProgress />
-      <div className="flex min-h-screen">
-        <AppSidebar variant={isFullscreen ? "floating" : "rail"} />
-        <div className="flex-1 min-w-0 flex flex-col">
-          <OfflineStorageRootsBanner />
-          <Outlet />
+      <LiveStreamProvider>
+        <GlobalUploadProgress />
+        <div className="flex min-h-screen">
+          <AppSidebar variant={isFullscreen ? "floating" : "rail"} />
+          <div className="flex-1 min-w-0 flex flex-col">
+            <OfflineStorageRootsBanner />
+            <Outlet />
+          </div>
         </div>
-      </div>
+      </LiveStreamProvider>
     </UploadProvider>
   );
 }

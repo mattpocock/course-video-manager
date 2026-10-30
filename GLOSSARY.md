@@ -309,6 +309,10 @@ _Avoid_: Session, Take session, Recording (a Video's _Avoid_)
 What films a **Clip**. The **CVM recorder** (CVM's own, which stores a **Recording Session** of separate camera, screen and mic Footage) is the only Recorder: every **Video** records with it (ADR 0051). Older Clips were filmed with **OBS** (one Footage file with the scene baked in), which no longer records. A Clip's Recorder is its own (a Clip with a Recording Session was filmed with the CVM recorder), so one Video may hold both, and each Clip exports from its own Footage (ADR 0036).
 _Avoid_: Recording mode, Capture backend, New recorder (its old name; stored as `cvm`, formerly `new-recorder`)
 
+**Broadcast**:
+A YouTube live event on Matt's channel (upcoming or active), picked before Go Live. The Live Stream is pushed to it, and its live chat is the chat shown. CVM lists Broadcasts and never creates one or moves it between states: YouTube's auto-start and auto-stop start and end it, so one with either turned off is marked in the picker and Go Live refuses it.
+_Avoid_: Stream, Event, Destination (YouTube is the only one)
+
 **Scene Override**:
 A marker on a **Clip** from a CVM-recorder **Recording Session** naming one scene (Camera, Code or No Face) to draw the whole Clip in, in place of the scenes that were live while it was filmed. With none, the Clip follows its Recording Session's scene timeline. An OBS Clip cannot have one: its scene is baked into its Footage.
 _Avoid_: Scene change (a live switch during a Recording Session), Layout
