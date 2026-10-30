@@ -3,7 +3,7 @@ import type { Scene } from "../app/packages/scene-layout";
 import { quitProcess } from "./camera";
 import { lineSplitter, type LaunchedProcess, type Launcher } from "./launcher";
 import { STREAM_IDLE, type StreamStatus } from "./stream-protocol";
-import { streamArgs, STREAM_TAG } from "./stream-args";
+import { streamArgs, streamSceneCommand, STREAM_TAG } from "./stream-args";
 import type { StreamFeedPorts } from "./stream-feeds";
 
 /**
@@ -18,6 +18,10 @@ import type { StreamFeedPorts } from "./stream-feeds";
  *
  * The Stream Key is on its command line and nowhere else: every line it
  * prints is scrubbed of it before the service's log sees it.
+ *
+ * It shows the service's own scene: a stream process starts on the scene
+ * of the moment, and every switch goes to the running one as a runtime
+ * command on its stdin (`streamSceneCommand`), so a switch never restarts it.
  */
 
 /**
@@ -42,6 +46,7 @@ export const redactStreamKey = (key: string) => (text: string) =>
 
 export type StreamStart = {
   ports: StreamFeedPorts;
+  /** The service's scene at Go Live; switches come by `switchScene`. */
   scene: Scene;
   micOffsetMs: number;
   micEq: MicEq;
@@ -59,6 +64,8 @@ export const createStreamSide = (o: {
 }) => {
   let status: StreamStatus = STREAM_IDLE;
   let running: { process: LaunchedProcess; ending: boolean } | undefined;
+  /** The service's scene, which every stream process launched starts on. */
+  let scene: Scene | undefined;
   /** Quits under way, so the service's close waits for them. */
   const quitting = new Set<Promise<void>>();
 
@@ -92,11 +99,12 @@ export const createStreamSide = (o: {
     if (running) throw new Error("A Live Stream is already running.");
     const redact = redactStreamKey(s.streamKey);
     set({ kind: "starting" });
+    scene = s.scene;
     const p = o.launch({
       tool: "ffmpeg",
       args: streamArgs({
         ports: s.ports,
-        scene: s.scene,
+        scene,
         micOffsetMs: s.micOffsetMs,
         micEq: s.micEq,
         url: `${s.ingest}/${s.streamKey}`,
@@ -173,9 +181,17 @@ export const createStreamSide = (o: {
     quitting.add(quit);
   };
 
+  /** The service's scene changed: the running stream shows it at once. */
+  const switchScene = (next: Scene) => {
+    scene = next;
+    if (running && !running.ending)
+      running.process.writeStdin(streamSceneCommand(next));
+  };
+
   return {
     start,
     end,
+    switchScene,
     status: () => status,
     /** Whether a Live Stream was started and has not ended. */
     live: () => status.kind !== "idle" && status.kind !== "ended",

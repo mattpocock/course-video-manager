@@ -82,6 +82,16 @@ const cameraItem = (i: DrawInstruction) =>
   `crop=w=${i.sw}:h=${i.sh}:x=${i.sx}:y=${i.sy},${BT709_LIMITED},hwupload_cuda,scale_cuda=${i.dw}:${i.dh}:format=yuv420p`;
 
 /**
+ * A SCENE SWITCH on the running Live Stream (#2457): the filter command that
+ * makes the graph's one `streamselect` show `scene`, changing nothing else.
+ */
+export const liveSceneSwitch = (scene: Scene) => ({
+  target: "streamselect",
+  command: "map",
+  arg: String(SCENES.indexOf(scene)),
+});
+
+/**
  * THE LIVE STREAM'S PICTURE (spec #2445): every Landscape scene drawn on
  * CUDA from `drawInstructions`, side by side, and one picked with
  * `streamselect`, whose `map` a scene switch changes at runtime (#2457), so
@@ -148,6 +158,6 @@ export const liveSceneFilterGraph = ({
   const canvasChain = `color=c=black:s=${canvas.width}x${canvas.height}:r=${LIVE_FPS},format=yuv420p,${BT709_LIMITED},hwupload_cuda,split=${SCENES.length}${bases}`;
 
   const scenes = SCENES.map((_, k) => `[live_scene${k}]`).join("");
-  const select = `${scenes}streamselect=inputs=${SCENES.length}:map=${SCENES.indexOf(scene)}[${output}]`;
+  const select = `${scenes}streamselect=inputs=${SCENES.length}:map=${liveSceneSwitch(scene).arg}[${output}]`;
   return [...splits, canvasChain, ...chains, select].join(";");
 };

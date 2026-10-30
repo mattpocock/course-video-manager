@@ -202,6 +202,45 @@ describe("Go Live and End Stream", () => {
   });
 });
 
+describe("scene switches while live", () => {
+  it("starts the Live Stream on the scene the preview shows", async () => {
+    const r = await ready();
+    await r.client.switchScene(r.video.id, "No Face");
+
+    await r.goLive();
+
+    // streamselect's map: Camera 0, Code 1, No Face 2.
+    expect(r.windows.streams[0]!.launch.args.join(" ")).toContain(
+      "streamselect=inputs=3:map=2"
+    );
+  });
+
+  it("sends every switch, from the editor or the Stream Deck, to the running stream process at once, never relaunching it", async () => {
+    const r = await ready();
+    await r.goLive();
+    const deck = await connect(r.port);
+
+    await r.client.switchScene(r.video.id, "Camera");
+    deck.send({
+      type: "stream-deck",
+      press: { action: "switch-scene", scene: "No Face" },
+    });
+    await vi.waitFor(() =>
+      expect(r.heard).toContainEqual({
+        type: "scene-changed",
+        scene: "No Face",
+      })
+    );
+
+    // ffmpeg's `C` on stdin, sent now (-1).
+    expect(r.windows.streams[0]!.written).toBe(
+      "Cstreamselect -1 map 0\nCstreamselect -1 map 2\n"
+    );
+    expect(r.windows.launched.filter(isStream)).toHaveLength(1);
+    await r.client.endStream(r.video.id);
+  });
+});
+
 describe("binding the picked Broadcast to the Stream Key's YouTube stream", () => {
   it.each([
     ["unbound", undefined],
