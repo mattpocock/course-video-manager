@@ -86,6 +86,8 @@ export type LiveStreamOptions = {
   streamListenBoundMs?: number;
   /** `STREAM_STALL_MS` (tests). */
   streamStallMs?: number;
+  /** Windows wall-clock ms, the Recording Session's T0's clock. */
+  now: () => number;
 };
 
 export const createGoLive = (
@@ -98,6 +100,7 @@ export const createGoLive = (
     launch: o.launch,
     listenBoundMs: o.streamListenBoundMs,
     stallMs: o.streamStallMs,
+    fileTime: () => (streamed ? (o.now() - streamed.t0Ms) / 1000 : null),
     onStatus: o.onStatus,
     onHealth: o.onHealth,
   });

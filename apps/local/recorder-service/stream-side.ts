@@ -57,6 +57,15 @@ export const STREAM_STALL_MS = 5_000;
 /** The first wait before a relaunch; each next one doubles, up to the last. */
 const RELAUNCH_WAITS_MS = { first: 250, last: 8_000 };
 
+/**
+ * How far ahead of the feeds' file time a relaunched stream's picture
+ * starts: the time it takes to come up and for its feeds to connect again.
+ * Their frames before it are dropped; a picture that started behind them
+ * would be drawn as fast as it could until it caught up (seen on ffmpeg.exe
+ * 8.0.1: 96 fps for the rest of the take).
+ */
+const RELAUNCH_LEAD_S = 3;
+
 /** A process live this long was healthy: the next relaunch waits the first wait again. */
 const HEALTHY_MS = 30_000;
 
@@ -138,6 +147,8 @@ export const createStreamSide = (o: {
   listenBoundMs?: number;
   /** `STREAM_STALL_MS` (tests). */
   stallMs?: number;
+  /** The streamed Recording Session's file time now (s), once it records. */
+  fileTime: () => number | null;
 }) => {
   const stallMs = o.stallMs ?? STREAM_STALL_MS;
   let status: StreamStatus = STREAM_IDLE;
@@ -184,11 +195,18 @@ export const createStreamSide = (o: {
     if (!h) return;
     relaunchTimer = setTimeout(() => {
       relaunchTimer = undefined;
-      if (held === h && !running) launchOne(h.start, h.log);
+      if (held !== h || running) return;
+      // Its picture starts where the feeds will be once it is up.
+      const now = o.fileTime();
+      launchOne(h.start, h.log, now === null ? 0 : now + RELAUNCH_LEAD_S);
     }, wait);
   };
 
-  const launchOne = (s: StreamStart, log: (line: string) => void) => {
+  const launchOne = (
+    s: StreamStart,
+    log: (line: string) => void,
+    startSeconds?: number
+  ) => {
     const p = o.launch({
       tool: "ffmpeg",
       args: streamArgs({
@@ -197,6 +215,7 @@ export const createStreamSide = (o: {
         micOffsetMs: s.micOffsetMs,
         micEq: s.micEq,
         url: `${s.ingest}/${s.streamKey}`,
+        startSeconds,
       }),
       cwd: "/mnt/c",
     });

@@ -43,6 +43,8 @@ export const readStreamHealth = (o: {
   let bytes = 0;
   /** The stream's time (s) at the last health. */
   let lastAt: number | undefined;
+  /** Wall-clock ms at the last health. */
+  let lastWall = -Infinity;
 
   const blockEnded = () => {
     const b = block;
@@ -52,6 +54,10 @@ export const readStreamHealth = (o: {
     const at = us === null ? null : us / 1e6;
     const since = at === null || lastAt === undefined ? null : at - lastAt;
     if (since !== null && since < HEALTH_PERIOD_S) return;
+    // No stream time to go by (`N/A`): a second of wall time, then.
+    const wall = Date.now();
+    if (at === null && wall - lastWall < HEALTH_PERIOD_S * 1000) return;
+    lastWall = wall;
     const kbps =
       since === null ? null : o.pushing() ? (bytes * 8) / 1000 / since : 0;
     bytes = 0;

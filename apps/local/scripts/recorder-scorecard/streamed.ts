@@ -231,6 +231,13 @@ export const streamed = async (
     m.stream_drop_frames = picture.dropFrames;
     m.stream_back_after_sink_drop = fault.backAfterSinkDrop ? 1 : 0;
     m.stream_back_after_kill = fault.backAfterKill ? 1 : 0;
+    // The relaunched process's own picture, from once it is live again.
+    const relaunched =
+      faults.relaunchedLiveAt === null
+        ? null
+        : streamPicture(progress.samples, faults.relaunchedLiveAt, end.at);
+    m.stream_relaunched_fps_off_60 =
+      relaunched?.fps == null ? null : Math.abs(relaunched.fps - 60);
 
     ctx.details.streamed = {
       seconds,
@@ -242,7 +249,7 @@ export const streamed = async (
       ffmpegFps: picture.ffmpegFps,
       encodedFrames: picture.encodedFrames,
       sinkFrames: sink.frames(),
-      faults: fault.details,
+      faults: { ...fault.details, relaunchedPicture: relaunched },
       health: healthOf(ctx.client.received.slice(go.from)),
       sinkStderr: sink.stderr(),
       endedBeforeEndStream: endedEarly,

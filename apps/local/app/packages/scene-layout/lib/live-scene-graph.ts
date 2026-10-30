@@ -19,6 +19,12 @@ export interface LiveSceneFilterGraphInput {
   readonly scene: Scene;
   /** The output label. Default `v`. */
   readonly output?: string;
+  /**
+   * Where the canvas's clock starts, in the inputs' time (s). Default 0. The
+   * canvas clocks every scene, so one that starts behind its inputs makes
+   * frames as fast as it can until it catches up with them.
+   */
+  readonly canvasStartSeconds?: number;
 }
 
 /** The Live Stream's frame rate: true 60, never 30 (spec #2445). */
@@ -111,6 +117,7 @@ export const liveSceneFilterGraph = ({
   inputs,
   scene,
   output = "v",
+  canvasStartSeconds = 0,
 }: LiveSceneFilterGraphInput): string => {
   const canvas = CANVASES.landscape;
   const chains: string[] = [];
@@ -155,7 +162,11 @@ export const liveSceneFilterGraph = ({
       : `[${inputs[source]}]${head[source]}split=${labels.length}${labels.map((l) => `[${l}]`).join("")}`;
   });
   const bases = SCENES.map((_, k) => `[live_base${k}]`).join("");
-  const canvasChain = `color=c=black:s=${canvas.width}x${canvas.height}:r=${LIVE_FPS},format=yuv420p,${BT709_LIMITED},hwupload_cuda,split=${SCENES.length}${bases}`;
+  const canvasStart =
+    canvasStartSeconds > 0
+      ? `setpts=PTS+${canvasStartSeconds.toFixed(3)}/TB,`
+      : "";
+  const canvasChain = `color=c=black:s=${canvas.width}x${canvas.height}:r=${LIVE_FPS},${canvasStart}format=yuv420p,${BT709_LIMITED},hwupload_cuda,split=${SCENES.length}${bases}`;
 
   const scenes = SCENES.map((_, k) => `[live_scene${k}]`).join("");
   const select = `${scenes}streamselect=inputs=${SCENES.length}:map=${liveSceneSwitch(scene).arg}[${output}]`;

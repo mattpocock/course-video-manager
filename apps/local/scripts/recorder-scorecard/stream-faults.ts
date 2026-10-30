@@ -128,6 +128,8 @@ export const streamFaults = async (
   return {
     /** When the stream process was killed: its own picture is measured until here. */
     killAt,
+    /** When the relaunched one went live: its picture is measured from here. */
+    relaunchedLiveAt: killBack?.at ?? null,
     /** Once End Stream is pressed: the faults' metrics and details. */
     result: () => {
       const sinkDrop = {

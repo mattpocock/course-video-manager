@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import type { StreamHealth } from "recorder-service/stream-protocol";
-import { connect } from "recorder-service/test-utils/service-harness";
+import { clock, connect } from "recorder-service/test-utils/service-harness";
 import { ended, ready, setupGoLiveTests } from "./go-live-test-harness";
 import { startService } from "./recorder-client-test-harness";
 
@@ -63,9 +63,17 @@ const progress = (o: {
     "",
   ].join("\n");
 
-/** The stream's args less its scene: what a relaunch must keep. */
-const withoutScene = (args: readonly string[]) =>
-  args.map((a) => a.replace(/streamselect=inputs=3:map=\d/, "<scene>"));
+/** The stream's args less its scene and its picture's start: what a relaunch must keep. */
+const kept = (args: readonly string[]) =>
+  args.map((a) =>
+    a
+      .replace(/streamselect=inputs=3:map=\d/, "<scene>")
+      .replace(/setpts=PTS\+[\d.]+\/TB,/, "")
+  );
+
+/** Where its picture's canvas starts, in the Recording Session's file time. */
+const canvasStart = (args: readonly string[]) =>
+  Number(args.join(" ").match(/setpts=PTS\+([\d.]+)\/TB/)?.[1] ?? 0);
 
 describe("the stream reconnects for ever, and the recording carries on", () => {
   it("launches a stream process that quits again, from the same Go Live, on the scene of the moment, until End Stream", async () => {
@@ -74,6 +82,11 @@ describe("the stream reconnects for ever, and the recording carries on", () => {
     first.stdout(progress({ frame: 60 }));
     await vi.waitFor(() => expect(r.kinds().at(-1)).toBe("live"));
     await r.client.switchScene(r.video.id, "No Face");
+    // 42 s into the take, the writer with it.
+    clock.ms += 42_000;
+    r.windows
+      .recorder("camera")
+      .stdout("frame=1259\nout_time_us=42000000\nprogress=continue\n");
 
     // A crash, or YouTube gone for good in its push.
     first.exit(1);
@@ -83,9 +96,11 @@ describe("the stream reconnects for ever, and the recording carries on", () => {
     expect(r.kinds().at(-1)).toBe("reconnecting");
     expect(r.healths().at(-1)?.reconnects).toBe(1);
     // The very Stream Key, ports, Mic Offset and Mic EQ; today's scene.
-    expect(withoutScene(second.launch.args)).toEqual(
-      withoutScene(first.launch.args)
-    );
+    expect(kept(second.launch.args)).toEqual(kept(first.launch.args));
+    // Its picture starts where the feeds will be once it is up, not at 0,
+    // where it would be drawn as fast as it could until it caught up.
+    expect(canvasStart(first.launch.args)).toBe(0);
+    expect(canvasStart(second.launch.args)).toBe(45);
     expect(second.launch.args.join(" ")).toContain(
       "streamselect=inputs=3:map=2"
     );

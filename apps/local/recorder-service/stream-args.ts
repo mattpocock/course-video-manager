@@ -129,6 +129,11 @@ export const streamArgs = (o: {
   micEq: MicEq;
   /** The ingest address with the Stream Key on the end: only ever here. */
   url: string;
+  /**
+   * Where its picture starts, in the Recording Session's file time (s): 0
+   * at Go Live, before Record; a relaunch starts where the feeds are now.
+   */
+  startSeconds?: number;
 }) => {
   const graph = [
     liveSceneFilterGraph({
@@ -136,6 +141,7 @@ export const streamArgs = (o: {
       inputs: { screen: "0:v", camera: "1:v" },
       scene: o.scene,
       output: "v",
+      canvasStartSeconds: o.startSeconds,
     }),
     `[1:a]${[...streamSound(o.micOffsetMs, o.micEq), "aresample=async=1000"].join(",")}[a]`,
   ].join(";");

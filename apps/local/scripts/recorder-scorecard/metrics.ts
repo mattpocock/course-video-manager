@@ -616,6 +616,18 @@ export const METRICS: readonly MetricDef[] = [
     note: "Details: `streamed.faults.kill`.",
   },
   {
+    id: "stream_relaunched_fps_off_60",
+    label:
+      "Relaunched Live Stream frame rate's distance from 60.0 fps (its picture starts where the feeds are, so it never races to catch up)",
+    group: "reliability",
+    unit: "fps",
+    better: "lower",
+    target: 0.05,
+    obs: null,
+    scale: 0.05,
+    note: "As `stream_fps_off_60`, from 5 s after the relaunched process went live to End Stream. Details: `streamed.faults.relaunchedPicture`.",
+  },
+  {
     id: "disk_full",
     label: "Disk full mid-take",
     group: "reliability",
