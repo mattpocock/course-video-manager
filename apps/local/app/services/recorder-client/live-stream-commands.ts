@@ -8,8 +8,14 @@ import type {
   RecorderMessage,
   RecorderState,
 } from "recorder-service/protocol";
-import { GO_LIVE_REFUSALS } from "recorder-service/stream-protocol";
+import {
+  GO_LIVE_REFUSALS,
+  type StreamStatus,
+} from "recorder-service/stream-protocol";
 import { NOT_RUNNING, RecorderRefusedError } from "./recorder-command";
+
+/** The Live Stream's status, and the Video the recorder is open for. */
+export type RecorderLiveStream = { videoId: string; status: StreamStatus };
 
 /** A state message: the recorder in `kind`, for `videoId`. */
 const isStateOf = (
@@ -38,6 +44,18 @@ export const liveStreamCommands = (o: {
     state: RecorderState;
   };
 }) => ({
+  /**
+   * The Live Stream as the recorder last said, and the Video it is open
+   * for; null while it is closed or not running. Read by every page, for
+   * the Live indicator (ADR 0055).
+   */
+  liveStream(): RecorderLiveStream | null {
+    const { reachable, state } = o.recorder();
+    return reachable && state.kind !== "closed"
+      ? { videoId: state.videoId, status: state.stream }
+      : null;
+  },
+
   /**
    * Why the recorder would refuse Go Live on `videoId` (of `format`), as
    * its state shows now: not running, not this Video's, recording, a

@@ -28,6 +28,33 @@ export type StreamStatus =
 /** The Live Stream status of a recorder that has never gone live. */
 export const STREAM_IDLE: StreamStatus = { kind: "idle" };
 
+/**
+ * Whether the Live Stream is on: from Go Live until it ends. It is on only
+ * while its streamed Recording Session records (or Go Live is starting it).
+ */
+export const isStreamOn = (status: StreamStatus | null | undefined) =>
+  status !== null &&
+  status !== undefined &&
+  status.kind !== "idle" &&
+  status.kind !== "ended";
+
+/**
+ * BUSY STREAMING (ADR 0055): while live, only End Stream ends the streamed
+ * Recording Session. Stop, close, opening the recorder for another Video
+ * and the idle stop are refused, and the Stream Deck's Record and Stop do
+ * nothing; scene presses still act.
+ */
+export const BUSY_STREAMING =
+  "The recorder is busy streaming: only End Stream on the Streaming tab ends the Live Stream and its Recording Session.";
+
+/** What another Video's editor is told while the recorder is live. */
+export const BUSY_STREAMING_ANOTHER_VIDEO =
+  "The recorder is busy streaming another Video: End Stream on the Streaming tab first.";
+
+/** Why a Stream Deck Record or Stop does nothing while live. */
+export const STREAM_DECK_WHILE_LIVE =
+  "Record and Stop do nothing while live: End Stream on the Streaming tab ends the Live Stream and its Recording Session.";
+
 /** Why Go Live is refused, by the recorder: each that applies is said. */
 export const GO_LIVE_REFUSALS = {
   closed:
