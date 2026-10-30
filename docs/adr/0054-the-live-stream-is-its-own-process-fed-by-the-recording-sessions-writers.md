@@ -15,6 +15,9 @@ A rig test (2026-10-30) pushed a 1080p60 NVENC composite from a separate ffmpeg.
 ## Decision
 
 1. **The Live Stream is one ffmpeg.exe of its own** (`stream-side.ts`, tagged `cvm-recorder-stream`). It holds no device and writes no file. It draws every Landscape scene on CUDA from the scene layout's `drawInstructions` and picks one with `streamselect` (`liveSceneFilterGraph`). It encodes 1920x1080 at 60 fps CFR on NVENC (CBR 9 Mbps, a keyframe every 2 s, AAC 160k) and pushes to YouTube's RTMPS ingest behind a fifo that retries without limit. Every setting is a constant in code.
+
+   Its sound is the export's, live (#2458): Mic Offset → Mic EQ (the export's own filter, `app/packages/mic-eq`) → a static `STREAM_GAIN_DB` (+16 dB, beside the preview's boost) → `alimiter` at −2 dBFS with `latency=1` and `level=0` → AAC. That lands a real take near the export's −16 LUFS (measured −16.7 against the export's −16.4 on the same take). There is no `loudnorm`, `dynaudnorm` or compressor: `loudnorm` holds 3 s of audio, and the others change the sound. The Mic Offset and Mic EQ are read once at Go Live and ride in `start-stream`. The chain runs only in the stream process, so mic.mkv stays raw.
+
 2. **It is fed by the streamed Recording Session's own processes, only while it records.** Go Live arms the take's camera writer again as a streamed writer (`streamed` in its settings), starts the stream listening, then records:
    - the camera writer gets a second output: the very frames and sound camera.mkv and mic.mkv get, raw, in Matroska with their stamps kept;
    - the screen recorder writes through a tee: screen.mkv as before, plus a CPU copy of the same encoded packets, which the stream decodes on NVDEC. It is never a second GPU stream (ADR 0047 point 5). The tee needs `-flags +global_header`, or Matroska refuses its header and screen.mkv gets no frames.

@@ -1,3 +1,4 @@
+import type { MicEq } from "@cvm/core/features/videos/recorder";
 import type { Scene } from "../app/packages/scene-layout";
 import { quitProcess } from "./camera";
 import { lineSplitter, type LaunchedProcess, type Launcher } from "./launcher";
@@ -48,6 +49,7 @@ export type StreamStart = {
   /** The service's scene at Go Live; switches come by `switchScene`. */
   scene: Scene;
   micOffsetMs: number;
+  micEq: MicEq;
   /** The ingest address the key goes after (`YOUTUBE_INGEST`). */
   ingest: string;
   streamKey: string;
@@ -104,6 +106,7 @@ export const createStreamSide = (o: {
         ports: s.ports,
         scene,
         micOffsetMs: s.micOffsetMs,
+        micEq: s.micEq,
         url: `${s.ingest}/${s.streamKey}`,
       }),
       cwd: "/mnt/c",
