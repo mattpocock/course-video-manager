@@ -93,6 +93,11 @@ export type VideoEditorProps = {
    * supply its own, drawn from `VideoEditorContext`'s components.
    */
   layout: VideoEditorLayout;
+  /**
+   * Whether the layout plays Clips back. Without replay (the Streaming tab),
+   * no editor key or teleprompter mark plays a Clip or edits the timeline.
+   */
+  replay: boolean;
   videoId: string;
   speechDetectorState: FrontendSpeechDetectorState;
   silenceLength: SilenceLength;
@@ -196,6 +201,7 @@ export const VideoEditor = (props: VideoEditorProps) => {
     onMoveClip: props.onMoveClip,
     onCreateVideoFromSelection: props.onCreateVideoFromSelection,
     onStopRecording: props.cvmRecorder.onStop,
+    replay: props.replay,
   });
 
   const clipsToAggressivelyPreload = getClipsToAggressivelyPreload(

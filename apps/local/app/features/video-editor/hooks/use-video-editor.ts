@@ -32,6 +32,8 @@ export const useVideoEditor = (props: {
   ) => void;
   /** The editor's Stop for a recording Take (the CVM recorder's). */
   onStopRecording: () => void;
+  /** Whether the layout plays Clips back (`videoStateReducer.State.replay`). */
+  replay: boolean;
 }) => {
   const [state, dispatch] = useEffectReducer<
     videoStateReducer.State,
@@ -56,6 +58,7 @@ export const useVideoEditor = (props: {
       playbackRate: 1,
       scrubSeekTime: undefined,
       animatic: null,
+      replay: props.replay,
     },
     {
       "archive-clips": (_state, effect, _dispatch) => {

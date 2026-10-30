@@ -2,6 +2,7 @@ import type { EffectReducer } from "use-effect-reducer";
 import { preloadedAround } from "./preloaded-clips";
 import type { FrontendId } from "./clip-state-reducer";
 import {
+  isDroppedWithoutReplay,
   isKeyOwnedByAnimatic,
   reduceAnimatic,
   type AnimaticAction,
@@ -30,6 +31,11 @@ export namespace videoStateReducer {
     scrubSeekTime: number | undefined;
     /** The Animatic player open over the editor, owning the keys. */
     animatic: AnimaticOwner;
+    /**
+     * Whether this layout plays Clips back. The Streaming tab's does not: no
+     * key or teleprompter mark plays a Clip or edits the timeline there.
+     */
+    replay: boolean;
   }
 
   export type Effect =
@@ -210,6 +216,7 @@ export const makeVideoEditorReducer =
   > =>
   (state, action, exec) => {
     if (isKeyOwnedByAnimatic(state, action)) return state;
+    if (isDroppedWithoutReplay(state, action)) return state;
     switch (action.type) {
       case "click-animatic-clip-mockup":
       case "dismiss-animatic":

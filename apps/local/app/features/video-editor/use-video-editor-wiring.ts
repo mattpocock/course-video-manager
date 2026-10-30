@@ -33,8 +33,8 @@ import type { VideoEditorLoaderData } from "@/services/video-editor-loader.serve
 
 const clipService = createHttpClipService();
 
-/** Everything `VideoEditor` takes but its layout. */
-export type VideoEditorWiring = Omit<VideoEditorProps, "layout">;
+/** Everything `VideoEditor` takes but its layout and whether it replays. */
+export type VideoEditorWiring = Omit<VideoEditorProps, "layout" | "replay">;
 
 /**
  * The video editor's wiring for one Video: the clip reducer and its effects,
