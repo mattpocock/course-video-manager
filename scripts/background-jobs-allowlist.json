@@ -218,8 +218,8 @@
     },
     {
       "file": "apps/local/app/services/youtube-live-service.ts",
-      "count": 2,
-      "reason": "Quick, and watched: the YouTube Live service lists Matt's Broadcasts for the picker he is looking at (#2451), two small reads. It also reads the picked Broadcast's live chat for the app server's Broadcast chat (#2453), one streamList connection held open from the pick to End Stream: chat belongs to the live stream, is never stored, and is worth nothing once the stream is over, so it must not wait on a Job."
+      "count": 3,
+      "reason": "Quick, and watched: the YouTube Live service lists Matt's Broadcasts for the picker he is looking at (#2451), two small reads. It also reads the picked Broadcast's live chat for the app server's Broadcast chat (#2453), one streamList connection held open from the pick to End Stream: chat belongs to the live stream, is never stored, and is worth nothing once the stream is over, so it must not wait on a Job. At Go Live (#2456) it finds the YouTube stream whose ingest name is the Stream Key and binds the picked Broadcast to it if needed: one or two small calls while Matt waits on Go Live."
     }
   ]
 }
