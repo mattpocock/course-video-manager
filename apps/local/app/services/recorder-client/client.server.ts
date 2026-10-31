@@ -358,6 +358,8 @@ export const createRecorderClient = (o: RecorderClientOptions) => {
         if (state.kind !== "closed") publish(state.videoId, message);
         return;
       case "replay-done":
+      // End Stream's waiter (above) is all that needs it.
+      case "live-stream-stopped":
         return;
       case "recording-started":
       case "scene-changed":

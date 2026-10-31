@@ -34,6 +34,7 @@ import {
   ready,
   reasonsOf,
   setupGoLiveTests,
+  transitions,
   youtube,
   youtubeStream,
 } from "./go-live-test-harness";
@@ -261,6 +262,49 @@ describe("scene switches while live", () => {
   });
 });
 
+describe("End Stream completes the Broadcast", () => {
+  const live = async () => {
+    const r = await ready();
+    expect(Either.isRight(await r.goLive())).toBe(true);
+    await vi.waitFor(() =>
+      expect(r.heard.map((m) => m.type)).toContain("recording-started")
+    );
+    const streamProcess = r.windows.streams[0]!;
+    // Marks, among YouTube's calls, when the push stopped.
+    streamProcess.onQuit = () => youtube.calls.push("(the push stopped)");
+    return r;
+  };
+
+  it("transitions the picked Broadcast to complete once the push has stopped, not leaving it to auto-stop", async () => {
+    const r = await live();
+
+    expect(Either.isRight(await r.endStream())).toBe(true);
+
+    expect(r.windows.streams[0]!.running).toBe(false);
+    // YouTube's order: stop streaming, then complete.
+    expect(youtube.calls.slice(-2)).toEqual([
+      "(the push stopped)",
+      expect.stringMatching(
+        /^POST \/youtube\/v3\/liveBroadcasts\/transition\?(?=.*broadcastStatus=complete)(?=.*id=office-hours)/
+      ),
+    ]);
+    expect(transitions()).toHaveLength(1);
+  });
+
+  it("still ends the stream when YouTube refuses the transition: auto-stop ends the Broadcast", async () => {
+    const r = await live();
+    youtube.transitionStatus = 403;
+
+    expect(Either.isRight(await r.endStream())).toBe(true);
+
+    expect(transitions()).toHaveLength(1);
+    expect(r.windows.streams[0]!.running).toBe(false);
+    await vi.waitFor(() =>
+      expect(r.heard.map((m) => m.type)).toContain("recording-stopped")
+    );
+  });
+});
+
 describe("binding the picked Broadcast to the Stream Key's YouTube stream", () => {
   it.each([
     ["unbound", undefined],
@@ -280,7 +324,7 @@ describe("binding the picked Broadcast to the Stream Key's YouTube stream", () =
           )
         ),
       ]);
-      // YouTube's auto-start and auto-stop drive the Broadcast, never CVM.
+      // YouTube's auto-start starts the Broadcast: Go Live never transitions it.
       expect(youtube.calls.join("\n")).not.toContain("transition");
       await vi.waitFor(() =>
         expect(r.heard.map((m) => m.type)).toContain("recording-started")

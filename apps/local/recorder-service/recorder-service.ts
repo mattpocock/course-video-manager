@@ -260,6 +260,7 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
       if (state.kind !== "closed") setState({ ...state, stream });
     },
     onHealth: (health) => broadcast({ type: "stream-health", health }),
+    onPushStopped: broadcast,
   });
 
   const onEvent = (event: RecordingSessionEvent) => {

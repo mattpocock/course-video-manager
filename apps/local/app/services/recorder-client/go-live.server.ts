@@ -20,6 +20,7 @@ import {
 } from "@/services/av-calibration.server";
 import {
   bindBroadcast,
+  completeBroadcast,
   findKeysStream,
   listBroadcasts,
   YouTubeLiveError,
@@ -202,6 +203,22 @@ export const goLive = Effect.fn("goLive")(function* (o: {
   );
 });
 
-/** END STREAM on the app server. */
+/**
+ * END STREAM on the app server: once the push has stopped, the Broadcast is
+ * completed, so it ends now and not a minute later by auto-stop. The stream
+ * has ended either way: a refused transition is only logged, and auto-stop
+ * still ends the Broadcast.
+ */
 export const endStream = (client: RecorderClient, videoId: string) =>
-  recorderCommand(() => client.endStream(videoId));
+  Effect.gen(function* () {
+    const { broadcastId } = yield* recorderCommand(() =>
+      client.endStream(videoId)
+    );
+    yield* completeBroadcast(broadcastId).pipe(
+      Effect.catchTag("YouTubeLiveError", (e) =>
+        Effect.logWarning(
+          `End Stream: could not complete the Broadcast with YouTube, so auto-stop ends it: ${e.message}`
+        )
+      )
+    );
+  });
