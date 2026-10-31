@@ -168,10 +168,13 @@ const takePicture = (
       ? null
       : [at.relaunchedLiveAt + WARM_UP_MS, at.endAt];
   const relaunchedFps = relaunched && takeFps(pushed, [relaunched]);
+  // Its offset holds the relaunch's own start in file time: read its shape.
+  const relaunchedLag = relaunched && streamLag(pushed, relaunched, at.t0Ms);
   if (at.liveAt === null)
     return {
       fps: null,
       relaunchedFps,
+      relaunchedLag,
       dupFrames: null,
       dropFrames: null,
       lag: null,
@@ -182,6 +185,7 @@ const takePicture = (
   return {
     fps: takeFps(pushed, relaunched ? [first, relaunched] : [first]),
     relaunchedFps,
+    relaunchedLag,
     ...takeDupsDrops(pushed),
     lag: streamLag(pushed, first, at.t0Ms),
     ffmpegFps: pushed.at(-1)?.fps ?? null,
@@ -306,7 +310,11 @@ export const streamed = async (
       ffmpegFps: picture.ffmpegFps,
       encodedFrames: picture.encodedFrames,
       sinkFrames: sink.frames(),
-      faults: { ...fault.details, relaunchedFps: picture.relaunchedFps },
+      faults: {
+        ...fault.details,
+        relaunchedFps: picture.relaunchedFps,
+        relaunchedLag: picture.relaunchedLag,
+      },
       health: healthOf(ctx.client.received.slice(go.from)),
       sinkStderr: sink.stderr(),
       endedBeforeEndStream: endedEarly,
