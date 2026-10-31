@@ -368,7 +368,10 @@ describe("a Recording Session", () => {
     // One T0: the screen recorder's own, and the one Record told the writer.
     const t0 = `PTS-${(T0_MS / 1000).toFixed(3)}/TB`;
     expect(s).toContain(`setpts=${t0}`);
-    expect(writer.written).toBe(takeStartCommand(T0_MS));
+    // T0 last: after the writer answered that its graph is up (#2482).
+    expect(writer.written.split(/(?<=\n)/).at(-1)).toBe(
+      takeStartCommand(T0_MS)
+    );
     expect(c).toContain(`${micAnchor()}[mic]`);
     expect(w).toContain("silencedetect=n=-38dB:d=2");
   });

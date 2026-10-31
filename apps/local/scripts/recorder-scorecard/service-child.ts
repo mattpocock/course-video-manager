@@ -7,7 +7,7 @@ import {
 import type { Launcher } from "../../recorder-service/launcher";
 import { STREAM_TAG } from "../../recorder-service/stream-args";
 import { syntheticLauncher } from "./synthetic-launcher";
-import { onlyToSink } from "./stream-sink";
+import { leastDelayedClock, onlyToSink } from "./stream-sink";
 import { guardWindows } from "../windows-guard";
 import { useGuard } from "./windows";
 
@@ -66,12 +66,32 @@ const launch: Launcher = onlyToSink((l) => {
   const p = synthetic(l);
   if (l.tool === "ffmpeg" && l.args.includes(`comment=${STREAM_TAG}`))
     p.onStdout((chunk) => {
-      if (process.connected) process.send?.({ type: "stream-progress", chunk });
+      if (process.connected)
+        process.send?.({
+          type: "stream-progress",
+          chunk,
+          windowsMs: windowsNow(),
+        });
     });
   return p;
 }, streamIngest);
 
-const clock = await startWindowsClock({ spawnTicker: idleTicker });
+/** The scorecard's own reading of the ticks, for the stream's rate (`leastDelayedClock`). */
+const ticks = leastDelayedClock();
+const clock = await startWindowsClock({
+  spawnTicker: () => {
+    const t = idleTicker();
+    t.onData((chunk) => {
+      // Whole lines only: a tick split across chunks is just missed.
+      const value = Number(chunk.split(/\r?\n/).slice(0, -1).at(-1));
+      if (Number.isFinite(value) && value > 0)
+        ticks.tick(value, performance.now());
+    });
+    return t;
+  },
+});
+/** The Windows clock now, as the least-delayed recent tick says. */
+const windowsNow = () => ticks.now(performance.now());
 const service = await startRecorderService({
   port: 0,
   launch,

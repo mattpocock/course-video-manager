@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import net from "node:net";
+import { armedWriter } from "./fake-writer";
 import { CAPTURE_TAG, PREVIEW_TAGS } from "../capture-args";
 import { STREAM_TAG } from "../stream-args";
 import { playCardServer, readCardFeed } from "./fake-card-server";
@@ -282,6 +283,8 @@ export const fakeWindows = (
     nvencBusy?: boolean;
     /** The recording's camera + mic process: its first frame comes at once, or never. */
     recordingCamera?: "frames" | "silent";
+    /** When a take's writer's graph comes up (`fake-writer.ts`). */
+    writerGraphMs?: number;
     /**
      * The Spacedesk display: its size, and whether it is listed before any
      * wake (default: asleep, 1920x1080). A wake lists it, or fails with
@@ -531,24 +534,8 @@ export const fakeWindows = (
     if (l.args.at(-2) === "-i")
       return answer(p, probeAnswer(path.join(l.cwd, l.args.at(-1) ?? "")));
     recorders.push(p);
-    // A take's camera writer: reads the relay at once; its first frame
-    // comes once Record has told it T0.
-    if (writesFile(l.args, "camera.mkv")) {
-      const [relay] = relayPorts(l.args);
-      setImmediate(() =>
-        p.stderr(
-          `[info] Input #0, matroska,webm, from 'tcp://127.0.0.1:${relay}?listen=1&tcp_nodelay=1':\r\n`
-        )
-      );
-      p.onStdin = (text) => {
-        if (!text.startsWith("Call ")) return;
-        p.begun = true;
-        if (o.recordingCamera !== "silent")
-          setImmediate(() =>
-            p.stdout("frame=1\nout_time_us=0\nprogress=continue\n")
-          );
-      };
-    }
+    if (writesFile(l.args, "camera.mkv"))
+      armedWriter(p, relayPorts(l.args)[0]!, o);
     return p;
   };
   /** The level meter's ffmpeg.exe, while one runs. */

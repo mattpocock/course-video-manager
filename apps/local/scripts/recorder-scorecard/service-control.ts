@@ -27,7 +27,10 @@ export type ServiceProcess = {
   /** SIGKILL: as a crash would end it. */
   kill: () => Promise<void>;
   /** Each chunk of the Live Stream process's `-progress`, as it comes. */
-  onStreamProgress: (listener: (chunk: string) => void) => () => void;
+  /** Each -progress chunk, and when it reached the service on the Windows clock. */
+  onStreamProgress: (
+    listener: (chunk: string, windowsMs: number | undefined) => void
+  ) => () => void;
 };
 
 export const startService = (o: {
@@ -80,9 +83,13 @@ export const startService = (o: {
           },
           onStreamProgress: (listener) => {
             const on = (m: unknown) => {
-              const msg = m as { type?: string; chunk?: string };
+              const msg = m as {
+                type?: string;
+                chunk?: string;
+                windowsMs?: number;
+              };
               if (msg.type === "stream-progress" && msg.chunk)
-                listener(msg.chunk);
+                listener(msg.chunk, msg.windowsMs);
             };
             child.on("message", on);
             return () => void child.off("message", on);

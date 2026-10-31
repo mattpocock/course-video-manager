@@ -90,6 +90,12 @@ export const onlyToSink =
 /** One `-progress` block, and when (ms, any clock) it reached the scorecard. */
 export type ProgressSample = {
   at: number;
+  /**
+   * When it reached the service, on the Windows clock (ms): the clock the
+   * stream's frames are stamped on. WSL's own wanders from it by tens of ms
+   * (#2482). `at` where the service did not say.
+   */
+  windowsAt: number;
   frame: number;
   /** ffmpeg's own figure: frames over its whole run, start-up included. */
   fps: number;
@@ -102,6 +108,7 @@ export const readProgress = () => {
   const samples: ProgressSample[] = [];
   let block: Record<string, string> = {};
   let at = 0;
+  let windowsAt = 0;
   const split = lineSplitter((line) => {
     const eq = line.indexOf("=");
     if (eq === -1) return;
@@ -113,6 +120,7 @@ export const readProgress = () => {
     }
     samples.push({
       at,
+      windowsAt,
       frame: Number(block.frame ?? 0),
       fps: Number(block.fps ?? 0),
       dupFrames: Number(block.dup_frames ?? 0),
@@ -122,32 +130,79 @@ export const readProgress = () => {
   });
   return {
     samples,
-    push: (chunk: string, arrivedAt: number) => {
+    push: (chunk: string, arrivedAt: number, windowsMs = arrivedAt) => {
       at = arrivedAt;
+      windowsAt = windowsMs;
       split(chunk);
     },
   };
 };
 
+/** How far back the least-delayed tick is looked for: WSL's drift in it is a few ms. */
+const CLOCK_WINDOW_MS = 10_000;
+
 /**
- * Frames per second of wall time from `from` on: the least-squares slope of
- * frames against arrival time, so no one late block moves it. Null with
- * fewer than ten blocks.
+ * The Windows clock as read from WSL, from PowerShell's ticks: each tick
+ * arrives late, never early, by however long WSL took to hear it (hundreds
+ * of ms under load). So the clock is the least-delayed tick of the last few
+ * seconds, carried on by WSL's clock (#2482).
+ */
+export const leastDelayedClock = () => {
+  const ticks: { at: number; offset: number }[] = [];
+  return {
+    /** A tick of `windowsMs`, heard at `arrivedAt` (WSL ms). */
+    tick: (windowsMs: number, arrivedAt: number) => {
+      ticks.push({ at: arrivedAt, offset: windowsMs - arrivedAt });
+      while (ticks[0]!.at < arrivedAt - CLOCK_WINDOW_MS) ticks.shift();
+    },
+    /** Windows ms at `at` (WSL ms); NaN before any tick. */
+    now: (at: number) =>
+      ticks.length ? at + Math.max(...ticks.map((t) => t.offset)) : NaN,
+  };
+};
+
+/** The width of the slices a block is picked from: one per slice. */
+const SLICE_MS = 2_000;
+
+/** A steady stretch of a stream process, `[from, to)` on the arrival clock (`at`). */
+export type Stretch = readonly [from: number, to: number];
+
+/**
+ * Frames per second of wall time over `stretches` (`at`), on the Windows
+ * clock (`windowsAt`), not WSL's, which wanders. A block reaches the
+ * scorecard late, never early, so from each slice only the least-late block
+ * counts (the one furthest ahead of 60 fps). The rate is the least-squares
+ * slope through those, one slope shared by every stretch, each with its own
+ * offset: a fault between two stretches may leave the stream behind or
+ * catch it up, and that is latency, not rate (#2482). Null with fewer than
+ * ten slices.
  */
 export const streamRate = (
   samples: readonly ProgressSample[],
-  from: number
+  stretches: readonly Stretch[]
 ) => {
-  const xs = samples.filter((s) => s.at >= from);
-  if (xs.length < 10) return null;
-  const n = xs.length;
-  const mt = xs.reduce((a, s) => a + s.at, 0) / n;
-  const mf = xs.reduce((a, s) => a + s.frame, 0) / n;
+  const ahead = (s: ProgressSample) => s.frame - (60 * s.windowsAt) / 1000;
+  const picked = stretches.map(([from, to]) => {
+    const slices = new Map<number, ProgressSample>();
+    for (const s of samples) {
+      if (s.at < from || s.at >= to || isNaN(s.windowsAt)) continue;
+      const k = Math.floor(s.windowsAt / SLICE_MS);
+      const best = slices.get(k);
+      if (!best || ahead(s) > ahead(best)) slices.set(k, s);
+    }
+    return [...slices.values()];
+  });
+  if (picked.flat().length < 10) return null;
   let num = 0;
   let den = 0;
-  for (const s of xs) {
-    num += (s.at - mt) * (s.frame - mf);
-    den += (s.at - mt) ** 2;
+  for (const xs of picked) {
+    if (xs.length < 2) continue;
+    const mt = xs.reduce((a, s) => a + s.windowsAt, 0) / xs.length;
+    const mf = xs.reduce((a, s) => a + s.frame, 0) / xs.length;
+    for (const s of xs) {
+      num += (s.windowsAt - mt) * (s.frame - mf);
+      den += (s.windowsAt - mt) ** 2;
+    }
   }
   return den ? (num / den) * 1000 : null;
 };

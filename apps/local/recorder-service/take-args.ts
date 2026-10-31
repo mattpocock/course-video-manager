@@ -142,6 +142,14 @@ export const cameraWriterArgs = (o: {
 };
 
 /**
+ * What an armed writer is asked until it answers (`writer-graph.ts`): its
+ * own unarmed clocks again, now, which changes nothing. ffmpeg 8 drops any
+ * command sent before its filter graph is up, without a word; its answer
+ * says the graph is up, so Record's T0 will be heard (#2482).
+ */
+export const graphUpCommand = `Call -1 expr PTS-${UNARMED_T0}/TB\n`;
+
+/**
  * What Record writes to an armed writer's stdin: ffmpeg's `C` (queue a
  * command for every filter that takes it, from a time on) sets both clocks
  * to wall time less T0 from the first frame stamped T0 or later. Only
