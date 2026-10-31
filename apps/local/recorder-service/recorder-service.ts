@@ -260,6 +260,7 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
       if (state.kind !== "closed") setState({ ...state, stream });
     },
     onHealth: (health) => broadcast({ type: "stream-health", health }),
+    onPushStopped: broadcast,
   });
 
   const onEvent = (event: RecordingSessionEvent) => {
@@ -506,13 +507,8 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
         return meter.cancelCalibration();
       case "start-stream":
         return live.goLive(command, forGoLive);
-      case "end-stream": {
-        const { broadcastId, pushStopped } = live.endStream(forGoLive);
-        void pushStopped.then(() =>
-          broadcast({ type: "live-stream-stopped", broadcastId })
-        );
-        return;
-      }
+      case "end-stream":
+        return live.endStream(forGoLive);
       case "show-highlight":
       case "hide-highlight":
         return live.highlight(command, (m) => send(ws, m));

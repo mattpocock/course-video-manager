@@ -12,6 +12,7 @@ import { startChatHighlights, type ChatHighlights } from "./chat-highlights";
 import {
   BUSY_STREAMING,
   GO_LIVE_REFUSALS,
+  type LiveStreamStoppedMessage,
   type StreamHealth,
   type StreamStatus,
 } from "./stream-protocol";
@@ -119,6 +120,8 @@ export const createGoLive = (
   o: LiveStreamOptions & {
     onStatus: (status: StreamStatus) => void;
     onHealth: (health: StreamHealth) => void;
+    /** After End Stream, once the push has stopped. */
+    onPushStopped: (message: LiveStreamStoppedMessage) => void;
   }
 ) => {
   const side = createStreamSide({
@@ -247,7 +250,7 @@ export const createGoLive = (
 
     /**
      * END STREAM: the push and the streamed Recording Session stop together.
-     * `pushStopped` is done once the stream's process has gone, which
+     * `onPushStopped` hears once the stream's process has gone, which
      * nothing in the command queue waits for.
      */
     endStream: (r: GoLiveRecorder) => {
@@ -255,10 +258,12 @@ export const createGoLive = (
         throw new Refusal("There is no Live Stream to end.");
       const broadcast = broadcastId;
       r.stop(ENDED_BY_END_STREAM);
-      return {
-        broadcastId: broadcast,
-        pushStopped: side.close(ENDED_BY_END_STREAM),
-      };
+      void side.close(ENDED_BY_END_STREAM).then(() =>
+        o.onPushStopped({
+          type: "live-stream-stopped",
+          broadcastId: broadcast,
+        })
+      );
     },
 
     /**
