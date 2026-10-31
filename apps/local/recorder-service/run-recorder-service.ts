@@ -36,6 +36,15 @@ const log = (message: string) => {
   }
 };
 
+/**
+ * Whether it is filming, for `scripts/is-filming.sh`: "takes: recording"
+ * from a take's Record (or Go Live) until every take has closed its files,
+ * then "takes: none". Logged once straight after "listening", and on each
+ * change.
+ */
+export const takesLine = (busy: boolean) =>
+  `takes: ${busy ? "recording" : "none"}`;
+
 /** Why the service is stopping: a signal, or the app server gone from under it. */
 export const STOP_EVENTS = ["SIGINT", "SIGTERM", "disconnect"] as const;
 
@@ -103,7 +112,12 @@ export const runRecorderService = async () => {
   process.stderr.on("error", () => {});
 
   const clock = await startWindowsClock();
+  // Only once "listening" is logged: is-filming reads the run after it.
+  let listening = false;
   const service = await startRecorderService({
+    onBusyChanged: (busy) => {
+      if (listening) log(takesLine(busy));
+    },
     port: RECORDER_SERVICE_PORT,
     launch: windowsLauncher,
     now: clock.now,
@@ -114,6 +128,8 @@ export const runRecorderService = async () => {
   log(
     `recorder service listening on ws://127.0.0.1:${service.port} (pid ${process.pid})`
   );
+  listening = true;
+  log(takesLine(service.busy()));
   try {
     await stopCleanlyOn(service, process);
   } finally {

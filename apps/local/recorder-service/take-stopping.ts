@@ -10,6 +10,8 @@ import type { RecordingSession } from "./recording-session";
 export const createTakeStopping = (o: {
   /** Arms the next take's writer, now that the relay is free. */
   rearm: () => void;
+  /** A stopped take has closed its files. */
+  onClosed: () => void;
 }) => {
   const finishing = new Set<Promise<void>>();
   let relayHeld: Promise<void> | undefined;
@@ -31,7 +33,10 @@ export const createTakeStopping = (o: {
           console.error(`recorder: the take ${take.id} failed to stop`, e)
       );
       finishing.add(closed);
-      void closed.finally(() => finishing.delete(closed));
+      void closed.finally(() => {
+        finishing.delete(closed);
+        o.onClosed();
+      });
     },
     /** Whether a stopped take's writer still holds the relay. */
     relayHeld: () => relayHeld !== undefined,
