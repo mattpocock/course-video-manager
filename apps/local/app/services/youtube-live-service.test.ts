@@ -11,7 +11,7 @@ import {
   truncateAllTables,
   type TestDb,
 } from "@/test-utils/test-db";
-import { chatYouTube, listBroadcasts } from "@/services/youtube-live-service";
+import { listBroadcasts } from "@/services/youtube-live-service";
 import {
   createBroadcastChat,
   type BroadcastChat,
@@ -358,7 +358,6 @@ const chatRequests = () =>
 let chats: BroadcastChat[] = [];
 const startChat = () => {
   const chat = createBroadcastChat({
-    youtube: chatYouTube(runWithFakeYouTube),
     reconnectMs: 20,
     maxReconnectMs: 100,
     maxMessages: 500,
@@ -371,6 +370,10 @@ afterEach(() => {
   for (const chat of chats) chat.end();
   chats = [];
 });
+
+/** Picks a Broadcast as the pick route does: its reading runs on the fake YouTube. */
+const pick = (chat: BroadcastChat, p: Parameters<BroadcastChat["pick"]>[0]) =>
+  runWithFakeYouTube(chat.pick(p));
 
 /** What a Streaming tab listening from now on hears. */
 const listen = (chat: BroadcastChat) => {
@@ -401,7 +404,10 @@ describe("the Broadcast's live chat, owned by the app server", () => {
     const chat = startChat();
     const heard = listen(chat);
 
-    chat.pick({ broadcastId: "office-hours", liveChatId: "chat-office-hours" });
+    await pick(chat, {
+      broadcastId: "office-hours",
+      liveChatId: "chat-office-hours",
+    });
 
     await vi.waitFor(() => expect(messagesHeard(heard)).toEqual([shown(1)]));
     sendPages(connection!, [
@@ -440,7 +446,10 @@ describe("the Broadcast's live chat, owned by the app server", () => {
       ])
     );
     const chat = startChat();
-    chat.pick({ broadcastId: "office-hours", liveChatId: "chat-office-hours" });
+    await pick(chat, {
+      broadcastId: "office-hours",
+      liveChatId: "chat-office-hours",
+    });
     await vi.waitFor(() => expect(chat.snapshot().messages).toHaveLength(2));
 
     const heard = listen(chat);
@@ -473,7 +482,10 @@ describe("the Broadcast's live chat, owned by the app server", () => {
     const chat = startChat();
     const heard = listen(chat);
 
-    chat.pick({ broadcastId: "office-hours", liveChatId: "chat-office-hours" });
+    await pick(chat, {
+      broadcastId: "office-hours",
+      liveChatId: "chat-office-hours",
+    });
 
     await vi.waitFor(() =>
       expect(messagesHeard(heard)).toEqual([shown(1), shown(2)])
@@ -522,7 +534,10 @@ describe("the Broadcast's live chat, owned by the app server", () => {
       if (e.type === "chat-message-received") heardAt.push(Date.now());
     });
 
-    chat.pick({ broadcastId: "office-hours", liveChatId: "chat-office-hours" });
+    await pick(chat, {
+      broadcastId: "office-hours",
+      liveChatId: "chat-office-hours",
+    });
 
     await vi.waitFor(() =>
       expect(messagesHeard(heard)).toEqual([shown(1), shown(2)])
@@ -551,11 +566,14 @@ describe("the Broadcast's live chat, owned by the app server", () => {
       sendPages(res, [chatPage({ messages: [fakeViewerMessage(2)] })]);
     });
     const chat = startChat();
-    chat.pick({ broadcastId: "office-hours", liveChatId: "chat-office-hours" });
+    await pick(chat, {
+      broadcastId: "office-hours",
+      liveChatId: "chat-office-hours",
+    });
     await vi.waitFor(() => expect(chat.snapshot().messages).toHaveLength(1));
     const firstClosed = new Promise((resolve) => first!.on("close", resolve));
 
-    chat.pick({ broadcastId: "qa", liveChatId: "chat-qa" });
+    await pick(chat, { broadcastId: "qa", liveChatId: "chat-qa" });
 
     await firstClosed;
     await vi.waitFor(() =>

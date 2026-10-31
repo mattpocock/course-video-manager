@@ -27,6 +27,11 @@ import {
   showSidecarNotRunningToast,
 } from "./job-toasts";
 import { createJobEventHub, snapshotJobEvents } from "./job-event-hub";
+import {
+  LIVE_STREAM_CHANGED,
+  LiveStreamHeard,
+  liveStreamHeard,
+} from "@/features/streaming/live-stream-wire";
 
 type Dispatch = (action: jobsReducer.Action) => void;
 
@@ -96,6 +101,11 @@ function useJobEventStream(
       if (unavailable) {
         dispatch({ type: "sidecar-unavailable", message: unavailable.message });
       }
+    });
+    // The app server's word on the Live Stream rides on this stream too.
+    source.addEventListener(LIVE_STREAM_CHANGED, (event) => {
+      const heard = decodeStreamData(LiveStreamHeard, event.data);
+      if (heard !== undefined) liveStreamHeard(heard);
     });
     return () => source.close();
   }, [dispatch, publish]);

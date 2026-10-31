@@ -248,6 +248,35 @@ describe("scenes on the CVM recorder", () => {
   });
 });
 
+describe("the Live Stream's health on the CVM recorder", () => {
+  it("keeps what the stream process last said while it runs, and forgets it once it ends, so the next starts afresh", () => {
+    const said = {
+      fps: 60,
+      speed: 1,
+      droppedFrames: 0,
+      duplicatedFrames: 0,
+      bitrateKbps: 9_000,
+      reconnects: 4,
+    };
+    const t = tester()
+      .send(status())
+      .send(heard({ type: "stream-changed", stream: { kind: "live" } }))
+      .send(heard({ type: "stream-health", health: said }))
+      .send(
+        heard({ type: "stream-changed", stream: { kind: "reconnecting" } })
+      );
+    expect(t.getState().streamHealth).toEqual(said);
+
+    t.send(
+      heard({
+        type: "stream-changed",
+        stream: { kind: "ended", reason: "End Stream." },
+      })
+    ).send(heard({ type: "stream-changed", stream: { kind: "connecting" } }));
+    expect(t.getState().streamHealth).toBeNull();
+  });
+});
+
 describe("the Stream Deck on the CVM recorder", () => {
   const started = heard({
     type: "recording-started",

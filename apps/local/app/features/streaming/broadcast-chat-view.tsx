@@ -5,9 +5,10 @@ import { cn } from "@/lib/utils";
 import { VideoEditorContext } from "@/features/video-editor/video-editor-context";
 import { useLiveStream } from "./live-stream-context";
 import { chatRows } from "./chat-highlight-reducer";
+import { decodeStreamData } from "@/features/jobs/job-wire";
 import {
   BROADCAST_CHAT_EVENT_TYPES,
-  type BroadcastChatEvent,
+  BroadcastChatEvent,
   type ChatConnection,
   type ChatOverReason,
 } from "./broadcast-chat";
@@ -58,9 +59,13 @@ const connectionLine = (
  * app server reads it whether or not this shows; on mount this listens and
  * hears everything the app server kept first. While live, clicking a message
  * shows it on the stream picture as a Chat Highlight, and clicking it again
- * hides it (`chat-highlight-reducer.ts`).
+ * hides it (`chat-highlight-reducer.ts`), unless the card's browser is not
+ * downloaded, which it says (Go Live is unaffected).
  */
-export const BroadcastChatView = () => {
+export const BroadcastChatView = (props: {
+  /** Why Chat Highlights can't be shown this Go Live, if they can't. */
+  highlightsUnavailable: string | null;
+}) => {
   const { state, dispatch } = useLiveStream();
   const videoId = useContextSelector(VideoEditorContext, (ctx) => ctx.videoId);
   const bottom = useRef<HTMLLIElement>(null);
@@ -70,7 +75,9 @@ export const BroadcastChatView = () => {
     const source = new EventSource(CHAT_EVENTS_HREF);
     for (const type of BROADCAST_CHAT_EVENT_TYPES) {
       source.addEventListener(type, (event) => {
-        dispatch(JSON.parse(event.data) as BroadcastChatEvent);
+        // Anything that isn't a chat event is not dispatched.
+        const heard = decodeStreamData(BroadcastChatEvent, event.data);
+        if (heard?.type === type) dispatch(heard);
       });
     }
     return () => source.close();
@@ -103,6 +110,14 @@ export const BroadcastChatView = () => {
           )}
         >
           {line.text}
+        </p>
+      )}
+      {props.highlightsUnavailable && (
+        <p
+          className="text-xs shrink-0 text-amber-600"
+          data-testid="chat-highlights-unavailable"
+        >
+          {props.highlightsUnavailable}
         </p>
       )}
       {error && <p className="text-xs shrink-0 text-amber-600">{error}</p>}

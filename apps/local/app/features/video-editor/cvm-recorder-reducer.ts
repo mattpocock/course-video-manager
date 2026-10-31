@@ -437,7 +437,12 @@ const deviceHeard = (
     case "screen-changed":
       return { ...state, screen: message.screen, wakingAgain: false };
     case "stream-changed":
-      return { ...state, stream: message.stream };
+      // An ended Live Stream's health is forgotten: the next starts afresh.
+      return {
+        ...state,
+        stream: message.stream,
+        streamHealth: isStreamOn(message.stream) ? state.streamHealth : null,
+      };
     case "stream-health":
       return { ...state, streamHealth: message.health };
     case "recording-started":

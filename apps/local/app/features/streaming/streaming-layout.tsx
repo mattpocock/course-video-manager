@@ -53,7 +53,11 @@ const TeleprompterLauncher = () => {
  * on the right, and below the compact Clip list beside the Script and
  * Suggestions (which feed the teleprompter).
  */
-export const StreamingLayout = (props: { sidePanel: ReactNode }) => {
+export const StreamingLayout = (props: {
+  sidePanel: ReactNode;
+  /** Why Chat Highlights can't be shown, if they can't (`chatHighlightsUnavailable`). */
+  highlightsUnavailable: string | null;
+}) => {
   const videoTitle = useContextSelector(
     VideoEditorContext,
     (ctx) => ctx.videoTitle
@@ -90,7 +94,9 @@ export const StreamingLayout = (props: { sidePanel: ReactNode }) => {
           <div className="shrink-0 max-h-[50%] flex flex-col min-h-0">
             <BroadcastPicker />
           </div>
-          <BroadcastChatView />
+          <BroadcastChatView
+            highlightsUnavailable={props.highlightsUnavailable}
+          />
         </aside>
       </div>
       <div className="flex flex-col lg:flex-row gap-2 min-h-0 lg:flex-[2]">

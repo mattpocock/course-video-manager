@@ -3,10 +3,14 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Effect, Either } from "effect";
 import type { ChatSnapshot } from "@/features/streaming/broadcast-chat";
-import { CARD_BROWSER_MISSING } from "@/services/card-browser.server";
+import { CHAT_HIGHLIGHTS_UNAVAILABLE } from "@/services/card-browser.server";
 import { clock } from "recorder-service/test-utils/service-harness";
 import { testDb } from "../clip-service-test-setup";
-import { ready, reasonsOf, setupGoLiveTests } from "./go-live-test-harness";
+import {
+  cardBrowserFile,
+  ready,
+  setupGoLiveTests,
+} from "./go-live-test-harness";
 import { hideChatHighlight, showChatHighlight } from "./chat-highlight.server";
 
 /**
@@ -63,6 +67,7 @@ const live = async () => {
         chat,
         videoId: r.video.id,
         messageId,
+        cardBrowser: cardBrowserFile(),
       })
     );
   const hide = (highlightId: string) =>
@@ -198,12 +203,31 @@ describe("Chat Highlights", () => {
     await r.client.endStream(r.video.id);
   });
 
-  it("refuses Go Live, among its other reasons, until the card server's browser has been downloaded", async () => {
+  it("goes live without the card server's browser, and refuses only the Chat Highlight, saying the stream and recording are unaffected", async () => {
     const r = await ready();
-    const answer = await r.goLive({
-      cardBrowser: "/nowhere/chrome-headless-shell",
-    });
-    expect(reasonsOf(answer)).toContain(CARD_BROWSER_MISSING);
+    const missing = "/nowhere/chrome-headless-shell";
+
+    expect(Either.isRight(await r.goLive())).toBe(true);
+    await vi.waitFor(() =>
+      expect(r.heard.map((m) => m.type)).toContain("recording-started")
+    );
+    const answer = await Effect.runPromise(
+      Effect.either(
+        showChatHighlight({
+          client: r.client,
+          chat,
+          videoId: r.video.id,
+          messageId: "msg-1",
+          cardBrowser: missing,
+        })
+      )
+    );
+
+    expect(Either.isLeft(answer) && answer.left.message).toBe(
+      CHAT_HIGHLIGHTS_UNAVAILABLE
+    );
     expect(r.windows.cardServers).toHaveLength(0);
+    expect(r.windows.recorder("camera").running).toBe(true);
+    await r.client.endStream(r.video.id);
   });
 });

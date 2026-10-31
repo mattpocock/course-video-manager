@@ -128,9 +128,16 @@ export const connectClient = (
   ingest: Ingest = saveEvent,
   lastPassed: LastPassed = freshCalibration,
   keepWhisperWarm?: (ms: number) => void,
-  more: Pick<RecorderClientOptions, "launcher" | "idleMs"> = {}
+  more: Partial<
+    Pick<
+      RecorderClientOptions,
+      "launcher" | "idleMs" | "onLiveStreamChanged" | "onStreamedSessionEnded"
+    >
+  > = {}
 ) => {
   const client = createRecorderClient({
+    onLiveStreamChanged: () => {},
+    onStreamedSessionEnded: () => {},
     ...more,
     keepWhisperWarm,
     url: `ws://127.0.0.1:${port}`,

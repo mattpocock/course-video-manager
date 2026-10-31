@@ -9,6 +9,11 @@ import {
   type VideoEditorLoaderData,
 } from "@/services/video-editor-loader.server";
 import { makeLoader } from "@/services/route-action.server";
+import {
+  cardBrowserPath,
+  chatHighlightsUnavailable,
+} from "@/services/card-browser.server";
+import { installLocationRepoRoot } from "@/services/repo-env";
 import type { Route } from "./+types/_app.streaming.$videoId";
 
 export const handle = { fullscreen: true };
@@ -29,7 +34,13 @@ export const loader = makeLoader({
       if (data.video.format !== "landscape") {
         return yield* Effect.die(redirect("/streaming"));
       }
-      return { ...data, fsData: yield* fsData };
+      return {
+        ...data,
+        fsData: yield* fsData,
+        highlightsUnavailable: chatHighlightsUnavailable(
+          cardBrowserPath(installLocationRepoRoot())
+        ),
+      };
     }),
 });
 
@@ -51,7 +62,12 @@ const StreamingStudio = (props: Route.ComponentProps) => {
     <VideoEditor
       {...wiring}
       replay={false}
-      layout={({ sidePanel }) => <StreamingLayout sidePanel={sidePanel} />}
+      layout={({ sidePanel }) => (
+        <StreamingLayout
+          sidePanel={sidePanel}
+          highlightsUnavailable={props.loaderData.highlightsUnavailable}
+        />
+      )}
     />
   );
 };

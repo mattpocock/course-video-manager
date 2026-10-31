@@ -3,6 +3,8 @@ import { broadcastChat } from "@/services/broadcast-chat-live.server";
 import { showChatHighlight } from "@/services/recorder-client/chat-highlight.server";
 import { recorderClient } from "@/services/recorder-client/live.server";
 import { makeAction } from "@/services/route-action.server";
+import { cardBrowserPath } from "@/services/card-browser.server";
+import { installLocationRepoRoot } from "@/services/repo-env";
 
 const showSchema = Schema.Struct({ messageId: Schema.String });
 
@@ -22,6 +24,7 @@ export const action = makeAction({
         chat: broadcastChat().snapshot(),
         videoId: params.videoId!,
         messageId,
+        cardBrowser: cardBrowserPath(installLocationRepoRoot()),
       });
     }),
 });

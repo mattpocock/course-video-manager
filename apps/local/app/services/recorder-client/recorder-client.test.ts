@@ -179,6 +179,8 @@ describe("the recorder client", () => {
 
   it("says so when the recorder service is not running", async () => {
     const client = createRecorderClient({
+      onLiveStreamChanged: () => {},
+      onStreamedSessionEnded: () => {},
       url: "ws://127.0.0.1:9",
       ingest: () => Promise.reject(new Error("unused")),
       unfinishedRecordingSessions: () => Promise.resolve([]),

@@ -29,9 +29,8 @@ const withChat = () =>
 
 const live = () =>
   withChat().send({
-    type: "stream-status-heard",
-    videoId: VIDEO,
-    status: { kind: "live" },
+    type: "live-stream-heard",
+    stream: { videoId: VIDEO, status: { kind: "live" } },
   });
 
 const click = (messageId: string) =>
@@ -124,9 +123,11 @@ describe("the Chat Highlight: one message on the stream picture at a time", () =
         highlightId: "h1",
       })
       .send({
-        type: "stream-status-heard",
-        videoId: VIDEO,
-        status: { kind: "ended", reason: "End Stream." },
+        type: "live-stream-heard",
+        stream: {
+          videoId: VIDEO,
+          status: { kind: "ended", reason: "End Stream." },
+        },
       });
     expect(highlighted(tester)).toEqual([]);
   });

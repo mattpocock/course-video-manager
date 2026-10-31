@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Effect } from "effect";
 import type { ChatSnapshot } from "@/features/streaming/broadcast-chat";
+import { chatHighlightsUnavailable } from "@/services/card-browser.server";
 import type { RecorderClient } from "./client.server";
 import { RecorderCommandError, recorderCommand } from "./recorder-command";
 
@@ -22,8 +23,16 @@ export const showChatHighlight = (o: {
   chat: ChatSnapshot;
   videoId: string;
   messageId: string;
+  /** The card server's browser (`cardBrowserPath`): without it, no card can be drawn. */
+  cardBrowser: string | undefined;
 }) =>
   Effect.gen(function* () {
+    const unavailable = chatHighlightsUnavailable(o.cardBrowser);
+    if (unavailable)
+      return yield* new RecorderCommandError({
+        message: unavailable,
+        cause: null,
+      });
     const message = o.chat.messages.find((m) => m.id === o.messageId);
     const broadcastId = o.chat.broadcastId;
     if (!message || !broadcastId)

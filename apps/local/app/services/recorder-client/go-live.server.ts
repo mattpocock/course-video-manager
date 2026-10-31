@@ -1,4 +1,4 @@
-import { Data, Effect, Either, Option, Redacted } from "effect";
+import { Data, Effect, Either, Redacted } from "effect";
 import { eq } from "drizzle-orm";
 import { micEqSettings } from "@/db/schema";
 import {
@@ -22,13 +22,12 @@ import {
   bindBroadcast,
   findKeysStream,
   listBroadcasts,
+  YouTubeLiveError,
 } from "@/services/youtube-live-service";
 import {
   readStreamKey,
-  STREAM_KEY_MISSING,
   STREAM_KEY_SETTING,
 } from "@/services/stream-key.server";
-import { cardBrowserRefusal } from "@/services/card-browser.server";
 import type { RecorderClient } from "./client.server";
 import { requireRecordableVideo } from "./record-guard.server";
 import { recorderCommand } from "./recorder-command";
@@ -56,59 +55,63 @@ export const RECONNECT_GOOGLE =
 /** No YouTube stream's ingest name is the Stream Key: names the setting, never the key. */
 export const NO_MATCHING_STREAM = `No YouTube stream on the channel uses the Stream Key: check ${STREAM_KEY_SETTING} in the .env file at the repo root matches a stream key in YouTube Studio.`;
 
+/**
+ * A YouTube call Go Live makes, its failure turned into Go Live's reason:
+ * `what` is what CVM could not do ("Could not … with YouTube: <message>").
+ */
+const orReason = <A, E, R>(
+  call: Effect.Effect<A, E | YouTubeLiveError, R>,
+  what: string
+) =>
+  call.pipe(
+    Effect.mapError((e) => {
+      if (!(e instanceof YouTubeLiveError)) return e;
+      const reason = `${what}: ${e.message}`;
+      return new GoLiveRefusedError({ reasons: [reason], message: reason });
+    })
+  );
+
+/** A check's answer when it refuses: no value, and the reasons. */
+const refusedWith = (e: GoLiveRefusedError) =>
+  Effect.succeed({ value: null, reasons: e.reasons });
+
 /** The picked Broadcast, and why it can't be streamed to, if it can't. */
 const checkBroadcast = (broadcastId: string | null) =>
   Effect.gen(function* () {
-    const refused = (reason: string) => ({
-      broadcast: null,
-      reasons: [reason],
-    });
+    const refused = (reason: string) => ({ value: null, reasons: [reason] });
     if (broadcastId === null) return refused(NO_BROADCAST);
-    const answer = yield* listBroadcasts.pipe(
-      Effect.catchTag("YouTubeLiveError", (e) =>
-        Effect.succeed({ status: "failed" as const, message: e.message })
-      )
+    const answer = yield* orReason(
+      listBroadcasts,
+      "Could not check the Broadcast with YouTube"
     );
-    switch (answer.status) {
-      case "failed":
-        return refused(
-          `Could not check the Broadcast with YouTube: ${answer.message}`
-        );
-      case "needs-reconnect":
-        return refused(RECONNECT_GOOGLE);
-      case "listed": {
-        const broadcast = answer.broadcasts.find((b) => b.id === broadcastId);
-        if (!broadcast) return refused(BROADCAST_GONE);
-        const refusal = broadcastRefusal(broadcast);
-        return { broadcast, reasons: refusal ? [refusal] : [] };
-      }
-    }
-  });
+    if (answer.status === "needs-reconnect") return refused(RECONNECT_GOOGLE);
+    const broadcast = answer.broadcasts.find((b) => b.id === broadcastId);
+    if (!broadcast) return refused(BROADCAST_GONE);
+    const refusal = broadcastRefusal(broadcast);
+    return { value: broadcast, reasons: refusal ? [refusal] : [] };
+  }).pipe(Effect.catchTag("GoLiveRefusedError", refusedWith));
 
 /** The YouTube stream the Stream Key pushes to, and why not, if none. */
-const checkKeysStream = (streamKey: Option.Option<Redacted.Redacted<string>>) =>
+const checkKeysStream = (
+  streamKey: Either.Either<Redacted.Redacted<string>, string>
+) =>
   Effect.gen(function* () {
-    // A missing key is its own reason.
-    if (Option.isNone(streamKey)) return { streamId: null, reasons: [] };
-    const answer = yield* findKeysStream(streamKey.value).pipe(
-      Effect.catchTag("YouTubeLiveError", (e) =>
-        Effect.succeed({ status: "failed" as const, message: e.message })
-      )
+    const refused = (reason: string) => ({ value: null, reasons: [reason] });
+    // No key is its own reason.
+    if (Either.isLeft(streamKey)) return refused(streamKey.left);
+    const answer = yield* orReason(
+      findKeysStream(streamKey.right),
+      "Could not find the Stream Key's stream on YouTube"
     );
-    const refused = (reason: string) => ({ streamId: null, reasons: [reason] });
     switch (answer.status) {
       case "found":
-        return { streamId: answer.streamId, reasons: [] };
+        return { value: answer.streamId, reasons: [] };
       case "no-match":
         return refused(NO_MATCHING_STREAM);
       case "needs-reconnect":
         return refused(RECONNECT_GOOGLE);
-      case "failed":
-        return refused(
-          `Could not find the Stream Key's stream on YouTube: ${answer.message}`
-        );
     }
-  });
+  }).pipe(Effect.catchTag("GoLiveRefusedError", refusedWith));
 
 /**
  * Binds the Broadcast to the Stream Key's stream unless it already is, so
@@ -117,13 +120,9 @@ const checkKeysStream = (streamKey: Option.Option<Redacted.Redacted<string>>) =>
 const bindIfNeeded = (broadcast: Broadcast, streamId: string) =>
   broadcast.boundStreamId === streamId
     ? Effect.void
-    : bindBroadcast({ broadcastId: broadcast.id, streamId }).pipe(
-        Effect.catchTag("YouTubeLiveError", (e) => {
-          const reason = `Could not bind the Broadcast to the Stream Key's stream: ${e.message}`;
-          return Effect.fail(
-            new GoLiveRefusedError({ reasons: [reason], message: reason })
-          );
-        })
+    : orReason(
+        bindBroadcast({ broadcastId: broadcast.id, streamId }),
+        "Could not bind the Broadcast to the Stream Key's stream"
       );
 
 /** The saved Mic EQ, read once at Go Live as a Recording Session reads it. */
@@ -149,10 +148,8 @@ export const goLive = Effect.fn("goLive")(function* (o: {
   silenceLength: SilenceLength;
   /** The folder (WSL path) the Recording Session's folder goes in. */
   folder: string;
-  /** The `.env` the Stream Key is read from (default: the repo root's). */
-  envPath?: string;
-  /** The card server's browser (default: `cardBrowserPath()`). */
-  cardBrowser?: string;
+  /** The `.env` the Stream Key is read from: `repoEnvPath()`, undefined when there is none. */
+  envPath: string | undefined;
   now: Date;
 }) {
   const { format } = yield* requireRecordableVideo(o.db, o.videoId);
@@ -164,25 +161,24 @@ export const goLive = Effect.fn("goLive")(function* (o: {
     [checkBroadcast(o.broadcastId), checkKeysStream(streamKey)],
     { concurrency: "unbounded" }
   );
+  // A check that refuses gives no value; one that passes, no reasons.
   const reasons = [
     ...new Set([...picked.reasons, ...keys.reasons]),
-    ...(Option.isNone(streamKey) ? [STREAM_KEY_MISSING] : []),
     ...(Either.isLeft(calibration) ? [calibration.left.message] : []),
-    ...cardBrowserRefusal(o.cardBrowser),
     ...o.client.goLiveRefusals(o.videoId, format),
   ];
   if (
     reasons.length > 0 ||
-    picked.broadcast === null ||
-    keys.streamId === null ||
-    Option.isNone(streamKey) ||
+    picked.value === null ||
+    keys.value === null ||
+    Either.isLeft(streamKey) ||
     Either.isLeft(calibration)
   )
     return yield* new GoLiveRefusedError({
       reasons,
       message: reasons.join(" "),
     });
-  yield* bindIfNeeded(picked.broadcast, keys.streamId);
+  yield* bindIfNeeded(picked.value, keys.value);
   const { cameraDevice, recorderMic } = calibration.right;
   // The pair the gate checked: the recorder refuses any other at Record.
   const micOffsetMs =
@@ -193,11 +189,11 @@ export const goLive = Effect.fn("goLive")(function* (o: {
           mic: recorderMic,
         });
   const micEq = yield* savedMicEq(o.db);
-  const broadcastId = picked.broadcast.id;
+  const broadcastId = picked.value.id;
   yield* recorderCommand(() =>
     o.client.goLive(o.videoId, {
       broadcastId,
-      streamKey: streamKey.value,
+      streamKey: streamKey.right,
       micOffsetMs: micOffsetMs ?? DEFAULT_MIC_OFFSET_MS,
       micEq,
       silenceLength: o.silenceLength,
