@@ -13,14 +13,15 @@
     ".": "./src/render.ts",
     "./preview": "./src/preview.tsx",
     "./props": "./src/props.ts",
-    "./definition-card-tokens": "./src/definition-card-tokens.ts"
+    "./definition-card-tokens": "./src/definition-card-tokens.ts",
+    "./card-server-protocol": "./src/card-server-protocol.ts"
   },
   "scripts": {
     "studio": "remotion studio remotion/index.ts",
     "studio:card": "remotion studio remotion/card-server-index.ts",
     "render": "node bin.mjs",
     "card-server": "node card-server.mjs",
-    "browser:ensure": "remotion browser ensure",
+    "browser:ensure": "remotion browser ensure && node card-server.mjs --prepare",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
