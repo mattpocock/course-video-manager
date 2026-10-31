@@ -167,13 +167,20 @@ export const liveStreamCommands = (o: {
     return { hiddenAtMs };
   },
 
-  /** END STREAM: the push and the streamed Recording Session stop together. */
-  async endStream(videoId: string) {
+  /**
+   * END STREAM: the push and the streamed Recording Session stop together.
+   * Answers once the push has stopped, with the Broadcast it went out on.
+   */
+  async endStream(videoId: string): Promise<{ broadcastId: string }> {
     const { state } = o.recorder();
     if (state.kind !== "recording" || state.videoId !== videoId)
       throw new RecorderRefusedError("This Video is not live.");
-    await o.command({ type: "end-stream" }, (m) =>
-      isStateOf(m, "open", videoId)
-    );
+    let broadcastId = "";
+    await o.command({ type: "end-stream" }, (m) => {
+      if (m.type !== "live-stream-stopped") return false;
+      broadcastId = m.broadcastId;
+      return true;
+    });
+    return { broadcastId };
   },
 });
