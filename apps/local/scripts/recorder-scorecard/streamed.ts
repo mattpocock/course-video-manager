@@ -5,7 +5,7 @@ import type { RecorderMessage } from "../../recorder-service/protocol";
 import { findFfmpegExe } from "../../recorder-service/windows-launcher";
 import { analysePicture, decodeStamps } from "./footage-analysis";
 import { isState, type Received } from "./service-control";
-import type { ProgressSample } from "./stream-sink";
+import type { ProgressSample, Stretch } from "./stream-sink";
 import {
   readProgress,
   SCORECARD_STREAM_KEY,
@@ -34,6 +34,16 @@ import { killMarked, windowsGuard } from "./windows";
 
 /** Frames after it goes live that the rate leaves out: its encoder settling. */
 const WARM_UP_MS = 5_000;
+
+/**
+ * The first stream process's steady state starts later (#2482). It listens
+ * before Record, and its feeds queue while it opens them and CUDA, so it
+ * goes live 0.5–1 s behind. It drains that with whatever headroom it has
+ * over 60 fps, which took about 20 s once the card was drawn on the CPU
+ * (#2462). A relaunch's picture starts ahead of its feeds, with nothing to
+ * drain.
+ */
+const FIRST_WARM_UP_MS = 20_000;
 
 const streamOf = (m: RecorderMessage) =>
   m.type === "state" && m.state.kind !== "closed" ? m.state.stream : undefined;
@@ -130,16 +140,18 @@ const footageLost = (
   };
 };
 
-/** The stream's picture from its -progress, Go Live to End Stream. */
+/**
+ * One stream process's picture from its -progress, until `endAt`; its rate
+ * over its steady `stretches` (none: it never went live).
+ */
 const streamPicture = (
   samples: readonly ProgressSample[],
-  liveAt: number | undefined,
+  stretches: readonly Stretch[] | null,
   endAt: number
 ) => {
   const pushed = samples.filter((p) => p.at <= endAt);
-  const last = liveAt === undefined ? undefined : pushed.at(-1);
-  const fps =
-    liveAt === undefined ? null : streamRate(pushed, liveAt + WARM_UP_MS);
+  const last = stretches === null ? undefined : pushed.at(-1);
+  const fps = stretches === null ? null : streamRate(pushed, stretches);
   return {
     fps,
     ffmpegFps: last?.fps ?? null,
@@ -236,8 +248,18 @@ export const streamed = async (
 
     const endedEarly = stopped.at < end.at || s.reason !== "requested";
     const lost = footageLost(s, endedEarly, (end.wall - answer.wall) / 1000);
-    // The first stream process's picture, until it was killed.
-    const picture = streamPicture(progress.samples, live?.at, faults.killAt);
+    // The first stream process's picture, until it was killed: steady
+    // before the sink dropped, and again once its push was back.
+    const picture = streamPicture(
+      progress.samples,
+      live
+        ? [
+            [live.at + FIRST_WARM_UP_MS, faults.sinkDown.from],
+            [faults.sinkDown.until + WARM_UP_MS, faults.killAt],
+          ]
+        : null,
+      faults.killAt
+    );
     const fault = faults.result();
     const m = ctx.measured;
     m.streamed_camera_frames_lost = lost.camera;
@@ -252,7 +274,11 @@ export const streamed = async (
     const relaunched =
       faults.relaunchedLiveAt === null
         ? null
-        : streamPicture(progress.samples, faults.relaunchedLiveAt, end.at);
+        : streamPicture(
+            progress.samples,
+            [[faults.relaunchedLiveAt + WARM_UP_MS, end.at]],
+            end.at
+          );
     m.stream_relaunched_fps_off_60 =
       relaunched?.fps == null ? null : Math.abs(relaunched.fps - 60);
 

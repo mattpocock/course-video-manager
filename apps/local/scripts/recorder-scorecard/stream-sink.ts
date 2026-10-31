@@ -164,35 +164,45 @@ export const leastDelayedClock = () => {
 /** The width of the slices a block is picked from: one per slice. */
 const SLICE_MS = 2_000;
 
+/** A steady stretch of a stream process, `[from, to)` on the arrival clock (`at`). */
+export type Stretch = readonly [from: number, to: number];
+
 /**
- * Frames per second of wall time from `from` on (`at`), on the Windows clock
- * (`windowsAt`), not WSL's, which wanders. A block reaches the scorecard
- * late, never early, so from each slice only the least-late block counts
- * (the one furthest ahead of 60 fps), and the rate is the least-squares
- * slope through those. Null with fewer than ten slices.
+ * Frames per second of wall time over `stretches` (`at`), on the Windows
+ * clock (`windowsAt`), not WSL's, which wanders. A block reaches the
+ * scorecard late, never early, so from each slice only the least-late block
+ * counts (the one furthest ahead of 60 fps). The rate is the least-squares
+ * slope through those, one slope shared by every stretch, each with its own
+ * offset: a fault between two stretches may leave the stream behind or
+ * catch it up, and that is latency, not rate (#2482). Null with fewer than
+ * ten slices.
  */
 export const streamRate = (
   samples: readonly ProgressSample[],
-  from: number
+  stretches: readonly Stretch[]
 ) => {
-  const slices = new Map<number, ProgressSample>();
   const ahead = (s: ProgressSample) => s.frame - (60 * s.windowsAt) / 1000;
-  for (const s of samples) {
-    if (s.at < from || isNaN(s.windowsAt)) continue;
-    const k = Math.floor(s.windowsAt / SLICE_MS);
-    const best = slices.get(k);
-    if (!best || ahead(s) > ahead(best)) slices.set(k, s);
-  }
-  const xs = [...slices.values()];
-  if (xs.length < 10) return null;
-  const n = xs.length;
-  const mt = xs.reduce((a, s) => a + s.windowsAt, 0) / n;
-  const mf = xs.reduce((a, s) => a + s.frame, 0) / n;
+  const picked = stretches.map(([from, to]) => {
+    const slices = new Map<number, ProgressSample>();
+    for (const s of samples) {
+      if (s.at < from || s.at >= to || isNaN(s.windowsAt)) continue;
+      const k = Math.floor(s.windowsAt / SLICE_MS);
+      const best = slices.get(k);
+      if (!best || ahead(s) > ahead(best)) slices.set(k, s);
+    }
+    return [...slices.values()];
+  });
+  if (picked.flat().length < 10) return null;
   let num = 0;
   let den = 0;
-  for (const s of xs) {
-    num += (s.windowsAt - mt) * (s.frame - mf);
-    den += (s.windowsAt - mt) ** 2;
+  for (const xs of picked) {
+    if (xs.length < 2) continue;
+    const mt = xs.reduce((a, s) => a + s.windowsAt, 0) / xs.length;
+    const mf = xs.reduce((a, s) => a + s.frame, 0) / xs.length;
+    for (const s of xs) {
+      num += (s.windowsAt - mt) * (s.frame - mf);
+      den += (s.windowsAt - mt) ** 2;
+    }
   }
   return den ? (num / den) * 1000 : null;
 };

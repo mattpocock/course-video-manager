@@ -126,6 +126,8 @@ export const streamFaults = async (
   const relaunchedSink = o.sinks.current();
 
   return {
+    /** When the sink dropped, and when the push was live again after it: the stretch left out of the rate. */
+    sinkDown: { from: dropAt, until: dropBack?.at ?? killAt },
     /** When the stream process was killed: its own picture is measured until here. */
     killAt,
     /** When the relaunched one went live: its picture is measured from here. */

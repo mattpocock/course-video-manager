@@ -118,7 +118,7 @@ describe("the Live Stream's -progress", () => {
     // 60 fps for 100 s; each block reaches the scorecard up to 80 ms late.
     for (let s = 0; s <= 100; s++)
       progress.push(block(60 * s), 1000 * s + ((s * 37) % 81));
-    expect(streamRate(progress.samples, 0)).toBeCloseTo(60, 1);
+    expect(streamRate(progress.samples, [[0, Infinity]])).toBeCloseTo(60, 1);
   });
 
   it("measures on the Windows clock its frames are stamped on, not WSL's, which wanders (#2482)", () => {
@@ -129,7 +129,7 @@ describe("the Live Stream's -progress", () => {
       const wsl = 1002 * s - (s >= 50 ? 250 : 0);
       progress.push(block(60 * s), wsl, 1_000_000 + 1000 * s);
     }
-    expect(streamRate(progress.samples, 0)).toBeCloseTo(60, 3);
+    expect(streamRate(progress.samples, [[0, Infinity]])).toBeCloseTo(60, 3);
   });
 
   it("reads past blocks and Windows ticks that arrive late, as both do under load (#2482)", () => {
@@ -145,7 +145,28 @@ describe("the Live Stream's -progress", () => {
       progress.push(block(3 * i), at, clock.now(at));
     }
     expect(clock.now(50_000)).toBeCloseTo(1_050_000, -1);
-    expect(streamRate(progress.samples, 0)).toBeCloseTo(60, 2);
+    expect(streamRate(progress.samples, [[0, Infinity]])).toBeCloseTo(60, 2);
+  });
+
+  it("measures each steady stretch, leaving out a fault's stall and catch-up between them (#2482)", () => {
+    const progress = readProgress();
+    // 60 fps, but 1 s behind from 50 s (the sink drops) until it catches up at 70 s.
+    for (let i = 0; i <= 2000; i++) {
+      const ms = 50 * i;
+      const behind =
+        ms >= 50_000 && ms < 70_000
+          ? 60 *
+            Math.min(1, (ms - 50_000) / 1000) *
+            (1 - (ms - 50_000) / 20_000)
+          : 0;
+      progress.push(block(Math.round(3 * i - behind)), ms, ms);
+    }
+    expect(
+      streamRate(progress.samples, [
+        [0, 50_000],
+        [75_000, Infinity],
+      ])
+    ).toBeCloseTo(60, 3);
   });
 
   it("measures only from the moment given (a stream warming up runs slow)", () => {
@@ -153,7 +174,10 @@ describe("the Live Stream's -progress", () => {
     for (let s = 0; s <= 10; s++) progress.push(block(30 * s), 1000 * s);
     for (let s = 11; s <= 60; s++)
       progress.push(block(300 + 60 * (s - 10)), 1000 * s);
-    expect(streamRate(progress.samples, 11_000)).toBeCloseTo(60, 5);
+    expect(streamRate(progress.samples, [[11_000, Infinity]])).toBeCloseTo(
+      60,
+      5
+    );
   });
 
   it("keeps the latest duplicated and dropped frame counts, even split across chunks", () => {
