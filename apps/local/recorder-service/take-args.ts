@@ -14,11 +14,9 @@ import {
 } from "./capture-args";
 import { BT709, SCREEN_TO_NV12 } from "./colour";
 import {
-  STREAM_CAMERA_FEED,
-  STREAM_SCREEN_FEED,
-  streamCameraBranch,
-  streamCameraFeedOutput,
-  streamMicFeedOutput,
+  cameraFeedOutput,
+  micFeedOutput,
+  screenFeedOutput,
 } from "./stream-feeds";
 
 /**
@@ -90,9 +88,8 @@ export const cameraWriterArgs = (o: {
   thresholdDb: number;
   /**
    * A streamed Recording Session's: the Live Stream's camera and mic inputs,
-   * where the writer also sends the very picture (scaled on the GPU) and
-   * sound it writes (`streamCameraFeedOutput`, `streamMicFeedOutput`).
-   * Absent: today's args, exactly.
+   * which get a CPU tee of the very packets camera.mkv and mic.mkv get
+   * (`cameraFeedOutput`, `micFeedOutput`). Absent: today's args, exactly.
    */
   streamPorts?: { camera: number; mic: number };
 }) => {
@@ -102,7 +99,6 @@ export const cameraWriterArgs = (o: {
     silenceRule(o.silenceLength, o.thresholdDb)
   );
   const gap = gapLogger(FRAME_GAP_SECONDS);
-  const streamed = o.streamPorts !== undefined;
   return [
     "-hide_banner",
     "-nostats",
@@ -117,18 +113,18 @@ export const cameraWriterArgs = (o: {
     ...relayInput("writer", o.relayPort),
     "-filter_complex",
     [
-      `[0:v]setpts@t0=PTS-${UNARMED_T0}/TB,${gap},${CAMERA_CFR},${BT709}${streamed ? `,split[cam][${STREAM_CAMERA_FEED.raw}]` : "[cam]"}`,
-      `[0:a]asetpts@t0=PTS-${UNARMED_T0}/TB,atrim=start=0,${MIC_FROM_ZERO},${streamed ? `asplit=3[mic][sd][${STREAM_CAMERA_FEED.audio}]` : "asplit=2[mic][sd]"}`,
+      `[0:v]setpts@t0=PTS-${UNARMED_T0}/TB,${gap},${CAMERA_CFR},${BT709}[cam]`,
+      `[0:a]asetpts@t0=PTS-${UNARMED_T0}/TB,atrim=start=0,${MIC_FROM_ZERO},asplit=2[mic][sd]`,
       `[sd]${silence},anullsink`,
-      ...(streamed ? [streamCameraBranch()] : []),
     ].join(";"),
     "-map",
     "[cam]",
     ...nvenc(60),
     "-metadata",
     `comment=${o.tag}`,
-    ...MKV,
-    FILE_NAMES.camera,
+    ...(o.streamPorts === undefined
+      ? [...MKV, FILE_NAMES.camera]
+      : cameraFeedOutput(FILE_NAMES.camera, o.streamPorts.camera)),
     "-map",
     "[mic]",
     "-c:a",
@@ -139,14 +135,9 @@ export const cameraWriterArgs = (o: {
     "48000",
     "-metadata",
     `comment=${o.tag}`,
-    ...MKV,
-    FILE_NAMES.mic,
     ...(o.streamPorts === undefined
-      ? []
-      : [
-          ...streamCameraFeedOutput(o.streamPorts.camera),
-          ...streamMicFeedOutput(o.streamPorts.mic),
-        ]),
+      ? [...MKV, FILE_NAMES.mic]
+      : micFeedOutput(FILE_NAMES.mic, o.streamPorts.mic)),
   ];
 };
 
@@ -200,7 +191,7 @@ export const screenRecorderArgs = (o: {
   screenIndex: number;
   /**
    * A streamed Recording Session's: the Live Stream's screen input, which
-   * gets a CPU tee of the very packets screen.mkv gets (`STREAM_SCREEN_FEED`).
+   * gets a CPU tee of the very packets screen.mkv gets (`screenFeedOutput`).
    * Absent: today's args, exactly.
    */
   streamPort?: number;
@@ -222,6 +213,6 @@ export const screenRecorderArgs = (o: {
     `comment=${o.tag}`,
     ...(o.streamPort === undefined
       ? [...MKV, FILE_NAMES.screen]
-      : STREAM_SCREEN_FEED.output(FILE_NAMES.screen, o.streamPort)),
+      : screenFeedOutput(FILE_NAMES.screen, o.streamPort)),
   ];
 };

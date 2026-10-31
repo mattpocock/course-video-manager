@@ -6,7 +6,7 @@ import {
   liveSceneSwitch,
   type Scene,
 } from "../app/packages/scene-layout";
-import { STREAM_CAMERA_SIZE, type StreamFeedPorts } from "./stream-feeds";
+import type { StreamFeedPorts } from "./stream-feeds";
 
 /**
  * THE LIVE STREAM PROCESS'S ARGUMENTS (spec #2445, ADR 0054). One
@@ -29,10 +29,10 @@ export const STREAM_TAG = "cvm-recorder-stream";
  */
 export const YOUTUBE_INGEST = "rtmps://a.rtmps.youtube.com:443/live2";
 
-/** What the stream reads: the screen recorder's picture, the camera writer's (scaled for it). */
+/** What the stream reads: the screen recorder's picture, the camera writer's. */
 export const STREAM_SOURCES = {
   screen: { width: 1920, height: 1080 },
-  camera: STREAM_CAMERA_SIZE,
+  camera: { width: 2560, height: 1440 },
 } as const;
 
 /** 1080p60 CBR on NVENC (Matt, 2026-10-30): no CPU encoder, never 30 fps. */
@@ -108,8 +108,19 @@ const soundFrom = (startSeconds: number) => {
   return [`atrim=start=${s}`, `asetpts=PTS-${s}/TB`];
 };
 
+/**
+ * Packets each feed's input reads ahead of the picture (#2502): about 10 s
+ * of each, a few MB of encoded packets. The stream starts 2-3 s after
+ * Record and runs ~1.2 s behind it; read ahead here, the feeds' sockets
+ * always drain and that backlog waits in the stream, not in the take's
+ * fifos.
+ */
+const FEED_READ_AHEAD = { screen: 600, camera: 300, mic: 500 } as const;
+
 /** A listening loopback input: the feed connects to it. */
-const feedInput = (port: number, probesize: number) => [
+const feedInput = (port: number, probesize: number, readAhead: number) => [
+  "-thread_queue_size",
+  String(readAhead),
   "-probesize",
   String(probesize),
   "-analyzeduration",
@@ -220,9 +231,17 @@ export const streamArgs = (o: {
     "cuda",
     "-hwaccel_device",
     "cu",
-    ...feedInput(o.ports.screen, 100_000),
-    ...feedInput(o.ports.camera, 32),
-    ...feedInput(o.ports.mic, 32),
+    ...feedInput(o.ports.screen, 100_000, FEED_READ_AHEAD.screen),
+    // camera.mkv's H.264, decoded on NVDEC onto CUDA, where each scene
+    // crops it (`liveSceneFilterGraph`).
+    "-hwaccel",
+    "cuda",
+    "-hwaccel_output_format",
+    "cuda",
+    "-hwaccel_device",
+    "cu",
+    ...feedInput(o.ports.camera, 100_000, FEED_READ_AHEAD.camera),
+    ...feedInput(o.ports.mic, 32, FEED_READ_AHEAD.mic),
     ...cardInput(o.card),
     "-filter_complex",
     graph,

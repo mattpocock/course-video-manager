@@ -9,8 +9,8 @@ import { SCENES, type LayoutSource, type Scene } from "./layout-definition";
 export interface LiveSceneFilterGraphInput {
   /**
    * Each source's size as the Live Stream reads it: the screen recorder's
-   * 1920x1080 packets, decoded on NVDEC (so on CUDA), and the camera writer's
-   * raw frames, already scaled to `liveCameraSize` (in system memory).
+   * 1920x1080 packets and the camera writer's 2560x1440 ones, both decoded
+   * on NVDEC (so on CUDA).
    */
   readonly sources: Readonly<Record<LayoutSource, SourceSize>>;
   /** ffmpeg stream specifiers of the two inputs, e.g. `0:v` and `1:v`. */
@@ -102,30 +102,16 @@ const screenItem = (i: DrawInstruction, size: SourceSize) => {
   return `scale_cuda=${i.dw}:${i.dh}:format=yuv420p`;
 };
 
-/** The camera comes in raw in system memory: cropped there, then put on CUDA. */
-const cameraItem = (i: DrawInstruction) =>
-  `crop=w=${i.sw}:h=${i.sh}:x=${i.sx}:y=${i.sy},${BT709_LIMITED},hwupload_cuda,scale_cuda=${i.dw}:${i.dh}:format=yuv420p`;
-
 /**
- * THE CAMERA AS THE LIVE STREAM NEEDS IT (#2502): `camera` scaled down to
- * the most any Landscape scene draws of it, never up. The Camera scene draws
- * the whole 2560x1440 frame at 1920x1080, so that is the size: every other
- * scene draws its crop smaller. The camera writer scales its feed to this
- * on the GPU, so the stream gets 44% fewer bytes a frame and loses nothing
- * it draws.
+ * The camera comes in on CUDA too (camera.mkv's H.264 on NVDEC, #2502), and
+ * is cropped there: `crop` on a CUDA frame only moves its picture's edges,
+ * and `scale_cuda` reads from them (measured on ffmpeg.exe 8.0.1, 38 dB
+ * against the same crop on the CPU). Cropped in system memory and uploaded
+ * once per scene, the camera held the stream to ~0.8x realtime on the
+ * synthetic rig.
  */
-export const liveCameraSize = (camera: SourceSize): SourceSize => {
-  const scales = SCENES.flatMap((s) =>
-    drawInstructions(s, { screen: camera, camera }, "landscape")
-      .filter((i) => i.source === "camera")
-      .flatMap((i) => [i.dw / i.sw, i.dh / i.sh])
-  );
-  const scale = Math.min(1, Math.max(...scales));
-  return {
-    width: evenSize(Math.round(camera.width * scale)),
-    height: evenSize(Math.round(camera.height * scale)),
-  };
-};
+const cameraItem = (i: DrawInstruction) =>
+  `crop=w=${i.sw}:h=${i.sh}:x=${i.sx}:y=${i.sy},scale_cuda=${i.dw}:${i.dh}:format=yuv420p`;
 
 /**
  * A SCENE SWITCH on the running Live Stream (#2457): the filter command that
@@ -192,10 +178,10 @@ export const liveSceneFilterGraph = ({
     chains.push(`[${base}]null[live_scene${k}]`);
   });
 
-  /** Each source's head: the screen onto the canvas's 1/60 grid, tagged. */
+  /** Each source's head: the screen onto the canvas's 1/60 grid; both tagged. */
   const head: Record<LayoutSource, string> = {
     screen: `fps=${LIVE_FPS}:round=near,${BT709_LIMITED},`,
-    camera: "",
+    camera: `${BT709_LIMITED},`,
   };
   const splits = (["screen", "camera"] as const).map((source) => {
     const labels = branches[source];

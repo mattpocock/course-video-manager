@@ -13,8 +13,7 @@
 // says how ffmpeg draws a run of segments (export, stills). `LAYOUT_VERSIONS`
 // goes into the Export Hash. `liveSceneFilterGraph` draws every Landscape
 // scene at once on CUDA for the Live Stream and picks one; `liveSceneSwitch`
-// is the filter command that switches it live; `liveCameraSize` is the camera
-// scaled to the most any of its scenes draws of it.
+// is the filter command that switches it live.
 export {
   DEFAULT_SCENE,
   LAYOUT_VERSIONS,
@@ -42,7 +41,6 @@ export {
 export {
   liveSceneFilterGraph,
   liveSceneSwitch,
-  liveCameraSize,
   type LiveSceneFilterGraphInput,
 } from "./lib/live-scene-graph";
 

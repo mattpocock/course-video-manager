@@ -20,26 +20,17 @@ setupGoLiveTests();
 
 type Ffmpeg = Extract<Launch, { tool: "ffmpeg" }>;
 
-/** Each output of an ffmpeg command line: what it maps, and where it goes. */
-const outputs = (args: readonly string[]) => {
-  const found: { maps: string[]; to: string }[] = [];
-  let maps: string[] = [];
-  args.forEach((a, i) => {
-    if (args[i - 1] === "-map") maps.push(a);
-    const target =
-      /\.mkv$/.test(a) || /\]tcp:\/\/127\.0\.0\.1:\d+\?timeout/.test(a);
-    if (maps.length > 0 && target) {
-      found.push({ maps, to: a });
-      maps = [];
-    }
-  });
-  return found;
-};
+/** Where the writer's tee sends `file`'s packets, besides the file itself. */
+const teedTo = (args: readonly string[], file: string) =>
+  args
+    .find((a) => a.includes(`]${file}|`))
+    ?.match(/\]tcp:\/\/127\.0\.0\.1:(\d+)\?timeout/)?.[1];
 
 const launches = async () => {
   const r = await ready();
   expect(Either.isRight(await r.goLive())).toBe(true);
   const writer = r.windows.launched.find(isStreamedWriter) as Ffmpeg;
+  if (!writer) throw new Error("no streamed writer");
   const stream = r.windows.launched.find(isStream) as Ffmpeg;
   return { r, writer: writer.args, stream: stream.args };
 };
@@ -54,38 +45,38 @@ describe("the Live Stream's feeds", () => {
       /tcp:\/\/127\.0\.0\.1:(\d+)\?listen=1/g
     );
     expect(new Set([screenPort, cameraPort, micPort]).size).toBe(3);
-    const feeds = outputs(writer).filter((o) => o.to.includes("tcp://"));
-    const to = (port: number | undefined) =>
-      feeds.find((o) => o.to.includes(`:${port}?`))?.maps;
-    expect(to(cameraPort)).toEqual(["[streamcam]"]);
-    expect(to(micPort)).toEqual(["[streammic]"]);
-    // Its sound is the mic feed's, input 2; nothing reads the camera's.
+    expect(Number(teedTo(writer, "camera.mkv"))).toBe(cameraPort);
+    expect(Number(teedTo(writer, "mic.mkv"))).toBe(micPort);
+    // Its sound is the mic feed's, input 2.
     const graph = stream.join(" ");
     expect(graph).toMatch(/\[2:a\][^;]*\[a\]/);
     expect(graph).not.toContain("[1:a]");
     await r.client.endStream(r.video.id);
   });
 
-  it("sends the camera scaled on the GPU to the most any scene draws of it, the Camera scene's 1920x1080, and camera.mkv as ever", async () => {
+  it("sends camera.mkv's and mic.mkv's own encoded packets, never a raw picture or a second encode, and decodes and crops the camera on the GPU", async () => {
     const { r, writer, stream } = await launches();
-    const graph = writer[writer.indexOf("-filter_complex") + 1]!;
 
-    const branch = graph.match(/\[streamcam_raw\]([^;]*)\[streamcam\]/)?.[1];
-    expect(branch).toMatch(
-      /^hwupload_cuda,scale_cuda=1920:1080[^,]*,hwdownload,format=nv12$/
+    // One encoder per file, as an unstreamed take has; no raw output.
+    expect(writer.filter((a) => a === "h264_nvenc")).toHaveLength(1);
+    expect(writer.filter((a) => a === "aac")).toHaveLength(1);
+    expect(writer).not.toContain("rawvideo");
+    expect(writer.join(" ")).not.toMatch(/split\[cam\]|asplit=3/);
+    // The camera input is decoded on NVDEC.
+    const camera = stream.findIndex((a) =>
+      a.includes(
+        `:${ports(stream, /tcp:\/\/127\.0\.0\.1:(\d+)\?listen=1/g)[1]}?listen=1`
+      )
     );
-    // camera.mkv's branch takes the very frames it took before.
-    expect(graph).toMatch(/split\[cam\]\[streamcam_raw\]/);
-    expect(outputs(writer).find((o) => o.to === "camera.mkv")?.maps).toEqual([
-      "[cam]",
-    ]);
-    // The stream crops from a 1920x1080 camera: the Camera scene takes it
-    // 1:1 (less the 2 px it sits in by), Code its 0.370833 x 0.961111 at
-    // 0.31875.
-    expect(stream.join(" ")).toContain(
-      "crop=w=1918:h=1078:x=0:y=0,setparams=range=tv:color_primaries=bt709:color_trc=bt709:colorspace=bt709,hwupload_cuda,scale_cuda=1918:1078"
-    );
-    expect(stream.join(" ")).toContain("crop=w=712:h=1038:x=612:y=0");
+    // Its own options: from the input before it (the screen's) to it.
+    const screen = stream.findIndex((a) => a.includes("?listen=1"));
+    const own = stream.slice(screen + 1, camera);
+    expect(own[own.indexOf("-hwaccel") + 1]).toBe("cuda");
+    expect(own[own.indexOf("-hwaccel_output_format") + 1]).toBe("cuda");
+    // Cropped on CUDA, once per scene, never uploaded again.
+    const graph = stream.join(" ");
+    expect(graph).toContain("crop=w=948:h=1384:x=816:y=0,scale_cuda=490:716");
+    expect(graph.match(/hwupload_cuda/g)).toHaveLength(2);
     await r.client.endStream(r.video.id);
   });
 
