@@ -43,11 +43,14 @@ const FRAME_MS = 1000 / CARD_FPS;
 const MAX_BUFFERED_SECONDS = 1;
 
 /**
- * A slot the feed reaches more than this long after the clock passed it is
- * late (the service was busy, or its clock jumped on): it carries the last
- * frame sent again, drawing nothing, so the feed is back on the clock at
- * once and the picture never waits on it. Changes due then land on the
- * first slot on time, stamped there.
+ * A slot the feed reaches more than this long after it could first have
+ * been written (its time, or the stream's last drain if later) is late: the
+ * service was busy, or its clock jumped on. It carries the last frame sent
+ * again, drawing nothing, so the feed is back on the clock at once and the
+ * picture never waits on it. Changes due then land on the first slot on
+ * time, stamped there. A stream that reads behind the clock (it always
+ * does, by its picture's lag) never makes a slot late: the feed was only
+ * waiting for it.
  */
 const LATE_MS = 100;
 
@@ -202,6 +205,8 @@ export const createCardFeed = (o: {
         startSeconds: number;
         frame: number;
         draining: boolean;
+        /** When it last drained (Windows ms): slots due before were waiting on it. */
+        drainedAtMs: number;
       }
     | undefined;
   /** Where the next launch's picture starts, in file time (s). */
@@ -290,13 +295,19 @@ export const createCardFeed = (o: {
           r.draining = true;
           r.socket.once("drain", () => {
             r.draining = false;
+            try {
+              r.drainedAtMs = o.now();
+            } catch {
+              // No clock this moment: the next slots are judged by their own time.
+            }
             tick();
           });
         }
         return;
       }
       const at = stampOf(r, r.frame);
-      if (now - at.atMs <= LATE_MS) lastSent = frameAt(at);
+      if (now - Math.max(at.atMs, r.drainedAtMs) <= LATE_MS)
+        lastSent = frameAt(at);
       r.socket.write(lastSent);
       r.frame += 1;
     }
@@ -325,6 +336,7 @@ export const createCardFeed = (o: {
       startSeconds: nextStartSeconds,
       frame: 0,
       draining: false,
+      drainedAtMs: -Infinity,
     };
     reader = r;
     s.setNoDelay(true);

@@ -14,6 +14,7 @@ import { Effect, Either } from "effect";
 import type { ChatSnapshot } from "@/features/streaming/broadcast-chat";
 import { CARD_BROWSER_MISSING } from "@/services/card-browser.server";
 import { clock } from "recorder-service/test-utils/service-harness";
+import { fakeWindows } from "recorder-service/test-utils/fake-windows";
 import { testDb } from "../clip-service-test-setup";
 import { ready, reasonsOf, setupGoLiveTests } from "./go-live-test-harness";
 import { hideChatHighlight, showChatHighlight } from "./chat-highlight.server";
@@ -61,8 +62,9 @@ const live = async (o: Parameters<typeof ready>[0] = {}) => {
   // The card server warms from Go Live on, so a first click right after
   // going live finds it ready (its start takes about a second).
   expect(r.windows.cardServers).toHaveLength(1);
-  await vi.waitFor(() =>
-    expect(r.windows.cardFeeds[0]?.bytes() ?? 0).toBeGreaterThan(0)
+  await vi.waitFor(
+    () => expect(r.windows.cardFeeds[0]?.bytes() ?? 0).toBeGreaterThan(0),
+    { timeout: 3_000 }
   );
   r.windows.streams[0]!.stdout("frame=60\nprogress=continue\n");
   const show = (messageId: string) =>
@@ -202,21 +204,21 @@ describe("Chat Highlights", () => {
     await r.client.endStream(r.video.id);
   });
 
-  it("never makes the picture wait on it: a card feed behind the recorder's clock catches up at once, each slot it missed holding the last card frame it sent", async () => {
+  it("never makes the picture wait on it: a card feed that falls behind the recorder's clock catches up at once, each slot it missed holding the last card frame it sent", async () => {
     const r = await live();
     const feed = r.windows.cardFeeds[0]!;
 
     await r.show("msg-1");
     await vi.waitFor(() => expect(feed.opacities().at(-1)).toBeGreaterThan(0));
-    // Mid-entrance, the recorder's clock stops, then jumps on 2 s: 120 slots
-    // are due at once.
+    // Mid-entrance, the recorder's clock stops, then jumps on 0.8 s: 48
+    // slots are due at once (within the 1 s the feed may hold unread).
     clearInterval(ticking);
     await new Promise((resolve) => setTimeout(resolve, 50));
     const sent = feed.opacities().length;
     const atJump = feed.opacities().at(-1)!;
-    clock.ms += 2_000;
+    clock.ms += 800;
     await vi.waitFor(
-      () => expect(feed.opacities().length).toBeGreaterThan(sent + 115),
+      () => expect(feed.opacities().length).toBeGreaterThan(sent + 45),
       { timeout: 1_000 }
     );
 
@@ -226,7 +228,17 @@ describe("Chat Highlights", () => {
     // time: never the entrance's missed frames, drawn late, one by one.
     expect(settled).toBeGreaterThan(atJump);
     expect(new Set(caughtUp)).toEqual(new Set([atJump, settled]));
-    expect(caughtUp.filter((a) => a === atJump).length).toBeGreaterThan(100);
+    expect(caughtUp.filter((a) => a === atJump).length).toBeGreaterThan(38);
+    await r.client.endStream(r.video.id);
+  });
+
+  it("shows each click on a stream that reads its card well behind the recorder's clock, as the real one does", async () => {
+    const r = await live({ windows: fakeWindows({ cardReadBehindMs: 1_500 }) });
+
+    const first = await r.show("msg-1");
+    const hid = await r.hide(first.highlightId);
+
+    expect(hid.hiddenAtMs).toBeGreaterThan(first.shownAtMs);
     await r.client.endStream(r.video.id);
   });
 

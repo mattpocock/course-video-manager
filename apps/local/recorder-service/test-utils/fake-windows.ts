@@ -307,6 +307,8 @@ export const fakeWindows = (
     stream?: "up" | "never";
     /** How long screens.ps1 takes to answer (PowerShell's start-up); default the next tick. */
     screensListingMs?: number;
+    /** The Live Stream reads its card feed this far behind, at 60 fps (`readCardFeed`). */
+    cardReadBehindMs?: number;
     /** The DELL as screens.ps1 lists it (default 1920x1080); null: not plugged in. */
     dell?: { width: number; height: number } | null;
     /**
@@ -494,7 +496,8 @@ export const fakeWindows = (
     if (tagged(l, STREAM_TAG)) {
       streams.push(p);
       p.stuck = o.stream === "never";
-      if (o.stream !== "never") cardFeeds.push(readCardFeed(p, l.args));
+      if (o.stream !== "never")
+        cardFeeds.push(readCardFeed(p, l.args, o.cardReadBehindMs));
       if (o.stream !== "never")
         setImmediate(() =>
           p.stderr(
