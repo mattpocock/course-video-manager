@@ -5,6 +5,7 @@
  *
  *   pnpm recorder:scorecard [--quick] [--out <dir>] [--long-take <s>]
  *     [--cycles <n>] [--fault-repeats <n>] [--stream-take <s>] [--keep-footage]
+ *     [--card-server-stall]
  *     [--only <scenario,…>]   (idle, longTake, previewKill, eventLogFailure,
  *                              streamed, cycles, crash; the rest read
  *                              unmeasured)
@@ -61,6 +62,8 @@ const longTakeSeconds = Number(flag("--long-take") ?? (quick ? 60 : 600));
 const cycleCount = Number(flag("--cycles") ?? (quick ? 10 : 50));
 const faultRepeats = Number(flag("--fault-repeats") ?? (quick ? 3 : 5));
 const streamTakeSeconds = Number(flag("--stream-take") ?? (quick ? 60 : 300));
+/** Stall the card server 8 s mid-take (`card-checks.ts`): a fault, like the kill. */
+const cardServerStalls = args.includes("--card-server-stall");
 const keepFootage = args.includes("--keep-footage");
 /** Only these scenarios run (to prove one fix); unset, all of them. */
 const only = flag("--only")?.split(",").filter(Boolean);
@@ -243,7 +246,13 @@ const main = async () => {
     ["eventLogFailure", () => eventLogFailure(ctx)],
     [
       "streamed",
-      () => streamed(ctx, streamTakeSeconds, sinkPort, cardChecks(ctx)),
+      () =>
+        streamed(
+          ctx,
+          streamTakeSeconds,
+          sinkPort,
+          cardChecks(ctx, { stall: cardServerStalls })
+        ),
     ],
     ["cycles", () => cycles(ctx, cycleCount)],
     [

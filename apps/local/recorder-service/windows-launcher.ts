@@ -42,7 +42,8 @@ const OVERLAY_RENDERER = path.resolve(
 const toWindowsPath = (wslPath: string) =>
   execFileSync("wslpath", ["-w", wslPath], { encoding: "utf8" }).trim();
 
-const command = (
+/** What `launch` runs: the program, its arguments and its folder. */
+export const launchCommand = (
   launch: Launch
 ): { file: string; args: string[]; cwd: string } => {
   switch (launch.tool) {
@@ -102,9 +103,9 @@ const failedToStart = (message: string): LaunchedProcess => {
 };
 
 export const windowsLauncher: Launcher = (launch) => {
-  let cmd: ReturnType<typeof command>;
+  let cmd: ReturnType<typeof launchCommand>;
   try {
-    cmd = command(launch);
+    cmd = launchCommand(launch);
   } catch (e) {
     return failedToStart(e instanceof Error ? e.message : String(e));
   }

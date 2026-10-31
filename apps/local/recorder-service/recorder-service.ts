@@ -382,6 +382,7 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
     state: () => state,
     capture: () => camera?.capture(),
     screenPreviewOnNvenc: () => encoders.get("screen") === "nvenc",
+    screenRefusal: () => screenSide.landscapeRefusal(),
     metering: () => meter.running(),
     gate: async (c) => (await devices.forRecord(c, o.now)).calibration,
     relayFree: () => stopping.relayFree(),

@@ -54,7 +54,7 @@ const statusFrom = (
     .catch(() => null);
 
 /** Whether -progress counted from 0 again between `from` and `to`: a new stream process. */
-const relaunchedBetween = (
+export const relaunchedBetween = (
   samples: readonly ProgressSample[],
   from: number,
   to: number

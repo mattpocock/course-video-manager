@@ -27,12 +27,28 @@ export const CARD_CANVAS = { width: 736, height: 344 } as const;
 /** How long `quit` gets before it is killed. */
 const QUIT_MS = 5_000;
 
+/**
+ * How long a card's still may take, from its request (once the card server
+ * is ready): about 0.5 s warm, so one this late has stalled. Its click is
+ * refused, and the stalled card server is killed and a fresh one warmed, so
+ * the next click is drawn. The stream never waits on it either way.
+ */
+export const CARD_ANSWER_MS = 3_000;
+
+/** Why a click was refused when its still came too late. */
+export const cardServerStalled = (ms: number) =>
+  `The card server did not draw the card within ${ms / 1000} s; a fresh one is starting.`;
+
 type Reply =
   | { type: "ready"; width: number; height: number; warmRenderMs: number }
   | { type: "card"; id: string; png: string; renderMs: number }
   | { type: "error"; id: string | null; message: string };
 
-export const createCardServer = (o: { launch: Launcher }) => {
+export const createCardServer = (o: {
+  launch: Launcher;
+  /** `CARD_ANSWER_MS` on the rig. */
+  answerMs: number;
+}) => {
   let running:
     | {
         process: LaunchedProcess;
@@ -114,11 +130,25 @@ export const createCardServer = (o: { launch: Launcher }) => {
       await self.ready;
       asked += 1;
       const id = String(asked);
-      const reply = await new Promise<Reply>((resolve) => {
+      let overdue: ReturnType<typeof setTimeout> | undefined;
+      const reply = await new Promise<Reply | undefined>((resolve) => {
         self.answers.set(id, resolve);
+        overdue = setTimeout(() => resolve(undefined), o.answerMs);
         self.process.writeStdin(`${JSON.stringify({ id, ...card })}\n`);
       });
+      clearTimeout(overdue);
       self.answers.delete(id);
+      if (!reply) {
+        console.error(
+          `recorder: the card server did not answer within ${o.answerMs} ms; starting a fresh one`
+        );
+        if (running === self) {
+          running = undefined;
+          self.process.kill();
+          start();
+        }
+        throw new Error(cardServerStalled(o.answerMs));
+      }
       if (reply.type === "error") throw new Error(reply.message);
       if (reply.type !== "card")
         throw new Error("The card server answered no card.");

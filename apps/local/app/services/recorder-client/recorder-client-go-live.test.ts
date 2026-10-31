@@ -190,6 +190,21 @@ describe("Go Live and End Stream", () => {
     expect(reasonsOf(answer)).toEqual([GO_LIVE_REFUSALS.short]);
   });
 
+  it("refuses up front when the DELL can't be recorded: before arming the streamed writer or launching the stream", async () => {
+    const r = await ready({ windows: fakeWindows({ dell: null }) });
+
+    const answer = await r.goLive();
+
+    if (Either.isRight(answer)) throw new Error("Go Live was let through");
+    expect(answer.left.message).toBe(
+      "No screen named DELL U2424H. Found: LG HDR QHD"
+    );
+    expect(r.windows.launched.some(isStreamedWriter)).toBe(false);
+    expect(r.windows.launched.some(isStream)).toBe(false);
+    expect(r.windows.cardServers).toHaveLength(0);
+    expect(r.heard.map((m) => m.type)).not.toContain("recording-started");
+  });
+
   it("refuses while the screen preview has fallen back to the CPU encoder", async () => {
     const r = await ready({ windows: fakeWindows({ nvencBusy: true }) });
 

@@ -6,7 +6,8 @@ import {
 } from "../../recorder-service/windows-clock";
 import type { Launcher } from "../../recorder-service/launcher";
 import { STREAM_TAG } from "../../recorder-service/stream-args";
-import { syntheticLauncher } from "./synthetic-launcher";
+import { stallCardServer, syntheticLauncher } from "./synthetic-launcher";
+import { LIVE_STREAM_SETTINGS } from "../../recorder-service/go-live";
 import { leastDelayedClock, onlyToSink } from "./stream-sink";
 import { guardWindows } from "../windows-guard";
 import { useGuard } from "./windows";
@@ -62,6 +63,14 @@ process.stdout.on("error", () => {});
 process.stderr.on("error", () => {});
 
 const synthetic = syntheticLauncher({ marker });
+// The scorecard stalls the card server mid-take (`card-checks.ts`).
+process.on("message", (m: { type?: string; ms?: number }) => {
+  if (m.type === "stall-card-server" && m.ms !== undefined)
+    process.send?.({
+      type: "card-server-stalled",
+      stalled: stallCardServer(m.ms),
+    });
+});
 const launch: Launcher = onlyToSink((l) => {
   const p = synthetic(l);
   if (l.tool === "ffmpeg" && l.args.includes(`comment=${STREAM_TAG}`))
@@ -95,7 +104,9 @@ const windowsNow = () => ticks.now(performance.now());
 const service = await startRecorderService({
   port: 0,
   launch,
-  streamIngest,
+  ...LIVE_STREAM_SETTINGS,
+  // None (the crash restart): `onlyToSink` lets no stream start.
+  streamIngest: streamIngest ?? LIVE_STREAM_SETTINGS.streamIngest,
   now: clock.now,
   stateDir,
   wakeSpacedesk: () =>

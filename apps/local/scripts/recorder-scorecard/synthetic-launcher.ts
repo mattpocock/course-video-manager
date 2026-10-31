@@ -3,9 +3,10 @@ import type {
   LaunchedProcess,
   Launcher,
 } from "../../recorder-service/launcher";
+import { spawn, type ChildProcess } from "node:child_process";
 import {
   findFfmpegExe,
-  windowsLauncher,
+  launchCommand,
 } from "../../recorder-service/windows-launcher";
 import {
   CAMERA_SOURCE,
@@ -213,6 +214,56 @@ const idleProcess = (
   };
 };
 
+/** Each card server the scorecard's service started, newest last. */
+const cardServers: ChildProcess[] = [];
+
+/**
+ * The real card server (a Node process in WSL, not a Windows exe), kept so
+ * the scorecard can stall it mid-take (`stallCardServer`).
+ */
+const cardServerProcess = (launch: Launch): LaunchedProcess => {
+  const cmd = launchCommand(launch);
+  const child = spawn(cmd.file, cmd.args, {
+    cwd: cmd.cwd,
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  cardServers.push(child);
+  const exited = new Promise<number | null>((resolve) => {
+    child.once("close", (code) => resolve(code));
+    child.once("error", () => resolve(null));
+  });
+  child.stdin.on("error", () => {});
+  const listen =
+    (stream: NodeJS.ReadableStream) => (l: (chunk: string) => void) =>
+      void stream.on("data", (d: Buffer) => l(d.toString()));
+  return {
+    onStdout: listen(child.stdout),
+    onStderr: listen(child.stderr),
+    writeStdin: (text) => {
+      if (child.exitCode === null) child.stdin.write(text);
+    },
+    exited,
+    kill: () => {
+      if (child.exitCode === null) child.kill("SIGKILL");
+    },
+  };
+};
+
+/**
+ * Stops the running card server dead for `ms` (SIGSTOP, then SIGCONT), as
+ * one hung mid-render would be. False if none is running.
+ */
+export const stallCardServer = (ms: number) => {
+  const child = cardServers.findLast(
+    (c) => c.exitCode === null && c.signalCode === null
+  );
+  if (!child?.kill("SIGSTOP")) return false;
+  setTimeout(() => {
+    if (child.exitCode === null) child.kill("SIGCONT");
+  }, ms);
+  return true;
+};
+
 export const syntheticLauncher = (o: {
   marker: string;
   /** Each ffmpeg.exe started, with its (rewritten) arguments. */
@@ -230,8 +281,7 @@ export const syntheticLauncher = (o: {
         return idleProcess(exe, args, launch.cwd);
       }
       case "card-server":
-        // The real card server: a Node process in WSL, not a Windows exe.
-        return windowsLauncher(launch);
+        return cardServerProcess(launch);
       case "nvidia-smi":
         return idleProcess(
           "C:\\Windows\\System32\\nvidia-smi.exe",

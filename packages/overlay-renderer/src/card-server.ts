@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import readline from "node:readline";
@@ -10,11 +12,12 @@ import {
   selectComposition,
 } from "@remotion/renderer";
 import { enableTailwind } from "@remotion/tailwind-v4";
-import { z } from "zod";
+import { CHAT_HIGHLIGHT_COMPOSITION_ID } from "./chat-highlight-card";
 import {
-  CHAT_HIGHLIGHT_COMPOSITION_ID,
-  chatHighlightCardSchema,
-} from "./chat-highlight-card";
+  parseCardServerArgs,
+  serveCardRequests,
+  type CardServerReply,
+} from "./card-server-protocol";
 
 const packageRoot = path.dirname(fileURLToPath(import.meta.url)) + "/..";
 const entryPoint = path.join(packageRoot, "remotion", "card-server-index.ts");
@@ -23,7 +26,7 @@ const publicDir = path.join(packageRoot, "public");
 const USAGE = `Serve Chat Highlight card stills, one PNG per request.
 
 Usage:
-  card-server [--frame-width <px>]
+  card-server [--frame-width <px>] [--prepare]
 
 Starts once: bundles the card, opens one headless Chromium with software GL,
 renders a warm-up card, then prints a ready line. After that, every line on
@@ -33,6 +36,8 @@ order. Closing stdin closes Chromium and exits.
 Options:
   --frame-width <px>  The stream's frame width (default 1920). The card scales
                       by frameWidth / 1920.
+  --prepare           Bundle the card into its cache, then exit (run by
+                      browser:ensure, so Go Live never waits on webpack).
   -h, --help          Show this help.
 
 stdout lines (JSON):
@@ -54,39 +59,70 @@ line's fixed size. The card sits at the canvas's bottom left.`;
 export const BROWSER_MISSING =
   "Chrome Headless Shell is not downloaded: run `pnpm --filter @cvm/overlay-renderer browser:ensure` once, online.";
 
-const requestSchema = chatHighlightCardSchema.extend({ id: z.string() });
-
 /** The warm-up card: loads the fonts and the page before Matt's first click. */
 const WARM_UP = { author: "@warm_up", text: "Warming up the card server." };
 
-const parseArgs = (argv: string[]) => {
-  const args = { frameWidth: 1920, help: false };
-  for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i];
-    switch (arg) {
-      case "--frame-width":
-        args.frameWidth = Number(argv[++i]);
-        if (!Number.isFinite(args.frameWidth) || args.frameWidth <= 0) {
-          throw new Error("--frame-width must be a positive number.");
-        }
-        break;
-      case "-h":
-      case "--help":
-        args.help = true;
-        break;
-      default:
-        throw new Error(`Unknown argument: ${arg}`);
-    }
+/** Every file the card's bundle is built from: a change to any makes a new bundle. */
+const BUNDLE_INPUTS = [
+  "remotion",
+  "src",
+  "public",
+  "package.json",
+  "postcss.config.mjs",
+];
+
+const filesUnder = (p: string): string[] =>
+  !fs.existsSync(p)
+    ? []
+    : fs.statSync(p).isDirectory()
+      ? fs
+          .readdirSync(p)
+          .sort()
+          .flatMap((name) => filesUnder(path.join(p, name)))
+      : [p];
+
+/**
+ * The card's webpack bundle, cached by a hash of what it is built from: a
+ * bundle takes seconds of CPU, so it is built once (`--prepare`, from
+ * `browser:ensure`) and every start after reuses it (#2445 review: the
+ * first click must land within a second of going live).
+ */
+const cachedBundle = async () => {
+  const hash = createHash("sha256");
+  for (const file of BUNDLE_INPUTS.flatMap((p) =>
+    filesUnder(path.join(packageRoot, p))
+  )) {
+    hash.update(path.relative(packageRoot, file));
+    hash.update(fs.readFileSync(file));
   }
-  return args;
+  const outDir = path.join(
+    packageRoot,
+    "node_modules/.cache/card-server-bundle",
+    hash.digest("hex").slice(0, 16)
+  );
+  if (fs.existsSync(path.join(outDir, "index.html"))) return outDir;
+  console.error(
+    "card server: bundling the card (its first start since a change)"
+  );
+  // Built beside, then moved in: a bundle cut short is never reused.
+  const building = `${outDir}.building-${process.pid}`;
+  await bundle({
+    entryPoint,
+    webpackOverride: enableTailwind,
+    publicDir,
+    outDir: building,
+  });
+  fs.rmSync(outDir, { recursive: true, force: true });
+  fs.renameSync(building, outDir);
+  return outDir;
 };
 
-const reply = (line: Record<string, unknown>) => {
+const reply = (line: CardServerReply) => {
   process.stdout.write(JSON.stringify(line) + "\n");
 };
 
 export const main = async (argv: string[]): Promise<void> => {
-  const args = parseArgs(argv);
+  const args = parseCardServerArgs(argv);
   if (args.help) {
     process.stdout.write(USAGE + "\n");
     return;
@@ -114,11 +150,8 @@ export const main = async (argv: string[]): Promise<void> => {
     },
   });
 
-  const serveUrl = await bundle({
-    entryPoint,
-    webpackOverride: enableTailwind,
-    publicDir,
-  });
+  const serveUrl = await cachedBundle();
+  if (args.prepare) return;
 
   // Software GL (ANGLE on SwiftShader): the card is a still of a few divs, and
   // the GPU belongs to the stream's NVENC and the screen recorder's ddagrab.
@@ -157,49 +190,19 @@ export const main = async (argv: string[]): Promise<void> => {
   await render(WARM_UP);
   const warmRenderMs = Math.round(performance.now() - warmStarted);
 
-  reply({
-    type: "ready",
-    width: composition.width,
-    height: composition.height,
-    startMs: Math.round(performance.now() - started),
-    warmRenderMs,
-  });
-
-  const answer = async (line: string) => {
-    let id: string | null = null;
-    try {
-      const request = requestSchema.parse(JSON.parse(line));
-      id = request.id;
-      const renderStarted = performance.now();
-      const png = await render(request);
-      reply({
-        type: "card",
-        id,
-        width: composition.width,
-        height: composition.height,
-        renderMs: Math.round(performance.now() - renderStarted),
-        png: png.toString("base64"),
-      });
-    } catch (error) {
-      reply({
-        type: "error",
-        id,
-        message: error instanceof Error ? error.message : String(error),
-      });
-    }
-  };
-
-  // One render at a time, in arrival order: a burst of clicks queues rather
-  // than opening several pages at once.
-  let queue = Promise.resolve();
   const lines = readline.createInterface({ input: process.stdin });
-  lines.on("line", (line) => {
-    if (line.trim() === "") return;
-    // A parent that cannot close our stdin (the recorder's launcher) says so.
-    if (line.trim() === "quit") return void lines.close();
-    queue = queue.then(() => answer(line));
+  await serveCardRequests({
+    lines,
+    ready: {
+      width: composition.width,
+      height: composition.height,
+      startMs: Math.round(performance.now() - started),
+      warmRenderMs,
+    },
+    render,
+    reply,
+    now: () => performance.now(),
   });
-  await new Promise<void>((resolve) => lines.once("close", resolve));
-  await queue;
+  lines.close();
   await browser.close({ silent: true });
 };

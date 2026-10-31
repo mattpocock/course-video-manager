@@ -53,6 +53,7 @@ export const playCardServer = (p: FakeProcess) => {
     for (const line of text.split("\n").filter(Boolean)) {
       if (line === "quit") return void setImmediate(() => p.exit(0));
       const { id } = JSON.parse(line) as { id: string };
+      if (p.stalled) continue;
       setImmediate(() =>
         say({ type: "card", id, ...CARD_CANVAS, renderMs: 1, png })
       );
@@ -63,17 +64,62 @@ export const playCardServer = (p: FakeProcess) => {
 /**
  * The Live Stream reading its card feed, as ffmpeg's rawvideo input does: it
  * connects to the port in its args and reads every frame, until it exits.
- * `bytes()`: how much it has read; `cut()`: the connection dropped, as a
- * card feed that died would leave it.
+ * `bytes()`: how much it has read; `opacities()`: each whole frame's card,
+ * as the sum of its alpha plane (0: none); `cut()`: the connection dropped,
+ * as a card feed that died would leave it.
  */
-export const readCardFeed = (p: FakeProcess, args: readonly string[]) => {
+export const readCardFeed = (
+  p: FakeProcess,
+  args: readonly string[],
+  /**
+   * Reads one frame each 1/60 s once this long has passed, so it stays this
+   * far behind, as the real stream does (its picture lags the take ~1.4 s).
+   * Absent: it reads whatever arrives, at once.
+   */
+  behindMs?: number
+) => {
   const at = args.indexOf("rawvideo");
   const input = args.slice(at).find((a) => a.startsWith("tcp://"));
+  const [w, h] = (args[args.indexOf("-video_size", at) + 1] ?? "0x0")
+    .split("x")
+    .map(Number) as [number, number];
+  const frameBytes = w * h * 2.5;
   let bytes = 0;
-  if (at === -1 || !input) return { bytes: () => bytes, cut: () => {} };
+  const opacities: number[] = [];
+  const reading = { bytes: () => bytes, opacities: () => opacities };
+  if (at === -1 || !input) return { ...reading, cut: () => {} };
+  let partial = Buffer.alloc(0);
   const socket = net.connect(Number(new URL(input).port), "127.0.0.1");
-  socket.on("data", (d: Buffer) => (bytes += d.length));
+  const took = (d: Buffer) => {
+    bytes += d.length;
+    partial = Buffer.concat([partial, d]);
+    while (partial.length >= frameBytes) {
+      let alpha = 0;
+      for (let i = w * h * 1.5; i < frameBytes; i++) alpha += partial[i]!;
+      opacities.push(alpha);
+      partial = partial.subarray(frameBytes);
+    }
+  };
+  if (behindMs === undefined) socket.on("data", took);
+  else {
+    socket.pause();
+    const started = performance.now();
+    let read = 0;
+    const pace = setInterval(() => {
+      const due = Math.floor(
+        ((performance.now() - started - behindMs) * 60) / 1000
+      );
+      for (
+        let d: Buffer | null;
+        read < due && (d = socket.read(frameBytes));
+        read++
+      )
+        took(d);
+    }, 5);
+    void p.exited.then(() => clearInterval(pace));
+    socket.on("close", () => clearInterval(pace));
+  }
   socket.on("error", () => {});
   void p.exited.then(() => socket.destroy());
-  return { bytes: () => bytes, cut: () => void socket.destroy() };
+  return { ...reading, cut: () => void socket.destroy() };
 };

@@ -171,6 +171,7 @@ export const ready = async (
     windows?: ReturnType<typeof fakeWindows>;
     streamListenBoundMs?: number;
     streamStallMs?: number;
+    cardAnswerMs?: number;
     format?: "landscape" | "short";
   } = {}
 ) => {
@@ -179,6 +180,7 @@ export const ready = async (
   const { port, busy } = await startService(stateDir, windows, {
     streamListenBoundMs: o.streamListenBoundMs,
     streamStallMs: o.streamStallMs,
+    cardAnswerMs: o.cardAnswerMs,
   });
   const client = connectClient(port);
   await freshCalibration();

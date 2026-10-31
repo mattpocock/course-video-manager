@@ -31,6 +31,8 @@ export type ServiceProcess = {
   onStreamProgress: (
     listener: (chunk: string, windowsMs: number | undefined) => void
   ) => () => void;
+  /** Stops its card server dead for `ms`; false if none was running. */
+  stallCardServer: (ms: number) => Promise<boolean>;
 };
 
 export const startService = (o: {
@@ -94,6 +96,17 @@ export const startService = (o: {
             child.on("message", on);
             return () => void child.off("message", on);
           },
+          stallCardServer: (ms) =>
+            new Promise<boolean>((resolve) => {
+              const on = (m: unknown) => {
+                const msg = m as { type?: string; stalled?: boolean };
+                if (msg.type !== "card-server-stalled") return;
+                child.off("message", on);
+                resolve(msg.stalled === true);
+              };
+              child.on("message", on);
+              child.send({ type: "stall-card-server", ms });
+            }),
         });
       }
     };

@@ -26,11 +26,18 @@ export const CARD_CLICKS = 20;
 const CLICK_GAP_MS = 1_500;
 
 /**
- * Before the first click: the card server starts once the stream is live
- * (`chat-highlights.ts`) and takes a few seconds to warm. A click sooner
- * waits for it (about 3 s in the first runs), as Matt's would.
+ * Before the first click: none. The card server warms from Go Live
+ * (`chat-highlights.ts`), so the first click, as soon as the stream is
+ * live, must land within the second too (#2445 review).
  */
-const WARM_UP_MS = 10_000;
+const WARM_UP_MS = 0;
+
+/**
+ * The card server stalled mid-take (#2445 review): longer than the stream's
+ * own stall bound (`STREAM_STALL_MS`, 5 s) and a card's (`CARD_ANSWER_MS`,
+ * 3 s), so a stream that waited on it would be relaunched.
+ */
+const CARD_SERVER_STALL_MS = 8_000;
 
 type Edge = ChatHighlightEvent;
 
@@ -41,45 +48,89 @@ type Edge = ChatHighlightEvent;
 const script = (i: number): "show" | "hide" =>
   ["show", "hide", "show", "show", "hide"][i % 5] as "show" | "hide";
 
+const isEdge = (m: RecorderMessage): m is Extract<RecorderMessage, Edge> =>
+  m.type === "chat-highlight-shown" || m.type === "chat-highlight-hidden";
+
+/** One click on fake message `i`: every edge it logged, or why it was refused. */
+const click = async (ctx: Ctx, i: number, showing: string | undefined) => {
+  const id = showing ?? randomUUID();
+  const sent = ctx.client.send(
+    showing
+      ? { type: "hide-highlight", highlightId: id }
+      : {
+          type: "show-highlight",
+          highlightId: id,
+          broadcastId: "scorecard-broadcast",
+          messageId: `scorecard-message-${i}`,
+          author: `@fake_viewer_${i}`,
+          text: `Fake question ${i}: does the card land smoothly?`,
+        }
+  );
+  const edge = showing ? "chat-highlight-hidden" : "chat-highlight-shown";
+  const answer = await ctx.client.waitFor(
+    (m) => (m.type === edge && m.highlightId === id) || m.type === "refused",
+    { from: sent.from, timeoutMs: 30_000, what: `card click ${i}` }
+  );
+  const edges = ctx.client.received
+    .slice(sent.from)
+    .map((r) => r.message)
+    .filter(isEdge);
+  return {
+    id,
+    edges,
+    afterMs: Math.round(answer.at - sent.at),
+    refused:
+      answer.message.type === "refused" ? answer.message.message : undefined,
+  };
+};
+
 /** The clicks: each edge the service logged for them, in order. */
 export const cardClicks = async (ctx: Ctx) => {
   const edges: Edge[] = [];
-  const isEdge = (m: RecorderMessage) =>
-    m.type === "chat-highlight-shown" || m.type === "chat-highlight-hidden";
   let showing: string | undefined;
   await hold(ctx, WARM_UP_MS);
   for (let i = 0; i < CARD_CLICKS; i++) {
     const show = script(i) === "show" || !showing;
-    const id = show ? randomUUID() : showing!;
-    const sent = ctx.client.send(
-      show
-        ? {
-            type: "show-highlight",
-            highlightId: id,
-            broadcastId: "scorecard-broadcast",
-            messageId: `scorecard-message-${i}`,
-            author: `@fake_viewer_${i}`,
-            text: `Fake question ${i}: does the card land smoothly?`,
-          }
-        : { type: "hide-highlight", highlightId: id }
-    );
-    const edge = show ? "chat-highlight-shown" : "chat-highlight-hidden";
-    const answer = await ctx.client.waitFor(
-      (m) => (m.type === edge && m.highlightId === id) || m.type === "refused",
-      { from: sent.from, timeoutMs: 30_000, what: `card click ${i}` }
-    );
-    if (answer.message.type === "refused")
-      throw new Error(`Card click ${i} refused: ${answer.message.message}`);
-    edges.push(
-      ...ctx.client.received
-        .slice(sent.from)
-        .map((r) => r.message)
-        .filter((m): m is Extract<RecorderMessage, Edge> => isEdge(m))
-    );
-    showing = show ? id : undefined;
+    const c = await click(ctx, i, show ? undefined : showing);
+    if (c.refused) throw new Error(`Card click ${i} refused: ${c.refused}`);
+    edges.push(...c.edges);
+    showing = show ? c.id : undefined;
     await hold(ctx, CLICK_GAP_MS);
   }
+  if (showing) edges.push(...(await click(ctx, CARD_CLICKS, showing)).edges);
   return edges;
+};
+
+/**
+ * The card server stalled (stopped dead) mid-take, with no card showing: a
+ * click during it is refused once its card is overdue, the stream goes on
+ * as it was (never relaunched), and a click after it is drawn by the fresh
+ * card server the service started.
+ */
+export const cardServerStall = async (
+  ctx: Ctx,
+  relaunchedBetween: (from: number, to: number) => boolean
+) => {
+  const from = performance.now();
+  ctx.log(`streamed: the card server stalls for ${CARD_SERVER_STALL_MS} ms`);
+  const stalled = await ctx.service.stallCardServer(CARD_SERVER_STALL_MS);
+  await hold(ctx, 500);
+  const during = await click(ctx, CARD_CLICKS + 1, undefined);
+  await hold(ctx, Math.max(0, from + CARD_SERVER_STALL_MS - performance.now()));
+  // The stream's own stall bound, past the stall's end.
+  await hold(ctx, 6_000);
+  const until = performance.now();
+  const after = await click(ctx, CARD_CLICKS + 2, undefined);
+  const hidden = after.refused
+    ? undefined
+    : await click(ctx, CARD_CLICKS + 3, after.id);
+  return {
+    stalled,
+    during: { refused: during.refused ?? null, afterMs: during.afterMs },
+    relaunched: relaunchedBetween(from, until),
+    edges: [...during.edges, ...after.edges, ...(hidden?.edges ?? [])],
+    afterRefused: after.refused ?? null,
+  };
 };
 
 /** The card's opacity on each frame of the sink's file, by its stream time. */
@@ -244,19 +295,44 @@ export const clickToScreenMs = (edges: readonly Edge[]) =>
  * `metrics.ts`).
  */
 export const cardChecks =
-  (ctx: Ctx) =>
-  async ({ sinkFile }: { sinkFile: string }) => {
-    const edges = await cardClicks(ctx);
+  (ctx: Ctx, o: { stall: boolean }) =>
+  async ({
+    sinkFile,
+    relaunchedBetween,
+  }: {
+    sinkFile: string;
+    relaunchedBetween: (from: number, to: number) => boolean;
+  }) => {
+    const clicked = await cardClicks(ctx);
+    // A fault, asked for (`--card-server-stall`): its restart's burst of WSL
+    // CPU can move the Idle-priority stream ffmpeg.exe's rate on this rig.
+    const stall = o.stall
+      ? await cardServerStall(ctx, relaunchedBetween)
+      : undefined;
+    const edges = [...clicked, ...(stall?.edges ?? [])];
     return async () => {
       const clicks = clickToScreenMs(edges);
       const opacity = await cardOpacityCheck(sinkFile, edges);
       ctx.measured.card_click_to_screen_ms =
         clicks.length > 0 ? Math.max(...clicks) : null;
       ctx.measured.card_opacity_wrong_frames = opacity.wrongWay + opacity.early;
+      ctx.measured.stream_unmoved_by_card_server_stall = !stall
+        ? null
+        : stall.stalled &&
+            stall.during.refused !== null &&
+            !stall.relaunched &&
+            stall.afterRefused === null
+          ? 1
+          : 0;
       ctx.details.chatHighlights = {
         clicks: CARD_CLICKS,
         edges: edges.length,
         clickToScreenMs: clicks.map(Math.round),
+        cardServerStall: stall && {
+          stalledMs: CARD_SERVER_STALL_MS,
+          ...stall,
+          edges: stall.edges.length,
+        },
         ...opacity,
       };
     };

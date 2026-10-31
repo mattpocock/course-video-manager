@@ -1,10 +1,20 @@
 import fs from "node:fs";
+import net from "node:net";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  onTestFinished,
+  vi,
+} from "vitest";
 import { Effect, Either } from "effect";
 import type { ChatSnapshot } from "@/features/streaming/broadcast-chat";
 import { CARD_BROWSER_MISSING } from "@/services/card-browser.server";
 import { clock } from "recorder-service/test-utils/service-harness";
+import { fakeWindows } from "recorder-service/test-utils/fake-windows";
 import { testDb } from "../clip-service-test-setup";
 import { ready, reasonsOf, setupGoLiveTests } from "./go-live-test-harness";
 import { hideChatHighlight, showChatHighlight } from "./chat-highlight.server";
@@ -46,16 +56,17 @@ const chat: ChatSnapshot = {
 };
 
 /** Live, with the stream reading its card feed. */
-const live = async () => {
-  const r = await ready();
+const live = async (o: Parameters<typeof ready>[0] = {}) => {
+  const r = await ready(o);
   expect(Either.isRight(await r.goLive())).toBe(true);
-  await vi.waitFor(() =>
-    expect(r.windows.cardFeeds[0]?.bytes() ?? 0).toBeGreaterThan(0)
+  // The card server warms from Go Live on, so a first click right after
+  // going live finds it ready (its start takes about a second).
+  expect(r.windows.cardServers).toHaveLength(1);
+  await vi.waitFor(
+    () => expect(r.windows.cardFeeds[0]?.bytes() ?? 0).toBeGreaterThan(0),
+    { timeout: 3_000 }
   );
-  // The card server starts once the stream pushes its first frames.
-  expect(r.windows.cardServers).toHaveLength(0);
   r.windows.streams[0]!.stdout("frame=60\nprogress=continue\n");
-  await vi.waitFor(() => expect(r.windows.cardServers).toHaveLength(1));
   const show = (messageId: string) =>
     Effect.runPromise(
       showChatHighlight({
@@ -160,10 +171,94 @@ describe("Chat Highlights", () => {
     await r.client.endStream(r.video.id);
   });
 
+  it("never holds the stream or the take on a card server that stops answering: its click is refused once the card is overdue, and a fresh card server draws the next", async () => {
+    const r = await live({ cardAnswerMs: 300, streamStallMs: 200 });
+    // ffmpeg's -progress, 20 times a second, as it goes on whatever its inputs do.
+    let frame = 60;
+    const progress = setInterval(
+      () =>
+        r.windows.streams[0]!.stdout(
+          `frame=${(frame += 3)}\nprogress=continue\n`
+        ),
+      50
+    );
+    onTestFinished(() => clearInterval(progress));
+    r.windows.cardServers[0]!.stalled = true;
+    const read = r.windows.cardFeeds[0]!.bytes();
+
+    await expect(r.show("msg-1")).rejects.toThrow(
+      /Chat Highlights are unavailable for now: The card server did not draw the card within 0.3 s; a fresh one is starting. The stream and the recording carry on./
+    );
+    // The stream read its card all the while, and was never launched again.
+    expect(r.windows.cardFeeds[0]!.bytes()).toBeGreaterThan(read);
+    expect(r.windows.streams).toHaveLength(1);
+    expect(r.windows.streams[0]!.running).toBe(true);
+    expect(r.windows.recorder("camera").running).toBe(true);
+    expect(r.windows.cardServers[0]!.running).toBe(false);
+
+    const shown = await r.show("msg-2");
+    expect(r.windows.cardServers).toHaveLength(2);
+    await vi.waitFor(async () =>
+      expect((await r.rows()).map((h) => h.id)).toEqual([shown.highlightId])
+    );
+    await r.client.endStream(r.video.id);
+  });
+
+  it("never makes the picture wait on it: a card feed that falls behind the recorder's clock catches up at once, each slot it missed holding the last card frame it sent", async () => {
+    const r = await live();
+    const feed = r.windows.cardFeeds[0]!;
+
+    await r.show("msg-1");
+    await vi.waitFor(() => expect(feed.opacities().at(-1)).toBeGreaterThan(0));
+    // Mid-entrance, the recorder's clock stops, then jumps on 0.8 s: 48
+    // slots are due at once (within the 1 s the feed may hold unread).
+    clearInterval(ticking);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const sent = feed.opacities().length;
+    const atJump = feed.opacities().at(-1)!;
+    clock.ms += 800;
+    await vi.waitFor(
+      () => expect(feed.opacities().length).toBeGreaterThan(sent + 45),
+      { timeout: 1_000 }
+    );
+
+    const caughtUp = feed.opacities().slice(sent);
+    const settled = caughtUp.at(-1)!;
+    // The frame on the picture at the jump, again, then the card at its own
+    // time: never the entrance's missed frames, drawn late, one by one.
+    expect(settled).toBeGreaterThan(atJump);
+    expect(new Set(caughtUp)).toEqual(new Set([atJump, settled]));
+    expect(caughtUp.filter((a) => a === atJump).length).toBeGreaterThan(38);
+    await r.client.endStream(r.video.id);
+  });
+
+  it("shows each click on a stream that reads its card well behind the recorder's clock, as the real one does", async () => {
+    const r = await live({ windows: fakeWindows({ cardReadBehindMs: 1_500 }) });
+
+    const first = await r.show("msg-1");
+    const hid = await r.hide(first.highlightId);
+
+    expect(hid.hiddenAtMs).toBeGreaterThan(first.shownAtMs);
+    await r.client.endStream(r.video.id);
+  });
+
   it("carries the card on to a relaunched stream process, on the same clock as its picture", async () => {
     const r = await live();
+    const cardPort = Number(
+      new URL(
+        r.windows.streams[0]!.launch.args.find(
+          (a) => a.startsWith("tcp://127.0.0.1:") && !a.includes("listen=1")
+        )!
+      ).port
+    );
 
     r.windows.streams[0]!.exit(1);
+    // An earlier connection still open when the relaunch connects (its
+    // close not yet heard): the relaunched process must get the card.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const lingering = net.connect(cardPort, "127.0.0.1");
+    lingering.on("error", () => {});
+    onTestFinished(() => void lingering.destroy());
     await vi.waitFor(() => expect(r.windows.streams).toHaveLength(2));
 
     // The relaunched picture starts where the feeds are; so does its card.
