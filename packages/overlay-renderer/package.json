@@ -1,26 +1,33 @@
 {
   "name": "@cvm/overlay-renderer",
   "version": "1.0.0",
-  "description": "Standalone Remotion renderer for CVM overlays \u2014 the subtitle + CTA caption overlay and AI Hero Definition Cards. Renders a transparent overlay at any resolution locally via @remotion/renderer (Chromium). No AWS/Lambda.",
+  "description": "Standalone Remotion renderer for CVM overlays — the subtitle + CTA caption overlay and AI Hero Definition Cards. Renders a transparent overlay at any resolution locally via @remotion/renderer (Chromium). No AWS/Lambda.",
   "private": true,
   "type": "module",
   "license": "UNLICENSED",
   "bin": {
-    "render-overlay": "./bin.mjs"
+    "render-overlay": "./bin.mjs",
+    "card-server": "./card-server.mjs"
   },
   "exports": {
     ".": "./src/render.ts",
     "./preview": "./src/preview.tsx",
-    "./props": "./src/props.ts"
+    "./props": "./src/props.ts",
+    "./definition-card-tokens": "./src/definition-card-tokens.ts",
+    "./card-server-protocol": "./src/card-server-protocol.ts"
   },
   "scripts": {
     "studio": "remotion studio remotion/index.ts",
+    "studio:card": "remotion studio remotion/card-server-index.ts",
     "render": "node bin.mjs",
+    "card-server": "node card-server.mjs",
+    "browser:ensure": "remotion browser ensure && node card-server.mjs --prepare",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@cvm/lucide-icons": "workspace:*",
+    "@fontsource-variable/dm-sans": "5.3.0",
     "@remotion/bundler": "4.0.347",
     "@remotion/cli": "4.0.347",
     "@remotion/google-fonts": "4.0.347",

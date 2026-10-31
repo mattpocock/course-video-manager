@@ -11,14 +11,20 @@ import {
 } from "remotion";
 import { loadFont } from "@remotion/google-fonts/DMSans";
 import type { DefinitionCard } from "../src/props";
+import {
+  ACCENT_BAR_WIDTH,
+  BODY_TYPE,
+  COLORS,
+  DESIGN_WIDTH,
+  RADIUS,
+  SHADOW,
+  TITLE_TYPE,
+} from "../src/definition-card-tokens";
 
-// DM Sans is AI Hero's brand typeface. Loaded through @remotion/google-fonts
-// (the same mechanism the subtitles use for Fira Code) so the render never
-// depends on a system-installed font.
+// DM Sans is AI Hero's brand typeface (`FONT_FAMILY` in the tokens). Loaded
+// through @remotion/google-fonts (the same mechanism the subtitles use for
+// Fira Code) so the render never depends on a system-installed font.
 const { fontFamily } = loadFont();
-
-/** The reference frame the card's pixel sizes are authored against. */
-const DESIGN_WIDTH = 1920;
 
 /** The entrance: a short rise, straight up from the bottom, with a small scale. */
 const ENTER_DURATION = 18;
@@ -44,23 +50,10 @@ const UNDERLINE_ERASE = UNDERLINE_DRAW;
 const UNDERLINE_HEIGHT = 4;
 /** The gap between the title's baseline box and the rule. */
 const UNDERLINE_GAP = 5;
-/** Amber-400. Reads as the brand accent on the dark panel same as it did on white. */
-const UNDERLINE_COLOR = "#FBBF24";
 
 /** The brand mark, sized against the 36 px title it stands beside. */
 const LOGO_SIZE = 40;
 const LOGO_OFFSET = 3;
-
-/**
- * The panel's own ground. Tldraw's dark canvas, `hsl(240, 5%, 6.5%)` — the
- * same near-black the Bullet Panel's ground and the course diagrams use, so
- * every dark surface in an Overlay shares one colour rather than each
- * picking a near-black of its own.
- */
-const PANEL_COLOR = "#101011";
-/** Stone-300: one step back from the title's white, the same pairing the
- *  Bullet Panel's body text uses against its own dark ground. */
-const DESCRIPTION_COLOR = "#D6D3D1";
 
 /**
  * The AI-Hero-branded term Definition Card: a `title` + `description` pair
@@ -137,31 +130,29 @@ const Card = ({ card }: { card: DefinitionCard }) => {
       className="flex flex-col justify-end items-start"
       style={{ fontFamily, padding: 96 * scale }}
     >
-      {/* The shadow sits on a wrapper as a drop-shadow, not a box-shadow on
-          the panel: a box-shadow lies outside the panel's border box, so the
-          panel's own overflow clip would cut it off. */}
+      {/* The shadow sits on a wrapper as a drop-shadow (see `SHADOW`). */}
       <div
         style={{
           opacity: enter * (1 - exit),
           transform: `translateY(${y * scale}px) scale(${size})`,
           // Straight up from the bottom edge — not from a corner.
           transformOrigin: "bottom center",
-          filter: `drop-shadow(0 ${10 * scale}px ${24 * scale}px rgba(28,25,23,0.3))`,
+          filter: `drop-shadow(0 ${SHADOW.offsetY * scale}px ${
+            SHADOW.blur * scale
+          }px ${SHADOW.color})`,
         }}
       >
         <div
           className="relative flex items-start overflow-hidden"
           style={{
-            background: PANEL_COLOR,
+            background: COLORS.panel,
             gap: 32 * scale,
             padding: 40 * scale,
-            paddingLeft: (40 + 8) * scale,
+            paddingLeft: (40 + ACCENT_BAR_WIDTH) * scale,
             maxWidth: 760 * scale,
-            // The left corners are barely rounded, so the amber accent reads as
-            // a straight bar rather than a crescent.
-            borderRadius: `${8 * scale}px ${24 * scale}px ${24 * scale}px ${
-              8 * scale
-            }px`,
+            borderRadius: `${RADIUS.left * scale}px ${RADIUS.right * scale}px ${
+              RADIUS.right * scale
+            }px ${RADIUS.left * scale}px`,
           }}
         >
           <AccentBar scale={scale} />
@@ -183,9 +174,12 @@ const Card = ({ card }: { card: DefinitionCard }) => {
                 text, not as wide as the column. A column-wide rule reads as a
                 divider instead of an underline. */}
             <p
-              className="relative inline-block font-bold leading-tight text-white"
+              className="relative inline-block"
               style={{
-                fontSize: 36 * scale,
+                fontSize: TITLE_TYPE.fontSize * scale,
+                fontWeight: TITLE_TYPE.fontWeight,
+                lineHeight: TITLE_TYPE.lineHeight,
+                color: COLORS.title,
                 paddingBottom: UNDERLINE_GAP * scale,
               }}
             >
@@ -196,15 +190,19 @@ const Card = ({ card }: { card: DefinitionCard }) => {
                   width: "100%",
                   height: UNDERLINE_HEIGHT * scale,
                   borderRadius: UNDERLINE_HEIGHT * scale,
-                  background: UNDERLINE_COLOR,
+                  background: COLORS.underline,
                   transform: `scaleX(${underline})`,
                   transformOrigin: erase > 0 ? "right" : "left",
                 }}
               />
             </p>
             <p
-              className="font-normal leading-snug"
-              style={{ fontSize: 26 * scale, color: DESCRIPTION_COLOR }}
+              style={{
+                fontSize: BODY_TYPE.fontSize * scale,
+                fontWeight: BODY_TYPE.fontWeight,
+                lineHeight: BODY_TYPE.lineHeight,
+                color: COLORS.body,
+              }}
             >
               {card.description}
             </p>
@@ -219,6 +217,6 @@ const Card = ({ card }: { card: DefinitionCard }) => {
 const AccentBar = ({ scale }: { scale: number }) => (
   <div
     className="absolute left-0 top-0 bottom-0"
-    style={{ width: 8 * scale, background: "#FDE68A" }}
+    style={{ width: ACCENT_BAR_WIDTH * scale, background: COLORS.accentBar }}
   />
 );

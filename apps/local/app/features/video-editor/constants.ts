@@ -9,3 +9,12 @@ export const BEAT_DURATION = 0.4;
  * the mic input level went up and preview became too loud.
  */
 export const PREVIEW_AUDIO_BOOST_DB = 12;
+/**
+ * Static gain (in dB) on the Live Stream's mic, after the Mic Offset and Mic
+ * EQ and before its limiter (`recorder-service/stream-args.ts`). The export's
+ * loudness target (−16 LUFS) minus a real take's typical integrated loudness
+ * (about −32 LUFS): the stream lands near the export without a loudness rider.
+ * Not `−16 − speechLufs`: AV Calibration's speech-only measure reads about
+ * 5 dB hotter than a whole take, so that would stream about 5 dB quiet.
+ */
+export const STREAM_GAIN_DB = 16;

@@ -13,6 +13,6 @@
     "resolveJsonModule": true,
     "types": ["node"]
   },
-  "include": ["src", "remotion", "tests", "bin.mjs"],
+  "include": ["src", "remotion", "tests", "bin.mjs", "card-server.mjs"],
   "exclude": ["node_modules", "remotion.config.ts"]
 }

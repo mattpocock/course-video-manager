@@ -139,6 +139,7 @@ describe("the recorder client, cut off mid-take", () => {
             ?.id,
         }),
         { type: "scene-changed", scene: "Camera" },
+        { type: "stream-changed", stream: { kind: "idle" } },
       ]);
 
       const replays = link.sent.filter((c) => c.type === "replay");

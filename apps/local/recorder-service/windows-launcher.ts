@@ -33,10 +33,17 @@ export const findFfmpegExe = (): string | undefined => {
     .find((exe) => fs.existsSync(exe));
 };
 
+/** The overlay renderer package: the card server runs from it, so Remotion's browser is its own. */
+const OVERLAY_RENDERER = path.resolve(
+  import.meta.dirname,
+  "../../../packages/overlay-renderer"
+);
+
 const toWindowsPath = (wslPath: string) =>
   execFileSync("wslpath", ["-w", wslPath], { encoding: "utf8" }).trim();
 
-const command = (
+/** What `launch` runs: the program, its arguments and its folder. */
+export const launchCommand = (
   launch: Launch
 ): { file: string; args: string[]; cwd: string } => {
   switch (launch.tool) {
@@ -67,6 +74,13 @@ const command = (
         ],
         cwd: "/mnt/c",
       };
+    case "card-server":
+      // Node in WSL, not a Windows exe; it lowers its own priority.
+      return {
+        file: process.execPath,
+        args: [path.join(OVERLAY_RENDERER, "card-server.mjs"), ...launch.args],
+        cwd: OVERLAY_RENDERER,
+      };
   }
 };
 
@@ -89,9 +103,9 @@ const failedToStart = (message: string): LaunchedProcess => {
 };
 
 export const windowsLauncher: Launcher = (launch) => {
-  let cmd: ReturnType<typeof command>;
+  let cmd: ReturnType<typeof launchCommand>;
   try {
-    cmd = command(launch);
+    cmd = launchCommand(launch);
   } catch (e) {
     return failedToStart(e instanceof Error ? e.message : String(e));
   }

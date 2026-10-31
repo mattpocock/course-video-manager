@@ -14,9 +14,9 @@ const ASK_EVERY_MS = 100;
  * THE ARMED WRITER IS READY (#2207, #2482) once it reads the relay AND its
  * filter graph is up. ffmpeg 8 builds the graph only at its first frames,
  * and until then drops every command it is sent, without a word: a T0 sent
- * the moment the relay opened (a writer armed at Record) was lost, and
- * camera.mkv and mic.mkv stayed empty for the whole take. So it is asked a
- * command that
+ * the moment the relay opened (a writer armed at Record, as Go Live's always
+ * is) was lost, and camera.mkv and mic.mkv stayed empty for the whole take,
+ * the Live Stream's camera feed with them. So it is asked a command that
  * changes nothing (`graphUpCommand`) until it answers. Rejects if it quits
  * first, with `why`.
  */

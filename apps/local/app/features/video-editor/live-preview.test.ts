@@ -26,6 +26,7 @@ const status = (reachable = true, recordingSessionId: string | null = null) =>
     starting: false,
     problem: null,
     recordingSessionId,
+    streamed: false,
     previews,
     still: "http://r/still",
   });

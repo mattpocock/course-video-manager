@@ -4,7 +4,11 @@ import {
   startWindowsClock,
   type ClockTicker,
 } from "../../recorder-service/windows-clock";
-import { syntheticLauncher } from "./synthetic-launcher";
+import type { Launcher } from "../../recorder-service/launcher";
+import { STREAM_TAG } from "../../recorder-service/stream-args";
+import { stallCardServer, syntheticLauncher } from "./synthetic-launcher";
+import { LIVE_STREAM_SETTINGS } from "../../recorder-service/go-live";
+import { leastDelayedClock, onlyToSink } from "./stream-sink";
 import { guardWindows } from "../windows-guard";
 import { useGuard } from "./windows";
 
@@ -13,13 +17,17 @@ import { useGuard } from "./windows";
  * runs it, on the scorecard's synthetic launcher, a free port and the run's
  * own state folder: so the scorecard can kill it mid-take and start it again.
  *
- *   node --import tsx service-child.ts <marker> <stateDir>
+ *   node --import tsx service-child.ts <marker> <stateDir> [<streamIngest>]
+ *
+ * A Live Stream may push only to `streamIngest`, the scorecard's local sink
+ * (`stream-sink.ts`); without one, no Live Stream starts. Its `-progress`
+ * goes to the scorecard over IPC as `{type: "stream-progress", chunk}`.
  *
  * Exits 3 (the guard's refusal) while anything records.
  *
  * Prints `SCORECARD-SERVICE-PORT <port>` once it listens.
  */
-const [marker, stateDir] = process.argv.slice(2);
+const [marker, stateDir, streamIngest] = process.argv.slice(2);
 if (!marker || !stateDir) {
   console.error("Usage: service-child.ts <marker> <stateDir>");
   process.exit(2);
@@ -54,10 +62,51 @@ const idleTicker = (): ClockTicker => {
 process.stdout.on("error", () => {});
 process.stderr.on("error", () => {});
 
-const clock = await startWindowsClock({ spawnTicker: idleTicker });
+const synthetic = syntheticLauncher({ marker });
+// The scorecard stalls the card server mid-take (`card-checks.ts`).
+process.on("message", (m: { type?: string; ms?: number }) => {
+  if (m.type === "stall-card-server" && m.ms !== undefined)
+    process.send?.({
+      type: "card-server-stalled",
+      stalled: stallCardServer(m.ms),
+    });
+});
+const launch: Launcher = onlyToSink((l) => {
+  const p = synthetic(l);
+  if (l.tool === "ffmpeg" && l.args.includes(`comment=${STREAM_TAG}`))
+    p.onStdout((chunk) => {
+      if (process.connected)
+        process.send?.({
+          type: "stream-progress",
+          chunk,
+          windowsMs: windowsNow(),
+        });
+    });
+  return p;
+}, streamIngest);
+
+/** The scorecard's own reading of the ticks, for the stream's rate (`leastDelayedClock`). */
+const ticks = leastDelayedClock();
+const clock = await startWindowsClock({
+  spawnTicker: () => {
+    const t = idleTicker();
+    t.onData((chunk) => {
+      // Whole lines only: a tick split across chunks is just missed.
+      const value = Number(chunk.split(/\r?\n/).slice(0, -1).at(-1));
+      if (Number.isFinite(value) && value > 0)
+        ticks.tick(value, performance.now());
+    });
+    return t;
+  },
+});
+/** The Windows clock now, as the least-delayed recent tick says. */
+const windowsNow = () => ticks.now(performance.now());
 const service = await startRecorderService({
   port: 0,
-  launch: syntheticLauncher({ marker }),
+  launch,
+  ...LIVE_STREAM_SETTINGS,
+  // None (the crash restart): `onlyToSink` lets no stream start.
+  streamIngest: streamIngest ?? LIVE_STREAM_SETTINGS.streamIngest,
   now: clock.now,
   stateDir,
   wakeSpacedesk: () =>

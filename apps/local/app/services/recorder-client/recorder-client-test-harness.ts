@@ -43,10 +43,11 @@ afterEach(() => {
 /** The recorder service on a scripted Windows (`fakeWindows`, never the real Spacedesk). */
 export const startService = async (
   stateDir = tmp(),
-  windows = fakeWindows()
+  windows = fakeWindows(),
+  o: Parameters<typeof start>[2] = {}
 ) => {
-  const { port } = await start(windows, stateDir);
-  return { windows, port, stateDir };
+  const { port, busy } = await start(windows, stateDir, o);
+  return { windows, port, stateDir, busy };
 };
 
 export type Ingest = RecorderClientOptions["ingest"];
@@ -127,9 +128,16 @@ export const connectClient = (
   ingest: Ingest = saveEvent,
   lastPassed: LastPassed = freshCalibration,
   keepWhisperWarm?: (ms: number) => void,
-  more: Pick<RecorderClientOptions, "launcher" | "idleMs"> = {}
+  more: Partial<
+    Pick<
+      RecorderClientOptions,
+      "launcher" | "idleMs" | "onLiveStreamChanged" | "onStreamedSessionEnded"
+    >
+  > = {}
 ) => {
   const client = createRecorderClient({
+    onLiveStreamChanged: () => {},
+    onStreamedSessionEnded: () => {},
     ...more,
     keepWhisperWarm,
     url: `ws://127.0.0.1:${port}`,

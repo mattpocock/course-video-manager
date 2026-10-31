@@ -26,6 +26,13 @@ export type ServiceProcess = {
   stop: () => Promise<void>;
   /** SIGKILL: as a crash would end it. */
   kill: () => Promise<void>;
+  /** Each chunk of the Live Stream process's `-progress`, as it comes. */
+  /** Each -progress chunk, and when it reached the service on the Windows clock. */
+  onStreamProgress: (
+    listener: (chunk: string, windowsMs: number | undefined) => void
+  ) => () => void;
+  /** Stops its card server dead for `ms`; false if none was running. */
+  stallCardServer: (ms: number) => Promise<boolean>;
 };
 
 export const startService = (o: {
@@ -33,11 +40,20 @@ export const startService = (o: {
   stateDir: string;
   /** Where its output is also appended. */
   logFile?: string;
+  /** The only place a Live Stream may push (the local sink); unset, none starts. */
+  streamIngest?: string;
 }) =>
   new Promise<ServiceProcess>((resolve, reject) => {
     const child = spawn(
       process.execPath,
-      ["--import", "tsx", CHILD, o.marker, o.stateDir],
+      [
+        "--import",
+        "tsx",
+        CHILD,
+        o.marker,
+        o.stateDir,
+        ...(o.streamIngest ? [o.streamIngest] : []),
+      ],
       {
         cwd: path.join(import.meta.dirname, "../.."),
         stdio: ["ignore", "pipe", "pipe", "ipc"],
@@ -67,6 +83,30 @@ export const startService = (o: {
             child.kill("SIGKILL");
             await exited;
           },
+          onStreamProgress: (listener) => {
+            const on = (m: unknown) => {
+              const msg = m as {
+                type?: string;
+                chunk?: string;
+                windowsMs?: number;
+              };
+              if (msg.type === "stream-progress" && msg.chunk)
+                listener(msg.chunk, msg.windowsMs);
+            };
+            child.on("message", on);
+            return () => void child.off("message", on);
+          },
+          stallCardServer: (ms) =>
+            new Promise<boolean>((resolve) => {
+              const on = (m: unknown) => {
+                const msg = m as { type?: string; stalled?: boolean };
+                if (msg.type !== "card-server-stalled") return;
+                child.off("message", on);
+                resolve(msg.stalled === true);
+              };
+              child.on("message", on);
+              child.send({ type: "stall-card-server", ms });
+            }),
         });
       }
     };

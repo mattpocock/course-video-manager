@@ -6,30 +6,28 @@ import {
 } from "recorder-service/protocol";
 import type { CvmRecorderMessage } from "@/features/video-editor/cvm-recorder-wire";
 import type { SilenceLength } from "@/silence-detection-constants";
-import type { LastPassedCalibration } from "@/av-calibration-constants";
 import type { Scene } from "@/packages/scene-layout";
 import type { VideoFormat } from "@/features/videos/video-format";
 import {
   cameraMessage,
-  sceneMessage,
-  screenMessage,
+  recorderStatus,
   serviceUrls,
+  WHILE_OPEN_MESSAGES,
+  type WhileOpenKind,
 } from "./editor-messages";
 import { helloProblem } from "./service-version";
-import type { AskEditor, IngestResult } from "./ingest.server";
+import type { IngestResult } from "./ingest.server";
 import { createTakePlacer, type EditorLeft } from "./take-placer";
 import { RecorderRefusedError, NOT_RUNNING } from "./recorder-command";
 import { commandWaiters } from "./command-waiters";
-import {
-  createServiceOnDemand,
-  RECORDER_IDLE_MS,
-  type RecorderServiceLauncher,
-} from "./service-on-demand";
+import { createServiceOnDemand, RECORDER_IDLE_MS } from "./service-on-demand";
 import { createRecorderEventSequencer, type SequencedEvent } from "./sequencer";
 import { meterRelay, isMeterMessage } from "./meter-relay";
 import { calibrationCommands } from "./calibration-commands";
+import { liveStreamCommands } from "./live-stream-commands";
 import { streamDeckPreparation } from "./stream-deck-prepare";
 import { watchRecorder } from "./recorder-watch";
+import type { RecorderClientOptions } from "./client-options";
 
 /**
  * THE RECORDER CLIENT: the app server's one WebSocket to the recorder service
@@ -42,17 +40,16 @@ import { watchRecorder } from "./recorder-watch";
  *
  * An event it could not save is not lost: the rest of that Recording Session
  * waits, and after a pause the whole of it is asked for again (saving is
- * idempotent, so what was saved stays saved), the pause doubling each time,
- * until `MAX_SAVE_RETRIES`; the next greeting from the recorder service tries
- * again after that.
+ * idempotent), the pause doubling each time, until `MAX_SAVE_RETRIES`; the
+ * next greeting from the recorder service tries again after that.
  *
  * Something listening (an editor, or an AV Calibration page's meter) is
  * also what starts the recorder service, when the client has a `launcher`
  * (`service-on-demand.ts`, ADR 0053), and its going what lets it idle out.
  *
  * An editor listening is what keeps the recorder open: the first editor on a
- * CVM recorder Video opens the recorder for it (which opens the Cam Link and
- * the previews), and once the last editor has gone, for longer than a page
+ * CVM recorder Video opens the recorder for it (the Cam Link and the
+ * previews), and once the last editor has gone, for longer than a page
  * reload takes, the recorder closes and lets the camera go. Several Videos
  * listening: the one most recently opened has it. A recording is never
  * closed this way; it closes once stopped, if nobody listens by then.
@@ -66,41 +63,7 @@ import { watchRecorder } from "./recorder-watch";
 /** How many times one event that will not save is asked for again. */
 export const MAX_SAVE_RETRIES = 5;
 
-export type RecorderClientOptions = {
-  url: string;
-  /** Saves one event; the client runs one at a time. */
-  ingest: (
-    event: SequencedEvent,
-    askEditor: AskEditor
-  ) => Promise<IngestResult>;
-  /** How long a save waits for an editor to say where (`placeTake`). */
-  placeTimeoutMs: number;
-  /**
-   * The Recording Sessions the database still has as recording, and those of
-   * `candidates` it has no row for. Each is replayed whenever the recorder
-   * service greets the client, so a start, stop or crash it missed (the app
-   * server was down) is caught up on.
-   */
-  unfinishedRecordingSessions: (candidates: string[]) => Promise<string[]>;
-  /** How long to wait before reconnecting to a recorder service that went away. */
-  reconnectMs: number;
-  /** How long a command may take to be carried out. */
-  commandTimeoutMs: number;
-  /** How long the recorder stays open after its last editor goes (a reload). */
-  closeGraceMs: number;
-  /** The pause before a Recording Session with an unsaved event is asked for again. */
-  retryMs: number;
-  /** The folder (WSL path) a Stream Deck Record's Recording Session goes in. */
-  folder: string;
-  /** What a Record goes by (ADR 0038): `lastPassedCalibration`. */
-  calibration: () => Promise<LastPassedCalibration | null>;
-  /** `whisper-warmth.ts` */
-  keepWhisperWarm?: (ms: number) => void;
-  /** Starts the service on demand. Absent: it is someone else's (a test's, or none). */
-  launcher?: RecorderServiceLauncher;
-  /** How long it stays up unneeded: `RECORDER_IDLE_MS`. */
-  idleMs?: number;
-};
+export type { RecorderClientOptions };
 
 type Listener = (message: CvmRecorderMessage) => void;
 
@@ -126,26 +89,24 @@ export const createRecorderClient = (o: RecorderClientOptions) => {
   const lastOpen = new Map<string, string>();
   const { previews, still } = serviceUrls(o.url);
 
-  const watch = watchRecorder(o.keepWhisperWarm, () =>
-    reachable ? state.kind : "closed"
-  );
+  const watch = watchRecorder(o, () => ({
+    kind: reachable ? state.kind : "closed",
+    liveStream: live.liveStream(),
+  }));
 
   const publish = (videoId: string, message: CvmRecorderMessage) => {
     for (const listener of listeners.get(videoId) ?? []) listener(message);
   };
   const placer = createTakePlacer({ timeoutMs: o.placeTimeoutMs, publish });
-  const statusFor = (videoId: string): CvmRecorderMessage => ({
-    type: "recorder-status",
-    reachable,
-    problem,
-    starting: !reachable && (onDemand?.launched() ?? false),
-    recordingSessionId:
-      state.kind === "recording" && state.videoId === videoId
-        ? state.recordingSessionId
-        : null,
-    previews,
-    still,
-  });
+  const statusFor = (videoId: string): CvmRecorderMessage =>
+    recorderStatus(videoId, {
+      reachable,
+      problem,
+      state,
+      previews,
+      still,
+      starting: !reachable && (onDemand?.launched() ?? false),
+    });
   /** The camera's state, to an editor, only when it changed. */
   const publishCamera = (videoId: string) => {
     const message = reachable
@@ -158,14 +119,17 @@ export const createRecorderClient = (o: RecorderClientOptions) => {
     publish(videoId, message);
   };
   /**
-   * The scene or a Short's screen, to an editor, only when it changed. Once
-   * the recorder is not its Video's (closed, another Video's, unreachable)
-   * its editor has neither, so it hears them again when the recorder is back.
+   * `WHILE_OPEN_MESSAGES`, each only when it changed. Once the recorder is
+   * not its Video's its editor has none: it hears them again when it is.
    */
-  const publishWhileOpen = (
+  const publishWhileOpen = (videoId: string, listener?: Listener) => {
+    for (const [kind, of] of Object.entries(WHILE_OPEN_MESSAGES))
+      publishOne(videoId, of(state, videoId), kind as WhileOpenKind, listener);
+  };
+  const publishOne = (
     videoId: string,
     message: CvmRecorderMessage | undefined,
-    kind: "scene" | "screen",
+    kind: WhileOpenKind,
     listener?: Listener
   ) => {
     const key = `${videoId}:${kind}`;
@@ -180,8 +144,7 @@ export const createRecorderClient = (o: RecorderClientOptions) => {
     for (const videoId of listeners.keys()) {
       publish(videoId, statusFor(videoId));
       publishCamera(videoId);
-      publishWhileOpen(videoId, sceneMessage(state, videoId), "scene");
-      publishWhileOpen(videoId, screenMessage(state, videoId), "screen");
+      publishWhileOpen(videoId);
     }
   };
 
@@ -195,6 +158,11 @@ export const createRecorderClient = (o: RecorderClientOptions) => {
     timeoutMs: o.commandTimeoutMs,
   });
   const command = waiters.command;
+  const live = liveStreamCommands({
+    command,
+    calibration: o.calibration,
+    recorder: () => ({ reachable, problem, state }),
+  });
 
   const onDemand =
     o.launcher &&
@@ -386,6 +354,9 @@ export const createRecorderClient = (o: RecorderClientOptions) => {
             });
         }
         return;
+      case "stream-health":
+        if (state.kind !== "closed") publish(state.videoId, message);
+        return;
       case "replay-done":
         return;
       case "recording-started":
@@ -398,7 +369,9 @@ export const createRecorderClient = (o: RecorderClientOptions) => {
       case "camera-lost":
       case "frames-lost":
       case "recording-stopped":
-      case "recording-crashed": {
+      case "recording-crashed":
+      case "chat-highlight-shown":
+      case "chat-highlight-hidden": {
         const { ready, replay } = sequencer.accept(message);
         if (replay) send({ type: "replay", ...replay });
         for (const event of ready) ingest(event);
@@ -470,18 +443,7 @@ export const createRecorderClient = (o: RecorderClientOptions) => {
         lastCamera.set(videoId, JSON.stringify(camera));
         listener(camera);
       }
-      publishWhileOpen(
-        videoId,
-        sceneMessage(state, videoId),
-        "scene",
-        listener
-      );
-      publishWhileOpen(
-        videoId,
-        screenMessage(state, videoId),
-        "screen",
-        listener
-      );
+      publishWhileOpen(videoId, listener);
       wanted = [...wanted.filter((v) => v !== videoId), videoId];
       reconcile();
       demandChanged();
@@ -491,8 +453,8 @@ export const createRecorderClient = (o: RecorderClientOptions) => {
         listeners.delete(videoId);
         demandChanged();
         lastCamera.delete(videoId);
-        lastOpen.delete(`${videoId}:scene`);
-        lastOpen.delete(`${videoId}:screen`);
+        for (const kind of Object.keys(WHILE_OPEN_MESSAGES))
+          lastOpen.delete(`${videoId}:${kind}`);
         setTimeout(() => {
           if (listeners.has(videoId)) return;
           wanted = wanted.filter((v) => v !== videoId);
@@ -527,6 +489,8 @@ export const createRecorderClient = (o: RecorderClientOptions) => {
         (m) => isState(m, "recording", videoId)
       );
     },
+
+    ...live,
 
     /** Tries the Cam Link again, after it did not start or was busy. */
     async retryCamera(videoId: string) {

@@ -13,6 +13,11 @@ import {
   WALLCLOCK,
 } from "./capture-args";
 import { BT709, SCREEN_TO_NV12 } from "./colour";
+import {
+  STREAM_CAMERA_FEED,
+  STREAM_SCREEN_FEED,
+  streamCameraFeedOutput,
+} from "./stream-feeds";
 
 /**
  * A TAKE'S OWN PROCESSES (#2207): the camera writer, which writes camera.mkv
@@ -81,6 +86,12 @@ export const cameraWriterArgs = (o: {
   silenceLength: SilenceLength;
   /** The silence threshold silencedetect cuts with, in dB. */
   thresholdDb: number;
+  /**
+   * A streamed Recording Session's: the Live Stream's camera + mic input,
+   * where the writer also sends the very picture and sound it writes
+   * (`streamCameraFeedOutput`). Absent: today's args, exactly.
+   */
+  streamPort?: number;
 }) => {
   // silencedetect reads the very audio mic.mkv gets, so its times are mic
   // file time; anullsink ends that branch inside the graph.
@@ -88,6 +99,7 @@ export const cameraWriterArgs = (o: {
     silenceRule(o.silenceLength, o.thresholdDb)
   );
   const gap = gapLogger(FRAME_GAP_SECONDS);
+  const streamed = o.streamPort !== undefined;
   return [
     "-hide_banner",
     "-nostats",
@@ -102,8 +114,8 @@ export const cameraWriterArgs = (o: {
     ...relayInput("writer", o.relayPort),
     "-filter_complex",
     [
-      `[0:v]setpts@t0=PTS-${UNARMED_T0}/TB,${gap},${CAMERA_CFR},${BT709}[cam]`,
-      `[0:a]asetpts@t0=PTS-${UNARMED_T0}/TB,atrim=start=0,${MIC_FROM_ZERO},asplit=2[mic][sd]`,
+      `[0:v]setpts@t0=PTS-${UNARMED_T0}/TB,${gap},${CAMERA_CFR},${BT709}${streamed ? `,split[cam][${STREAM_CAMERA_FEED.video}]` : "[cam]"}`,
+      `[0:a]asetpts@t0=PTS-${UNARMED_T0}/TB,atrim=start=0,${MIC_FROM_ZERO},${streamed ? `asplit=3[mic][sd][${STREAM_CAMERA_FEED.audio}]` : "asplit=2[mic][sd]"}`,
       `[sd]${silence},anullsink`,
     ].join(";"),
     "-map",
@@ -125,6 +137,7 @@ export const cameraWriterArgs = (o: {
     `comment=${o.tag}`,
     ...MKV,
     FILE_NAMES.mic,
+    ...(o.streamPort === undefined ? [] : streamCameraFeedOutput(o.streamPort)),
   ];
 };
 
@@ -176,6 +189,12 @@ export const screenRecorderArgs = (o: {
   tag: string;
   /** ddagrab's output_idx: the DELL, or a Short's Spacedesk display. */
   screenIndex: number;
+  /**
+   * A streamed Recording Session's: the Live Stream's screen input, which
+   * gets a CPU tee of the very packets screen.mkv gets (`STREAM_SCREEN_FEED`).
+   * Absent: today's args, exactly.
+   */
+  streamPort?: number;
 }) => {
   const t0 = (o.t0Ms / 1000).toFixed(3);
   return [
@@ -192,7 +211,8 @@ export const screenRecorderArgs = (o: {
     ...nvenc(120),
     "-metadata",
     `comment=${o.tag}`,
-    ...MKV,
-    FILE_NAMES.screen,
+    ...(o.streamPort === undefined
+      ? [...MKV, FILE_NAMES.screen]
+      : STREAM_SCREEN_FEED.output(FILE_NAMES.screen, o.streamPort)),
   ];
 };

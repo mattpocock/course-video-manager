@@ -275,6 +275,21 @@ export const createScreenSide = (o: {
       return stopPreview();
     },
     /**
+     * Why Landscape can't record its screen now (no DELL, or not at
+     * 1920x1080), as Record would find it; null if it can. Go Live asks up
+     * front, with its other reasons, before it arms or launches anything.
+     */
+    landscapeRefusal: async (): Promise<string | null> => {
+      if (dell !== undefined) return null;
+      try {
+        await dellIndex();
+        return null;
+      } catch (e) {
+        if (e instanceof Refusal) return e.message;
+        throw e;
+      }
+    },
+    /**
      * The ddagrab output to record, or null for none; refuses with why. What
      * it can refuse without a lookup (a Short still waking, or unavailable
      * under a scene that draws the screen) it throws at once, so Record

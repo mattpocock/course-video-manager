@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { wakeSpacedesk } from "../app/spacedesk-wake";
 import { IDLE_STOP, RECORDER_SERVICE_PORT } from "./protocol";
+import { LIVE_STREAM_SETTINGS } from "./go-live";
 import { startRecorderService } from "./recorder-service";
 import { startWindowsClock } from "./windows-clock";
 import { windowsLauncher } from "./windows-launcher";
@@ -108,6 +109,7 @@ export const runRecorderService = async () => {
     now: clock.now,
     stateDir: STATE_DIR,
     wakeSpacedesk: () => wakeSpacedesk(),
+    ...LIVE_STREAM_SETTINGS,
   });
   log(
     `recorder service listening on ws://127.0.0.1:${service.port} (pid ${process.pid})`

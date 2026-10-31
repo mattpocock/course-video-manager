@@ -3,6 +3,14 @@ import { describe, expect, it } from "vitest";
 import { analysePicture, readStamp, unwrap } from "./footage-analysis";
 import { METRICS, rank, score } from "./metrics";
 import { renderJson } from "./report";
+import {
+  leastDelayedClock,
+  onlyToSink,
+  readProgress,
+  streamLag,
+  takeDupsDrops,
+  takeFps,
+} from "./stream-sink";
 import { syntheticFfmpegArgs } from "./synthetic-launcher";
 import {
   CAMERA_FPS,
@@ -75,6 +83,16 @@ describe("rank", () => {
     ]);
     expect(rows.at(-1)!.status).toBe("pass");
   });
+
+  it("never fails a take on the relaunched stream's own rate: over its short span that is lag wander (2026-10-31)", () => {
+    const rows = rank({
+      stream_take_fps_off_60: 0.02,
+      stream_dup_frames: 0,
+      stream_drop_frames: 0,
+      stream_relaunched_fps_off_60: 0.11,
+    });
+    expect(rows.filter((r) => r.status === "fail")).toEqual([]);
+  });
 });
 
 describe("renderJson", () => {
@@ -99,6 +117,156 @@ describe("renderJson", () => {
     expect(Object.keys(parsed.metrics)).toEqual(METRICS.map((m) => m.id));
     expect(parsed.ranking).toEqual(["record_ack_ms"]);
     expect(json).toContain('    "record_ack_ms": {"value":200,');
+  });
+});
+
+describe("the Live Stream's -progress", () => {
+  /** One -progress block, as ffmpeg.exe prints it each second. */
+  const block = (frame: number, dup = 0, drop = 0) =>
+    `frame=${frame}\nfps=60.12\ndup_frames=${dup}\ndrop_frames=${drop}\nprogress=continue\n`;
+
+  it("measures frames per second of wall time, however late each block arrives", () => {
+    const progress = readProgress();
+    // 60 fps for 100 s; each block reaches the scorecard up to 80 ms late.
+    for (let s = 0; s <= 100; s++)
+      progress.push(block(60 * s), 1000 * s + ((s * 37) % 81));
+    expect(takeFps(progress.samples, [[0, Infinity]])).toBeCloseTo(60, 1);
+  });
+
+  it("measures on the Windows clock its frames are stamped on, not WSL's, which wanders (#2482)", () => {
+    const progress = readProgress();
+    // 60 fps for 100 s of Windows time; WSL's clock runs 0.2% fast and
+    // steps 250 ms back halfway, as the rig's does under load.
+    for (let s = 0; s <= 100; s++) {
+      const wsl = 1002 * s - (s >= 50 ? 250 : 0);
+      progress.push(block(60 * s), wsl, 1_000_000 + 1000 * s);
+    }
+    expect(takeFps(progress.samples, [[0, Infinity]])).toBeCloseTo(60, 3);
+  });
+
+  it("reads past blocks and Windows ticks that arrive late, as both do under load (#2482)", () => {
+    const progress = readProgress();
+    const clock = leastDelayedClock();
+    const late = (i: number) => ((i * 7919) % 200) * (i % 3 === 0 ? 1 : 0.2);
+    // Windows' clock is 1e6 ms ahead of WSL's; every tick and block is late.
+    for (let ms = 0; ms <= 100_000; ms += 20)
+      clock.tick(1_000_000 + ms, ms + late(ms / 20));
+    // Blocks are later still while the card checks load WSL (the first half).
+    for (let i = 0; i <= 2000; i++) {
+      const at = 50 * i + late(i) * (i < 1000 && i % 3 === 0 ? 2 : 1);
+      progress.push(block(3 * i), at, clock.now(at));
+    }
+    expect(clock.now(50_000)).toBeCloseTo(1_050_000, -1);
+    expect(takeFps(progress.samples, [[0, Infinity]])).toBeCloseTo(60, 2);
+  });
+
+  it("averages over the whole take, so a stall the stream never catches up from counts (2026-10-31)", () => {
+    const progress = readProgress();
+    // 60 fps, but from 50 s (the sink drops) it falls 1 s behind and stays there.
+    for (let i = 0; i <= 2000; i++) {
+      const ms = 50 * i;
+      const behind = 60 * Math.min(1, Math.max(0, ms - 50_000) / 1000);
+      progress.push(block(Math.round(3 * i - behind)), ms, ms);
+    }
+    expect(takeFps(progress.samples, [[0, Infinity]])).toBeLessThan(59.2);
+  });
+
+  it("gives every stream process its own offset: a relaunch starts again from frame 0", () => {
+    const progress = readProgress();
+    for (let s = 0; s <= 60; s++) progress.push(block(60 * s), 1000 * s);
+    for (let s = 0; s <= 60; s++)
+      progress.push(block(60 * s), 70_000 + 1000 * s);
+    expect(
+      takeFps(progress.samples, [
+        [0, 65_000],
+        [65_000, Infinity],
+      ])
+    ).toBeCloseTo(60, 5);
+  });
+
+  it("reports a lag that wanders and comes back, and does not count it against the rate (2026-10-31)", () => {
+    const progress = readProgress();
+    const t0Ms = 1_000_000;
+    // 60 fps, 1.4 s behind the take, wandering ±0.3 s every 40 s, for 120 s:
+    // the rate stays within the bar, and the lag is reported.
+    for (let i = 0; i <= 2400; i++) {
+      const ms = 50 * i;
+      const lagMs = 1400 + 300 * Math.cos((2 * Math.PI * ms) / 40_000);
+      progress.push(
+        block(Math.round(((ms - lagMs) * 60) / 1000)),
+        ms,
+        t0Ms + ms
+      );
+    }
+    expect(takeFps(progress.samples, [[0, Infinity]])).toBeCloseTo(60, 1);
+    const lag = streamLag(progress.samples, [0, Infinity], t0Ms)!;
+    expect(lag.startMs).toBeCloseTo(1700, -2);
+    expect(lag.minMs).toBeCloseTo(1100, -2);
+    expect(lag.maxMs).toBeCloseTo(1700, -2);
+  });
+
+  it("sums the whole take's duplicated and dropped frames over every stream process", () => {
+    const progress = readProgress();
+    progress.push(block(60) + block(6000, 1, 2), 1000);
+    // Killed and relaunched: its counts start again from 0.
+    progress.push(block(30) + block(3000, 3, 0), 2000);
+    expect(takeDupsDrops(progress.samples)).toEqual({
+      dupFrames: 4,
+      dropFrames: 2,
+    });
+  });
+
+  it("keeps the latest duplicated and dropped frame counts, even split across chunks", () => {
+    const progress = readProgress();
+    const text = block(60) + block(120, 2, 3);
+    progress.push(text.slice(0, 50), 1000);
+    progress.push(text.slice(50), 2000);
+    expect(progress.samples.at(-1)).toMatchObject({
+      frame: 120,
+      dupFrames: 2,
+      dropFrames: 3,
+    });
+  });
+});
+
+describe("onlyToSink", () => {
+  const launched: string[][] = [];
+  const launcher = onlyToSink((l) => {
+    if (l.tool === "ffmpeg") launched.push([...l.args]);
+    return {
+      onStdout: () => {},
+      onStderr: () => {},
+      writeStdin: () => {},
+      exited: Promise.resolve(0),
+      kill: () => {},
+    };
+  }, "rtmp://127.0.0.1:19350/live");
+  const stream = (url: string) => [
+    "-metadata",
+    "comment=cvm-recorder-stream",
+    "-f",
+    "tee",
+    `[f=flv:onfail=ignore]${url}|[f=null:use_fifo=0]-`,
+  ];
+
+  it("never starts a Live Stream aimed anywhere but the local sink", async () => {
+    const p = launcher({
+      tool: "ffmpeg",
+      args: stream("rtmps://a.rtmps.youtube.com:443/live2/key"),
+      cwd: "/mnt/c",
+    });
+    expect(await p.exited).toBe(1);
+    expect(launched).toEqual([]);
+  });
+
+  it("starts a Live Stream aimed at the local sink, and every other process", () => {
+    launcher({
+      tool: "ffmpeg",
+      args: stream("rtmp://127.0.0.1:19350/live/key"),
+      cwd: "/mnt/c",
+    });
+    launcher({ tool: "ffmpeg", args: ["-i", "x"], cwd: "/mnt/c" });
+    expect(launched).toHaveLength(2);
   });
 });
 

@@ -533,6 +533,125 @@ export const METRICS: readonly MetricDef[] = [
     obs: null,
     scale: 1,
   },
+  // THE STREAMED RECORDING SESSION (#2455): raw footage first, then the
+  // Live Stream's picture against a local sink, then its Chat Highlights
+  // (#2461): click-to-on-screen time and monotonic card opacity.
+  {
+    id: "streamed_camera_frames_lost",
+    label:
+      "Camera frames the service reports lost in a streamed Recording Session",
+    group: "reliability",
+    unit: "frames",
+    better: "lower",
+    target: 0,
+    obs: null,
+    scale: 1,
+  },
+  {
+    id: "streamed_screen_frames_lost",
+    label:
+      "Screen frames the service reports lost in a streamed Recording Session",
+    group: "reliability",
+    unit: "frames",
+    better: "lower",
+    target: 0,
+    obs: null,
+    scale: 1,
+  },
+  {
+    id: "stream_take_fps_off_60",
+    label:
+      "Live Stream's average frame rate over the whole take: distance from 60.0 fps",
+    group: "reliability",
+    unit: "fps",
+    better: "lower",
+    target: 0.05,
+    obs: null,
+    scale: 0.05,
+    note: "Decided 2026-10-31, for smoothness: frames the encoder put out per second of the Windows clock, one least-squares slope across every stream process once steady (the first from 20 s after live to its kill, sink drop included; the relaunched one from 5 s after live to End Stream). Latency wander is not a bar: the first process's lag is `streamed.streamLag` in the details, the rate `streamed.streamFps`. The relaunched process alone is reported, never a bar (decided 2026-10-31: over its short span the slope reads lag wander): `streamed.faults.relaunchedFpsOff60`, `relaunchedFps` and `relaunchedLag`.",
+  },
+  {
+    id: "stream_dup_frames",
+    label: "Live Stream frames duplicated (the whole take, every process)",
+    group: "reliability",
+    unit: "frames",
+    better: "lower",
+    target: 0,
+    obs: null,
+    scale: 1,
+  },
+  {
+    id: "stream_drop_frames",
+    label: "Live Stream frames dropped (the whole take, every process)",
+    group: "reliability",
+    unit: "frames",
+    better: "lower",
+    target: 0,
+    obs: null,
+    scale: 1,
+  },
+  // #2459: it reconnects for ever, and the take never notices (the
+  // streamed framesLost above cover the take).
+  {
+    id: "stream_back_after_sink_drop",
+    label:
+      "Sink dropped and back mid-take: the Live Stream reconnects inside its process",
+    group: "reliability",
+    unit: "bool",
+    better: "higher",
+    target: 1,
+    obs: null,
+    scale: 1,
+    note: "Reconnecting heard, live again once the sink listens again, no relaunch, and the new sink got frames. Details: `streamed.faults.sinkDrop`.",
+  },
+  {
+    id: "stream_back_after_kill",
+    label:
+      "Stream process killed mid-take: launched again, and live onto a new sink",
+    group: "reliability",
+    unit: "bool",
+    better: "higher",
+    target: 1,
+    obs: null,
+    scale: 1,
+    note: "Details: `streamed.faults.kill`.",
+  },
+  {
+    id: "card_click_to_screen_ms",
+    label:
+      "Chat Highlight click to on screen, slowest click (service gets it → card's first visible frame)",
+    group: "speed",
+    unit: "ms",
+    better: "lower",
+    target: 1000,
+    obs: null,
+    scale: 1000,
+    note: "Per click, the service's stamp of the card's first changed frame less when its show-highlight arrived: the card server's still, its decode, and the wait for the next frame. Every click is `chatHighlights.clickToScreenMs` in the details.",
+  },
+  {
+    id: "stream_unmoved_by_card_server_stall",
+    label:
+      "Card server stalled 8 s mid-take: the stream is never relaunched, its click is refused, the next is drawn",
+    group: "reliability",
+    unit: "bool",
+    better: "higher",
+    target: 1,
+    obs: null,
+    scale: 1,
+    note: "SIGSTOP on the card server, then SIGCONT (`card-checks.ts`). The take-wide rate, dups and drops above include the stall. Details: `chatHighlights.cardServerStall`.",
+  },
+  {
+    id: "card_opacity_wrong_frames",
+    label:
+      "Chat Highlight frames out of step: the card's opacity moving the wrong way, or before its stamp",
+    group: "reliability",
+    unit: "frames",
+    better: "lower",
+    target: 0,
+    obs: null,
+    scale: 1,
+    note: "Read off the sink's copy of the stream, from the card's accent bar, around every edge of the scripted clicks (`card-checks.ts`). The spike saw 13 early frames in 17 clicks.",
+  },
   {
     id: "disk_full",
     label: "Disk full mid-take",

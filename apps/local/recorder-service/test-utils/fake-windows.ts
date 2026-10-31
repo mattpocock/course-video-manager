@@ -3,6 +3,8 @@ import path from "node:path";
 import net from "node:net";
 import { armedWriter } from "./fake-writer";
 import { CAPTURE_TAG, PREVIEW_TAGS } from "../capture-args";
+import { STREAM_TAG } from "../stream-args";
+import { playCardServer, readCardFeed } from "./fake-card-server";
 import type { Launch, LaunchedProcess, Launcher } from "../launcher";
 import { flvHeader, flvVideoTag } from "./flv";
 
@@ -80,6 +82,8 @@ export type FakeProcess = LaunchedProcess & {
   stuck?: boolean;
   /** A preview that stalled: still running, sending nothing. */
   frozen?: boolean;
+  /** A card server that stalled: still running, answering nothing. */
+  stalled?: boolean;
 };
 
 const fakeProcess = (launch: Launch): FakeProcess => {
@@ -251,7 +255,7 @@ export const writesFile = (args: readonly string[], file: string) =>
 const isPreview = (l: Launch, input: string) =>
   l.tool === "ffmpeg" &&
   l.args.some((a) => a.includes("tcp://")) &&
-  !l.args.some((a) => a.endsWith(".mkv")) &&
+  !l.args.some((a) => a.endsWith(".mkv") || a.includes(".mkv|")) &&
   l.args.some((a) => a.includes(input));
 
 const tagged = (l: Launch, tag: string) =>
@@ -295,8 +299,18 @@ export const fakeWindows = (
      * `-Match` it is given (the capture's tag, `camera.mkv`, `screen.mkv`).
      */
     tuneFails?: Record<string, string>;
+    /**
+     * The Live Stream's ffmpeg.exe: `up` prints its banner at once (it is
+     * listening for its feeds); `never` prints nothing and never quits on
+     * `q`, as one stuck starting.
+     */
+    stream?: "up" | "never";
     /** How long screens.ps1 takes to answer (PowerShell's start-up); default the next tick. */
     screensListingMs?: number;
+    /** The Live Stream reads its card feed this far behind, at 60 fps (`readCardFeed`). */
+    cardReadBehindMs?: number;
+    /** The DELL as screens.ps1 lists it (default 1920x1080); null: not plugged in. */
+    dell?: { width: number; height: number } | null;
     /**
      * A synthetic mic for the level meter: its short-term loudness (LUFS) at
      * each second, printed as ebur128 would every 100 ms. Absent, the meter
@@ -330,6 +344,7 @@ export const fakeWindows = (
     wakeFails: o.wakeFails,
     ...o.spacedesk,
   };
+  const dell = o.dell === undefined ? { width: 1920, height: 1080 } : o.dell;
   let wakes = 0;
   /** The injected wake: never the real Spacedesk. */
   const wakeSpacedesk = async () => {
@@ -344,6 +359,12 @@ export const fakeWindows = (
   const loadSamplers: FakeProcess[] = [];
   const cameraPreviews: FakeProcess[] = [];
   const screenPreviews: FakeProcess[] = [];
+  /** Each Live Stream process, in launch order. */
+  const streams: FakeProcess[] = [];
+  /** Each one's reading of its card feed. */
+  const cardFeeds: ReturnType<typeof readCardFeed>[] = [];
+  /** Each Chat Highlight card server, in launch order. */
+  const cardServers: FakeProcess[] = [];
   const cameraTries = [...(o.cameraTries ?? [])];
   const launchedProcesses: FakeProcess[] = [];
   const launch: Launcher = (l) => {
@@ -351,13 +372,21 @@ export const fakeWindows = (
     launchedProcesses.push(p);
     if (l.tool === "nvidia-smi")
       return answer(p, { stdout: `${o.driver ?? "591.74"}\r\n` });
+    if (l.tool === "card-server") {
+      cardServers.push(p);
+      playCardServer(p);
+      return p;
+    }
     if (l.tool === "powershell" && l.script === "screens.ps1") {
       // The older 7-column listing for the first two, as a Windows with an
       // old screens.ps1 would print them; the adapter column after that.
       return answer(p, {
         afterMs: o.screensListingMs,
         stdout:
-          "0\t0\t0\t2560\t1440\t\\\\.\\DISPLAY1\tLG HDR QHD\r\n1\t2560\t0\t1920\t1080\t\\\\.\\DISPLAY2\tDELL U2424H\r\n" +
+          "0\t0\t0\t2560\t1440\t\\\\.\\DISPLAY1\tLG HDR QHD\r\n" +
+          (dell
+            ? `1\t2560\t0\t${dell.width}\t${dell.height}\t\\\\.\\DISPLAY2\tDELL U2424H\r\n`
+            : "") +
           (spacedesk.awake
             ? `2\t1920\t0\t${spacedesk.width}\t${spacedesk.height}\t\\\\.\\DISPLAY11\t?\tspacedesk Graphics Adapter\r\n`
             : ""),
@@ -463,6 +492,20 @@ export const fakeWindows = (
       }
       return p;
     }
+    // The Live Stream: its banner, then (as ffmpeg) it listens for its feeds.
+    if (tagged(l, STREAM_TAG)) {
+      streams.push(p);
+      p.stuck = o.stream === "never";
+      if (o.stream !== "never")
+        cardFeeds.push(readCardFeed(p, l.args, o.cardReadBehindMs));
+      if (o.stream !== "never")
+        setImmediate(() =>
+          p.stderr(
+            `ffmpeg version ${o.ffmpegVersion ?? "8.0.1-cvm1"} Copyright (c) 2000-2025 the FFmpeg developers\r\n`
+          )
+        );
+      return p;
+    }
     if (isPreview(l, "ddagrab")) {
       screenPreviews.push(p);
       sendFrames(p, l.args);
@@ -556,6 +599,9 @@ export const fakeWindows = (
     loadSamplers,
     cameraPreviews,
     screenPreviews,
+    streams,
+    cardFeeds,
+    cardServers,
     armedWriters,
     camerasRunning,
     meter,

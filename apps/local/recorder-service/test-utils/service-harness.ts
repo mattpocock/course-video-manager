@@ -6,6 +6,7 @@ import { afterEach } from "vitest";
 import { WebSocket } from "ws";
 import { fakeWindows } from "./fake-windows";
 import type { RecorderCommand, RecorderMessage } from "../protocol";
+import { LIVE_STREAM_SETTINGS } from "../go-live";
 import { startRecorderService } from "../recorder-service";
 import { DEFAULT_SILENCE_THRESHOLD_DB } from "../../app/silence-detection-constants";
 import type { LastPassedCalibration } from "../../app/av-calibration-constants";
@@ -101,7 +102,13 @@ afterEach(() => {
 export const start = async (
   windows = fakeWindows(),
   stateDir = tmp(),
-  o: { previewStallMs?: number } = {}
+  o: {
+    previewStallMs?: number;
+    streamIngest?: string;
+    streamListenBoundMs?: number;
+    streamStallMs?: number;
+    cardAnswerMs?: number;
+  } = {}
 ) => {
   const service = await startRecorderService({
     port: 0,
@@ -111,6 +118,12 @@ export const start = async (
     cameraStartTimeoutMs: 100,
     previewStallMs: o.previewStallMs,
     wakeSpacedesk: windows.wakeSpacedesk,
+    ...LIVE_STREAM_SETTINGS,
+    streamIngest: o.streamIngest ?? LIVE_STREAM_SETTINGS.streamIngest,
+    streamListenBoundMs:
+      o.streamListenBoundMs ?? LIVE_STREAM_SETTINGS.streamListenBoundMs,
+    streamStallMs: o.streamStallMs ?? LIVE_STREAM_SETTINGS.streamStallMs,
+    cardAnswerMs: o.cardAnswerMs ?? LIVE_STREAM_SETTINGS.cardAnswerMs,
   });
   cleanups.unshift(() => service.close());
   return {

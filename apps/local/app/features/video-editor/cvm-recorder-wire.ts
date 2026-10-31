@@ -7,6 +7,10 @@ import type {
   LostFrameSpan,
   ScreenStatus,
 } from "recorder-service/protocol";
+import type {
+  StreamHealthMessage,
+  StreamStatus,
+} from "recorder-service/stream-protocol";
 
 /** A Clip the app server saved from speech, with its Recording Session, so the editor plays it as the composite. */
 export type SavedRecorderClip = DB.Clip & {
@@ -48,6 +52,12 @@ export type CvmRecorderMessage =
       problem: string | null;
       /** The Recording Session in progress for this Video, if any. */
       recordingSessionId: string | null;
+      /**
+       * That Recording Session is streamed (Go Live's), its Live Stream on:
+       * only End Stream ends it, so leaving the page or Attaching never
+       * stops it (ADR 0055).
+       */
+      streamed: boolean;
       /** Where the browser watches the raw camera and screen (H.264 streams, `latest-frame.ts`). */
       previews: { camera: string; screen: string };
       /** Where the browser fetches the camera's still (a 1280x720 JPEG): the thumbnail camera. */
@@ -76,6 +86,16 @@ export type CvmRecorderMessage =
    * changes. Never sent for a Landscape Video.
    */
   | { type: "screen-changed"; screen: ScreenStatus }
+  /**
+   * The Live Stream (ADR 0054), while the recorder is open for this Video:
+   * sent when the editor starts listening and whenever it changes.
+   */
+  | { type: "stream-changed"; stream: StreamStatus }
+  /**
+   * The Live Stream's health, as the recorder service sends it: about once
+   * a second while its process runs, and at each reconnect. Never saved.
+   */
+  | StreamHealthMessage
   | {
       type: "recording-started";
       recordingSessionId: string;
@@ -177,6 +197,8 @@ export const CVM_RECORDER_MESSAGE_TYPES = [
   "camera-closed",
   "scene-changed",
   "screen-changed",
+  "stream-changed",
+  "stream-health",
   "recording-started",
   "warmed-up",
   "speech-started",

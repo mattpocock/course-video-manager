@@ -5,6 +5,8 @@ supersedes: 0046-the-recorder-preview-encodes-on-nvenc (decision 4 only)
 
 # The recorder holds its devices open; Record only starts writing
 
+> Points 4 and 5 extended by [ADR 0054](0054-the-live-stream-is-its-own-process-fed-by-the-recording-sessions-writers.md): a streamed Recording Session's writer and screen recorder also feed the Live Stream, behind fifos that drop rather than wait.
+
 Decided on 2026-10-14 (#2207), after Matt asked for parity with OBS: "Pressing record still takes a couple of seconds before the picture unfreezes and it's ready to record", and "the preview has to stay absolutely static and work exactly the same".
 
 ## Context

@@ -2,10 +2,7 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { finished as streamFinished } from "node:stream/promises";
-import {
-  silenceLengthToSeconds,
-  type SilenceLength,
-} from "../app/silence-detection-constants";
+import { silenceLengthToSeconds } from "../app/silence-detection-constants";
 import { quitProcess, tuneProcess, type Capture } from "./camera";
 import { FILE_NAMES } from "./capture-args";
 import {
@@ -23,19 +20,21 @@ import {
 import type { VideoFormat } from "@/features/videos/video-format";
 import type { Scene } from "../app/packages/scene-layout";
 import type { RecordingSessionEvent, RecordingSessionFiles } from "./protocol";
+import type { ChatHighlightEvent } from "./chat-highlight-protocol";
 import { repairFile } from "./footage-repair";
 import { createSpeechDetector } from "./speech-detector";
 import { writerGraphUp } from "./writer-graph";
 import { CAMERA_FPS, countFramesLost } from "./frames-lost";
+import type { StopReason, TakeSettings } from "./take-settings";
 
 /**
  * ONE RECORDING SESSION (#2207). Its camera + mic writer is armed before
  * Record (`armTake`): listening on the camera capture's writer relay,
  * dropping every frame. Record (`begin`) tells it T0, and starts the screen
  * recorder; Stop quits both. The devices stay open throughout, in the
- * capture, and the preview never notices. Everything it reports goes
- * through `log`, which numbers it, appends it to `events.jsonl` and only then
- * hands it on, so nothing is sent that a replay could not send again.
+ * capture, and the preview never notices. All it reports goes through
+ * `log`, which numbers it, appends it to `events.jsonl` and only then hands
+ * it on, so nothing is sent that a replay could not send again.
  */
 
 /** How long `q` gets to close the files before the process is killed. */
@@ -87,23 +86,6 @@ type Unlogged = RecordingSessionEvent extends infer E
     : never
   : never;
 
-/** What a writer is armed with: a Record that asks for anything else arms another. */
-export type TakeSettings = {
-  /** The folder (WSL path) the Recording Session's own folder goes in. */
-  folder: string;
-  silenceLength: SilenceLength;
-  /** The silence threshold its silencedetect cuts with, in dB. */
-  thresholdDb: number;
-  /** The camera capture's writer relay it listens on. */
-  relayPort: number;
-};
-
-export const sameTake = (a: TakeSettings, b: TakeSettings) =>
-  a.folder === b.folder &&
-  a.silenceLength === b.silenceLength &&
-  a.thresholdDb === b.thresholdDb &&
-  a.relayPort === b.relayPort;
-
 export type BeginOptions = {
   videoId: string;
   /** The AV Calibration that set it; null: none had passed. */
@@ -123,8 +105,8 @@ export type BeginOptions = {
   scene: Scene;
   /** Each event, after it is in the log. */
   emit: (event: RecordingSessionEvent) => void;
-  /** Once, after `recording-stopped`. */
-  onEnded: () => void;
+  /** Once, after `recording-stopped`, with its reason. */
+  onEnded: (reason: StopReason) => void;
 };
 
 export type ArmedTake = {
@@ -144,6 +126,8 @@ export type RecordingSession = {
   lastSeq: () => number;
   /** Logs a scene change at the picture time it is asked for. */
   switchScene: (scene: Scene) => void;
+  /** Logs a Chat Highlight edge; one still shown is closed at Stop. */
+  chatHighlight: (edge: ChatHighlightEvent) => void;
   /**
    * Stops the take at this moment; done once `recording-stopped` is logged.
    * The files close in the background: the take keeps everything up to the
@@ -223,6 +207,7 @@ export const armTake = (o: {
       tag,
       silenceLength: o.settings.silenceLength,
       thresholdDb: o.settings.thresholdDb,
+      streamPort: o.settings.streamed?.camera,
     })
   );
   const writerTuned = tuneProcess(o.launch, {
@@ -321,6 +306,7 @@ const beginTake = (
   const eventLog = path.join(dir, EVENT_LOG_NAME);
 
   let seq = 0;
+  let highlight: string | undefined;
   /** Why the event log could not be written, once it could not. */
   let logFailure: string | undefined;
   // `log` runs inside ffmpeg's stderr listener and promise callbacks, where a
@@ -360,7 +346,12 @@ const beginTake = (
       ? null
       : o.run(
           "screen",
-          screenRecorderArgs({ t0Ms, tag, screenIndex: o.screenIndex })
+          screenRecorderArgs({
+            t0Ms,
+            tag,
+            screenIndex: o.screenIndex,
+            streamPort: o.settings.streamed?.screen,
+          })
         );
 
   // The capture's own log for the take: its mic stalls and DirectShow's
@@ -519,12 +510,7 @@ const beginTake = (
 
   /** The one stop, whoever asked first: done once `recording-stopped` is logged. */
   let stopped: Promise<void> | undefined;
-  const stopWith = (
-    reason: Extract<
-      RecordingSessionEvent,
-      { type: "recording-stopped" }
-    >["reason"]
-  ): Promise<void> => {
+  const stopWith = (reason: StopReason): Promise<void> => {
     // A second stop (the service closing during a camera-lost stop) waits
     // for the whole first one, not just the processes' exits.
     if (stopped) return stopped;
@@ -570,6 +556,13 @@ const beginTake = (
       ]);
       framesLost.stop();
       for (const last of speech.stop(lastFileTime)) log(last);
+      if (highlight)
+        log({
+          type: "chat-highlight-hidden",
+          highlightId: highlight,
+          atMs: t0Ms + lastFileTime * 1000,
+          fileTime: lastFileTime,
+        });
       const captureErrors = o.capture.quitWith() ?? [];
       log({
         type: "recording-stopped",
@@ -597,7 +590,7 @@ const beginTake = (
         ],
       });
       ended = true;
-      o.onEnded();
+      o.onEnded(reason);
     });
     return stopped;
   };
@@ -634,6 +627,12 @@ const beginTake = (
       // Picture time: the wall clock every process stamps its frames with,
       // less T0 (protocol.ts, TIME BASE).
       log({ type: "scene-changed", scene, fileTime: (o.now() - t0Ms) / 1000 });
+    },
+    chatHighlight: (edge) => {
+      if (ended) return;
+      highlight =
+        edge.type === "chat-highlight-shown" ? edge.highlightId : undefined;
+      log(edge);
     },
     stop: () => stopWith("requested"),
     writerQuit: camera.child.exited.then(() => {}),

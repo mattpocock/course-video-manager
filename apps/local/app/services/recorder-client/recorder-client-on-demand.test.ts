@@ -2,6 +2,7 @@ import { EventEmitter } from "node:events";
 import net from "node:net";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CvmRecorderMessage } from "@/features/video-editor/cvm-recorder-wire";
+import { LIVE_STREAM_SETTINGS } from "recorder-service/go-live";
 import { startRecorderService } from "recorder-service/recorder-service";
 import { recorderBusy, recorderHealth } from "recorder-service/health";
 import { IDLE_STOP } from "recorder-service/protocol";
@@ -54,6 +55,7 @@ const launcherOn = (port: number) => {
         stateDir,
         cameraStartTimeoutMs: 100,
         wakeSpacedesk: windows.wakeSpacedesk,
+        ...LIVE_STREAM_SETTINGS,
       });
       let closing: Promise<void> | undefined;
       const close = () => (closing ??= service.close());

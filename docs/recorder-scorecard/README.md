@@ -7,7 +7,8 @@ pnpm recorder:scorecard            # full: 10-min take, 50 cycles, 5 preview kil
 pnpm recorder:scorecard --quick    # 60 s take, 10 cycles, 3 preview kills, ~6 min
   [--out <dir>]          # default .data/recorder-scorecard/<run>/
   [--long-take <s>] [--cycles <n>] [--fault-repeats <n>] [--keep-footage]
-  [--only <scenario,…>]  # idle, longTake, previewKill, eventLogFailure, cycles, crash
+  [--stream-take <s>]    # the streamed Recording Session's length: 300 s, --quick 60 s
+  [--only <scenario,…>]  # idle, longTake, previewKill, eventLogFailure, streamed, cycles, crash
 ```
 
 The command runs under `nice -n 19 taskset -c 6-9`. The baseline is in [`baseline/`](./baseline/): a run on 2026-10-30, `ca63ea73` plus the synthetic screen pinned to the NVIDIA GPU (#2441). It was run in three parts, merged into one report: `--only idle,longTake --long-take 360`, then `--only previewKill,eventLogFailure,crash`, then `--only cycles`. Each part has full-mode cycles and fault repeats, but the long take is 360 s, not 600 s, so that each part fits an agent's 600 s foreground limit. To compare a run with it, diff the two `scorecard.json` files: each metric sits on its own line, in a fixed order. The `ranking` list names the failing metrics, worst first.
@@ -31,8 +32,23 @@ The command runs under `nice -n 19 taskset -c 6-9`. The baseline is in [`baselin
   2. The long take (A/V drift, frames, first frames, Stop timings, Optimistic Clip delay).
   3. Takes whose camera and screen previews are killed mid-take, `--fault-repeats` times, for a pass rate.
   4. A take whose `events.jsonl` turns read-only.
-  5. The Record/Stop cycles. Each Stop lets the writer go and arms the next on the same relay, and the camera capture must live through it (the same Windows PID, never reopened): a pass rate and restarts per Stop.
-  6. The service SIGKILLed mid-take and started again on the same state folder.
+  5. The streamed Recording Session (#2455): Go Live, `--stream-take` seconds, then End Stream. See below.
+  6. The Record/Stop cycles. Each Stop lets the writer go and arms the next on the same relay, and the camera capture must live through it (the same Windows PID, never reopened): a pass rate and restarts per Stop.
+  7. The service SIGKILLed mid-take and started again on the same state folder.
+
+## The streamed Recording Session
+
+`--only streamed` runs it on its own. It sends Go Live (`start-stream`) to the real service, with the real ffmpeg.exe, on the synthetic sources, so the real Live Stream process composites and encodes the picture.
+
+- **Never YouTube.** The Live Stream pushes to a local RTMP sink: an ffmpeg.exe, started through the Windows guard, that takes the push and throws it away. The service is given the sink as its only ingest, with a fake Stream Key; the real key is never read.
+  - `service-child.ts` wraps the launcher with `onlyToSink` (`stream-sink.ts`). A Live Stream process aimed anywhere else is never started. A service started without a sink (the crash scenario's restart) starts no Live Stream at all.
+- **Raw footage first.** `streamed_camera_frames_lost` and `streamed_screen_frames_lost` are the service's framesLost for the take. A take that ended before End Stream also loses every frame from its end to End Stream. The files are read back by frame index too, and the result is in the details (`streamed.camera`, `streamed.screen`).
+- **The stream's picture.** The stream process's `-progress` reaches the scorecard over the service child's IPC.
+  - The steady-state rule is over the whole take (decided 2026-10-31, for smoothness): `stream_dup_frames` and `stream_drop_frames` are 0, summed over every stream process, and `stream_take_fps_off_60`, the average frame rate's distance from 60.0 fps, is within 0.05.
+  - The average is the frames the encoder put out per second of the Windows clock, across each process once it is steady: the first from 20 s after it went live to its kill (the sink's drop included), the relaunched one from 5 s after it went live to End Stream. It is one least-squares slope through every 2 s slice's least-late `-progress` block, each process with its own offset. A lag that wanders and comes back does not move it; a stall the stream never catches up from does. The same slope over the relaunched process alone is reported, never a bar (decided 2026-10-31): over its short span it reads the lag's wander, not smoothness, and the whole-take rules already cover the relaunch. It is `streamed.faults.relaunchedFpsOff60` in the details.
+  - The stream's lag behind the take is reported, never a bar: `streamed.streamLag` in the details. ffmpeg's own `fps` counts its start-up, so it reads a little over 60; it is in the details too.
+- **Also in the details:** the stream statuses in order, Go Live → recording and Go Live → live, and the frames the sink received. The scenario fails if the stream never goes live or the sink gets nothing.
+- **Room for the Chat Highlight.** `streamed()` takes a `during` step that runs while the stream is live. #2461's checks (click-to-on-screen time, monotonic card opacity) go there, and their metrics go after the streamed ones in `metrics.ts`.
 
 ## Reading it
 

@@ -492,6 +492,9 @@ importers:
       '@cvm/lucide-icons':
         specifier: workspace:*
         version: link:../lucide-icons
+      '@fontsource-variable/dm-sans':
+        specifier: 5.3.0
+        version: 5.3.0
       '@remotion/bundler':
         specifier: 4.0.347
         version: 4.0.347(lightningcss@1.32.0)(postcss@8.5.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -1778,6 +1781,9 @@ packages:
 
   '@floating-ui/utils@0.2.12':
     resolution: {integrity: sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww==}
+
+  '@fontsource-variable/dm-sans@5.3.0':
+    resolution: {integrity: sha512-BpUG5bqePiDFMBM4ZtLSlPdAIOM990uB1dlXzIf4aw21yQR7BmykedLXXXMqGWsR18aMLOsbWccwJNh3ztTQaA==}
 
   '@huggingface/jinja@0.5.10':
     resolution: {integrity: sha512-SgS1D1bglQ94ceD4ZCL6eayUDy9uV1xuyk61OjgSxU5GJh7upqZCKII0JoTYMc6wWsg3JUgaPRX0ElQzXPk3Cw==}
@@ -8230,6 +8236,8 @@ snapshots:
       react-dom: 19.2.7(react@19.2.7)
 
   '@floating-ui/utils@0.2.12': {}
+
+  '@fontsource-variable/dm-sans@5.3.0': {}
 
   '@huggingface/jinja@0.5.10': {}
 

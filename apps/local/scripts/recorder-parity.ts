@@ -31,7 +31,8 @@ import {
   clipFfmpegInput,
   clipSource,
 } from "@/packages/clip-source";
-import { clipSegmentArgs, micEqFilters } from "@/services/clip-segment-args";
+import { clipSegmentArgs } from "@/services/clip-segment-args";
+import { micEqFilters } from "@/packages/mic-eq";
 import { cpuFallbackArgs } from "@/services/ffmpeg-error";
 import {
   BANDS,

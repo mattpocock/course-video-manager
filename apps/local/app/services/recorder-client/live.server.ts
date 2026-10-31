@@ -7,7 +7,11 @@ import { readStorageRootsSync } from "@/services/storage-roots";
 import { lastPassedCalibrationNow } from "@/services/av-calibration.server";
 import { createRecorderClient, type RecorderClient } from "./client.server";
 import { keepWhisperWarm } from "@/services/sidecar-socket.server";
-import { RECORDER_CLIENT_KEY } from "./existing-client.server";
+import { broadcastChat } from "@/services/broadcast-chat-live.server";
+import {
+  liveStreamListeners,
+  RECORDER_CLIENT_KEY,
+} from "./existing-client.server";
 import {
   REAL_RECORDER_SERVICE_URL,
   recorderServiceUrl,
@@ -84,6 +88,12 @@ export const recorderClient = (): RecorderClient => {
     closeGraceMs: 10_000,
     retryMs: 1_000,
     folder: recordingFolder(),
+    // The Live indicator in every tab follows it, however it ends.
+    onLiveStreamChanged: (liveStream) => {
+      for (const listener of liveStreamListeners()) listener(liveStream);
+    },
+    // Chat is read from the pick until the streamed Recording Session ends.
+    onStreamedSessionEnded: () => broadcastChat().end(),
     keepWhisperWarm: (ms) =>
       void runtimeLive.runPromise(
         keepWhisperWarm(ms).pipe(
