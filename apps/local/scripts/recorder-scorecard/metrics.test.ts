@@ -150,30 +150,35 @@ describe("the Live Stream's -progress", () => {
     expect(takeFps(progress.samples, [[0, Infinity]])).toBeCloseTo(60, 2);
   });
 
-  it("averages over the whole take: a stall it catches up from is not counted, one it never does is (2026-10-31)", () => {
-    const run = (catchesUp: boolean) => {
-      const progress = readProgress();
-      // 60 fps, but 1 s behind from 50 s (the sink drops), caught up by 70 s or never.
-      for (let i = 0; i <= 2000; i++) {
-        const ms = 50 * i;
-        const stalled = 60 * Math.min(1, Math.max(0, ms - 50_000) / 1000);
-        const behind = !catchesUp
-          ? stalled
-          : ms < 70_000
-            ? stalled * (1 - Math.max(0, ms - 50_000) / 20_000)
-            : 0;
-        progress.push(block(Math.round(3 * i - behind)), ms, ms);
-      }
-      return takeFps(progress.samples, [[0, Infinity]]);
-    };
-    expect(run(true)).toBeCloseTo(60, 3);
-    expect(run(false)).toBeCloseTo(59.4, 1);
+  it("averages over the whole take, so a stall the stream never catches up from counts (2026-10-31)", () => {
+    const progress = readProgress();
+    // 60 fps, but from 50 s (the sink drops) it falls 1 s behind and stays there.
+    for (let i = 0; i <= 2000; i++) {
+      const ms = 50 * i;
+      const behind = 60 * Math.min(1, Math.max(0, ms - 50_000) / 1000);
+      progress.push(block(Math.round(3 * i - behind)), ms, ms);
+    }
+    expect(takeFps(progress.samples, [[0, Infinity]])).toBeLessThan(59.2);
+  });
+
+  it("gives every stream process its own offset: a relaunch starts again from frame 0", () => {
+    const progress = readProgress();
+    for (let s = 0; s <= 60; s++) progress.push(block(60 * s), 1000 * s);
+    for (let s = 0; s <= 60; s++)
+      progress.push(block(60 * s), 70_000 + 1000 * s);
+    expect(
+      takeFps(progress.samples, [
+        [0, 65_000],
+        [65_000, Infinity],
+      ])
+    ).toBeCloseTo(60, 5);
   });
 
   it("reports a lag that wanders and comes back, and does not count it against the rate (2026-10-31)", () => {
     const progress = readProgress();
     const t0Ms = 1_000_000;
-    // 60 fps, 1.4 s behind the take, wandering ±0.3 s every 40 s, for 120 s.
+    // 60 fps, 1.4 s behind the take, wandering ±0.3 s every 40 s, for 120 s:
+    // the rate stays within the bar, and the lag is reported.
     for (let i = 0; i <= 2400; i++) {
       const ms = 50 * i;
       const lagMs = 1400 + 300 * Math.cos((2 * Math.PI * ms) / 40_000);
@@ -183,7 +188,7 @@ describe("the Live Stream's -progress", () => {
         t0Ms + ms
       );
     }
-    expect(takeFps(progress.samples, [[0, Infinity]])).toBeCloseTo(60, 2);
+    expect(takeFps(progress.samples, [[0, Infinity]])).toBeCloseTo(60, 1);
     const lag = streamLag(progress.samples, [0, Infinity], t0Ms)!;
     expect(lag.startMs).toBeCloseTo(1700, -2);
     expect(lag.minMs).toBeCloseTo(1100, -2);

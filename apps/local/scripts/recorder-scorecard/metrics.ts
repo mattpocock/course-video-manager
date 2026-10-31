@@ -568,7 +568,7 @@ export const METRICS: readonly MetricDef[] = [
     target: 0.05,
     obs: null,
     scale: 0.05,
-    note: "Decided 2026-10-31, for smoothness: frames the encoder put out per second of the Windows clock, end to end over each stream process once steady (the first from 20 s after live to its kill, sink drop included; the relaunched one from 5 s after live to End Stream). Latency wander is not a bar: the first process's lag is `streamed.streamLag` in the details, the rate `streamed.streamFps`.",
+    note: "Decided 2026-10-31, for smoothness: frames the encoder put out per second of the Windows clock, one least-squares slope across every stream process once steady (the first from 20 s after live to its kill, sink drop included; the relaunched one from 5 s after live to End Stream). Latency wander is not a bar: the first process's lag is `streamed.streamLag` in the details, the rate `streamed.streamFps`.",
   },
   {
     id: "stream_dup_frames",

@@ -161,11 +161,8 @@ export const leastDelayedClock = () => {
   };
 };
 
-/** The width of a span's ends: from each, only its least-late block counts. */
-const END_MS = 2_000;
-
-/** A span shorter than this (Windows ms, end to end) is not measured. */
-const MIN_SPAN_MS = 10_000;
+/** The width of the slices a block is picked from: one per slice. */
+const SLICE_MS = 2_000;
 
 /** A steady span of ONE stream process, `[from, to)` on the arrival clock (`at`). */
 export type Span = readonly [from: number, to: number];
@@ -173,48 +170,49 @@ export type Span = readonly [from: number, to: number];
 /** Frames ahead of 60 fps on the Windows clock: the larger, the less late it arrived. */
 const ahead = (s: ProgressSample) => s.frame - (60 * s.windowsAt) / 1000;
 
-const leastLate = (xs: readonly ProgressSample[]) =>
-  xs.reduce((a, b) => (ahead(b) > ahead(a) ? b : a));
-
-/** `span`'s blocks the service stamped on the Windows clock, and its least-late ends. */
-const ends = (samples: readonly ProgressSample[], [from, to]: Span) => {
-  const xs = samples.filter(
-    (s) => s.at >= from && s.at < to && !isNaN(s.windowsAt)
-  );
-  if (xs.length < 2) return null;
-  const t0 = Math.min(...xs.map((s) => s.windowsAt));
-  const t1 = Math.max(...xs.map((s) => s.windowsAt));
-  const first = leastLate(xs.filter((s) => s.windowsAt < t0 + END_MS));
-  const last = leastLate(xs.filter((s) => s.windowsAt > t1 - END_MS));
-  return last.windowsAt - first.windowsAt < MIN_SPAN_MS
-    ? null
-    : { xs, first, last };
+/** `span`'s least-late block of each 2 s slice (blocks reach the scorecard late, never early). */
+const picked = (samples: readonly ProgressSample[], [from, to]: Span) => {
+  const slices = new Map<number, ProgressSample>();
+  for (const s of samples) {
+    if (s.at < from || s.at >= to || isNaN(s.windowsAt)) continue;
+    const k = Math.floor(s.windowsAt / SLICE_MS);
+    const best = slices.get(k);
+    if (!best || ahead(s) > ahead(best)) slices.set(k, s);
+  }
+  return [...slices.values()];
 };
 
 /**
  * THE TAKE'S AVERAGE FRAME RATE (decided 2026-10-31, replacing a rate per
- * stretch): frames the stream put out per second of wall time over every
- * span together, on the Windows clock its frames are stamped on (`windowsAt`;
+ * stretch): frames the stream put out per second of wall time across the
+ * whole take, on the Windows clock its frames are stamped on (`windowsAt`;
  * WSL's wanders, #2482). Each span is one process from once it is steady to
- * its end, taken end to end: from the least-late block of its first 2 s to
- * the least-late block of its last 2 s (blocks reach the scorecard late,
- * never early). So a stall the stream never catches up from counts, and a
- * lag that wanders and comes back does not: that is latency, reported by
- * `streamLag`, not smoothness. Null when no span is 10 s long.
+ * its end, faults inside it included. The rate is the least-squares slope
+ * through every span's least-late blocks, one slope shared by all, each
+ * span with its own offset: a relaunch's picture starts at its own frame 0.
+ * A stall the stream never catches up from bends it; a lag that wanders and
+ * comes back, which at a span's ends would read as rate, does not. That is
+ * latency, reported by `streamLag`, not smoothness. Null with fewer than
+ * ten slices.
  */
 export const takeFps = (
   samples: readonly ProgressSample[],
   spans: readonly Span[]
 ) => {
-  let frames = 0;
-  let ms = 0;
-  for (const span of spans) {
-    const e = ends(samples, span);
-    if (!e) continue;
-    frames += e.last.frame - e.first.frame;
-    ms += e.last.windowsAt - e.first.windowsAt;
+  const xss = spans.map((span) => picked(samples, span));
+  if (xss.flat().length < 10) return null;
+  let num = 0;
+  let den = 0;
+  for (const xs of xss) {
+    if (xs.length < 2) continue;
+    const mt = xs.reduce((a, s) => a + s.windowsAt, 0) / xs.length;
+    const mf = xs.reduce((a, s) => a + s.frame, 0) / xs.length;
+    for (const s of xs) {
+      num += (s.windowsAt - mt) * (s.frame - mf);
+      den += (s.windowsAt - mt) ** 2;
+    }
   }
-  return ms ? (frames / ms) * 1000 : null;
+  return den ? (num / den) * 1000 : null;
 };
 
 /**
@@ -236,28 +234,23 @@ export const takeDupsDrops = (samples: readonly ProgressSample[]) => {
 /**
  * The stream's lag behind the take over `span`, in ms on the Windows clock:
  * the take's file time less the picture's (frame n is n/60 s), from each
- * 2 s slice's least-late block. Reported, never a bar. Null: no span.
+ * 2 s slice's least-late block. Reported, never a bar. Null: no blocks.
  */
 export const streamLag = (
   samples: readonly ProgressSample[],
   span: Span,
   t0Ms: number
 ) => {
-  const e = ends(samples, span);
-  if (!e) return null;
-  const slices = new Map<number, ProgressSample>();
-  for (const s of e.xs) {
-    const k = Math.floor(s.windowsAt / END_MS);
-    const best = slices.get(k);
-    if (!best || ahead(s) > ahead(best)) slices.set(k, s);
-  }
-  const lag = (s: ProgressSample) =>
-    Math.round(s.windowsAt - t0Ms - (s.frame * 1000) / 60);
-  const all = [...slices.values()].map(lag);
+  const all = picked(samples, span).map((s) =>
+    Math.round(s.windowsAt - t0Ms - (s.frame * 1000) / 60)
+  );
+  if (!all.length) return null;
   return {
-    startMs: lag(e.first),
-    endMs: lag(e.last),
+    startMs: all[0]!,
+    endMs: all.at(-1)!,
     minMs: Math.min(...all),
     maxMs: Math.max(...all),
+    /** Every 10 s, to see where it moved. */
+    every10sMs: all.filter((_, i) => i % 5 === 0),
   };
 };
