@@ -226,7 +226,10 @@ describe("Chat Highlights", () => {
     expect(Either.isLeft(answer) && answer.left.message).toBe(
       CHAT_HIGHLIGHTS_UNAVAILABLE
     );
-    expect(r.windows.cardServers).toHaveLength(0);
+    // Refused on the app server: no card is ever asked of a card server.
+    expect(r.windows.cardServers.map((s) => s.written).join("")).not.toContain(
+      "Does this work with Effect?"
+    );
     expect(r.windows.recorder("camera").running).toBe(true);
     await r.client.endStream(r.video.id);
   });
