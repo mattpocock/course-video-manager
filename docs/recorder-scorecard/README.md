@@ -50,6 +50,27 @@ The command runs under `nice -n 19 taskset -c 6-9`. The baseline is in [`baselin
 - **Also in the details:** the stream statuses in order, Go Live → recording and Go Live → live, and the frames the sink received. The scenario fails if the stream never goes live or the sink gets nothing.
 - **Room for the Chat Highlight.** `streamed()` takes a `during` step that runs while the stream is live. #2461's checks (click-to-on-screen time, monotonic card opacity) go there, and their metrics go after the streamed ones in `metrics.ts`.
 
+- **Its inputs, not only its output (#2502).** Matt's first real take overflowed and lost its camera + mic feed 30 s in. YouTube then got a frozen camera with no sound for about 225 s, while every gate above passed. So these are gated too, each read outside the injected faults:
+  - `stream_feed_overflows`: "FIFO queue full" lines in the camera writer's and screen recorder's logs.
+  - `stream_input_eofs`: the stream's "File ended prematurely".
+  - `stream_ffmpeg_error_lines`: any `[error]` or `[fatal]` line from the take's ffmpeg processes or the Live Stream. A fault's lines are left out by marking how long each log was when the fault began and when it was over (`stream-logs.ts`). Everything from End Stream on is left out too.
+  - `stream_sink_audio_gap_max_ms` (≤ 100) and `stream_sink_camera_still_max_s` (≤ 0.5): each `sink-<n>.flv`, read back with Linux ffprobe and ffmpeg (`sink-checks.ts`). The camera's place in the Code scene (the camera in the Camera scene too) must never stand still. A sink that a fault ended has its last 20 s left out.
+  - `stream_back_after_feed_cut`: at 0.78 of the take, the stream ffmpeg.exe is frozen for 4 s (`freezeMarked`). That is past the feeds' 2 s socket timeout, so they give up their connections, as on the real take. The stream must say it is reconnecting, launch again, and go live onto a new sink.
+  - `gpu_streaming_pct` and `nvenc_streaming_pct` (≤ 85): nvidia-smi averaged over the take.
+  - Every scene is switched through, 8 s each, once the card checks are done.
+  - The take's logs (`ffmpeg-*.log`, `stream-health.jsonl`, `events.jsonl`, `service.log`) are copied to `<out>/streamed-logs/` whatever happens, footage kept or not.
+
+### What a synthetic pass does not prove
+
+A green streamed scenario is necessary, not sufficient. Reviewers should block a streaming change that claims more than this:
+
+- **Load.** The sources are synthetic: a 320x180 clock grid scaled up on the GPU, and a lavfi screen. There is none of Matt's real desktop: no VS Code, browser or OBS-free capture of a busy screen. The GPU read 31-45% on synthetic runs and 99% on the real take.
+- **Priorities.** The Windows guard runs every process, the recorder's included, at Idle priority on cores 6-9, in one job object. Production runs the capture and the writers at High, and the stream at its own class. Contention between them is not reproduced. A production-priorities mode is deliberately not offered: it would mean loosening the guard's job-object limit, which protects Matt's live takes, and that needs Matt's decision.
+- **Devices.** There is no Cam Link (its USB timing and dshow buffering), no real mic, and no ddagrab on a real DELL.
+- **YouTube.** The sink is a local ffmpeg. RTMPS, the ingest's buffering, and how YouTube judges "not enough video" are untested.
+
+Only a real-device take (#2463's ship gate) proves those.
+
 ## Reading it
 
 - **Bar and gap.** A metric's **bar** is the stricter of its target and its OBS value. **Gap** is how far past the bar it is, measured in the metric's own `scale` (`metrics.ts`), so gaps in ms, frames and % rank together.

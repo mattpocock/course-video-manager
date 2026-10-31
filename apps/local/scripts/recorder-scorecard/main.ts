@@ -108,6 +108,7 @@ refuseMnt(outDir);
 refuseMnt(workDir);
 const stateDir = path.join(workDir, "state");
 const footageDir = path.join(workDir, "footage");
+const serviceLog = path.join(workDir, "service.log");
 fs.mkdirSync(footageDir, { recursive: true });
 
 let aborted = false;
@@ -188,7 +189,7 @@ const main = async () => {
   const service = await startService({
     marker,
     stateDir,
-    logFile: path.join(workDir, "service.log"),
+    logFile: serviceLog,
     streamIngest: sinkIngest(sinkPort),
   });
   stopEverything = async () => {
@@ -206,6 +207,8 @@ const main = async () => {
     marker,
     stateDir,
     footageDir,
+    outDir,
+    serviceLog,
     videoId: `scorecard-${runId}`,
     calibration: {
       id: `scorecard-${runId}`,
