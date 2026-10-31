@@ -16,11 +16,13 @@ import fs from "node:fs";
 const FAULT_TAIL_S = 20;
 
 /**
- * The camera's place on the picture in the Code scene (1429,364 to the
- * canvas's corner): the camera's in the Camera scene too, the screen's in
- * No Face. The synthetic camera's clock blocks there change every frame.
+ * Where the picture must always move: the synthetic camera's frame-index
+ * bits 3-4 in the Camera scene (the whole camera, 6x its 320x180 grid), and
+ * the screen's same bits in Code and No Face. They change every 8 frames at
+ * the slowest, so a still stretch there is a camera (or screen) feed that
+ * stopped. Clear of the card (bottom left, x < 736).
  */
-const CAMERA_REGION = { x: 1430, y: 364, w: 490, h: 716 };
+const CAMERA_REGION = { x: 840, y: 708, w: 480, h: 168 };
 
 /** Samples a second the camera's region is read at. */
 const SAMPLE_FPS = 10;
@@ -53,9 +55,19 @@ const packetTimes = (file: string, stream: "a" | "v") => {
     .sort((a, b) => a - b);
 };
 
-/** The camera region's longest stretch standing still (s), from `from` to `to` in the file's time. */
-const longestStill = (file: string, from: number, to: number) => {
-  if (to <= from) return 0;
+/**
+ * How long a process's picture may stand still at its start: its canvas
+ * starts on its own clock, a little before the first frames of its feeds
+ * reach it (a relaunch's by design, `RELAUNCH_LEAD_S`).
+ */
+const START_ALLOWANCE_S = 3;
+
+/**
+ * The camera region's stretches standing still (s), from `from` to `to` in
+ * the file's time: the one it starts with, and the longest after it.
+ */
+const stills = (file: string, from: number, to: number) => {
+  if (to <= from) return { leading: 0, longest: 0 };
   const r = spawnSync(
     "ffmpeg",
     [
@@ -81,14 +93,21 @@ const longestStill = (file: string, from: number, to: number) => {
   const frames = Math.floor(r.stdout.length / size);
   let run = 0;
   let longest = 0;
+  let leading: number | undefined;
   for (let i = 1; i < frames; i++) {
     let diff = 0;
     for (let k = 0; k < size; k++)
       diff += Math.abs(r.stdout[i * size + k]! - r.stdout[(i - 1) * size + k]!);
-    run = diff / size < STILL_DIFF ? run + 1 : 0;
-    longest = Math.max(longest, run);
+    if (diff / size < STILL_DIFF) run += 1;
+    else {
+      if (leading === undefined) leading = run;
+      else longest = Math.max(longest, run);
+      run = 0;
+    }
   }
-  return longest / SAMPLE_FPS;
+  if (leading === undefined) leading = run;
+  else longest = Math.max(longest, run);
+  return { leading: leading / SAMPLE_FPS, longest: longest / SAMPLE_FPS };
 };
 
 export type SinkReport = {
@@ -99,6 +118,9 @@ export type SinkReport = {
   readUntil: number | null;
   /** The longest gap between sound packets, or the sound's end short of the picture's (ms). */
   audioGapMaxMs: number | null;
+  /** How long the picture stood still at its start (reported). */
+  cameraStillAtStartS: number | null;
+  /** The longest it stood still after that, or its start beyond `START_ALLOWANCE_S`. */
   cameraStillMaxS: number | null;
 };
 
@@ -112,6 +134,7 @@ const readSink = (file: string, faultEnded: boolean): SinkReport => {
     audioSeconds: null,
     readUntil: null,
     audioGapMaxMs: null,
+    cameraStillAtStartS: null,
     cameraStillMaxS: null,
   };
   if (video.length === 0) return empty;
@@ -125,13 +148,18 @@ const readSink = (file: string, faultEnded: boolean): SinkReport => {
   for (let i = 1; i < heard.length; i++)
     gap = Math.max(gap, heard[i]! - heard[i - 1]!);
   if (heard.length > 0) gap = Math.max(gap, until - heard.at(-1)!);
+  const still = stills(file, start, until);
   return {
     file,
     videoSeconds: [start, end],
     audioSeconds: audio.length ? [audio[0]!, audio.at(-1)!] : null,
     readUntil: until,
     audioGapMaxMs: Math.round(gap * 1000),
-    cameraStillMaxS: longestStill(file, start, until),
+    cameraStillAtStartS: still.leading,
+    cameraStillMaxS: Math.max(
+      still.longest,
+      still.leading > START_ALLOWANCE_S ? still.leading : 0
+    ),
   };
 };
 

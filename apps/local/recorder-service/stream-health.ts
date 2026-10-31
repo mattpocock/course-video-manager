@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { lineSplitter } from "./launcher";
 import { STREAM_PACKET_LINE } from "./stream-args";
 import type { StreamHealth } from "./stream-protocol";
@@ -85,5 +87,34 @@ export const readStreamHealth = (o: {
       if (!line.startsWith(STREAM_PACKET_LINE)) return;
       bytes += numberOf(line.slice(STREAM_PACKET_LINE.length)) ?? 0;
     },
+  };
+};
+
+/** The health log, beside a streamed Recording Session's `events.jsonl`. */
+export const STREAM_HEALTH_LOG = "stream-health.jsonl";
+
+/**
+ * THE HEALTH LOG (#2502): every health the stream side sends, about once a
+ * second, a JSON line in the streamed Recording Session's folder, so a
+ * stream that fails on the rig can be read back afterwards. Never in
+ * `events.jsonl`: it is not the Recording Session's. Closed at the take's
+ * stop, before anything may move the folder; a write that fails is said
+ * once and costs the take nothing.
+ */
+export const openStreamHealthLog = (folder: string) => {
+  const out = fs.createWriteStream(path.join(folder, STREAM_HEALTH_LOG), {
+    flags: "a",
+  });
+  let failed = false;
+  out.on("error", (e) => {
+    if (failed) return;
+    failed = true;
+    console.error(`recorder: ${STREAM_HEALTH_LOG}: ${e.message}`);
+  });
+  return {
+    write: (line: { atMs: number; fileTime: number } & StreamHealth) => {
+      if (!failed && out.writable) out.write(`${JSON.stringify(line)}\n`);
+    },
+    close: () => void out.end(),
   };
 };

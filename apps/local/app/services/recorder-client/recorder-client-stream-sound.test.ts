@@ -27,7 +27,7 @@ describe("the stream sounds like the export", () => {
   const audioChain = (args: readonly string[]) =>
     args
       .join(" ")
-      .match(/\[1:a\](.*?)\[a\]/)![1]!
+      .match(/\[2:a\](.*?)\[a\]/)![1]!
       .split(",");
   const streamLaunch = (r: { windows: ReturnType<typeof fakeWindows> }) =>
     r.windows.launched.find(isStream) as Extract<Launch, { tool: "ffmpeg" }>;

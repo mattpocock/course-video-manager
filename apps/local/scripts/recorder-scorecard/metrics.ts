@@ -622,7 +622,7 @@ export const METRICS: readonly MetricDef[] = [
   {
     id: "stream_back_after_feed_cut",
     label:
-      "Feeds cut mid-take (the stream frozen past their socket timeout): reconnecting, launched again, live onto a new sink",
+      "Feeds lost mid-take (the stream frozen 8 s, past its stall): reconnecting, launched again, live onto a new sink",
     group: "reliability",
     unit: "bool",
     better: "higher",
@@ -640,7 +640,7 @@ export const METRICS: readonly MetricDef[] = [
     target: 0,
     obs: null,
     scale: 1,
-    note: "Each overflow drops up to a queue of the stream's picture or sound. The real take had 101.",
+    note: "Each drops up to a queue of picture or sound. The real take had 101.",
   },
   {
     id: "stream_input_eofs",
@@ -676,14 +676,15 @@ export const METRICS: readonly MetricDef[] = [
   },
   {
     id: "stream_sink_camera_still_max_s",
-    label: "Longest the camera stood still in the sinks' copies",
+    label:
+      "Longest the camera stood still in the sinks' copies (each process's first 3 s left out)",
     group: "reliability",
     unit: "s",
     better: "lower",
     target: 0.5,
     obs: null,
     scale: 0.5,
-    note: "The synthetic camera's clock blocks change every frame, so any stretch standing still is a frozen feed.",
+    note: "The synthetic camera's frame-index blocks change every few frames, so any stretch standing still is a frozen feed. Each process's picture starts a little before its feeds reach it: up to 3 s still at a sink's start is reported (`cameraStillAtStartS`), not counted.",
   },
   {
     id: "gpu_streaming_pct",
@@ -695,7 +696,7 @@ export const METRICS: readonly MetricDef[] = [
     target: 85,
     obs: null,
     scale: 5,
-    note: "Synthetic sources at Idle priority: the real take read 99% (see README, what a synthetic pass does not prove).",
+    note: "Synthetic sources at Idle priority; the real take read 99% (README).",
   },
   {
     id: "nvenc_streaming_pct",
@@ -703,10 +704,10 @@ export const METRICS: readonly MetricDef[] = [
     group: "resources",
     unit: "%",
     better: "lower",
-    target: 85,
+    target: 90,
     obs: null,
     scale: 5,
-    note: "The spike's budget was 85-90% with the recorder's encoders; the real take read 79% median, 98% p95.",
+    note: "The spec's budget is 85-90%; the real take read 79% median, 98% p95.",
   },
   {
     id: "card_click_to_screen_ms",

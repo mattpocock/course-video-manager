@@ -9,8 +9,8 @@ import { SCENES, type LayoutSource, type Scene } from "./layout-definition";
 export interface LiveSceneFilterGraphInput {
   /**
    * Each source's size as the Live Stream reads it: the screen recorder's
-   * 1920x1080 packets, decoded on NVDEC (so on CUDA), and the camera writer's
-   * raw 2560x1440 frames (in system memory).
+   * 1920x1080 packets and the camera writer's 2560x1440 ones, both decoded
+   * on NVDEC (so on CUDA).
    */
   readonly sources: Readonly<Record<LayoutSource, SourceSize>>;
   /** ffmpeg stream specifiers of the two inputs, e.g. `0:v` and `1:v`. */
@@ -102,9 +102,16 @@ const screenItem = (i: DrawInstruction, size: SourceSize) => {
   return `scale_cuda=${i.dw}:${i.dh}:format=yuv420p`;
 };
 
-/** The camera comes in raw in system memory: cropped there, then put on CUDA. */
+/**
+ * The camera comes in on CUDA too (camera.mkv's H.264 on NVDEC, #2502), and
+ * is cropped there: `crop` on a CUDA frame only moves its picture's edges,
+ * and `scale_cuda` reads from them (measured on ffmpeg.exe 8.0.1, 38 dB
+ * against the same crop on the CPU). Cropped in system memory and uploaded
+ * once per scene, the camera held the stream to ~0.8x realtime on the
+ * synthetic rig.
+ */
 const cameraItem = (i: DrawInstruction) =>
-  `crop=w=${i.sw}:h=${i.sh}:x=${i.sx}:y=${i.sy},${BT709_LIMITED},hwupload_cuda,scale_cuda=${i.dw}:${i.dh}:format=yuv420p`;
+  `crop=w=${i.sw}:h=${i.sh}:x=${i.sx}:y=${i.sy},scale_cuda=${i.dw}:${i.dh}:format=yuv420p`;
 
 /**
  * A SCENE SWITCH on the running Live Stream (#2457): the filter command that
@@ -128,7 +135,7 @@ export const liveSceneSwitch = (scene: Scene) => ({
  * measured). The canvas ticks at exactly 60 fps and clocks every scene; the
  * screen's stamps (Matroska's whole ms) are put on the same 1/60 grid, so
  * each slot pairs with its own screen frame, never the one before. A screen
- * that ends ends the picture, and the stream with it. Everything is yuv420p,
+ * or camera that ends ends the picture (#2502). Everything is yuv420p,
  * so the picture comes back as it is for the card's CPU blend (#2462).
  */
 export const liveSceneFilterGraph = ({
@@ -161,19 +168,20 @@ export const liveSceneFilterGraph = ({
         const label = `live_item${k}_${j}`;
         item(i, label);
         const next = `live_scene${k}_${j}`;
-        const eof = i.source === "screen" ? "endall" : "repeat";
+        // Either feed ending ends the picture: a frozen frame would hide a
+        // dead feed, which the stream side hears only as no new frame (#2502).
         chains.push(
-          `[${base}][${label}]overlay_cuda=x=${i.dx}:y=${i.dy}:eof_action=${eof}[${next}]`
+          `[${base}][${label}]overlay_cuda=x=${i.dx}:y=${i.dy}:eof_action=endall[${next}]`
         );
         base = next;
       });
     chains.push(`[${base}]null[live_scene${k}]`);
   });
 
-  /** Each source's head: the screen onto the canvas's 1/60 grid, tagged. */
+  /** Each source's head: the screen onto the canvas's 1/60 grid; both tagged. */
   const head: Record<LayoutSource, string> = {
     screen: `fps=${LIVE_FPS}:round=near,${BT709_LIMITED},`,
-    camera: "",
+    camera: `${BT709_LIMITED},`,
   };
   const splits = (["screen", "camera"] as const).map((source) => {
     const labels = branches[source];

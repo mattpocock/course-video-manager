@@ -75,7 +75,7 @@ const kept = (args: readonly string[]) =>
         /\[live_unshifted\];\[live_unshifted\]setpts=PTS-[\d.]+\/TB\[v\]/,
         "[v]"
       )
-      .replace(/\[1:a\]atrim=start=[\d.]+,asetpts=PTS-[\d.]+\/TB,/, "[1:a]")
+      .replace(/\[2:a\]atrim=start=[\d.]+,asetpts=PTS-[\d.]+\/TB,/, "[2:a]")
   );
 
 /**
@@ -88,7 +88,7 @@ const outputShift = (args: readonly string[]) => {
   return {
     picture: Number(a.match(/setpts=PTS-([\d.]+)\/TB\[v\]/)?.[1] ?? 0),
     sound: Number(
-      a.match(/\[1:a\]atrim=start=([\d.]+),asetpts=PTS-\1\/TB,/)?.[1] ?? 0
+      a.match(/\[2:a\]atrim=start=([\d.]+),asetpts=PTS-\1\/TB,/)?.[1] ?? 0
     ),
   };
 };
@@ -171,6 +171,31 @@ describe("the stream reconnects for ever, and the recording carries on", () => {
     await r.client.endStream(r.video.id);
   });
 
+  it("stops a stream process whose picture stops moving, though -progress still comes (a feed that ended or stalled), and launches it again", async () => {
+    const r = await live({ streamStallMs: 150 });
+    const first = r.windows.streams[0]!;
+    first.stdout(progress({ frame: 60 }));
+    await vi.waitFor(() => expect(r.kinds().at(-1)).toBe("live"));
+
+    // ffmpeg keeps saying how it is doing, on its own clock, while its frame
+    // count is stuck: what a camera feed that ended looked like (#2502).
+    const ticking = setInterval(
+      () => first.stdout(progress({ frame: 61 })),
+      20
+    );
+    try {
+      await vi.waitFor(() =>
+        expect(r.windows.streams.length).toBeGreaterThan(1)
+      );
+    } finally {
+      clearInterval(ticking);
+    }
+    expect(first.written).toContain("q");
+    expect(r.kinds()).toContain("reconnecting");
+    r.untouched();
+    await r.client.endStream(r.video.id);
+  });
+
   it("says it is reconnecting while its push retries YouTube, and live once through again, counting it", async () => {
     const r = await live();
     const stream = r.windows.streams[0]!;
@@ -194,7 +219,7 @@ describe("the stream reconnects for ever, and the recording carries on", () => {
 });
 
 describe("the Live Stream's health", () => {
-  it("says fps, speed, drops, dups and the bitrate pushed, from -progress, and never saves it with the Recording Session", async () => {
+  it("says fps, speed, drops, dups and the bitrate pushed, from -progress, and writes each beside the Recording Session's log, never in it", async () => {
     const r = await live();
     const stream = r.windows.streams[0]!;
 
@@ -239,6 +264,32 @@ describe("the Live Stream's health", () => {
       expect(fs.readFileSync(path.join(r.folder, log), "utf8")).not.toMatch(
         /stream-health|bitrate|reconnect/
       );
+    // So the next stream that fails can be read back, second by second (#2502).
+    const healthLog = path.join(
+      r.folder,
+      path.dirname(logs[0]!),
+      "stream-health.jsonl"
+    );
+    const lines = fs
+      .readFileSync(healthLog, "utf8")
+      .trim()
+      .split("\n")
+      .map((l) => JSON.parse(l));
+    expect(lines).toEqual([
+      expect.objectContaining({ fps: 60.18, speed: 0.998, bitrateKbps: null }),
+      expect.objectContaining({
+        fps: 60,
+        speed: 1,
+        droppedFrames: 2,
+        duplicatedFrames: 1,
+        bitrateKbps: 9_000,
+        reconnects: 0,
+      }),
+    ]);
+    for (const l of lines) {
+      expect(l.atMs).toEqual(expect.any(Number));
+      expect(l.fileTime).toEqual(expect.any(Number));
+    }
   });
 });
 

@@ -19,18 +19,19 @@ import { freezeMarked, killMarked } from "./windows";
  * - The kill is reconnected outside it: the stream side launches it again,
  *   which listens on the same ports for the take's feeds, and pushes to a
  *   sink started again.
- * - The feeds are cut (#2502): the stream ffmpeg.exe is frozen for
- *   `FREEZE_MS`, as one that falls behind its feeds, until each feed's fifo
- *   gives up its connection (a 2 s timeout). What Matt's real take did 30 s
- *   in. The Live Stream must say it is reconnecting, launch again, get its
- *   feeds back, and be live onto a sink started again.
+ * - The feeds are lost (#2502): the stream ffmpeg.exe is frozen for
+ *   `FREEZE_MS`, as one that stops reading its feeds, past the stream
+ *   side's stall. Matt's real take lost its camera + mic feed 30 s in and
+ *   never got it back. The Live Stream must say it is reconnecting, launch
+ *   again, get its feeds back, and be live onto a sink started again. A
+ *   shorter freeze the feeds ride out: they queue 10 s.
  *
  * What each fault logs, from its start until it is over, is left out of the
  * log gates (`stream-logs.ts`): it is meant to log it.
  */
 
-/** How long the stream is frozen: past the feeds' 2 s socket timeout, short of the 5 s stall. */
-const FREEZE_MS = 4_000;
+/** How long the stream is frozen: past the stream side's 5 s stall. */
+const FREEZE_MS = 8_000;
 
 /** When the feeds are cut, as a fraction of the take: room after it for a whole sink to be read. */
 const FEED_CUT_AT = 0.78;
@@ -145,11 +146,11 @@ export const streamFaults = async (
   killLogged.end();
   const relaunchedSink = o.sinks.current();
 
-  // The feeds cut: the stream frozen until they give up on it.
+  // The feeds lost: the stream frozen past its stall.
   await until(FEED_CUT_AT);
   const sinkFramesBeforeCut = relaunchedSink.frames();
   ctx.log(
-    `streamed: the stream ffmpeg.exe is frozen ${FREEZE_MS} ms (its feeds cut)`
+    `streamed: the stream ffmpeg.exe is frozen ${FREEZE_MS} ms (its feeds lost)`
   );
   const cutLogged = o.logs.fault();
   const cutFrom = ctx.client.received.length;

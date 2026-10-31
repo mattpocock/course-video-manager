@@ -54,9 +54,9 @@ The command runs under `nice -n 19 taskset -c 6-9`. The baseline is in [`baselin
   - `stream_feed_overflows`: "FIFO queue full" lines in the camera writer's and screen recorder's logs.
   - `stream_input_eofs`: the stream's "File ended prematurely".
   - `stream_ffmpeg_error_lines`: any `[error]` or `[fatal]` line from the take's ffmpeg processes or the Live Stream. A fault's lines are left out by marking how long each log was when the fault began and when it was over (`stream-logs.ts`). Everything from End Stream on is left out too.
-  - `stream_sink_audio_gap_max_ms` (≤ 100) and `stream_sink_camera_still_max_s` (≤ 0.5): each `sink-<n>.flv`, read back with Linux ffprobe and ffmpeg (`sink-checks.ts`). The camera's place in the Code scene (the camera in the Camera scene too) must never stand still. A sink that a fault ended has its last 20 s left out.
-  - `stream_back_after_feed_cut`: at 0.78 of the take, the stream ffmpeg.exe is frozen for 4 s (`freezeMarked`). That is past the feeds' 2 s socket timeout, so they give up their connections, as on the real take. The stream must say it is reconnecting, launch again, and go live onto a new sink.
-  - `gpu_streaming_pct` and `nvenc_streaming_pct` (≤ 85): nvidia-smi averaged over the take.
+  - `stream_sink_audio_gap_max_ms` (≤ 100) and `stream_sink_camera_still_max_s` (≤ 0.5): each `sink-<n>.flv`, read back with Linux ffprobe and ffmpeg (`sink-checks.ts`). A band of the picture that is the camera's fast frame-index bits in the Camera scene, and the screen's in the others, must never stand still. A sink that a fault ended has its last 20 s left out. Each process's picture starts a little before its feeds reach it, so up to 3 s still at a sink's start is reported, not counted.
+  - `stream_back_after_feed_cut`: at 0.78 of the take, the stream ffmpeg.exe is frozen for 8 s (`freezeMarked`), past the stream side's 5 s stall, as one that stops reading its feeds. The real take lost its camera + mic feed and never got it back. The stream must say it is reconnecting, launch again, get its feeds back, and go live onto a new sink.
+  - `gpu_streaming_pct` (≤ 85) and `nvenc_streaming_pct` (≤ 90, the spec's 85-90% budget): nvidia-smi averaged over the take.
   - Every scene is switched through, 8 s each, once the card checks are done.
   - The take's logs (`ffmpeg-*.log`, `stream-health.jsonl`, `events.jsonl`, `service.log`) are copied to `<out>/streamed-logs/` whatever happens, footage kept or not.
 

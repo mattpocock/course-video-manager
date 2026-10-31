@@ -11,7 +11,7 @@ import type { StreamFeedPorts } from "./stream-feeds";
 /**
  * THE LIVE STREAM PROCESS'S ARGUMENTS (spec #2445, ADR 0054). One
  * ffmpeg.exe that holds no device and writes no file: it listens for a
- * streamed Recording Session's two feeds (`stream-feeds.ts`), draws the
+ * streamed Recording Session's three feeds (`stream-feeds.ts`), draws the
  * Landscape scene (`liveSceneFilterGraph`) on CUDA, encodes it on NVENC and
  * pushes it to YouTube behind a fifo that retries without limit. Every
  * setting is a constant here; only the ports, the scene, the Mic Offset, the
@@ -108,8 +108,19 @@ const soundFrom = (startSeconds: number) => {
   return [`atrim=start=${s}`, `asetpts=PTS-${s}/TB`];
 };
 
+/**
+ * Packets each feed's input reads ahead of the picture (#2502): about 10 s
+ * of each, a few MB of encoded packets. The stream starts 2-3 s after
+ * Record and runs ~1.2 s behind it; read ahead here, the feeds' sockets
+ * always drain and that backlog waits in the stream, not in the take's
+ * fifos.
+ */
+const FEED_READ_AHEAD = { screen: 600, camera: 300, mic: 500 } as const;
+
 /** A listening loopback input: the feed connects to it. */
-const feedInput = (port: number, probesize: number) => [
+const feedInput = (port: number, probesize: number, readAhead: number) => [
+  "-thread_queue_size",
+  String(readAhead),
   "-probesize",
   String(probesize),
   "-analyzeduration",
@@ -189,10 +200,11 @@ export const streamArgs = (o: {
       inputs: { screen: "0:v", camera: "1:v" },
       scene: o.scene,
       output: "v",
-      card: { input: "2:v", ...cardPlace(o.card) },
+      card: { input: "3:v", ...cardPlace(o.card) },
       canvasStartSeconds: o.startSeconds,
     }),
-    `[1:a]${[...soundFrom(o.startSeconds ?? 0), ...streamSound(o.micOffsetMs, o.micEq), "aresample=async=1000"].join(",")}[a]`,
+    // The mic's own feed: the camera's ending or overflowing never takes it.
+    `[2:a]${[...soundFrom(o.startSeconds ?? 0), ...streamSound(o.micOffsetMs, o.micEq), "aresample=async=1000"].join(",")}[a]`,
   ].join(";");
   const kbps = `${STREAM_ENCODE.videoKbps}k`;
   return [
@@ -219,8 +231,17 @@ export const streamArgs = (o: {
     "cuda",
     "-hwaccel_device",
     "cu",
-    ...feedInput(o.ports.screen, 100_000),
-    ...feedInput(o.ports.camera, 32),
+    ...feedInput(o.ports.screen, 100_000, FEED_READ_AHEAD.screen),
+    // camera.mkv's H.264, decoded on NVDEC onto CUDA, where each scene
+    // crops it (`liveSceneFilterGraph`).
+    "-hwaccel",
+    "cuda",
+    "-hwaccel_output_format",
+    "cuda",
+    "-hwaccel_device",
+    "cu",
+    ...feedInput(o.ports.camera, 100_000, FEED_READ_AHEAD.camera),
+    ...feedInput(o.ports.mic, 32, FEED_READ_AHEAD.mic),
     ...cardInput(o.card),
     "-filter_complex",
     graph,
@@ -228,6 +249,10 @@ export const streamArgs = (o: {
     "[v]",
     "-map",
     "[a]",
+    // The sound ending ends the picture, as a camera or screen ending does:
+    // a dead feed holds every frame back, which the stream side hears as a
+    // stall and launches it again (#2502). Never a picture with no sound.
+    "-shortest",
     "-fps_mode",
     "cfr",
     "-r",

@@ -64,10 +64,10 @@ describe("Go Live and End Stream", () => {
     expect(writer).toBeLessThan(stream);
     expect(stream).toBeLessThan(record);
 
-    // Each feed goes where the stream listens: screen first, then camera.
+    // Each feed goes where the stream listens: screen, camera, then mic.
     const streamArgs = (launched[stream] as Extract<Launch, { tool: "ffmpeg" }>)
       .args;
-    const [screenPort, cameraPort] = ports(
+    const [screenPort, cameraPort, micPort] = ports(
       streamArgs,
       /tcp:\/\/127\.0\.0\.1:(\d+)\?listen=1/g
     );
@@ -76,7 +76,7 @@ describe("Go Live and End Stream", () => {
     const screenArgs = (launched[record] as Extract<Launch, { tool: "ffmpeg" }>)
       .args;
     expect(ports(writerArgs, /\]tcp:\/\/127\.0\.0\.1:(\d+)\?timeout/g)).toEqual(
-      [cameraPort]
+      [cameraPort, micPort]
     );
     expect(ports(screenArgs, /\]tcp:\/\/127\.0\.0\.1:(\d+)\?timeout/g)).toEqual(
       [screenPort]

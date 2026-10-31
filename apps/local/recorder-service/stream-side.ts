@@ -53,9 +53,11 @@ import {
 export const STREAM_LISTEN_BOUND_MS = 1_500;
 
 /**
- * No -progress for this long (it comes 20 times a second) and the stream
- * process has stalled: it is stopped and launched again. Before its first
- * block it gets four times as long (its feeds come at Record).
+ * No new frame for this long and the stream process has stalled: it is
+ * stopped and launched again. Before its first frame it gets four times as
+ * long (its feeds come at Record). A feed that ends or stalls holds every
+ * frame back (the camera's overlays end with it, `-shortest` ends the
+ * picture with the sound), so this is how a dead feed is heard (#2502).
  */
 export const STREAM_STALL_MS = 5_000;
 
@@ -152,7 +154,7 @@ export const createStreamSide = (o: {
   onHealth: (health: StreamHealth) => void;
   /** How long Record waits for it to listen (`STREAM_LISTEN_BOUND_MS`). */
   listenBoundMs: number;
-  /** No -progress this long and a process has stalled (`STREAM_STALL_MS`). */
+  /** No new frame this long and a process has stalled (`STREAM_STALL_MS`). */
   stallMs: number;
   /** The streamed Recording Session's file time now (s), once it records. */
   fileTime: () => number | null;
@@ -248,24 +250,29 @@ export const createStreamSide = (o: {
       set({ kind: "live" });
     };
 
-    // No -progress for too long: stalled. Stopped, then launched again.
+    // No new frame for too long: stalled. Stopped, then launched again.
     let stall: ReturnType<typeof setTimeout> | undefined;
     const watch = (ms: number) => {
       clearTimeout(stall);
       stall = setTimeout(() => {
         if (!current()) return;
         console.error(
-          `recorder: the Live Stream process stalled (no progress for ${ms} ms); launching it again, the recording carries on`
+          `recorder: the Live Stream process stalled (no new frame for ${ms} ms); launching it again, the recording carries on`
         );
         self.gone = quit(self, STALLED_QUIT_TIMEOUT_MS);
       }, ms);
     };
     watch(stallMs * 4);
 
+    // Its picture moving, not -progress coming, is what keeps it alive:
+    // -progress comes on its own clock even while a feed that ended or
+    // stalled holds every frame back (#2502).
+    let lastFrame = 0;
     const read = readStreamHealth({
       pushing: () => !self.pushLost,
       onBlock: (frame) => {
-        watch(stallMs);
+        if (frame > lastFrame) watch(stallMs);
+        lastFrame = Math.max(lastFrame, frame);
         if (!current() || frame === 0 || self.framed) return;
         self.framed = true;
         if (!self.pushLost) wentLive();

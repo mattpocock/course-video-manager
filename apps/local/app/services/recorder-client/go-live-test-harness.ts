@@ -181,7 +181,7 @@ export const isStream = (l: Launch) =>
 export const isStreamedWriter = (l: Launch) =>
   isFfmpeg(l) &&
   writesFile(l.args, "camera.mkv") &&
-  l.args.some((a) => a.includes("[streamcam]"));
+  l.args.some((a) => a.includes("]camera.mkv|"));
 export const isScreenRecorder = (l: Launch) =>
   isFfmpeg(l) && writesFile(l.args, "screen.mkv");
 

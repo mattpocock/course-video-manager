@@ -270,7 +270,7 @@ describe("Chat Highlights", () => {
     const graph = r.windows.streams[1]!.launch.args.join(" ");
     const canvasStart = graph.match(/r=60,setpts=PTS\+([\d.]+)\/TB/)?.[1];
     expect(canvasStart).toBeDefined();
-    expect(graph).toContain(`[2:v]setpts=PTS+${canvasStart}/TB,`);
+    expect(graph).toContain(`[3:v]setpts=PTS+${canvasStart}/TB,`);
     // And a click shows on it, once its frames reach the picture's start.
     await vi.waitFor(
       () => expect(r.windows.cardFeeds[1]!.bytes()).toBeGreaterThan(0),
@@ -289,7 +289,7 @@ describe("Chat Highlights", () => {
     // its upload pool held 2 frames, and the next upload overwrote the one
     // the blend was still to read.
     const graph = r.windows.streams[0]!.launch.args.join(" ");
-    const cardChain = graph.split(";").find((c) => c.startsWith("[2:v]"));
+    const cardChain = graph.split(";").find((c) => c.startsWith("[3:v]"));
     expect(cardChain).not.toContain("hwupload_cuda");
     expect(graph).toMatch(
       /\[live_selected\]hwdownload,format=yuv420p\[\w+\];\[\w+\]\[live_card\]overlay=/
