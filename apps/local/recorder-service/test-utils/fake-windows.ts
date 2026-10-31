@@ -82,6 +82,8 @@ export type FakeProcess = LaunchedProcess & {
   stuck?: boolean;
   /** A preview that stalled: still running, sending nothing. */
   frozen?: boolean;
+  /** A card server that stalled: still running, answering nothing. */
+  stalled?: boolean;
 };
 
 const fakeProcess = (launch: Launch): FakeProcess => {
@@ -305,6 +307,8 @@ export const fakeWindows = (
     stream?: "up" | "never";
     /** How long screens.ps1 takes to answer (PowerShell's start-up); default the next tick. */
     screensListingMs?: number;
+    /** The DELL as screens.ps1 lists it (default 1920x1080); null: not plugged in. */
+    dell?: { width: number; height: number } | null;
     /**
      * A synthetic mic for the level meter: its short-term loudness (LUFS) at
      * each second, printed as ebur128 would every 100 ms. Absent, the meter
@@ -338,6 +342,7 @@ export const fakeWindows = (
     wakeFails: o.wakeFails,
     ...o.spacedesk,
   };
+  const dell = o.dell === undefined ? { width: 1920, height: 1080 } : o.dell;
   let wakes = 0;
   /** The injected wake: never the real Spacedesk. */
   const wakeSpacedesk = async () => {
@@ -376,7 +381,10 @@ export const fakeWindows = (
       return answer(p, {
         afterMs: o.screensListingMs,
         stdout:
-          "0\t0\t0\t2560\t1440\t\\\\.\\DISPLAY1\tLG HDR QHD\r\n1\t2560\t0\t1920\t1080\t\\\\.\\DISPLAY2\tDELL U2424H\r\n" +
+          "0\t0\t0\t2560\t1440\t\\\\.\\DISPLAY1\tLG HDR QHD\r\n" +
+          (dell
+            ? `1\t2560\t0\t${dell.width}\t${dell.height}\t\\\\.\\DISPLAY2\tDELL U2424H\r\n`
+            : "") +
           (spacedesk.awake
             ? `2\t1920\t0\t${spacedesk.width}\t${spacedesk.height}\t\\\\.\\DISPLAY11\t?\tspacedesk Graphics Adapter\r\n`
             : ""),

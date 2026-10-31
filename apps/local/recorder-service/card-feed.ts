@@ -21,7 +21,11 @@ import {
  * them (with a burst at connect, from T0), never ahead. A click changes the
  * card from the first frame stamped at or after it, never earlier, however
  * far behind the stream is reading. While hidden or settled it sends the
- * same frame again, so the composite never waits on it.
+ * same frame again, so the composite never waits on it. A slot it reaches
+ * late (`LATE_MS`) carries the last frame sent again, so it is back on the
+ * clock at once: the stream's overlay pairs every picture frame with a card
+ * frame, so a feed that fell behind would hold the picture (ADR 0054,
+ * amended 2026-10-31).
  *
  * It never skips a frame (their count is their time): while the stream is
  * slow to read (its start-up), it waits for the socket to drain, holding at
@@ -37,6 +41,15 @@ const FRAME_MS = 1000 / CARD_FPS;
 
 /** Seconds of frames held for a stream slow to read, before the feed waits. */
 const MAX_BUFFERED_SECONDS = 1;
+
+/**
+ * A slot the feed reaches more than this long after the clock passed it is
+ * late (the service was busy, or its clock jumped on): it carries the last
+ * frame sent again, drawing nothing, so the feed is back on the clock at
+ * once and the picture never waits on it. Changes due then land on the
+ * first slot on time, stamped there.
+ */
+const LATE_MS = 100;
 
 /** A card still as the feed draws it: straight RGBA from the card server. */
 export type CardStill = { width: number; height: number; rgba: Buffer };
@@ -200,6 +213,8 @@ export const createCardFeed = (o: {
   let pending: { notBeforeMs: number; apply: (at: CardStamp) => void }[] = [];
   let cache: { key: string; frame: Buffer } | undefined;
   const hiddenFrame = drawFrame(size, null, CHAT_HIGHLIGHT_HIDDEN);
+  /** The frame sent last, which a late slot carries again. */
+  let lastSent: Buffer = hiddenFrame;
   /** Fails every stamp still to come once the feed has closed. */
   let failStamps!: (e: Error) => void;
   const stopped = new Promise<never>((_, reject) => (failStamps = reject));
@@ -280,7 +295,9 @@ export const createCardFeed = (o: {
         }
         return;
       }
-      r.socket.write(frameAt(stampOf(r, r.frame)));
+      const at = stampOf(r, r.frame);
+      if (now - at.atMs <= LATE_MS) lastSent = frameAt(at);
+      r.socket.write(lastSent);
       r.frame += 1;
     }
     timer = setTimeout(tick, Math.max(1, stampOf(r, r.frame).atMs - now));
@@ -294,8 +311,15 @@ export const createCardFeed = (o: {
   };
 
   const server = net.createServer((s) => {
-    // One stream process reads it at a time.
-    if (reader || gone) return void s.destroy();
+    if (gone) return void s.destroy();
+    // One stream process reads it at a time: the newest. A relaunched one
+    // can connect before the last one's socket has closed, and must never
+    // be turned away (its card input would fail, and it would quit).
+    if (reader) {
+      const old = reader;
+      readerGone(old);
+      old.socket.destroy();
+    }
     const r = {
       socket: s,
       startSeconds: nextStartSeconds,

@@ -32,8 +32,15 @@ export const startChatHighlights = async (o: {
   launch: Launcher;
   /** The recorder's Windows clock. */
   now: () => number;
+  /** How long a card's still may take before its click is refused (`CARD_ANSWER_MS`). */
+  answerMs: number;
 }) => {
-  const server = createCardServer({ launch: o.launch });
+  const server = createCardServer({ launch: o.launch, answerMs: o.answerMs });
+  // Warmed from Go Live on, while the take arms and the stream starts: its
+  // start (Chromium, the cached card bundle, a warm-up card) takes about a
+  // second, so even a first click right after going live finds it ready
+  // (#2445 review; it used to wait for the stream to be live, ~5 s more).
+  server.start();
   const feed = createCardFeed({ now: o.now, still: CARD_CANVAS });
   const card: StreamCard = {
     port: await feed.port(),
@@ -95,14 +102,6 @@ export const startChatHighlights = async (o: {
   return {
     /** The feed the stream reads its card from. */
     card,
-    /**
-     * Starts the card server, so the first card is warm by the first click.
-     * Only once the Live Stream is live: its start-up (a webpack bundle, a
-     * Chromium) is a burst of CPU, and a burst while the take and the stream
-     * start can starve them (the scorecard's Idle-priority ffmpeg.exe lost
-     * the stream's camera feed to it).
-     */
-    warm: () => server.start(),
     /** A stream process is launching, its picture starting at this file time (s). */
     launching: (startSeconds: number) => feed.launching(startSeconds),
     /** The streamed Recording Session began: frame 0 is its T0. */
@@ -119,13 +118,17 @@ export const startChatHighlights = async (o: {
         if (c.type === "show-highlight") return show(c, receivedAtMs);
         return hide(c.highlightId);
       };
-      // The Live Stream ending mid-command fails it: said as a refusal.
+      // A card that could not be drawn, or the Live Stream ending mid-command,
+      // fails it: said as a refusal.
       const done = queue.then(run).catch((e: unknown) => {
-        throw e instanceof Refusal
-          ? e
-          : new Refusal(
-              `${CHAT_HIGHLIGHT_REFUSALS.notLive} (${e instanceof Error ? e.message : String(e)})`
-            );
+        if (e instanceof Refusal) throw e;
+        if (!session || !feed.running())
+          throw new Refusal(CHAT_HIGHLIGHT_REFUSALS.notLive);
+        throw new Refusal(
+          CHAT_HIGHLIGHT_REFUSALS.unavailable(
+            e instanceof Error ? e.message : String(e)
+          )
+        );
       });
       queue = done.catch(() => {});
       return done;

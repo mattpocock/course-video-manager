@@ -629,6 +629,18 @@ export const METRICS: readonly MetricDef[] = [
     note: "Per click, the service's stamp of the card's first changed frame less when its show-highlight arrived: the card server's still, its decode, and the wait for the next frame. Every click is `chatHighlights.clickToScreenMs` in the details.",
   },
   {
+    id: "stream_unmoved_by_card_server_stall",
+    label:
+      "Card server stalled 8 s mid-take: the stream is never relaunched, its click is refused, the next is drawn",
+    group: "reliability",
+    unit: "bool",
+    better: "higher",
+    target: 1,
+    obs: null,
+    scale: 1,
+    note: "SIGSTOP on the card server, then SIGCONT (`card-checks.ts`). The take-wide rate, dups and drops above include the stall. Details: `chatHighlights.cardServerStall`.",
+  },
+  {
     id: "card_opacity_wrong_frames",
     label:
       "Chat Highlight frames out of step: the card's opacity moving the wrong way, or before its stamp",

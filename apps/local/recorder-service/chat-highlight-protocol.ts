@@ -56,4 +56,7 @@ export type ChatHighlightEvent =
 export const CHAT_HIGHLIGHT_REFUSALS = {
   notLive: "There is no Live Stream to show a Chat Highlight on.",
   notShowing: "That Chat Highlight is not showing.",
+  /** The card could not be drawn (its card server quit, stalled, or has no browser). */
+  unavailable: (why: string) =>
+    `Chat Highlights are unavailable for now: ${why} The stream and the recording carry on.`,
 } as const;

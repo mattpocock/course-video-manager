@@ -20,7 +20,13 @@ import type { StopReason, TakeSettings } from "./take-settings";
 import { Refusal } from "./refusal";
 import { YOUTUBE_INGEST } from "./stream-args";
 import { pickStreamFeedPorts, type StreamFeedPorts } from "./stream-feeds";
-import { createStreamSide, redactStreamKey } from "./stream-side";
+import {
+  createStreamSide,
+  redactStreamKey,
+  STREAM_LISTEN_BOUND_MS,
+  STREAM_STALL_MS,
+} from "./stream-side";
+import { CARD_ANSWER_MS } from "./card-server";
 
 /**
  * GO LIVE AND END STREAM in the recorder service (ADR 0054): a streamed
@@ -63,6 +69,8 @@ export type GoLiveRecorder = {
   /** The live camera capture, if the camera is live. */
   capture: () => Capture | undefined;
   screenPreviewOnNvenc: () => boolean;
+  /** Why the screen can't be recorded now (the DELL), if it can't. */
+  screenRefusal: () => Promise<string | null>;
   metering: () => boolean;
   /** Record's gate (`devices.forRecord`): the calibration it lets through. */
   gate: (
@@ -88,14 +96,24 @@ export type GoLiveRecorder = {
 export type LiveStreamOptions = {
   launch: Launcher;
   /** Where a Live Stream goes: YouTube (`YOUTUBE_INGEST`), or the scorecard's sink. */
-  streamIngest?: string;
-  /** `STREAM_LISTEN_BOUND_MS` (tests). */
-  streamListenBoundMs?: number;
-  /** `STREAM_STALL_MS` (tests). */
-  streamStallMs?: number;
+  streamIngest: string;
+  /** How long Record waits for the stream to listen (`STREAM_LISTEN_BOUND_MS`). */
+  streamListenBoundMs: number;
+  /** No -progress this long and the stream process has stalled (`STREAM_STALL_MS`). */
+  streamStallMs: number;
+  /** How long a card's still may take before its click is refused (`CARD_ANSWER_MS`). */
+  cardAnswerMs: number;
   /** Windows wall-clock ms, the Recording Session's T0's clock. */
   now: () => number;
 };
+
+/** The Live Stream's settings on the rig: every caller but a test passes these. */
+export const LIVE_STREAM_SETTINGS = {
+  streamIngest: YOUTUBE_INGEST,
+  streamListenBoundMs: STREAM_LISTEN_BOUND_MS,
+  streamStallMs: STREAM_STALL_MS,
+  cardAnswerMs: CARD_ANSWER_MS,
+} satisfies Partial<LiveStreamOptions>;
 
 export const createGoLive = (
   o: LiveStreamOptions & {
@@ -108,11 +126,7 @@ export const createGoLive = (
     listenBoundMs: o.streamListenBoundMs,
     stallMs: o.streamStallMs,
     fileTime: () => (streamed ? (o.now() - streamed.t0Ms) / 1000 : null),
-    onStatus: (status) => {
-      // The card server warms once the stream is live (`chat-highlights.ts`).
-      if (status.kind === "live") highlights?.warm();
-      o.onStatus(status);
-    },
+    onStatus: o.onStatus,
     onHealth: o.onHealth,
     // Each launch, a relaunch too, reads the card from its picture's start.
     onLaunch: (startSeconds) => highlights?.launching(startSeconds),
@@ -129,9 +143,10 @@ export const createGoLive = (
   };
 
   /** Every reason the recorder refuses Go Live for now. */
-  const refusals = (r: GoLiveRecorder): string[] => {
+  const refusals = async (r: GoLiveRecorder): Promise<string[]> => {
     const state = r.state();
     if (state.kind === "closed") return [GO_LIVE_REFUSALS.closed];
+    const screen = state.format === "short" ? null : await r.screenRefusal();
     return [
       state.kind === "recording" && GO_LIVE_REFUSALS.recording,
       state.format === "short" && GO_LIVE_REFUSALS.short,
@@ -140,6 +155,7 @@ export const createGoLive = (
         state.camera.kind !== "live" &&
         GO_LIVE_REFUSALS.cameraNotLive,
       r.metering() && GO_LIVE_REFUSALS.metering,
+      screen,
     ].filter((reason) => typeof reason === "string");
   };
 
@@ -173,7 +189,7 @@ export const createGoLive = (
      * every reason that applies. Nothing it says carries the Stream Key.
      */
     goLive: async (command: StartStream, r: GoLiveRecorder) => {
-      const reasons = refusals(r);
+      const reasons = await refusals(r);
       if (reasons.length > 0) throw new Refusal(reasons.join(" "));
       const capture = r.capture();
       if (!capture) throw new Refusal(GO_LIVE_REFUSALS.cameraNotLive);
@@ -182,6 +198,12 @@ export const createGoLive = (
       const { thresholdDb } = await r.gate(command.record.calibration);
       const ports = pickStreamFeedPorts();
       try {
+        // First, so the card server warms while the take arms (`chat-highlights.ts`).
+        highlights = await startChatHighlights({
+          launch: o.launch,
+          now: o.now,
+          answerMs: o.cardAnswerMs,
+        });
         await r.relayFree();
         goingLive = {
           folder: command.record.folder,
@@ -191,17 +213,13 @@ export const createGoLive = (
           streamed: ports,
         };
         await r.prepare(goingLive);
-        highlights = await startChatHighlights({
-          launch: o.launch,
-          now: o.now,
-        });
         const state = r.state();
         await side.start({
           ports,
           scene: state.kind === "closed" ? "Code" : state.scene,
           micOffsetMs: command.micOffsetMs,
           micEq: command.micEq,
-          ingest: o.streamIngest ?? YOUTUBE_INGEST,
+          ingest: o.streamIngest,
           streamKey: command.streamKey,
           card: highlights.card,
         });

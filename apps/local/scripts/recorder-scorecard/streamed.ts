@@ -15,7 +15,7 @@ import {
   takeFps,
 } from "./stream-sink";
 import { CAMERA_FPS, SCREEN_FPS } from "./synthetic-sources";
-import { streamFaults, type Sinks } from "./stream-faults";
+import { relaunchedBetween, streamFaults, type Sinks } from "./stream-faults";
 import { hold, sleep, type Ctx } from "./takes";
 import { killMarked, windowsGuard } from "./windows";
 
@@ -235,6 +235,8 @@ export const streamed = async (
   during: (live: {
     liveAt: number;
     sinkFile: string;
+    /** Whether the stream process was launched again between two `performance.now()`s. */
+    relaunchedBetween: (from: number, to: number) => boolean;
   }) => Promise<() => Promise<void>> = async () => async () => {}
 ) => {
   ctx.log(`streamed: a ${seconds} s Live Stream, pushed to a local sink`);
@@ -254,6 +256,8 @@ export const streamed = async (
     const afterEnd = await during({
       liveAt: live?.at ?? NaN,
       sinkFile: sinkFile(1),
+      relaunchedBetween: (from, to) =>
+        relaunchedBetween(progress.samples, from, to),
     });
     const faults = await streamFaults(ctx, {
       goAt: go.at,

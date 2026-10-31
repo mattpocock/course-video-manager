@@ -150,16 +150,16 @@ export const createStreamSide = (o: {
   onStatus: (status: StreamStatus) => void;
   /** Its health: about once a second while a process runs, and at each reconnect. */
   onHealth: (health: StreamHealth) => void;
-  /** `STREAM_LISTEN_BOUND_MS` (tests). */
-  listenBoundMs?: number;
-  /** `STREAM_STALL_MS` (tests). */
-  stallMs?: number;
+  /** How long Record waits for it to listen (`STREAM_LISTEN_BOUND_MS`). */
+  listenBoundMs: number;
+  /** No -progress this long and a process has stalled (`STREAM_STALL_MS`). */
+  stallMs: number;
   /** The streamed Recording Session's file time now (s), once it records. */
   fileTime: () => number | null;
   /** A process is launching, its picture starting at this file time (s). */
-  onLaunch?: (startSeconds: number) => void;
+  onLaunch: (startSeconds: number) => void;
 }) => {
-  const stallMs = o.stallMs ?? STREAM_STALL_MS;
+  const stallMs = o.stallMs;
   let status: StreamStatus = STREAM_IDLE;
   let running: Running | undefined;
   /** What Go Live started it with, until it ends: every relaunch uses it. */
@@ -220,7 +220,7 @@ export const createStreamSide = (o: {
     // here) stamps its frames on exactly the canvas's clock.
     const startSeconds =
       relaunchAt === undefined ? undefined : Number(relaunchAt.toFixed(3));
-    o.onLaunch?.(startSeconds ?? 0);
+    o.onLaunch(startSeconds ?? 0);
     const p = o.launch({
       tool: "ffmpeg",
       args: streamArgs({
@@ -337,7 +337,7 @@ export const createStreamSide = (o: {
       });
     });
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const bound = o.listenBoundMs ?? STREAM_LISTEN_BOUND_MS;
+    const bound = o.listenBoundMs;
     const inTime = await Promise.race([
       listening.then(() => true),
       p.exited.then(() => false),
