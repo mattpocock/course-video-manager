@@ -494,8 +494,13 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
         return meter.cancelCalibration();
       case "start-stream":
         return live.goLive(command, forGoLive);
-      case "end-stream":
-        return live.endStream(forGoLive);
+      case "end-stream": {
+        const { broadcastId, pushStopped } = live.endStream(forGoLive);
+        void pushStopped.then(() =>
+          broadcast({ type: "live-stream-stopped", broadcastId })
+        );
+        return;
+      }
       case "show-highlight":
       case "hide-highlight":
         return live.highlight(command, (m) => send(ws, m));

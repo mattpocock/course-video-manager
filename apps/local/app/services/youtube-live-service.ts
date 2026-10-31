@@ -15,8 +15,9 @@ import type {
  * The YouTube Live service: what CVM asks YouTube about **Broadcasts**. It
  * reads with the stored Google grant (`getValidAccessToken`) and honours the
  * YouTube API URL override, so a test fakes YouTube at the HTTP boundary.
- * CVM never calls the Broadcast transition API and never creates a
- * Broadcast: YouTube's auto-start and auto-stop drive it.
+ * CVM never creates a Broadcast, and YouTube's auto-start starts it. End
+ * Stream completes it (`completeBroadcast`), so it ends at once rather than
+ * a minute later by auto-stop, which stays on as the backstop.
  *
  * It also reads a Broadcast's live chat, a page at a time
  * (`openChatStream`, `listChatPage`); the app server's chat
@@ -268,8 +269,7 @@ export const findKeysStream = (streamKey: Redacted.Redacted<string>) =>
 
 /**
  * Binds the Broadcast to the YouTube stream (`liveBroadcasts.bind`), so the
- * push to that stream's ingest goes out on it. Only ever binding: CVM never
- * transitions a Broadcast.
+ * push to that stream's ingest goes out on it.
  */
 export const bindBroadcast = (o: { broadcastId: string; streamId: string }) =>
   liveApiCall({
@@ -281,6 +281,35 @@ export const bindBroadcast = (o: { broadcastId: string; streamId: string }) =>
       streamId: o.streamId,
     },
     what: "binding the Broadcast to the Stream Key's stream",
+  }).pipe(
+    Effect.asVoid,
+    Effect.catchTags({
+      NotAuthenticatedError: () =>
+        Effect.fail(
+          new YouTubeLiveError({ message: "Google is not connected." })
+        ),
+      LiveAccessMissing: () =>
+        Effect.fail(
+          new YouTubeLiveError({
+            message: "the Google grant has no live-streaming access.",
+          })
+        ),
+      YouTubeAuthError: (e) =>
+        Effect.fail(new YouTubeLiveError({ message: e.message })),
+    })
+  );
+
+/**
+ * Ends the Broadcast (`liveBroadcasts.transition` to `complete`). Called once
+ * the push has stopped: YouTube's order is stop streaming, then complete
+ * (Life of a Broadcast, step 5). Any failure is a `YouTubeLiveError`.
+ */
+export const completeBroadcast = (broadcastId: string) =>
+  liveApiCall({
+    method: "POST",
+    path: "liveBroadcasts/transition",
+    query: { broadcastStatus: "complete", id: broadcastId, part: "id,status" },
+    what: "completing the Broadcast",
   }).pipe(
     Effect.asVoid,
     Effect.catchTags({

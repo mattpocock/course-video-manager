@@ -107,7 +107,7 @@ describe("the Live Stream surface's Broadcast picker", () => {
         broadcast: manual,
         picked: true,
         refusal:
-          "Turn on auto-start and auto-stop for this Broadcast in YouTube Studio: CVM never starts or ends a Broadcast itself.",
+          "Turn on auto-start and auto-stop for this Broadcast in YouTube Studio: CVM never starts a Broadcast itself, and ends one only at End Stream.",
       },
     ]);
   });

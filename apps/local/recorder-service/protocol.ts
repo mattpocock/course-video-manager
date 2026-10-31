@@ -5,6 +5,7 @@ import type { LastPassedCalibration } from "../app/av-calibration-constants";
 import type { ClapMark } from "../app/packages/clap-detection/live";
 import type {
   StreamCommand,
+  LiveStreamStoppedMessage,
   StreamHealthMessage,
   StreamStatus,
 } from "./stream-protocol";
@@ -73,11 +74,12 @@ export const IDLE_STOP = { type: "idle-stop" } as const;
  * and `recording-stopped` carry where in the take each loss fell,
  * `lostFrameSpans`; 18: the Live Stream, `start-stream`, `end-stream` and
  * the state's `stream`; 19: Chat Highlights,
- * `chat-highlight-protocol.ts`). The app server reloads on a change and the service does not
+ * `chat-highlight-protocol.ts`; 20: `live-stream-stopped`, which End Stream
+ * waits for before it completes the Broadcast). The app server reloads on a change and the service does not
  * (ADR 0035), so after a pull mid-session the app may meet a service started
  * from older code; `hello` says which wire it speaks (none before 2).
  */
-export const RECORDER_PROTOCOL_VERSION = 19;
+export const RECORDER_PROTOCOL_VERSION = 20;
 
 export const PREVIEW_FEEDS = ["camera", "screen"] as const;
 export type PreviewFeed = (typeof PREVIEW_FEEDS)[number];
@@ -460,6 +462,7 @@ export type RecorderStatusMessage =
   | { type: "stream-deck-ignored"; press: StreamDeckPress; message: string }
   | { type: "replay-done"; recordingSessionId: string; lastSeq: number }
   | StreamHealthMessage
+  | LiveStreamStoppedMessage
   /** The level meter: started (on this mic), a reading, stopped. Broadcast. */
   | { type: "meter-started"; mic: string }
   | ({ type: "meter-reading" } & MeterReading)

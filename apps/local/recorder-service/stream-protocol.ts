@@ -46,6 +46,16 @@ export type StreamHealth = {
   reconnects: number;
 };
 
+/**
+ * After End Stream, the Live Stream's process has gone: nothing more is
+ * pushed to the Broadcast, so the app server completes it (YouTube's order:
+ * stop streaming, then transition). A status message, not logged.
+ */
+export type LiveStreamStoppedMessage = {
+  type: "live-stream-stopped";
+  broadcastId: string;
+};
+
 /** The Live Stream's health, broadcast; a status message, not logged. */
 export type StreamHealthMessage = {
   type: "stream-health";
