@@ -30,13 +30,29 @@ const filming = (lines: string[] | null) => {
   }).status;
 };
 
+const RECORDING = "2026-10-27T11:30:00.000Z takes: recording";
+const NONE = "2026-10-27T11:31:00.000Z takes: none";
+
 describe("scripts/is-filming.sh", () => {
-  it("says filming (0) only while a listening line follows the last stop", () => {
-    expect(filming([LISTENING])).toBe(0);
-    expect(filming([LISTENING, STOPPING, STOPPED, LISTENING])).toBe(0);
-    expect(filming([LISTENING, STOPPING, STOPPED])).toBe(1);
+  it("says filming (0) only while the running service's last takes line is recording", () => {
+    // The app merely open: the service is up, no take.
+    expect(filming([LISTENING, NONE])).toBe(1);
+    expect(filming([LISTENING, NONE, RECORDING])).toBe(0);
+    // Stop says none only once the take's files are closed.
+    expect(filming([LISTENING, NONE, RECORDING, NONE])).toBe(1);
+    // A service that died mid-take, started again: only its own run counts.
+    expect(filming([LISTENING, NONE, RECORDING, LISTENING, NONE])).toBe(1);
+    // Died mid-take and not started again: it may still be writing.
+    expect(filming([LISTENING, NONE, RECORDING])).toBe(0);
+    expect(filming([LISTENING, RECORDING, STOPPING, STOPPED])).toBe(1);
     expect(filming([])).toBe(1);
     expect(filming(null)).toBe(1);
+  });
+
+  it("says filming (0) for a running service that never logs takes (older code)", () => {
+    expect(filming([LISTENING])).toBe(0);
+    expect(filming([LISTENING, NONE, STOPPING, STOPPED, LISTENING])).toBe(0);
+    expect(filming([LISTENING, STOPPING, STOPPED])).toBe(1);
   });
 });
 
@@ -45,7 +61,7 @@ describe("verify.sh while Matt is filming", () => {
     const checkout = join(root, "checkout");
     execFileSync("git", ["init", "-q", checkout]);
     const log = join(root, "recorder-service.log");
-    writeFileSync(log, `${LISTENING}\n`);
+    writeFileSync(log, `${LISTENING}\n${NONE}\n${RECORDING}\n`);
 
     const child = spawn("bash", [VERIFY_SH, "launch", "--production"], {
       cwd: checkout,

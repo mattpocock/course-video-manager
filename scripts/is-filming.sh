@@ -4,9 +4,17 @@
 #   scripts/is-filming.sh          # silent; the exit code is the answer
 #   scripts/is-filming.sh -v       # also prints why, on stdout
 #
-# Filming means the recorder service is up: its log has a "listening" line
-# after its last "stopped cleanly" line (or a "listening" line and no
-# "stopped cleanly" at all). No log means not filming.
+# Filming means a take is recording (or a Live Stream is on, or a stopped
+# take is still closing its files). The recorder service logs "takes:
+# recording" and "takes: none" as that changes, and "takes: none" straight
+# after its "listening" line. So, in the run of the service since its last
+# "listening" line:
+#   - no log, or "stopped cleanly" last: not filming;
+#   - its last "takes:" line says "recording": filming (a service that died
+#     mid-take, with no "stopped cleanly", counts: its writers may still run);
+#   - its last "takes:" line says "none": not filming (the app is only open);
+#   - no "takes:" line at all: a service from older code, which can't tell,
+#     so filming. When in doubt, Matt's footage comes first.
 #
 # The log is in Matt's main checkout, `.data/logs/recorder-service.log`, and
 # never in a worktree, so the checkout is found through Git's common dir, from
@@ -41,9 +49,23 @@ last_line_number() { { grep -n -- "$1" "$LOG" || true; } | tail -n 1 | cut -d: -
 listening="$(last_line_number "listening")"
 stopped="$(last_line_number "stopped cleanly")"
 
-if [ -n "$listening" ] && [ "$listening" -gt "${stopped:-0}" ]; then
-  say "filming: $(sed -n "${listening}p" "$LOG")"
+if [ -z "$listening" ] || [ "$listening" -le "${stopped:-0}" ]; then
+  say "not filming: ${stopped:+$(sed -n "${stopped}p" "$LOG")}"
+  exit 1
+fi
+
+# The service is up: its own run's last "takes:" line decides.
+takes="$(last_line_number " takes: ")"
+if [ -z "$takes" ] || [ "$takes" -lt "$listening" ]; then
+  say "filming: $(sed -n "${listening}p" "$LOG") (it logs no takes: older code, so assumed filming)"
   exit 0
 fi
-say "not filming: ${stopped:+$(sed -n "${stopped}p" "$LOG")}"
-exit 1
+line="$(sed -n "${takes}p" "$LOG")"
+case "$line" in
+  *" takes: none"*)
+    say "not filming: $line"
+    exit 1
+    ;;
+esac
+say "filming: $line"
+exit 0

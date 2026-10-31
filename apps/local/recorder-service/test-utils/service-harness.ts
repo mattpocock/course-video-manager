@@ -108,9 +108,11 @@ export const start = async (
     streamListenBoundMs?: number;
     streamStallMs?: number;
     cardAnswerMs?: number;
+    onBusyChanged?: (busy: boolean) => void;
   } = {}
 ) => {
   const service = await startRecorderService({
+    onBusyChanged: o.onBusyChanged,
     port: 0,
     launch: windows.launch,
     now: () => clock.ms,
