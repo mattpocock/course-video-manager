@@ -28,7 +28,7 @@ import {
   startService,
   tmp,
 } from "./recorder-client-test-harness";
-import { goLive } from "./go-live.server";
+import { endStream, goLive } from "./go-live.server";
 import type { RecorderLiveStream } from "./live-stream-commands";
 
 /**
@@ -60,7 +60,9 @@ export const youtube: {
   streams: unknown[];
   /** Each call CVM made, as `METHOD /path?query`. */
   calls: string[];
-} = { url: "", broadcasts: [], streams: [], calls: [] };
+  /** What `liveBroadcasts/transition` answers: its status, 200 unless a test says. */
+  transitionStatus: number;
+} = { url: "", broadcasts: [], streams: [], calls: [], transitionStatus: 200 };
 
 /**
  * A Go Live test file's setup: the clip service's test database, and YouTube
@@ -76,6 +78,23 @@ export const setupGoLiveTests = () => {
       res.writeHead(200, { "Content-Type": "application/json" });
       if (url.pathname === "/youtube/v3/liveStreams") {
         res.end(JSON.stringify({ items: youtube.streams }));
+        return;
+      }
+      if (url.pathname === "/youtube/v3/liveBroadcasts/transition") {
+        const ok = youtube.transitionStatus === 200;
+        res.statusCode = youtube.transitionStatus;
+        res.end(
+          JSON.stringify(
+            ok
+              ? { id: url.searchParams.get("id") }
+              : {
+                  error: {
+                    message: "Redundant transition",
+                    errors: [{ reason: "redundantTransition" }],
+                  },
+                }
+          )
+        );
         return;
       }
       if (url.pathname === "/youtube/v3/liveBroadcasts/bind") {
@@ -108,6 +127,10 @@ export const broadcast = (
     boundStreamId: "boundStreamId" in o ? o.boundStreamId : KEYS_STREAM,
   },
 });
+
+/** The Broadcast transition calls CVM made to YouTube. */
+export const transitions = () =>
+  youtube.calls.filter((c) => c.includes("/liveBroadcasts/transition"));
 
 /** The bind calls CVM made to YouTube. */
 export const binds = () =>
@@ -202,6 +225,7 @@ export const ready = async (
     youtubeStream(KEYS_STREAM, KEY),
   ];
   youtube.calls = [];
+  youtube.transitionStatus = 200;
   const video = await clipService.createVideo("Office hours");
   if (o.format === "short")
     await testDb
@@ -247,6 +271,8 @@ export const ready = async (
     /** The service's busy check, which its idle stop asks (ADR 0053). */
     busy,
     goLive: goLiveWith,
+    /** End Stream as the app server presses it (its route's effect). */
+    endStream: () => run(endStream(client, video.id)),
     streamStatuses,
     /** Each Live Stream the app server heard of (the Live indicator's). */
     liveStreams,
