@@ -138,16 +138,52 @@ export const readProgress = () => {
   };
 };
 
+/** How far back the least-delayed tick is looked for: WSL's drift in it is a few ms. */
+const CLOCK_WINDOW_MS = 10_000;
+
 /**
- * Frames per second of wall time from `from` on (`at`): the least-squares
- * slope of frames against the Windows clock (`windowsAt`), so no one late
- * block moves it, nor WSL's clock wandering. Null with fewer than ten blocks.
+ * The Windows clock as read from WSL, from PowerShell's ticks: each tick
+ * arrives late, never early, by however long WSL took to hear it (hundreds
+ * of ms under load). So the clock is the least-delayed tick of the last few
+ * seconds, carried on by WSL's clock (#2482).
+ */
+export const leastDelayedClock = () => {
+  const ticks: { at: number; offset: number }[] = [];
+  return {
+    /** A tick of `windowsMs`, heard at `arrivedAt` (WSL ms). */
+    tick: (windowsMs: number, arrivedAt: number) => {
+      ticks.push({ at: arrivedAt, offset: windowsMs - arrivedAt });
+      while (ticks[0]!.at < arrivedAt - CLOCK_WINDOW_MS) ticks.shift();
+    },
+    /** Windows ms at `at` (WSL ms); NaN before any tick. */
+    now: (at: number) =>
+      ticks.length ? at + Math.max(...ticks.map((t) => t.offset)) : NaN,
+  };
+};
+
+/** The width of the slices a block is picked from: one per slice. */
+const SLICE_MS = 2_000;
+
+/**
+ * Frames per second of wall time from `from` on (`at`), on the Windows clock
+ * (`windowsAt`), not WSL's, which wanders. A block reaches the scorecard
+ * late, never early, so from each slice only the least-late block counts
+ * (the one furthest ahead of 60 fps), and the rate is the least-squares
+ * slope through those. Null with fewer than ten slices.
  */
 export const streamRate = (
   samples: readonly ProgressSample[],
   from: number
 ) => {
-  const xs = samples.filter((s) => s.at >= from && !isNaN(s.windowsAt));
+  const slices = new Map<number, ProgressSample>();
+  const ahead = (s: ProgressSample) => s.frame - (60 * s.windowsAt) / 1000;
+  for (const s of samples) {
+    if (s.at < from || isNaN(s.windowsAt)) continue;
+    const k = Math.floor(s.windowsAt / SLICE_MS);
+    const best = slices.get(k);
+    if (!best || ahead(s) > ahead(best)) slices.set(k, s);
+  }
+  const xs = [...slices.values()];
   if (xs.length < 10) return null;
   const n = xs.length;
   const mt = xs.reduce((a, s) => a + s.windowsAt, 0) / n;

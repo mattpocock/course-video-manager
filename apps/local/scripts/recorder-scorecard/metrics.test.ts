@@ -3,7 +3,12 @@ import { describe, expect, it } from "vitest";
 import { analysePicture, readStamp, unwrap } from "./footage-analysis";
 import { METRICS, rank, score } from "./metrics";
 import { renderJson } from "./report";
-import { onlyToSink, readProgress, streamRate } from "./stream-sink";
+import {
+  leastDelayedClock,
+  onlyToSink,
+  readProgress,
+  streamRate,
+} from "./stream-sink";
 import { syntheticFfmpegArgs } from "./synthetic-launcher";
 import {
   CAMERA_FPS,
@@ -125,6 +130,22 @@ describe("the Live Stream's -progress", () => {
       progress.push(block(60 * s), wsl, 1_000_000 + 1000 * s);
     }
     expect(streamRate(progress.samples, 0)).toBeCloseTo(60, 3);
+  });
+
+  it("reads past blocks and Windows ticks that arrive late, as both do under load (#2482)", () => {
+    const progress = readProgress();
+    const clock = leastDelayedClock();
+    const late = (i: number) => ((i * 7919) % 200) * (i % 3 === 0 ? 1 : 0.2);
+    // Windows' clock is 1e6 ms ahead of WSL's; every tick and block is late.
+    for (let ms = 0; ms <= 100_000; ms += 20)
+      clock.tick(1_000_000 + ms, ms + late(ms / 20));
+    // Blocks are later still while the card checks load WSL (the first half).
+    for (let i = 0; i <= 2000; i++) {
+      const at = 50 * i + late(i) * (i < 1000 && i % 3 === 0 ? 2 : 1);
+      progress.push(block(3 * i), at, clock.now(at));
+    }
+    expect(clock.now(50_000)).toBeCloseTo(1_050_000, -1);
+    expect(streamRate(progress.samples, 0)).toBeCloseTo(60, 2);
   });
 
   it("measures only from the moment given (a stream warming up runs slow)", () => {
