@@ -1,4 +1,12 @@
-import { Data, Deferred, Duration, Effect, Exit, Schedule } from "effect";
+import {
+  Clock,
+  Data,
+  Deferred,
+  Duration,
+  Effect,
+  Exit,
+  Schedule,
+} from "effect";
 import type {
   BroadcastChatEvent,
   BroadcastPick,
@@ -27,9 +35,15 @@ import {
  * daily quota uploads share. A connection that drops is opened again on its
  * own, from the last page heard, after a pause that doubles from
  * `reconnectMs` up to `maxReconnectMs` (`Schedule.exponential`); a
- * connection that heard a page starts the pause over. Only a stream
- * connection YouTube refuses falls back to `list` polling, at the interval
- * YouTube gives.
+ * connection that heard a page starts the pause over.
+ *
+ * A stream connection YouTube refuses before one has ever opened for the
+ * Broadcast reads no chat at all (`refused`): it never polls, to spare the
+ * quota (Matt, 2026-10-31). Only one that worked, then is refused mid-stream,
+ * falls back to `list` polling, waiting the interval YouTube gives on each
+ * page. While polling it asks for the stream connection again after a pause
+ * that doubles from `reconnectMs` up to `maxStreamRetryMs`, and stops polling
+ * as soon as one opens.
  *
  * Each pick's reading is one daemon fiber, forked from the pick's request so
  * it runs with the app server's services; the next pick or `end` stops it.
@@ -70,6 +84,8 @@ export const createBroadcastChat = (o: {
   /** The first pause before reconnecting a dropped connection. */
   reconnectMs: number;
   maxReconnectMs: number;
+  /** The longest pause between asks for the stream connection while polling. */
+  maxStreamRetryMs: number;
   maxMessages: number;
 }): BroadcastChat => {
   const listeners = new Set<(event: BroadcastChatEvent) => void>();
@@ -98,7 +114,16 @@ export const createBroadcastChat = (o: {
   /** Reads one Broadcast's chat until no more will come. */
   const read = (id: string, liveChatId: string) => {
     let pageToken: string | null = null;
-    let polling = false;
+    /** A stream connection opened for this Broadcast: streamList works for it. */
+    let streamed = false;
+    /** Polling since the stream broke mid-stream: when to ask for it again. */
+    let polling: { retryMs: number; retryAt: number } | null = null;
+    /** Polls, and asks for the stream connection again `retryMs` from now. */
+    const retryStreamLater = (retryMs: number) =>
+      Effect.map(Clock.currentTimeMillis, (now): Next => {
+        polling = { retryMs, retryAt: now + retryMs };
+        return "again";
+      });
 
     const setConnection = (next: ChatConnection) => {
       if (sameConnection(next, connection)) return;
@@ -125,16 +150,53 @@ export const createBroadcastChat = (o: {
           (c) => Effect.sync(() => c.abort())
         );
         const asked = { liveChatId, pageToken, signal: controller.signal };
+        const now = yield* Clock.currentTimeMillis;
+        const wasPolling = polling;
+        if (wasPolling && now >= wasPolling.retryAt) {
+          // Polling: is the stream connection back yet?
+          const back = yield* openChatStream(asked).pipe(
+            Effect.catchAll((e) =>
+              Effect.succeed({ status: "dropped", message: e.message } as const)
+            )
+          );
+          if (back.status === "refused" || back.status === "dropped") {
+            return yield* retryStreamLater(
+              Math.min(wasPolling.retryMs * 2, o.maxStreamRetryMs)
+            );
+          }
+          if (back.status === "open") polling = null;
+          return yield* answered(back);
+        }
         const call: Effect.Effect<
           ChatStreamAnswer | ChatListAnswer,
           { message: string },
           LinkAuthOperationsService
-        > = polling ? listChatPage(asked) : openChatStream(asked);
+        > = wasPolling ? listChatPage(asked) : openChatStream(asked);
         const answer = yield* call.pipe(
           Effect.catchAll((e) => dropped(e.message))
         );
+        if (answer.status === "refused") {
+          if (wasPolling) return yield* dropped(answer.message);
+          if (!streamed) {
+            // Refused from the start: no polling, which eats the quota.
+            setConnection({ state: "refused", message: answer.message });
+            return "done" satisfies Next;
+          }
+          // It worked, then broke down mid-stream: poll until it's back.
+          return yield* retryStreamLater(o.reconnectMs);
+        }
+        return yield* answered(answer);
+      })
+    );
+
+    /** What one answer from YouTube that isn't a refusal leads to. */
+    const answered = (
+      answer: Exclude<ChatStreamAnswer | ChatListAnswer, { status: "refused" }>
+    ) =>
+      Effect.gen(function* () {
         switch (answer.status) {
           case "open": {
+            streamed = true;
             setConnection({ state: "streaming" });
             let heard = false;
             // Each page as it comes. Interrupted mid-read, the scope's abort
@@ -160,11 +222,6 @@ export const createBroadcastChat = (o: {
               )
             );
             return "again" satisfies Next;
-          case "refused":
-            if (polling) return yield* dropped(answer.message);
-            // The only way into polling: YouTube won't stream this chat.
-            polling = true;
-            return "again" satisfies Next;
           case "dropped":
             return yield* dropped(answer.message);
           case "over":
@@ -174,8 +231,7 @@ export const createBroadcastChat = (o: {
             setConnection({ state: "needs-reconnect", reason: answer.reason });
             return "done" satisfies Next;
         }
-      })
-    );
+      });
 
     /** A step, asked again after a growing pause until it gets through. */
     const stepThrough = step.pipe(

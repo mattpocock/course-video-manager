@@ -36,12 +36,17 @@ const connectionLine = (
       return null;
     case "polling":
       return {
-        text: "YouTube refused the streaming chat connection, so chat is polled.",
+        text: "The streaming chat connection broke down, so chat is polled until it's back.",
         warn: true,
       };
     case "reconnecting":
       return {
         text: `Chat connection dropped, reconnecting: ${connection.message}`,
+        warn: true,
+      };
+    case "refused":
+      return {
+        text: `YouTube refused the chat connection, so no chat is shown: ${connection.message}`,
         warn: true,
       };
     case "over":

@@ -37,8 +37,10 @@ const ReconnectReason = Schema.Literal(
 /**
  * How the app server is reading the chat: `streaming` on one
  * `liveChatMessages.streamList` connection (5 quota units each), `polling`
- * `liveChatMessages.list` at YouTube's interval only once the stream
- * connection was refused, `reconnecting` after a dropped connection.
+ * `liveChatMessages.list` at YouTube's interval only once a stream
+ * connection that worked is refused mid-stream (asking for the stream again
+ * meanwhile), `reconnecting` after a dropped connection, `refused` when the
+ * stream connection was refused before it ever opened.
  */
 export const ChatConnection = Schema.Union(
   /** No Broadcast picked. */
@@ -50,6 +52,11 @@ export const ChatConnection = Schema.Union(
     state: Schema.Literal("reconnecting"),
     message: Schema.String,
   }),
+  /**
+   * YouTube refused the stream connection before it ever opened for this
+   * Broadcast: no chat is read, and none is polled, until another pick.
+   */
+  Schema.Struct({ state: Schema.Literal("refused"), message: Schema.String }),
   Schema.Struct({ state: Schema.Literal("over"), reason: ChatOverReason }),
   Schema.Struct({
     state: Schema.Literal("needs-reconnect"),
