@@ -1,11 +1,15 @@
-import type { StreamStatus } from "recorder-service/stream-protocol";
+import type {
+  StreamHealth,
+  StreamStatus,
+} from "recorder-service/stream-protocol";
 import { isLiveOn, type liveStreamReducer } from "./live-stream-reducer";
 
 /**
  * THE HEALTH LINE under the stream picture (spec #2445, stories 46–47): the
  * Live Stream's state, then fps, speed, dropped and duplicated frames,
- * bitrate and how many times it has reconnected, from what the recorder
- * last said. Only while the Live Stream on this Video runs.
+ * bitrate and how many times it has reconnected, from what the Streaming
+ * tab's recorder last said (`cvmRecorder.state.streamHealth`, which a Live
+ * Stream's end forgets). Only while the Live Stream on this Video runs.
  */
 
 const STATE_WORDS: Record<StreamStatus["kind"], string> = {
@@ -21,11 +25,12 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 export const streamHealthLine = (
   state: liveStreamReducer.State,
-  videoId: string
+  videoId: string,
+  health: StreamHealth | null
 ): string | null => {
   if (!state.stream || !isLiveOn(state, videoId)) return null;
   const words = STATE_WORDS[state.stream.status.kind];
-  const h = state.health?.videoId === videoId ? state.health.health : null;
+  const h = health;
   if (!h) return words;
   return [
     words,

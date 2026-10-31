@@ -16,7 +16,7 @@ export const action = makeAction({
   effect: ({ payload }) =>
     Effect.gen(function* () {
       const pick = yield* Schema.decodeUnknown(broadcastPickSchema)(payload);
-      broadcastChat().pick(pick);
+      yield* broadcastChat().pick(pick);
       return { ok: true };
     }),
 });

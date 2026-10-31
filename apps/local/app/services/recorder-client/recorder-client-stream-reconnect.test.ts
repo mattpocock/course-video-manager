@@ -98,7 +98,7 @@ const canvasStart = (args: readonly string[]) =>
   Number(args.join(" ").match(/setpts=PTS\+([\d.]+)\/TB/)?.[1] ?? 0);
 
 describe("the stream reconnects for ever, and the recording carries on", () => {
-  it("launches a stream process that quits again, from the same Go Live, on the scene of the moment, until End Stream", async () => {
+  it("launches a stream process that quits again, and again, from the same Go Live, on the scene of the moment, counting every reconnect, until End Stream", async () => {
     const r = await live();
     const first = r.windows.streams[0]!;
     first.stdout(progress({ frame: 60 }));
@@ -130,7 +130,17 @@ describe("the stream reconnects for ever, and the recording carries on", () => {
     );
     r.untouched();
 
-    second.stdout(progress({ frame: 60 }));
+    // It keeps quitting: launched again each time, every reconnect counted.
+    second.exit(1);
+    await vi.waitFor(() => expect(r.windows.streams).toHaveLength(3), {
+      timeout: 3_000,
+    });
+    const third = r.windows.streams[2]!;
+    expect(r.healths().at(-1)?.reconnects).toBe(2);
+    expect(ended(r.streamStatuses())).toEqual([]);
+    r.untouched();
+
+    third.stdout(progress({ frame: 60 }));
     await vi.waitFor(() => expect(r.kinds().at(-1)).toBe("live"));
 
     await r.client.endStream(r.video.id);
@@ -140,27 +150,11 @@ describe("the stream reconnects for ever, and the recording carries on", () => {
         expect.objectContaining({ type: "recording-stopped", errors: [] })
       )
     );
-    expect(second.written).toContain("q");
+    expect(third.written).toContain("q");
     expect(ended(r.streamStatuses())).toEqual(["End Stream."]);
     // Once ended, nothing is launched again.
     await new Promise((resolve) => setTimeout(resolve, 600));
-    expect(r.windows.streams).toHaveLength(2);
-  });
-
-  it("keeps launching one that keeps quitting, waiting longer each time, and counts every reconnect", async () => {
-    const r = await live();
-
-    for (const n of [1, 2, 3]) {
-      r.windows.streams[n - 1]!.exit(1);
-      await vi.waitFor(() => expect(r.windows.streams).toHaveLength(n + 1), {
-        timeout: 3_000,
-      });
-    }
-
-    expect(r.healths().map((h) => h.reconnects)).toEqual([1, 2, 3]);
-    expect(ended(r.streamStatuses())).toEqual([]);
-    r.untouched();
-    await r.client.endStream(r.video.id);
+    expect(r.windows.streams).toHaveLength(3);
   });
 
   it("stops a stream process that stalls, and launches it again", async () => {

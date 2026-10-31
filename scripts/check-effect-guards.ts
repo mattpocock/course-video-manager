@@ -78,10 +78,6 @@ const RUN_BOUNDARIES: ReadonlyArray<readonly [RegExp, string]> = [
     "the recorder client's entry point: it saves each recorder event as it arrives",
   ],
   [
-    /^apps\/local\/app\/services\/broadcast-chat-live\.server\.ts$/,
-    "the Broadcast chat's entry point: it reads the picked Broadcast's live chat from the pick to End Stream",
-  ],
-  [
     /^apps\/local\/sidecar\/(run-sidecar|socket)\.ts$/,
     "the Sidecar's entry point and its socket's request handler",
   ],

@@ -29,6 +29,7 @@ import {
   tmp,
 } from "./recorder-client-test-harness";
 import { goLive } from "./go-live.server";
+import type { RecorderLiveStream } from "./live-stream-commands";
 
 /**
  * The Go Live end-to-end harness (ADR 0054), without hardware: the real
@@ -182,7 +183,13 @@ export const ready = async (
     streamStallMs: o.streamStallMs,
     cardAnswerMs: o.cardAnswerMs,
   });
-  const client = connectClient(port);
+  /** What the client told the app server of the Live Stream, in order. */
+  const liveStreams: (RecorderLiveStream | null)[] = [];
+  let streamedSessionsEnded = 0;
+  const client = connectClient(port, undefined, undefined, undefined, {
+    onLiveStreamChanged: (l) => liveStreams.push(l),
+    onStreamedSessionEnded: () => (streamedSessionsEnded += 1),
+  });
   await freshCalibration();
   await testDb.insert(schema.youtubeAuth).values({
     accessToken: "stored-access-token",
@@ -221,7 +228,6 @@ export const ready = async (
         silenceLength: "short",
         folder,
         envPath: envFile(true),
-        cardBrowser: cardBrowserFile(),
         now: NOW,
         ...more,
       })
@@ -242,6 +248,10 @@ export const ready = async (
     busy,
     goLive: goLiveWith,
     streamStatuses,
+    /** Each Live Stream the app server heard of (the Live indicator's). */
+    liveStreams,
+    /** How many streamed Recording Sessions the app server heard end (its chat stops). */
+    streamedSessionsEnded: () => streamedSessionsEnded,
   };
 };
 

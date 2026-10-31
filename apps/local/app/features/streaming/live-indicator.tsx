@@ -1,27 +1,16 @@
-import { useEffect } from "react";
 import { Link } from "react-router";
 import { RadioIcon } from "lucide-react";
-import type { StreamStatus } from "recorder-service/stream-protocol";
 import { useLiveStream } from "./live-stream-context";
 import { liveIndicator } from "./live-stream-reducer";
 
 /**
  * The Live indicator, on every page while live (ADR 0055): a link back to
- * the Streaming tab of the Video that is live. `liveStream` is what the app
- * server said of the recorder as this page loaded; the Live Stream surface
- * decides what shows.
+ * the Streaming tab of the Video that is live. The Live Stream surface
+ * hears the app server's word on it as it changes (`live-stream-wire.ts`),
+ * so it goes when a Live Stream ends on its own, and decides what shows.
  */
-export const LiveIndicator = ({
-  liveStream,
-}: {
-  liveStream: { videoId: string; status: StreamStatus } | null;
-}) => {
-  const { state, dispatch } = useLiveStream();
-
-  // Bridges the app server's word on the Live Stream in, on each page load.
-  useEffect(() => {
-    dispatch({ type: "recorder-live-heard", stream: liveStream });
-  }, [liveStream, dispatch]);
+export const LiveIndicator = () => {
+  const { state } = useLiveStream();
 
   const indicator = liveIndicator(state);
   if (!indicator) return null;

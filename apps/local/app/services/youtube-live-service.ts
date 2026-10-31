@@ -1,7 +1,6 @@
 import { Data, Effect, Redacted } from "effect";
 import { getValidAccessToken } from "@/services/youtube-auth-service";
 import { youtubeApiUrl } from "@/services/youtube-upload-service";
-import type { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
 import type {
   Broadcast,
   BroadcastListAnswer,
@@ -502,26 +501,3 @@ export const listChatPage = (opts: {
       page: toChatPage((body ?? {}) as LiveChatMessageList),
     } satisfies ChatListAnswer;
   }).pipe(Effect.catchTags(needsConnecting));
-
-/** What the app server's chat asks YouTube, run by the caller's runtime. */
-export type ChatYouTube = {
-  openStream: (opts: {
-    liveChatId: string;
-    pageToken: string | null;
-    signal: AbortSignal;
-  }) => Promise<ChatStreamAnswer>;
-  listPage: (opts: {
-    liveChatId: string;
-    pageToken: string | null;
-    signal: AbortSignal;
-  }) => Promise<ChatListAnswer>;
-};
-
-export const chatYouTube = (
-  run: <A, E>(
-    effect: Effect.Effect<A, E, LinkAuthOperationsService>
-  ) => Promise<A>
-): ChatYouTube => ({
-  openStream: (opts) => run(openChatStream(opts)),
-  listPage: (opts) => run(listChatPage(opts)),
-});

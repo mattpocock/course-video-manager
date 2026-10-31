@@ -2,7 +2,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { Either, Redacted } from "effect";
-import { STREAM_KEY_MISSING } from "@/services/stream-key.server";
+import {
+  STREAM_KEY_MISSING,
+  streamKeyUnreadable,
+} from "@/services/stream-key.server";
 import { broadcastRefusal } from "@/features/streaming/broadcast";
 import { GO_LIVE_REFUSALS } from "recorder-service/stream-protocol";
 import {
@@ -103,6 +106,8 @@ describe("Go Live and End Stream", () => {
     );
     expect(streamProcess.written).toContain("q");
     expect(ended(r.streamStatuses())).toEqual(["End Stream."]);
+    // The app server hears its streamed Recording Session end: chat stops.
+    expect(r.streamedSessionsEnded()).toBe(1);
     // Ingested like any other Recording Session.
     await r.client.settled();
     expect(await readSession()).toMatchObject({ videoId: r.video.id });
@@ -308,6 +313,22 @@ describe("binding the picked Broadcast to the Stream Key's YouTube stream", () =
 });
 
 describe("raw footage first: a stream failure never stops or delays the take", () => {
+  it("records its camera and mic from T0 when the writer Go Live armed at Record is slow to bring its graph up", async () => {
+    // ffmpeg 8 drops a command sent before its filter graph is up: a T0
+    // sent then left camera.mkv and mic.mkv empty for the whole take (#2482).
+    const r = await ready({ windows: fakeWindows({ writerGraphMs: 300 }) });
+
+    await r.goLive();
+
+    await vi.waitFor(() =>
+      expect(r.heard.map((m) => m.type)).toContain("recording-started")
+    );
+    await vi.waitFor(() =>
+      expect(r.windows.recorder("camera").written).toMatch(/^Call \d/m)
+    );
+    expect(r.heard.map((m) => m.type)).not.toContain("recording-stopped");
+  });
+
   it("records anyway once the fixed bound passes, when the stream process never comes up", async () => {
     const r = await ready({
       windows: fakeWindows({ stream: "never" }),
@@ -324,12 +345,16 @@ describe("raw footage first: a stream failure never stops or delays the take", (
     await r.client.endStream(r.video.id);
   });
 
-  it("ends the Live Stream, saying why, when the Recording Session ends on its own", async () => {
+  it("ends the Live Stream, saying why, when the Recording Session ends on its own; the app server hears it at once", async () => {
     const r = await ready({
       windows: fakeWindows({ recordingCamera: "silent" }),
     });
 
     await r.goLive();
+    await vi.waitFor(() =>
+      expect(r.liveStreams.at(-1)?.status.kind).toMatch(/starting|connecting/)
+    );
+    expect(r.streamedSessionsEnded()).toBe(0);
 
     await vi.waitFor(() =>
       expect(r.heard.map((m) => m.type)).toContain("recording-stopped")
@@ -340,6 +365,19 @@ describe("raw footage first: a stream failure never stops or delays the take", (
       ])
     );
     expect(r.windows.streams[0]!.written).toContain("q");
+    // The Live indicator on every page, and the Broadcast chat, hear it end
+    // without End Stream.
+    await vi.waitFor(() =>
+      expect(r.liveStreams.at(-1)).toEqual({
+        videoId: r.video.id,
+        status: {
+          kind: "ended",
+          reason:
+            "The Recording Session ended on its own: the camera was lost.",
+        },
+      })
+    );
+    expect(r.streamedSessionsEnded()).toBe(1);
   });
 });
 
@@ -351,6 +389,20 @@ const everyFile = (dir: string): string[] =>
     .map((d) => fs.readFileSync(path.join(d.parentPath, d.name), "utf8"));
 
 describe("the Stream Key", () => {
+  it("refuses with why when the .env can't be read, not as a missing key", async () => {
+    const r = await ready();
+    // A folder where the .env should be: it exists, and can't be read.
+    const unreadable = path.dirname(envFile(true));
+
+    const reasons = reasonsOf(await r.goLive({ envPath: unreadable }));
+
+    expect(reasons).not.toContain(STREAM_KEY_MISSING);
+    expect(reasons).toEqual([
+      streamKeyUnreadable(`EISDIR: illegal operation on a directory, read`),
+    ]);
+    expect(r.windows.launched.some(isStream)).toBe(false);
+  });
+
   it("never appears in the service's log, a refusal, events.jsonl or the service's state folder", async () => {
     const logged: string[] = [];
     const keep =

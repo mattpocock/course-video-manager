@@ -1,3 +1,4 @@
+import { Schema } from "effect";
 import type { ReconnectReason } from "./broadcast";
 
 /**
@@ -8,18 +9,30 @@ import type { ReconnectReason } from "./broadcast";
  */
 
 /** One viewer's chat message, as YouTube shows it. */
-export type ChatMessage = {
+export const ChatMessage = Schema.Struct({
   /** YouTube's id for the message. */
-  id: string;
+  id: Schema.String,
   /** The author's display name. */
-  author: string;
+  author: Schema.String,
   /** The message text as YouTube displays it. */
-  text: string;
-  publishedAt: string;
-};
+  text: Schema.String,
+  publishedAt: Schema.String,
+});
+export type ChatMessage = typeof ChatMessage.Type;
 
 /** Why YouTube will give no more chat for this Broadcast. */
-export type ChatOverReason = "no-chat" | "ended" | "not-found" | "disabled";
+const ChatOverReason = Schema.Literal(
+  "no-chat",
+  "ended",
+  "not-found",
+  "disabled"
+);
+export type ChatOverReason = typeof ChatOverReason.Type;
+
+const ReconnectReason = Schema.Literal(
+  "not-connected",
+  "missing-live-access"
+) satisfies Schema.Schema<ReconnectReason>;
 
 /**
  * How the app server is reading the chat: `streaming` on one
@@ -27,41 +40,53 @@ export type ChatOverReason = "no-chat" | "ended" | "not-found" | "disabled";
  * `liveChatMessages.list` at YouTube's interval only once the stream
  * connection was refused, `reconnecting` after a dropped connection.
  */
-export type ChatConnection =
+export const ChatConnection = Schema.Union(
   /** No Broadcast picked. */
-  | { state: "idle" }
-  | { state: "connecting" }
-  | { state: "streaming" }
-  | { state: "polling" }
-  | { state: "reconnecting"; message: string }
-  | { state: "over"; reason: ChatOverReason }
-  | { state: "needs-reconnect"; reason: ReconnectReason };
+  Schema.Struct({ state: Schema.Literal("idle") }),
+  Schema.Struct({ state: Schema.Literal("connecting") }),
+  Schema.Struct({ state: Schema.Literal("streaming") }),
+  Schema.Struct({ state: Schema.Literal("polling") }),
+  Schema.Struct({
+    state: Schema.Literal("reconnecting"),
+    message: Schema.String,
+  }),
+  Schema.Struct({ state: Schema.Literal("over"), reason: ChatOverReason }),
+  Schema.Struct({
+    state: Schema.Literal("needs-reconnect"),
+    reason: ReconnectReason,
+  })
+);
+export type ChatConnection = typeof ChatConnection.Type;
 
 /** Everything the app server holds of the chat, sent to each new listener. */
-export type ChatSnapshot = {
-  broadcastId: string | null;
-  connection: ChatConnection;
+export const ChatSnapshot = Schema.Struct({
+  broadcastId: Schema.NullOr(Schema.String),
+  connection: ChatConnection,
   /** Oldest first, at most the app server's buffer. */
-  messages: ChatMessage[];
-};
+  messages: Schema.mutable(Schema.Array(ChatMessage)),
+});
+export type ChatSnapshot = typeof ChatSnapshot.Type;
 
 /**
  * One SSE event from the app server's chat, named by its `type`. The
- * Streaming tab dispatches each to the Live Stream surface as is.
+ * Streaming tab checks each against this, then dispatches it to the Live
+ * Stream surface as is.
  */
-export type BroadcastChatEvent =
+export const BroadcastChatEvent = Schema.Union(
   /** Sent first to each listener, and again on each pick and End Stream. */
-  | { type: "chat-attached"; chat: ChatSnapshot }
-  | {
-      type: "chat-message-received";
-      broadcastId: string;
-      messages: ChatMessage[];
-    }
-  | {
-      type: "chat-connection-changed";
-      broadcastId: string;
-      connection: ChatConnection;
-    };
+  Schema.Struct({ type: Schema.Literal("chat-attached"), chat: ChatSnapshot }),
+  Schema.Struct({
+    type: Schema.Literal("chat-message-received"),
+    broadcastId: Schema.String,
+    messages: Schema.mutable(Schema.Array(ChatMessage)),
+  }),
+  Schema.Struct({
+    type: Schema.Literal("chat-connection-changed"),
+    broadcastId: Schema.String,
+    connection: ChatConnection,
+  })
+);
+export type BroadcastChatEvent = typeof BroadcastChatEvent.Type;
 
 export const BROADCAST_CHAT_EVENT_TYPES = [
   "chat-attached",

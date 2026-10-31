@@ -25,105 +25,72 @@ const health = (o: Partial<StreamHealth> = {}): StreamHealth => ({
   ...o,
 });
 
+const heard = (kind: "connecting" | "live" | "reconnecting") =>
+  ({
+    type: "live-stream-heard",
+    stream: { videoId: VIDEO, status: { kind } },
+  }) as const;
+
 const liveOn = (kind: "connecting" | "live" | "reconnecting" = "live") =>
-  new ReducerTester(liveStreamReducer, createInitialLiveStreamState()).send({
-    type: "stream-status-heard",
-    videoId: VIDEO,
-    status: { kind },
-  });
+  new ReducerTester(liveStreamReducer, createInitialLiveStreamState()).send(
+    heard(kind)
+  );
 
 describe("the Live Stream's health line", () => {
   it("shows the state, fps, speed, drops, dups, bitrate and reconnect count the recorder last said", () => {
-    const tester = liveOn().send({
-      type: "stream-health-heard",
-      videoId: VIDEO,
-      health: health({ droppedFrames: 3, duplicatedFrames: 1 }),
-    });
+    const line = streamHealthLine(
+      liveOn().getState(),
+      VIDEO,
+      health({ droppedFrames: 3, duplicatedFrames: 1 })
+    );
 
-    expect(streamHealthLine(tester.getState(), VIDEO)).toBe(
+    expect(line).toBe(
       "Live · 60.0 fps · 1.00x · 3 dropped · 1 duplicated · 9.2 Mb/s · 0 reconnects"
     );
   });
 
   it("says it is reconnecting, and counts each reconnect, while the recording carries on", () => {
-    const tester = liveOn()
-      .send({ type: "stream-health-heard", videoId: VIDEO, health: health() })
-      .send({
-        type: "stream-status-heard",
-        videoId: VIDEO,
-        status: { kind: "reconnecting" },
-      })
-      .send({
-        type: "stream-health-heard",
-        videoId: VIDEO,
-        health: health({ bitrateKbps: 0, reconnects: 1 }),
-      });
+    const tester = liveOn().send(heard("reconnecting"));
 
-    expect(streamHealthLine(tester.getState(), VIDEO)).toBe(
+    expect(
+      streamHealthLine(
+        tester.getState(),
+        VIDEO,
+        health({ bitrateKbps: 0, reconnects: 1 })
+      )
+    ).toBe(
       "Reconnecting · 60.0 fps · 1.00x · 0 dropped · 0 duplicated · 0.0 Mb/s · 1 reconnect"
     );
     // Reconnecting is not ending: the button is still End Stream.
     expect(goLiveControl(tester.getState(), VIDEO).press).toBe("end-stream");
 
-    tester
-      .send({
-        type: "stream-status-heard",
-        videoId: VIDEO,
-        status: { kind: "live" },
-      })
-      .send({
-        type: "stream-health-heard",
-        videoId: VIDEO,
-        health: health({ reconnects: 2 }),
-      });
-
-    expect(streamHealthLine(tester.getState(), VIDEO)).toMatch(
-      /^Live · .* · 2 reconnects$/
-    );
+    tester.send(heard("live"));
+    expect(
+      streamHealthLine(tester.getState(), VIDEO, health({ reconnects: 2 }))
+    ).toMatch(/^Live · .* · 2 reconnects$/);
   });
 
   it("shows only the state until the stream process has said how it is doing", () => {
-    expect(streamHealthLine(liveOn("connecting").getState(), VIDEO)).toBe(
+    expect(streamHealthLine(liveOn("connecting").getState(), VIDEO, null)).toBe(
       "Connecting"
     );
   });
 
   it("shows nothing once the Live Stream has ended, nor for another Video", () => {
-    const tester = liveOn().send({
-      type: "stream-health-heard",
-      videoId: VIDEO,
-      health: health({ reconnects: 4 }),
-    });
+    const tester = liveOn();
+    const last = health({ reconnects: 4 });
 
-    expect(streamHealthLine(tester.getState(), "another-video")).toBeNull();
+    expect(
+      streamHealthLine(tester.getState(), "another-video", last)
+    ).toBeNull();
 
     tester.send({
-      type: "stream-status-heard",
-      videoId: VIDEO,
-      status: { kind: "ended", reason: "End Stream." },
-    });
-    expect(streamHealthLine(tester.getState(), VIDEO)).toBeNull();
-  });
-
-  it("starts the next Live Stream's line afresh at Go Live", () => {
-    const tester = liveOn()
-      .send({
-        type: "stream-health-heard",
-        videoId: VIDEO,
-        health: health({ reconnects: 4 }),
-      })
-      .send({
-        type: "stream-status-heard",
+      type: "live-stream-heard",
+      stream: {
         videoId: VIDEO,
         status: { kind: "ended", reason: "End Stream." },
-      })
-      .send({ type: "go-live-pressed", videoId: VIDEO, silenceLength: "short" })
-      .send({
-        type: "stream-status-heard",
-        videoId: VIDEO,
-        status: { kind: "connecting" },
-      });
-
-    expect(streamHealthLine(tester.getState(), VIDEO)).toBe("Connecting");
+      },
+    });
+    expect(streamHealthLine(tester.getState(), VIDEO, last)).toBeNull();
   });
 });

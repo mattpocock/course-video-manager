@@ -6,6 +6,7 @@ import {
 import { goLive } from "@/services/recorder-client/go-live.server";
 import { DrizzleService } from "@/services/drizzle-service.server";
 import { makeAction } from "@/services/route-action.server";
+import { repoEnvPath } from "@/services/repo-env";
 
 const goLiveSchema = Schema.Struct({
   /** The Broadcast picked on the Streaming tab; null: none picked. */
@@ -36,6 +37,7 @@ export const action = makeAction({
         broadcastId: request.broadcastId,
         silenceLength: request.silenceLength,
         folder: recordingFolder(),
+        envPath: repoEnvPath(),
         now: new Date(),
       });
       return { ok: true };
