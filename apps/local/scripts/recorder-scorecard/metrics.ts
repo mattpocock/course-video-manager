@@ -568,7 +568,7 @@ export const METRICS: readonly MetricDef[] = [
     target: 0.05,
     obs: null,
     scale: 0.05,
-    note: "Decided 2026-10-31, for smoothness: frames the encoder put out per second of the Windows clock, one least-squares slope across every stream process once steady (the first from 20 s after live to its kill, sink drop included; the relaunched one from 5 s after live to End Stream). Latency wander is not a bar: the first process's lag is `streamed.streamLag` in the details, the rate `streamed.streamFps`.",
+    note: "Decided 2026-10-31, for smoothness: frames the encoder put out per second of the Windows clock, one least-squares slope across every stream process once steady (the first from 20 s after live to its kill, sink drop included; the relaunched one from 5 s after live to End Stream). Latency wander is not a bar: the first process's lag is `streamed.streamLag` in the details, the rate `streamed.streamFps`. The relaunched process alone is reported, never a bar (decided 2026-10-31: over its short span the slope reads lag wander): `streamed.faults.relaunchedFpsOff60`, `relaunchedFps` and `relaunchedLag`.",
   },
   {
     id: "stream_dup_frames",
@@ -615,18 +615,6 @@ export const METRICS: readonly MetricDef[] = [
     obs: null,
     scale: 1,
     note: "Details: `streamed.faults.kill`.",
-  },
-  {
-    id: "stream_relaunched_fps_off_60",
-    label:
-      "Relaunched Live Stream frame rate's distance from 60.0 fps (its picture starts where the feeds are, so it never races to catch up)",
-    group: "reliability",
-    unit: "fps",
-    better: "lower",
-    target: 0.05,
-    obs: null,
-    scale: 0.05,
-    note: "As `stream_take_fps_off_60`, over the relaunched process alone: from 5 s after it went live to End Stream. Details: `streamed.faults.relaunchedFps`.",
   },
   {
     id: "card_click_to_screen_ms",

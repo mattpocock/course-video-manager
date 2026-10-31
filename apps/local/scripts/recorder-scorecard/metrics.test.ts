@@ -83,6 +83,16 @@ describe("rank", () => {
     ]);
     expect(rows.at(-1)!.status).toBe("pass");
   });
+
+  it("never fails a take on the relaunched stream's own rate: over its short span that is lag wander (2026-10-31)", () => {
+    const rows = rank({
+      stream_take_fps_off_60: 0.02,
+      stream_dup_frames: 0,
+      stream_drop_frames: 0,
+      stream_relaunched_fps_off_60: 0.11,
+    });
+    expect(rows.filter((r) => r.status === "fail")).toEqual([]);
+  });
 });
 
 describe("renderJson", () => {

@@ -296,7 +296,6 @@ export const streamed = async (
     m.stream_drop_frames = picture.dropFrames;
     m.stream_back_after_sink_drop = fault.backAfterSinkDrop ? 1 : 0;
     m.stream_back_after_kill = fault.backAfterKill ? 1 : 0;
-    m.stream_relaunched_fps_off_60 = offSixty(picture.relaunchedFps);
 
     ctx.details.streamed = {
       seconds,
@@ -312,6 +311,8 @@ export const streamed = async (
       sinkFrames: sink.frames(),
       faults: {
         ...fault.details,
+        // Reported, never a bar (2026-10-31): over its short span it reads lag wander.
+        relaunchedFpsOff60: offSixty(picture.relaunchedFps),
         relaunchedFps: picture.relaunchedFps,
         relaunchedLag: picture.relaunchedLag,
       },
