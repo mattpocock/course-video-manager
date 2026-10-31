@@ -231,6 +231,14 @@ sources (`lavfi`), and never open a real device. The recorder service's own
 launcher (`recorder-service/windows-launcher.ts`) is the one exception,
 because it is the recorder.
 
+## Recorder
+
+### A losable input says what turns it red
+
+A stream or recorder input that can drop, cut or freeze names what turns its
+health red and how it recovers; a test cuts it. See
+[`docs/RECORDER_INPUTS.md`](./docs/RECORDER_INPUTS.md).
+
 ## Entities and their actions
 
 ### Every entity is right-clickable
@@ -332,7 +340,6 @@ For optimistic UI on fetcher mutations, derive the optimistic value from
 holds the pending value; when it settles, `formData` becomes `undefined` and the
 component falls back to the revalidated loader data. Example:
 `const optimistic = (fetcher.formData?.get("value") ?? loaderValue) as MyType;`.
-This eliminates state-sync bugs and removes the need for `useEffect` entirely.
 
 ## Keyboard shortcuts
 
@@ -379,8 +386,7 @@ fails any other file that imports `sonner`.
 
 ### Deep modules
 
-Prefer deep modules: small interface, deep implementation. A few methods with
-simple params hiding complex logic behind them.
+Prefer deep modules: small interface, deep implementation.
 
 Avoid shallow modules: large interface with many methods that just pass through
 to thin implementation. When designing, ask: can I reduce the number of methods?

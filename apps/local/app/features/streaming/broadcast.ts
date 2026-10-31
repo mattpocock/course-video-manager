@@ -31,9 +31,10 @@ export type BroadcastListAnswer =
   | { status: "needs-reconnect"; reason: ReconnectReason };
 
 /**
- * Why Go Live will refuse this Broadcast, or `null`. CVM never transitions a
- * Broadcast itself, so one YouTube won't auto-start or auto-stop would never
- * go live, or never end.
+ * Why Go Live will refuse this Broadcast, or `null`. CVM never starts a
+ * Broadcast itself, and completes one only at End Stream, so one YouTube
+ * won't auto-start would never go live, and one it won't auto-stop would
+ * never end after a Live Stream that ended any other way.
  */
 export const broadcastRefusal = (broadcast: Broadcast): string | null => {
   const missing = [
@@ -41,5 +42,5 @@ export const broadcastRefusal = (broadcast: Broadcast): string | null => {
     !broadcast.enableAutoStop && "auto-stop",
   ].filter((m): m is string => m !== false);
   if (missing.length === 0) return null;
-  return `Turn on ${missing.join(" and ")} for this Broadcast in YouTube Studio: CVM never starts or ends a Broadcast itself.`;
+  return `Turn on ${missing.join(" and ")} for this Broadcast in YouTube Studio: CVM never starts a Broadcast itself, and ends one only at End Stream.`;
 };

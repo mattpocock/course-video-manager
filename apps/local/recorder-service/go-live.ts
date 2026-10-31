@@ -12,6 +12,7 @@ import { startChatHighlights, type ChatHighlights } from "./chat-highlights";
 import {
   BUSY_STREAMING,
   GO_LIVE_REFUSALS,
+  type LiveStreamStoppedMessage,
   type StreamHealth,
   type StreamStatus,
 } from "./stream-protocol";
@@ -119,6 +120,8 @@ export const createGoLive = (
   o: LiveStreamOptions & {
     onStatus: (status: StreamStatus) => void;
     onHealth: (health: StreamHealth) => void;
+    /** After End Stream, once the push has stopped. */
+    onPushStopped: (message: LiveStreamStoppedMessage) => void;
   }
 ) => {
   const side = createStreamSide({
@@ -133,6 +136,8 @@ export const createGoLive = (
   });
   /** The Recording Session Go Live started: its end ends the Live Stream. */
   let streamed: RecordingSession | undefined;
+  /** The Broadcast the Live Stream goes out on. */
+  let broadcastId = "";
   /** What Go Live arms the streamed writer with, until Record has begun. */
   let goingLive: TakeSettings | undefined;
   /** The Live Stream's Chat Highlights: its card server and card feed. */
@@ -225,6 +230,7 @@ export const createGoLive = (
         });
         await r.record({ type: "record", ...command.record }, ports);
         streamed = r.session();
+        broadcastId = command.broadcastId;
         if (streamed) highlights.begin(streamed);
         console.log(
           `recorder: Go Live: streamed Recording Session ${streamed?.id} for Broadcast ${command.broadcastId}`
@@ -242,11 +248,22 @@ export const createGoLive = (
       }
     },
 
-    /** END STREAM: the push and the streamed Recording Session stop together. */
+    /**
+     * END STREAM: the push and the streamed Recording Session stop together.
+     * `onPushStopped` hears once the stream's process has gone, which
+     * nothing in the command queue waits for.
+     */
     endStream: (r: GoLiveRecorder) => {
       if (!streamed || r.session() !== streamed)
         throw new Refusal("There is no Live Stream to end.");
+      const broadcast = broadcastId;
       r.stop(ENDED_BY_END_STREAM);
+      void side.close(ENDED_BY_END_STREAM).then(() =>
+        o.onPushStopped({
+          type: "live-stream-stopped",
+          broadcastId: broadcast,
+        })
+      );
     },
 
     /**
