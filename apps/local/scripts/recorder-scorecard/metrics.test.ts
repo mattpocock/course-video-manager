@@ -7,7 +7,9 @@ import {
   leastDelayedClock,
   onlyToSink,
   readProgress,
-  streamRate,
+  streamLag,
+  takeDupsDrops,
+  takeFps,
 } from "./stream-sink";
 import { syntheticFfmpegArgs } from "./synthetic-launcher";
 import {
@@ -118,7 +120,7 @@ describe("the Live Stream's -progress", () => {
     // 60 fps for 100 s; each block reaches the scorecard up to 80 ms late.
     for (let s = 0; s <= 100; s++)
       progress.push(block(60 * s), 1000 * s + ((s * 37) % 81));
-    expect(streamRate(progress.samples, [[0, Infinity]])).toBeCloseTo(60, 1);
+    expect(takeFps(progress.samples, [[0, Infinity]])).toBeCloseTo(60, 1);
   });
 
   it("measures on the Windows clock its frames are stamped on, not WSL's, which wanders (#2482)", () => {
@@ -129,7 +131,7 @@ describe("the Live Stream's -progress", () => {
       const wsl = 1002 * s - (s >= 50 ? 250 : 0);
       progress.push(block(60 * s), wsl, 1_000_000 + 1000 * s);
     }
-    expect(streamRate(progress.samples, [[0, Infinity]])).toBeCloseTo(60, 3);
+    expect(takeFps(progress.samples, [[0, Infinity]])).toBeCloseTo(60, 3);
   });
 
   it("reads past blocks and Windows ticks that arrive late, as both do under load (#2482)", () => {
@@ -145,39 +147,63 @@ describe("the Live Stream's -progress", () => {
       progress.push(block(3 * i), at, clock.now(at));
     }
     expect(clock.now(50_000)).toBeCloseTo(1_050_000, -1);
-    expect(streamRate(progress.samples, [[0, Infinity]])).toBeCloseTo(60, 2);
+    expect(takeFps(progress.samples, [[0, Infinity]])).toBeCloseTo(60, 2);
   });
 
-  it("measures each steady stretch, leaving out a fault's stall and catch-up between them (#2482)", () => {
+  it("averages over the whole take, so a stall the stream never catches up from counts (2026-10-31)", () => {
     const progress = readProgress();
-    // 60 fps, but 1 s behind from 50 s (the sink drops) until it catches up at 70 s.
+    // 60 fps, but from 50 s (the sink drops) it falls 1 s behind and stays there.
     for (let i = 0; i <= 2000; i++) {
       const ms = 50 * i;
-      const behind =
-        ms >= 50_000 && ms < 70_000
-          ? 60 *
-            Math.min(1, (ms - 50_000) / 1000) *
-            (1 - (ms - 50_000) / 20_000)
-          : 0;
+      const behind = 60 * Math.min(1, Math.max(0, ms - 50_000) / 1000);
       progress.push(block(Math.round(3 * i - behind)), ms, ms);
     }
-    expect(
-      streamRate(progress.samples, [
-        [0, 50_000],
-        [75_000, Infinity],
-      ])
-    ).toBeCloseTo(60, 3);
+    expect(takeFps(progress.samples, [[0, Infinity]])).toBeLessThan(59.2);
   });
 
-  it("measures only from the moment given (a stream warming up runs slow)", () => {
+  it("gives every stream process its own offset: a relaunch starts again from frame 0", () => {
     const progress = readProgress();
-    for (let s = 0; s <= 10; s++) progress.push(block(30 * s), 1000 * s);
-    for (let s = 11; s <= 60; s++)
-      progress.push(block(300 + 60 * (s - 10)), 1000 * s);
-    expect(streamRate(progress.samples, [[11_000, Infinity]])).toBeCloseTo(
-      60,
-      5
-    );
+    for (let s = 0; s <= 60; s++) progress.push(block(60 * s), 1000 * s);
+    for (let s = 0; s <= 60; s++)
+      progress.push(block(60 * s), 70_000 + 1000 * s);
+    expect(
+      takeFps(progress.samples, [
+        [0, 65_000],
+        [65_000, Infinity],
+      ])
+    ).toBeCloseTo(60, 5);
+  });
+
+  it("reports a lag that wanders and comes back, and does not count it against the rate (2026-10-31)", () => {
+    const progress = readProgress();
+    const t0Ms = 1_000_000;
+    // 60 fps, 1.4 s behind the take, wandering ±0.3 s every 40 s, for 120 s:
+    // the rate stays within the bar, and the lag is reported.
+    for (let i = 0; i <= 2400; i++) {
+      const ms = 50 * i;
+      const lagMs = 1400 + 300 * Math.cos((2 * Math.PI * ms) / 40_000);
+      progress.push(
+        block(Math.round(((ms - lagMs) * 60) / 1000)),
+        ms,
+        t0Ms + ms
+      );
+    }
+    expect(takeFps(progress.samples, [[0, Infinity]])).toBeCloseTo(60, 1);
+    const lag = streamLag(progress.samples, [0, Infinity], t0Ms)!;
+    expect(lag.startMs).toBeCloseTo(1700, -2);
+    expect(lag.minMs).toBeCloseTo(1100, -2);
+    expect(lag.maxMs).toBeCloseTo(1700, -2);
+  });
+
+  it("sums the whole take's duplicated and dropped frames over every stream process", () => {
+    const progress = readProgress();
+    progress.push(block(60) + block(6000, 1, 2), 1000);
+    // Killed and relaunched: its counts start again from 0.
+    progress.push(block(30) + block(3000, 3, 0), 2000);
+    expect(takeDupsDrops(progress.samples)).toEqual({
+      dupFrames: 4,
+      dropFrames: 2,
+    });
   });
 
   it("keeps the latest duplicated and dropped frame counts, even split across chunks", () => {

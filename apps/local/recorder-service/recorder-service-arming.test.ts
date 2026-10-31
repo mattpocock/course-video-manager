@@ -102,4 +102,28 @@ describe("a Recording Session", () => {
       path.basename(path.dirname(started.files.camera)),
     ]);
   });
+
+  it("records from T0 with a writer armed at Record whose graph is slow to come up (#2482)", async () => {
+    // ffmpeg 8 drops a command sent before its filter graph is up: a T0
+    // sent then left camera.mkv and mic.mkv empty for the whole take.
+    const windows = fakeWindows({ writerGraphMs: 300 });
+    const { port } = await start(windows);
+    const client = await connect(port);
+    const folder = tmp();
+    client.send({ type: "open", videoId: "video-1" });
+    await client.camera("live");
+
+    // Nothing armed yet: Record arms its writer on the spot.
+    client.send({
+      type: "record",
+      silenceLength: "short",
+      folder,
+      ...CALIBRATED,
+    });
+    await client.next("recording-started");
+
+    await vi.waitFor(() =>
+      expect(windows.recorder("camera").written).toMatch(/^Call \d/m)
+    );
+  });
 });
