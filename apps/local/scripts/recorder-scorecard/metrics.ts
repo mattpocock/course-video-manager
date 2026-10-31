@@ -616,6 +616,98 @@ export const METRICS: readonly MetricDef[] = [
     scale: 1,
     note: "Details: `streamed.faults.kill`.",
   },
+  // ITS INPUTS (#2502): Matt's real take overflowed and lost its camera +
+  // mic feed 30 s in, and streamed a frozen camera with no sound while every
+  // gate above would have passed. Each is read outside the injected faults.
+  {
+    id: "stream_back_after_feed_cut",
+    label:
+      "Feeds cut mid-take (the stream frozen past their socket timeout): reconnecting, launched again, live onto a new sink",
+    group: "reliability",
+    unit: "bool",
+    better: "higher",
+    target: 1,
+    obs: null,
+    scale: 1,
+  },
+  {
+    id: "stream_feed_overflows",
+    label:
+      "Live Stream feed overflows (\"FIFO queue full\" in the camera writer's and screen recorder's logs)",
+    group: "reliability",
+    unit: "lines",
+    better: "lower",
+    target: 0,
+    obs: null,
+    scale: 1,
+    note: "Each overflow drops up to a queue of the stream's picture or sound. The real take had 101.",
+  },
+  {
+    id: "stream_input_eofs",
+    label: 'Live Stream inputs ended mid-take ("File ended prematurely")',
+    group: "reliability",
+    unit: "lines",
+    better: "lower",
+    target: 0,
+    obs: null,
+    scale: 1,
+  },
+  {
+    id: "stream_ffmpeg_error_lines",
+    label:
+      "[error]/[fatal] lines from the take's ffmpeg processes and the Live Stream, outside the faults",
+    group: "reliability",
+    unit: "lines",
+    better: "lower",
+    target: 0,
+    obs: null,
+    scale: 1,
+  },
+  {
+    id: "stream_sink_audio_gap_max_ms",
+    label:
+      "Longest gap in the sinks' sound (between packets, or its end short of the picture's)",
+    group: "reliability",
+    unit: "ms",
+    better: "lower",
+    target: 100,
+    obs: null,
+    scale: 50,
+  },
+  {
+    id: "stream_sink_camera_still_max_s",
+    label: "Longest the camera stood still in the sinks' copies",
+    group: "reliability",
+    unit: "s",
+    better: "lower",
+    target: 0.5,
+    obs: null,
+    scale: 0.5,
+    note: "The synthetic camera's clock blocks change every frame, so any stretch standing still is a frozen feed.",
+  },
+  {
+    id: "gpu_streaming_pct",
+    label:
+      "GPU utilisation while streaming and recording (nvidia-smi, average)",
+    group: "resources",
+    unit: "%",
+    better: "lower",
+    target: 85,
+    obs: null,
+    scale: 5,
+    note: "Synthetic sources at Idle priority: the real take read 99% (see README, what a synthetic pass does not prove).",
+  },
+  {
+    id: "nvenc_streaming_pct",
+    label: "NVENC utilisation while streaming and recording (average)",
+    group: "resources",
+    unit: "%",
+    better: "lower",
+    target: 85,
+    obs: null,
+    scale: 5,
+    note: "The spike's budget was 85-90% with the recorder's encoders; the real take read 79% median, 98% p95.",
+  },
   {
     id: "card_click_to_screen_ms",
     label:

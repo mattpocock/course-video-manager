@@ -13,8 +13,8 @@ import {
  * Windows wall clock, and whether Matt is filming. Every Windows process
  * here starts through the Windows guard (`scripts/windows-guard.ts`): Idle
  * priority on cores 6-9, and none at all while anything records. Read-only, except
- * `killMarked`, which only ever stops an ffmpeg.exe carrying this run's
- * marker.
+ * `killMarked` and `freezeMarked`, which only ever stop or freeze an
+ * ffmpeg.exe carrying this run's marker.
  */
 
 const NVIDIA_SMI = "C:\\Windows\\System32\\nvidia-smi.exe";
@@ -77,6 +77,30 @@ export const killMarked = async (marker: string, tags?: readonly string[]) => {
     `$p = @(${marked(marker)} ${tagFilter}); foreach ($x in $p) { Stop-Process -Id $x.ProcessId -Force -ErrorAction SilentlyContinue }; $p.Count`
   );
   return Number(stdout.trim()) || 0;
+};
+
+/**
+ * Freezes this run's ffmpeg.exe processes that carry one of `tags` for `ms`,
+ * then lets them go on (`NtSuspendProcess`, in the one PowerShell, so a
+ * freeze always ends). Returns how many it froze. What a stream that falls
+ * behind its feeds looks like to them (#2502): their sockets fill, and each
+ * feed's fifo gives up on its connection after its 2 s timeout.
+ */
+export const freezeMarked = async (
+  marker: string,
+  tags: readonly string[],
+  ms: number
+) => {
+  const { stdout } = await runPowerShell(
+    [
+      `Add-Type -Namespace CvmScorecard -Name Freeze -MemberDefinition '[DllImport("ntdll.dll")] public static extern int NtSuspendProcess(IntPtr h); [DllImport("ntdll.dll")] public static extern int NtResumeProcess(IntPtr h);'`,
+      `$p = @(${marked(marker)} | Where-Object { $cl = $_.CommandLine; @(${tags.map(literal).join(",")}) | Where-Object { $cl -like ('*' + $_ + '*') } } | ForEach-Object { Get-Process -Id $_.ProcessId -ErrorAction SilentlyContinue })`,
+      `try { foreach ($x in $p) { [void][CvmScorecard.Freeze]::NtSuspendProcess($x.Handle) }; Start-Sleep -Milliseconds ${Math.round(ms)} } finally { foreach ($x in $p) { [void][CvmScorecard.Freeze]::NtResumeProcess($x.Handle) } }`,
+      "$p.Count",
+    ].join("; "),
+    ms + 30_000
+  );
+  return Number(stdout.trim().split(/\r?\n/).at(-1)) || 0;
 };
 
 /**
