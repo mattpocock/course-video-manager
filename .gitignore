@@ -47,3 +47,8 @@ packages/core/dist/
 
 # Evidence from the verify-cvm skill — kept on disk, never committed
 .verify/
+
+# Agent worktrees and scratch (tmp/<name>/wt). ROOT-ANCHORED, so a source
+# folder named tmp/ deeper in the tree stays tracked. Ignoring it keeps
+# `git status --porcelain` empty, which drizzle-guard's clean-main check needs.
+/tmp/
