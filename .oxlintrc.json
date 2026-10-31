@@ -244,7 +244,6 @@
         "apps/local/app/features/upload-manager/upload-row.tsx",
         "apps/local/app/features/video-editor/clip-state-reducer-recording.ts",
         "apps/local/app/features/video-editor/clip-state-reducer.helpers.ts",
-        "apps/local/app/features/video-editor/clip-state-reducer.ts",
         "apps/local/app/features/video-editor/components/capture-frame.tsx",
         "apps/local/app/features/video-editor/components/clip-item.tsx",
         "apps/local/app/features/video-editor/components/cvm-recorder-controls.tsx",
