@@ -8,7 +8,7 @@ pauses, prints why and re-checks every 60 s, then carries on by itself:
 
 ```text
 PAUSED: Matt is filming, so `verify.sh ab` waits. Do not work around this.
-  filming: 2026-10-27T11:58:53.007Z recorder service listening on ws://127.0.0.1:5177 (pid 1604238)
+  filming: 2026-10-27T11:58:53.007Z takes: recording
   Re-checking every 60s; it carries on by itself when he stops.
 ```
 
@@ -20,7 +20,10 @@ a run is always allowed.
 
 `scripts/is-filming.sh` (repo root) is the one check, for any tooling that
 needs it. Exit 0 means filming, 1 means not; `-v` prints why. Filming means
-`.data/logs/recorder-service.log` in Matt's main checkout has a `listening`
-line after its last `stopped cleanly` line. It finds that checkout through
-Git from any worktree, and it only reads the log: it never contacts the
-recorder or Matt's app.
+a take is recording (or a Live Stream is on, or a stopped take is still
+closing its files), not that the app is open: the recorder service logs
+`takes: recording` and `takes: none` to `.data/logs/recorder-service.log` in
+Matt's main checkout, and the last one since its `listening` line decides. A
+running service that logs no `takes:` line (older code) counts as filming.
+It finds that checkout through Git from any worktree, and it only reads the
+log: it never contacts the recorder or Matt's app.

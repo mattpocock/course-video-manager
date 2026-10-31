@@ -20,9 +20,9 @@ import {
 const written = (seconds: number) =>
   `frame=${Math.ceil((seconds * 30000) / 1001)}\nout_time_us=${seconds * 1_000_000}\nprogress=continue\n`;
 
-const recording = async () => {
+const recording = async (onBusyChanged?: (busy: boolean) => void) => {
   const windows = fakeWindows();
-  const { port } = await start(windows);
+  const { port } = await start(windows, tmp(), { onBusyChanged });
   const client = await connect(port);
   const folder = tmp();
   client.send({ type: "open", videoId: "video-1" });
@@ -127,5 +127,24 @@ describe("Stop", () => {
     expect(state.state).toMatchObject({
       recordingSessionId: second.recordingSessionId,
     });
+  });
+
+  it("is busy from Record until the take's files are closed, so the filming check never says done early", async () => {
+    const busy: boolean[] = [];
+    const { windows, client } = await recording((b) => busy.push(b));
+    expect(busy).toEqual([true]);
+    const writer = windows.recorder("camera");
+    clock.ms = T0_MS + 3_000;
+    writer.stdout(written(2));
+
+    client.send({ type: "stop" });
+    await client.next("state", (m) => m.state.kind === "open");
+    // Open again at once, but the take is still writing its files.
+    await new Promise((r) => setTimeout(r, 100));
+    expect(busy).toEqual([true]);
+
+    writer.stdout(written(3.1));
+    await client.next("recording-stopped");
+    await vi.waitFor(() => expect(busy).toEqual([true, false]));
   });
 });
