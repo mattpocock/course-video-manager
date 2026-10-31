@@ -20,6 +20,11 @@ export const broadcastChat = (): BroadcastChat => {
     reconnectMs: 1_000,
     // Retry for ever, at least twice a minute, until End Stream.
     maxReconnectMs: 30_000,
+    // While polling, ask for the stream connection again at least once a
+    // minute: a refused ask costs about what one poll does, so at YouTube's
+    // usual few-second polling interval it adds under a tenth to the polling,
+    // and polling outlives the stream's return by a minute at most.
+    maxStreamRetryMs: 60_000,
     maxMessages: 500,
   });
   store[KEY] = chat;

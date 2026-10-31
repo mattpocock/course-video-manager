@@ -342,6 +342,12 @@ const fakeViewerMessage = (n: number) => ({
   text: `Fake question number ${n}`,
 });
 
+/** YouTube refusing a stream connection: a 4xx that isn't scope or chat-over. */
+const refuseStream = (res: http.ServerResponse) => {
+  res.writeHead(403, { "Content-Type": "application/json" });
+  res.end(JSON.stringify({ error: { code: 403, message: "Forbidden" } }));
+};
+
 const shown = (n: number) => ({
   id: `msg-${n}`,
   author: `@fake_viewer_${n}`,
@@ -360,6 +366,7 @@ const startChat = () => {
   const chat = createBroadcastChat({
     reconnectMs: 20,
     maxReconnectMs: 100,
+    maxStreamRetryMs: 100,
     maxMessages: 500,
   });
   chats.push(chat);
@@ -483,17 +490,56 @@ describe("the Broadcast's live chat, owned by the app server", () => {
     ).toEqual(["streaming", "reconnecting", "streaming"]);
   });
 
-  it("falls back to polling at YouTube's interval only when the stream connection is refused", async () => {
+  it("never polls when YouTube refuses the stream connection from the start: the chat shows why", async () => {
+    await storeGrant();
+    youtube.chatStreams.push(refuseStream);
+    youtube.chatPolls.push({
+      status: 200,
+      body: chatPage({ messages: [fakeViewerMessage(1)] }),
+    });
+    const chat = startChat();
+    const heard = listen(chat);
+
+    await pick(chat, {
+      broadcastId: "office-hours",
+      liveChatId: "chat-office-hours",
+    });
+
+    await vi.waitFor(() =>
+      expect(chat.snapshot().connection).toEqual({
+        state: "refused",
+        message: "YouTube answered 403: Forbidden",
+      })
+    );
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(chatRequests().map((r) => r.pathname)).toEqual([
+      "/youtube/v3/liveChat/messages/stream",
+    ]);
+    expect(heard.at(-1)).toEqual({
+      type: "chat-connection-changed",
+      broadcastId: "office-hours",
+      connection: {
+        state: "refused",
+        message: "YouTube answered 403: Forbidden",
+      },
+    });
+  });
+
+  it("polls, at YouTube's interval, only once a stream connection that worked breaks down mid-stream", async () => {
     await storeGrant();
     youtube.chatStreams.push((res) => {
-      res.writeHead(404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: { code: 404, message: "Not Found" } }));
+      sendPages(res, [
+        chatPage({ messages: [fakeViewerMessage(1)], nextPageToken: "t1" }),
+      ]);
+      setTimeout(() => res.destroy(), 20);
     });
+    // Every stream connection from here on is refused.
+    for (let i = 0; i < 20; i++) youtube.chatStreams.push(refuseStream);
     youtube.chatPolls.push(
       {
         status: 200,
         body: chatPage({
-          messages: [fakeViewerMessage(1)],
+          messages: [fakeViewerMessage(2)],
           nextPageToken: "p1",
           pollingIntervalMillis: 300,
         }),
@@ -501,7 +547,7 @@ describe("the Broadcast's live chat, owned by the app server", () => {
       {
         status: 200,
         body: chatPage({
-          messages: [fakeViewerMessage(2)],
+          messages: [fakeViewerMessage(3)],
           nextPageToken: "p2",
           pollingIntervalMillis: 300,
         }),
@@ -520,17 +566,71 @@ describe("the Broadcast's live chat, owned by the app server", () => {
     });
 
     await vi.waitFor(() =>
-      expect(messagesHeard(heard)).toEqual([shown(1), shown(2)])
+      expect(messagesHeard(heard)).toEqual([shown(1), shown(2), shown(3)])
     );
     expect(
-      chatRequests().map((r) => [r.pathname, r.searchParams.get("pageToken")])
-    ).toEqual([
-      ["/youtube/v3/liveChat/messages/stream", null],
-      ["/youtube/v3/liveChat/messages", null],
-      ["/youtube/v3/liveChat/messages", "p1"],
-    ]);
-    expect(heardAt[1]! - heardAt[0]!).toBeGreaterThanOrEqual(280);
+      chatRequests()
+        .filter((r) => r.pathname === "/youtube/v3/liveChat/messages")
+        .map((r) => r.searchParams.get("pageToken"))
+    ).toEqual(["t1", "p1"]);
+    expect(heardAt[2]! - heardAt[1]!).toBeGreaterThanOrEqual(280);
     expect(chat.snapshot().connection).toEqual({ state: "polling" });
+  });
+
+  it("while polling, asks for the stream connection again after a pause that doubles up to a cap, and stops polling the moment it's back", async () => {
+    await storeGrant();
+    const askedAt: number[] = [];
+    youtube.chatStreams.push((res) => {
+      sendPages(res, [
+        chatPage({ messages: [fakeViewerMessage(1)], nextPageToken: "t1" }),
+      ]);
+      setTimeout(() => res.destroy(), 20);
+    });
+    // Refused as it breaks down, then five more times, then back.
+    for (let i = 0; i < 6; i++) {
+      youtube.chatStreams.push((res) => {
+        askedAt.push(Date.now());
+        refuseStream(res);
+      });
+    }
+    youtube.chatStreams.push((res) => {
+      askedAt.push(Date.now());
+      sendPages(res, [chatPage({ messages: [fakeViewerMessage(9)] })]);
+    });
+    for (let i = 0; i < 200; i++) {
+      youtube.chatPolls.push({
+        status: 200,
+        body: chatPage({ messages: [], pollingIntervalMillis: 5 }),
+      });
+    }
+    const chat = startChat();
+
+    await pick(chat, {
+      broadcastId: "office-hours",
+      liveChatId: "chat-office-hours",
+    });
+
+    await vi.waitFor(
+      () => expect(chat.snapshot().messages).toEqual([shown(1), shown(9)]),
+      { timeout: 3000 }
+    );
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(chat.snapshot().connection).toEqual({ state: "streaming" });
+    const pauses = askedAt.slice(1).map((at, i) => at - askedAt[i]!);
+    // 20, 40, 80, then the cap of 100 (doubling on would give 160, 320).
+    expect(pauses.map((p, i) => p >= [20, 40, 80, 100, 100, 100][i]!)).toEqual([
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+    ]);
+    expect(pauses.slice(3).every((p) => p < 150)).toBe(true);
+    // Not one poll once the stream connection is back.
+    const paths = chatRequests().map((r) => r.pathname);
+    expect(paths.at(-1)).toBe("/youtube/v3/liveChat/messages/stream");
+    expect(paths.filter((p) => p.endsWith("/stream"))).toHaveLength(8);
   });
 
   it("picking another Broadcast switches chat, and End Stream stops it", async () => {
