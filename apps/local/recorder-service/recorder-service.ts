@@ -39,6 +39,7 @@ import { serveHealth } from "./health";
 import { createSessionIndex } from "./session-index";
 import { checkFfmpeg, checkNvidiaDriver } from "./windows-devices";
 import { Refusal } from "./refusal";
+import { watchBusy } from "./busy-change";
 import { RECORDER_CAMERA_NAME } from "../app/av-calibration-constants";
 import { createRecordingDevices } from "./recording-devices";
 import { createScreenSide, refuseScreenlessScene } from "./screen-side";
@@ -94,6 +95,8 @@ export type RecorderServiceOptions = {
    * message that says why it could not.
    */
   wakeSpacedesk: () => Promise<void>;
+  /** Hears each change of `busy()` (`busy-change.ts`). */
+  onBusyChanged?: (busy: boolean) => void;
 } & LiveStreamOptions;
 
 export const startRecorderService = async (o: RecorderServiceOptions) => {
@@ -115,7 +118,10 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
   let listening: () => void = () => {};
   let session: RecordingSession | undefined;
   /** Takes stopped, still closing their files (#2211). */
-  const stopping = createTakeStopping({ rearm: () => rearm() });
+  const stopping = createTakeStopping({
+    rearm: () => rearm(),
+    onClosed: () => noteBusy(),
+  });
   let camera: Camera | undefined;
   const feeds = await startPreviewFeeds();
   const encoders = createPreviewEncoders();
@@ -149,7 +155,13 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
   const setState = (next: RecorderState) => {
     state = next;
     broadcast({ type: "state", state });
+    noteBusy();
   };
+
+  /** Recording, live, or a take closing its files. */
+  const busy = () =>
+    state.kind === "recording" || live.streaming() || stopping.closing();
+  const noteBusy = watchBusy(busy, o.onBusyChanged);
 
   const devices = createRecordingDevices(o.launch);
   const findCamera = devices.findCamera;
@@ -579,9 +591,7 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
 
   return {
     port: (server.address() as AddressInfo).port,
-    /** Recording, live, or a take closing its files. */
-    busy: () =>
-      state.kind === "recording" || live.streaming() || stopping.closing(),
+    busy,
     /** Stops a recording cleanly, then closes every socket. */
     close: async () => {
       await queue;
