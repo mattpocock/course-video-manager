@@ -298,6 +298,22 @@ describe("binding the picked Broadcast to the Stream Key's YouTube stream", () =
 });
 
 describe("raw footage first: a stream failure never stops or delays the take", () => {
+  it("records its camera and mic from T0 when the writer Go Live armed at Record is slow to bring its graph up", async () => {
+    // ffmpeg 8 drops a command sent before its filter graph is up: a T0
+    // sent then left camera.mkv and mic.mkv empty for the whole take (#2482).
+    const r = await ready({ windows: fakeWindows({ writerGraphMs: 300 }) });
+
+    await r.goLive();
+
+    await vi.waitFor(() =>
+      expect(r.heard.map((m) => m.type)).toContain("recording-started")
+    );
+    await vi.waitFor(() =>
+      expect(r.windows.recorder("camera").written).toMatch(/^Call \d/m)
+    );
+    expect(r.heard.map((m) => m.type)).not.toContain("recording-stopped");
+  });
+
   it("records anyway once the fixed bound passes, when the stream process never comes up", async () => {
     const r = await ready({
       windows: fakeWindows({ stream: "never" }),

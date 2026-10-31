@@ -37,7 +37,7 @@ const isStatus = (
   m.type === "recorder-status";
 
 describe("a streamed Recording Session is busy streaming", () => {
-  it("refuses Stop, close and opening the recorder for another Video, and keeps recording", async () => {
+  it("refuses Stop, close and opening the recorder for another Video, telling that Video's editor it is busy streaming, and keeps recording", async () => {
     const r = await live();
     const other = await connect(r.port);
 
@@ -55,6 +55,21 @@ describe("a streamed Recording Session is busy streaming", () => {
     await expect(r.client.stopRecording(r.video.id)).rejects.toThrow(
       BUSY_STREAMING
     );
+    // The live Video's editor knows its Recording Session is streamed;
+    // another Video's, that the recorder is busy streaming.
+    expect(r.heard.filter(isStatus).at(-1)).toMatchObject({
+      recordingSessionId: expect.any(String),
+      streamed: true,
+    });
+    const otherVideo = await clipService.createVideo("Another Video");
+    const otherHeard: CvmRecorderMessage[] = [];
+    r.client.subscribe(otherVideo.id, (m) => otherHeard.push(m));
+    expect(otherHeard.filter(isStatus).at(-1)).toMatchObject({
+      problem: BUSY_STREAMING_ANOTHER_VIDEO,
+      recordingSessionId: null,
+      streamed: false,
+    });
+    await expect(r.client.stopRecording(otherVideo.id)).rejects.toThrow();
 
     expect(r.heard.map((m) => m.type)).not.toContain("recording-stopped");
     const screen = r.windows.recorder("screen");
@@ -66,6 +81,12 @@ describe("a streamed Recording Session is busy streaming", () => {
     await r.client.endStream(r.video.id);
     await vi.waitFor(() =>
       expect(r.heard.map((m) => m.type)).toContain("recording-stopped")
+    );
+    await vi.waitFor(() =>
+      expect(r.heard.filter(isStatus).at(-1)).toMatchObject({
+        recordingSessionId: null,
+        streamed: false,
+      })
     );
   });
 
@@ -109,38 +130,5 @@ describe("a streamed Recording Session is busy streaming", () => {
     );
     expect(r.heard.map((m) => m.type)).not.toContain("recording-stopped");
     await r.client.endStream(r.video.id);
-  });
-
-  it("tells another Video's editor the recorder is busy streaming, and tells the live Video's that its Recording Session is streamed", async () => {
-    const r = await live();
-    expect(r.heard.filter(isStatus).at(-1)).toMatchObject({
-      recordingSessionId: expect.any(String),
-      streamed: true,
-    });
-    expect(r.client.liveStream()).toEqual({
-      videoId: r.video.id,
-      status: expect.objectContaining({
-        kind: expect.stringMatching(/^(starting|connecting|live)$/),
-      }),
-    });
-
-    const otherVideo = await clipService.createVideo("Another Video");
-    const heard: CvmRecorderMessage[] = [];
-    r.client.subscribe(otherVideo.id, (m) => heard.push(m));
-    expect(heard.filter(isStatus).at(-1)).toMatchObject({
-      problem: BUSY_STREAMING_ANOTHER_VIDEO,
-      recordingSessionId: null,
-      streamed: false,
-    });
-    await expect(r.client.stopRecording(otherVideo.id)).rejects.toThrow();
-    expect(r.heard.map((m) => m.type)).not.toContain("recording-stopped");
-
-    await r.client.endStream(r.video.id);
-    await vi.waitFor(() =>
-      expect(r.heard.filter(isStatus).at(-1)).toMatchObject({
-        recordingSessionId: null,
-        streamed: false,
-      })
-    );
   });
 });

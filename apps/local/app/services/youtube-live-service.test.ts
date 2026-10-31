@@ -392,7 +392,7 @@ const messagesHeard = (heard: BroadcastChatEvent[]) =>
   );
 
 describe("the Broadcast's live chat, owned by the app server", () => {
-  it("streams the picked Broadcast's chat from the pick, and new messages arrive as they're posted", async () => {
+  it("streams the picked Broadcast's chat from the pick, new messages arriving as they're posted, and a Streaming tab that comes back hears what was posted while it was away", async () => {
     await storeGrant();
     let connection: http.ServerResponse | undefined;
     youtube.chatStreams.push((res) => {
@@ -433,28 +433,8 @@ describe("the Broadcast's live chat, owned by the app server", () => {
         (r) => r.authorization === "Bearer stored-access-token"
       )
     ).toBe(true);
-  });
-
-  it("a Streaming tab that comes back hears what was posted while it was away", async () => {
-    await storeGrant();
-    youtube.chatStreams.push((res) =>
-      sendPages(res, [
-        chatPage({
-          messages: [fakeViewerMessage(1), fakeViewerMessage(2)],
-          nextPageToken: "t1",
-        }),
-      ])
-    );
-    const chat = startChat();
-    await pick(chat, {
-      broadcastId: "office-hours",
-      liveChatId: "chat-office-hours",
-    });
-    await vi.waitFor(() => expect(chat.snapshot().messages).toHaveLength(2));
-
-    const heard = listen(chat);
-
-    expect(heard).toEqual([
+    // A tab that listens only now hears everything kept, at once.
+    expect(listen(chat)).toEqual([
       {
         type: "chat-attached",
         chat: {
