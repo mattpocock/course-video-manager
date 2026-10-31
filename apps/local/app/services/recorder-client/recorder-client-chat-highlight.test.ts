@@ -182,6 +182,22 @@ describe("Chat Highlights", () => {
     await r.client.endStream(r.video.id);
   });
 
+  it("draws the card on the CPU over the picture read back from the GPU, never from a card uploaded to it (#2462)", async () => {
+    const r = await live();
+
+    // On the rig, a card uploaded to CUDA showed its state 2 frames early:
+    // its upload pool held 2 frames, and the next upload overwrote the one
+    // the blend was still to read.
+    const graph = r.windows.streams[0]!.launch.args.join(" ");
+    const cardChain = graph.split(";").find((c) => c.startsWith("[2:v]"));
+    expect(cardChain).not.toContain("hwupload_cuda");
+    expect(graph).toMatch(
+      /\[live_selected\]hwdownload,format=yuv420p\[\w+\];\[\w+\]\[live_card\]overlay=/
+    );
+    expect(graph).not.toMatch(/\[live_card\]overlay_cuda/);
+    await r.client.endStream(r.video.id);
+  });
+
   it("refuses Go Live, among its other reasons, until the card server's browser has been downloaded", async () => {
     const r = await ready();
     const answer = await r.goLive({

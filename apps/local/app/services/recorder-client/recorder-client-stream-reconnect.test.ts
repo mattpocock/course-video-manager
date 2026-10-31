@@ -72,7 +72,7 @@ const kept = (args: readonly string[]) =>
       .replace(/setpts=PTS\+[\d.]+\/TB,/g, "")
       // Its output moved back to 0 by that start (#2482).
       .replace(
-        /\[live_picture\];\[live_picture\]setpts=PTS-[\d.]+\/TB\[v\]/,
+        /\[live_unshifted\];\[live_unshifted\]setpts=PTS-[\d.]+\/TB\[v\]/,
         "[v]"
       )
       .replace(/\[1:a\]atrim=start=[\d.]+,asetpts=PTS-[\d.]+\/TB,/, "[1:a]")
