@@ -295,7 +295,7 @@ export const clickToScreenMs = (edges: readonly Edge[]) =>
  * `metrics.ts`).
  */
 export const cardChecks =
-  (ctx: Ctx) =>
+  (ctx: Ctx, o: { stall: boolean }) =>
   async ({
     sinkFile,
     relaunchedBetween,
@@ -304,26 +304,31 @@ export const cardChecks =
     relaunchedBetween: (from: number, to: number) => boolean;
   }) => {
     const clicked = await cardClicks(ctx);
-    const stall = await cardServerStall(ctx, relaunchedBetween);
-    const edges = [...clicked, ...stall.edges];
+    // A fault, asked for (`--card-server-stall`): its restart's burst of WSL
+    // CPU can move the Idle-priority stream ffmpeg.exe's rate on this rig.
+    const stall = o.stall
+      ? await cardServerStall(ctx, relaunchedBetween)
+      : undefined;
+    const edges = [...clicked, ...(stall?.edges ?? [])];
     return async () => {
       const clicks = clickToScreenMs(edges);
       const opacity = await cardOpacityCheck(sinkFile, edges);
       ctx.measured.card_click_to_screen_ms =
         clicks.length > 0 ? Math.max(...clicks) : null;
       ctx.measured.card_opacity_wrong_frames = opacity.wrongWay + opacity.early;
-      ctx.measured.stream_unmoved_by_card_server_stall =
-        stall.stalled &&
-        stall.during.refused !== null &&
-        !stall.relaunched &&
-        stall.afterRefused === null
+      ctx.measured.stream_unmoved_by_card_server_stall = !stall
+        ? null
+        : stall.stalled &&
+            stall.during.refused !== null &&
+            !stall.relaunched &&
+            stall.afterRefused === null
           ? 1
           : 0;
       ctx.details.chatHighlights = {
         clicks: CARD_CLICKS,
         edges: edges.length,
         clickToScreenMs: clicks.map(Math.round),
-        cardServerStall: {
+        cardServerStall: stall && {
           stalledMs: CARD_SERVER_STALL_MS,
           ...stall,
           edges: stall.edges.length,
