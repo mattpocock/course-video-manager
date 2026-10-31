@@ -30,6 +30,10 @@ export type Ctx = {
   marker: string;
   stateDir: string;
   footageDir: string;
+  /** Where the report goes: logs a scenario keeps go beside it. */
+  outDir: string;
+  /** The service's own log (its Live Stream lines among it). */
+  serviceLog: string;
   videoId: string;
   calibration: LastPassedCalibration;
   service: ServiceProcess;

@@ -14,10 +14,13 @@ import {
   takeDupsDrops,
   takeFps,
 } from "./stream-sink";
+import { SCENES } from "../../app/packages/scene-layout";
 import { CAMERA_FPS, SCREEN_FPS } from "./synthetic-sources";
+import { readSinks } from "./sink-checks";
 import { relaunchedBetween, streamFaults, type Sinks } from "./stream-faults";
+import { streamedLogs, type StreamedLogs } from "./stream-logs";
 import { hold, sleep, type Ctx } from "./takes";
-import { killMarked, windowsGuard } from "./windows";
+import { killMarked, sampleGpu, windowsGuard } from "./windows";
 
 /**
  * THE STREAMED RECORDING SESSION (#2455): Go Live on the real service and
@@ -32,7 +35,18 @@ import { killMarked, windowsGuard } from "./windows";
  * `during` runs while the Live Stream is live (#2461's Chat Highlight
  * clicks, `card-checks.ts`); what it returns runs once End Stream is done
  * and the sink has closed its copy of the stream (`sinkFile`).
+ *
+ * Its inputs too (#2502), not only what it encodes: every scene is switched
+ * through once the card checks are done; the feeds' overflows, the
+ * stream's input ends and every ffmpeg error are read from the take's logs
+ * outside the faults (`stream-logs.ts`); the sinks' copies are read for
+ * gaps in the sound and a camera standing still (`sink-checks.ts`); and the
+ * GPU and NVENC are sampled over the take. Those logs are kept beside the
+ * report, footage kept or not.
  */
+
+/** How long each scene shows before the next, once the card checks are done. */
+const SCENE_EVERY_MS = 8_000;
 
 /** Frames after it goes live that the rate leaves out: its encoder settling. */
 const WARM_UP_MS = 5_000;
@@ -49,6 +63,22 @@ const FIRST_WARM_UP_MS = 20_000;
 
 const streamOf = (m: RecorderMessage) =>
   m.type === "state" && m.state.kind !== "closed" ? m.state.stream : undefined;
+
+/** Switches through every scene in turn until stopped. */
+const cycleScenes = (ctx: Ctx) => {
+  let k = 0;
+  const timer = setInterval(() => {
+    k += 1;
+    ctx.client.send({
+      type: "switch-scene",
+      scene: SCENES[k % SCENES.length]!,
+    });
+  }, SCENE_EVERY_MS);
+  return {
+    stop: () => clearInterval(timer),
+    switches: () => k,
+  };
+};
 
 /** What the sink carries in its command line, beside the run's marker. */
 const SINK_TAG = "cvm-scorecard-sink";
@@ -158,6 +188,7 @@ const takePicture = (
     liveAt: number | null;
     killAt: number;
     relaunchedLiveAt: number | null;
+    feedCutAt: number;
     endAt: number;
     t0Ms: number;
   }
@@ -166,7 +197,7 @@ const takePicture = (
   const relaunched: Span | null =
     at.relaunchedLiveAt === null
       ? null
-      : [at.relaunchedLiveAt + WARM_UP_MS, at.endAt];
+      : [at.relaunchedLiveAt + WARM_UP_MS, at.feedCutAt];
   const relaunchedFps = relaunched && takeFps(pushed, [relaunched]);
   // Its offset holds the relaunch's own start in file time: read its shape.
   const relaunchedLag = relaunched && streamLag(pushed, relaunched, at.t0Ms);
@@ -206,6 +237,7 @@ const sinksOn = (ctx: Ctx, port: number, file: (n: number) => string) => {
   };
   return {
     ...sinks,
+    files: () => all.map((_, i) => file(i + 1)),
     frames: () => all.map((s) => s.frames()),
     stderr: () => all.map((s) => s.stderr()),
     close: (ms: number) => Promise.all(all.map((s) => s.close(ms))),
@@ -227,6 +259,39 @@ const statusesFrom = (received: readonly Received[]) =>
     .filter((x) => x !== undefined)
     .map((x) => (x.kind === "ended" ? `ended: ${x.reason}` : x.kind))
     .filter((x, i, a) => a[i - 1] !== x);
+
+/**
+ * The take's inputs (#2502): its logs outside the faults, the sinks' copies
+ * and the GPU, into their metrics; what they found, for the details.
+ */
+const inputGates = async (
+  ctx: Ctx,
+  logs: StreamedLogs,
+  sinkFiles: readonly string[],
+  gpu: ReturnType<typeof sampleGpu>
+) => {
+  const m = ctx.measured;
+  const logged = logs.read();
+  m.stream_feed_overflows = logged.feedOverflows.length;
+  m.stream_input_eofs = logged.inputEofs.length;
+  m.stream_ffmpeg_error_lines = logged.errors.length;
+  const sinks = readSinks(sinkFiles);
+  m.stream_sink_audio_gap_max_ms = sinks.audioGapMaxMs;
+  m.stream_sink_camera_still_max_s = sinks.cameraStillMaxS;
+  const reading = await gpu;
+  m.gpu_streaming_pct = reading?.gpuPct ?? null;
+  m.nvenc_streaming_pct = reading?.encoderPct ?? null;
+  return {
+    gpu: reading,
+    // The first lines of each, outside the faults: what to read first.
+    logged: {
+      feedOverflows: logged.feedOverflows.slice(0, 10),
+      inputEofs: logged.inputEofs.slice(0, 10),
+      errors: logged.errors.slice(0, 20),
+    },
+    sinks: sinks.sinks,
+  };
+};
 
 export const streamed = async (
   ctx: Ctx,
@@ -250,8 +315,13 @@ export const streamed = async (
   const unwatch = ctx.service.onStreamProgress((chunk, windowsMs) =>
     progress.push(chunk, performance.now(), windowsMs ?? NaN)
   );
+  let logs: StreamedLogs | undefined;
   try {
     const { go, answer, started, live } = await goLive(ctx);
+    logs = streamedLogs(path.dirname(started.files.camera), ctx.serviceLog);
+    const gpu = sampleGpu(
+      Math.max(0, seconds * 1000 - (performance.now() - go.at) - 2_000)
+    );
     // The first sink's copy holds everything `during` did.
     const afterEnd = await during({
       liveAt: live?.at ?? NaN,
@@ -259,14 +329,19 @@ export const streamed = async (
       relaunchedBetween: (from, to) =>
         relaunchedBetween(progress.samples, from, to),
     });
+    const scenes = cycleScenes(ctx);
     const faults = await streamFaults(ctx, {
       goAt: go.at,
       seconds,
       sinks: sink,
       samples: progress.samples,
-    });
+      logs,
+    }).finally(() => scenes.stop());
     await hold(ctx, Math.max(0, seconds * 1000 - (performance.now() - go.at)));
+    scenes.stop();
 
+    // What End Stream itself logs is no fault of the take's.
+    logs.fault();
     const end = ctx.client.send({ type: "end-stream" });
     const stopped = await ctx.client.waitFor(
       (m) =>
@@ -288,6 +363,7 @@ export const streamed = async (
       liveAt: live?.at ?? null,
       killAt: faults.killAt,
       relaunchedLiveAt: faults.relaunchedLiveAt,
+      feedCutAt: faults.feedCutAt,
       endAt: end.at,
       t0Ms: started.t0Ms,
     });
@@ -300,6 +376,8 @@ export const streamed = async (
     m.stream_drop_frames = picture.dropFrames;
     m.stream_back_after_sink_drop = fault.backAfterSinkDrop ? 1 : 0;
     m.stream_back_after_kill = fault.backAfterKill ? 1 : 0;
+    m.stream_back_after_feed_cut = fault.backAfterFeedCut ? 1 : 0;
+    const inputs = await inputGates(ctx, logs, sink.files(), gpu);
 
     ctx.details.streamed = {
       seconds,
@@ -321,6 +399,8 @@ export const streamed = async (
         relaunchedLag: picture.relaunchedLag,
       },
       health: healthOf(ctx.client.received.slice(go.from)),
+      sceneSwitches: scenes.switches(),
+      ...inputs,
       sinkStderr: sink.stderr(),
       endedBeforeEndStream: endedEarly,
       stopped: {
@@ -347,5 +427,7 @@ export const streamed = async (
   } finally {
     unwatch();
     await sink.close(0);
+    // Kept whatever happened, footage kept or not: the logs say why.
+    logs?.keep(path.join(ctx.outDir, "streamed-logs"));
   }
 };
