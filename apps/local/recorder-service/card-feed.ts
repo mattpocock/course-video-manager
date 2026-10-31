@@ -11,7 +11,7 @@ import {
 /**
  * THE CARD FEED (spec #2445, option (b)): the Chat Highlight card's still,
  * eased here in Node, sent to the Live Stream process as raw yuva420p frames,
- * which it uploads and draws with `overlay_cuda` at one fixed place.
+ * which it draws on the CPU over the picture, at one fixed place (#2462).
  *
  * TIMING. Frame n IS picture time n/60: the stream reads the frames' count
  * as their stamps (rawvideo at 60 fps under `-copyts`), and its composite is

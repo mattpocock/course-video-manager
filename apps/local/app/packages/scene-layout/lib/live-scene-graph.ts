@@ -27,7 +27,12 @@ export interface LiveSceneFilterGraphInput {
   readonly canvasStartSeconds?: number;
   /**
    * The Chat Highlight card (#2461): a `yuva420p` input, in system memory,
-   * drawn over whichever scene shows, at a fixed place. Its frames are
+   * drawn over whichever scene shows, at a fixed place, on the CPU (#2462):
+   * the picture comes back from CUDA once a frame, takes the card, and goes
+   * up again for the encoder. The card never goes up itself: `overlay_cuda`
+   * over an uploaded card showed its state 2 frames early on the rig
+   * (ffmpeg 8.0.1), because the card's upload pool held 2 frames and the
+   * next upload overwrote the one the blend had still to read. Its frames are
    * stamped on the same 1/60 grid as the canvas, from the same start
    * (`canvasStartSeconds`), so each picture frame pairs with the card frame of
    * its own slot. A card that ends leaves the picture as it is
@@ -123,7 +128,7 @@ export const liveSceneSwitch = (scene: Scene) => ({
  * screen's stamps (Matroska's whole ms) are put on the same 1/60 grid, so
  * each slot pairs with its own screen frame, never the one before. A screen
  * that ends ends the picture, and the stream with it. Everything is yuv420p,
- * which `overlay_cuda` needs to blend a card (`yuva420p`) on top (#2461).
+ * so the picture comes back as it is for the card's CPU blend (#2462).
  */
 export const liveSceneFilterGraph = ({
   sources,
@@ -187,8 +192,9 @@ export const liveSceneFilterGraph = ({
   const select = `${scenes}streamselect=inputs=${SCENES.length}:map=${liveSceneSwitch(scene).arg}[${selected}]`;
   const cardChains = card
     ? [
-        `[${card.input}]${canvasStart}${BT709_LIMITED},hwupload_cuda[live_card]`,
-        `[live_selected][live_card]overlay_cuda=x=${card.x}:y=${card.y}:eof_action=pass:repeatlast=1[${output}]`,
+        `[${card.input}]${canvasStart}${BT709_LIMITED}[live_card]`,
+        `[live_selected]hwdownload,format=yuv420p[live_picture]`,
+        `[live_picture][live_card]overlay=x=${card.x}:y=${card.y}:eof_action=pass:repeatlast=1:format=yuv420,hwupload_cuda[${output}]`,
       ]
     : [];
   return [...splits, canvasChain, ...chains, select, ...cardChains].join(";");
