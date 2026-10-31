@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { Scene } from "../app/packages/scene-layout";
 import type { Capture } from "./camera";
 import type { Launcher } from "./launcher";
@@ -27,6 +28,7 @@ import {
   STREAM_STALL_MS,
 } from "./stream-side";
 import { CARD_ANSWER_MS } from "./card-server";
+import { openStreamHealthLog } from "./stream-health";
 
 /**
  * GO LIVE AND END STREAM in the recorder service (ADR 0054): a streamed
@@ -99,7 +101,7 @@ export type LiveStreamOptions = {
   streamIngest: string;
   /** How long Record waits for the stream to listen (`STREAM_LISTEN_BOUND_MS`). */
   streamListenBoundMs: number;
-  /** No -progress this long and the stream process has stalled (`STREAM_STALL_MS`). */
+  /** No new frame this long and the stream process has stalled (`STREAM_STALL_MS`). */
   streamStallMs: number;
   /** How long a card's still may take before its click is refused (`CARD_ANSWER_MS`). */
   cardAnswerMs: number;
@@ -127,7 +129,15 @@ export const createGoLive = (
     stallMs: o.streamStallMs,
     fileTime: () => (streamed ? (o.now() - streamed.t0Ms) / 1000 : null),
     onStatus: o.onStatus,
-    onHealth: o.onHealth,
+    onHealth: (health) => {
+      o.onHealth(health);
+      if (streamed)
+        healthLog?.write({
+          atMs: o.now(),
+          fileTime: (o.now() - streamed.t0Ms) / 1000,
+          ...health,
+        });
+    },
     // Each launch, a relaunch too, reads the card from its picture's start.
     onLaunch: (startSeconds) => highlights?.launching(startSeconds),
   });
@@ -135,6 +145,8 @@ export const createGoLive = (
   let streamed: RecordingSession | undefined;
   /** What Go Live arms the streamed writer with, until Record has begun. */
   let goingLive: TakeSettings | undefined;
+  /** Its health, second by second, in the streamed Recording Session's folder. */
+  let healthLog: ReturnType<typeof openStreamHealthLog> | undefined;
   /** The Live Stream's Chat Highlights: its card server and card feed. */
   let highlights: ChatHighlights | undefined;
   const endHighlights = () => {
@@ -178,6 +190,8 @@ export const createGoLive = (
     sessionEnded: (session: RecordingSession, why: string) => {
       if (streamed !== session) return;
       streamed = undefined;
+      healthLog?.close();
+      healthLog = undefined;
       side.end(why);
       endHighlights();
     },
@@ -225,7 +239,10 @@ export const createGoLive = (
         });
         await r.record({ type: "record", ...command.record }, ports);
         streamed = r.session();
-        if (streamed) highlights.begin(streamed);
+        if (streamed) {
+          highlights.begin(streamed);
+          healthLog = openStreamHealthLog(path.dirname(streamed.eventLog));
+        }
         console.log(
           `recorder: Go Live: streamed Recording Session ${streamed?.id} for Broadcast ${command.broadcastId}`
         );

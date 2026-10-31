@@ -16,7 +16,9 @@ import { BT709, SCREEN_TO_NV12 } from "./colour";
 import {
   STREAM_CAMERA_FEED,
   STREAM_SCREEN_FEED,
+  streamCameraBranch,
   streamCameraFeedOutput,
+  streamMicFeedOutput,
 } from "./stream-feeds";
 
 /**
@@ -87,11 +89,12 @@ export const cameraWriterArgs = (o: {
   /** The silence threshold silencedetect cuts with, in dB. */
   thresholdDb: number;
   /**
-   * A streamed Recording Session's: the Live Stream's camera + mic input,
-   * where the writer also sends the very picture and sound it writes
-   * (`streamCameraFeedOutput`). Absent: today's args, exactly.
+   * A streamed Recording Session's: the Live Stream's camera and mic inputs,
+   * where the writer also sends the very picture (scaled on the GPU) and
+   * sound it writes (`streamCameraFeedOutput`, `streamMicFeedOutput`).
+   * Absent: today's args, exactly.
    */
-  streamPort?: number;
+  streamPorts?: { camera: number; mic: number };
 }) => {
   // silencedetect reads the very audio mic.mkv gets, so its times are mic
   // file time; anullsink ends that branch inside the graph.
@@ -99,7 +102,7 @@ export const cameraWriterArgs = (o: {
     silenceRule(o.silenceLength, o.thresholdDb)
   );
   const gap = gapLogger(FRAME_GAP_SECONDS);
-  const streamed = o.streamPort !== undefined;
+  const streamed = o.streamPorts !== undefined;
   return [
     "-hide_banner",
     "-nostats",
@@ -114,9 +117,10 @@ export const cameraWriterArgs = (o: {
     ...relayInput("writer", o.relayPort),
     "-filter_complex",
     [
-      `[0:v]setpts@t0=PTS-${UNARMED_T0}/TB,${gap},${CAMERA_CFR},${BT709}${streamed ? `,split[cam][${STREAM_CAMERA_FEED.video}]` : "[cam]"}`,
+      `[0:v]setpts@t0=PTS-${UNARMED_T0}/TB,${gap},${CAMERA_CFR},${BT709}${streamed ? `,split[cam][${STREAM_CAMERA_FEED.raw}]` : "[cam]"}`,
       `[0:a]asetpts@t0=PTS-${UNARMED_T0}/TB,atrim=start=0,${MIC_FROM_ZERO},${streamed ? `asplit=3[mic][sd][${STREAM_CAMERA_FEED.audio}]` : "asplit=2[mic][sd]"}`,
       `[sd]${silence},anullsink`,
+      ...(streamed ? [streamCameraBranch()] : []),
     ].join(";"),
     "-map",
     "[cam]",
@@ -137,7 +141,12 @@ export const cameraWriterArgs = (o: {
     `comment=${o.tag}`,
     ...MKV,
     FILE_NAMES.mic,
-    ...(o.streamPort === undefined ? [] : streamCameraFeedOutput(o.streamPort)),
+    ...(o.streamPorts === undefined
+      ? []
+      : [
+          ...streamCameraFeedOutput(o.streamPorts.camera),
+          ...streamMicFeedOutput(o.streamPorts.mic),
+        ]),
   ];
 };
 

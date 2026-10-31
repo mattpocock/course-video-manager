@@ -207,7 +207,7 @@ export const armTake = (o: {
       tag,
       silenceLength: o.settings.silenceLength,
       thresholdDb: o.settings.thresholdDb,
-      streamPort: o.settings.streamed?.camera,
+      streamPorts: o.settings.streamed ?? undefined,
     })
   );
   const writerTuned = tuneProcess(o.launch, {

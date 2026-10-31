@@ -6,12 +6,12 @@ import {
   liveSceneSwitch,
   type Scene,
 } from "../app/packages/scene-layout";
-import type { StreamFeedPorts } from "./stream-feeds";
+import { STREAM_CAMERA_SIZE, type StreamFeedPorts } from "./stream-feeds";
 
 /**
  * THE LIVE STREAM PROCESS'S ARGUMENTS (spec #2445, ADR 0054). One
  * ffmpeg.exe that holds no device and writes no file: it listens for a
- * streamed Recording Session's two feeds (`stream-feeds.ts`), draws the
+ * streamed Recording Session's three feeds (`stream-feeds.ts`), draws the
  * Landscape scene (`liveSceneFilterGraph`) on CUDA, encodes it on NVENC and
  * pushes it to YouTube behind a fifo that retries without limit. Every
  * setting is a constant here; only the ports, the scene, the Mic Offset, the
@@ -29,10 +29,10 @@ export const STREAM_TAG = "cvm-recorder-stream";
  */
 export const YOUTUBE_INGEST = "rtmps://a.rtmps.youtube.com:443/live2";
 
-/** What the stream reads: the screen recorder's picture, the camera writer's. */
+/** What the stream reads: the screen recorder's picture, the camera writer's (scaled for it). */
 export const STREAM_SOURCES = {
   screen: { width: 1920, height: 1080 },
-  camera: { width: 2560, height: 1440 },
+  camera: STREAM_CAMERA_SIZE,
 } as const;
 
 /** 1080p60 CBR on NVENC (Matt, 2026-10-30): no CPU encoder, never 30 fps. */
@@ -189,10 +189,11 @@ export const streamArgs = (o: {
       inputs: { screen: "0:v", camera: "1:v" },
       scene: o.scene,
       output: "v",
-      card: { input: "2:v", ...cardPlace(o.card) },
+      card: { input: "3:v", ...cardPlace(o.card) },
       canvasStartSeconds: o.startSeconds,
     }),
-    `[1:a]${[...soundFrom(o.startSeconds ?? 0), ...streamSound(o.micOffsetMs, o.micEq), "aresample=async=1000"].join(",")}[a]`,
+    // The mic's own feed: the camera's ending or overflowing never takes it.
+    `[2:a]${[...soundFrom(o.startSeconds ?? 0), ...streamSound(o.micOffsetMs, o.micEq), "aresample=async=1000"].join(",")}[a]`,
   ].join(";");
   const kbps = `${STREAM_ENCODE.videoKbps}k`;
   return [
@@ -221,6 +222,7 @@ export const streamArgs = (o: {
     "cu",
     ...feedInput(o.ports.screen, 100_000),
     ...feedInput(o.ports.camera, 32),
+    ...feedInput(o.ports.mic, 32),
     ...cardInput(o.card),
     "-filter_complex",
     graph,
@@ -228,6 +230,10 @@ export const streamArgs = (o: {
     "[v]",
     "-map",
     "[a]",
+    // The sound ending ends the picture, as a camera or screen ending does:
+    // a dead feed holds every frame back, which the stream side hears as a
+    // stall and launches it again (#2502). Never a picture with no sound.
+    "-shortest",
     "-fps_mode",
     "cfr",
     "-r",
