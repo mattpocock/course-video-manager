@@ -559,19 +559,20 @@ export const METRICS: readonly MetricDef[] = [
     scale: 1,
   },
   {
-    id: "stream_fps_off_60",
-    label: "Live Stream frame rate's distance from 60.0 fps",
+    id: "stream_take_fps_off_60",
+    label:
+      "Live Stream's average frame rate over the whole take: distance from 60.0 fps",
     group: "reliability",
     unit: "fps",
     better: "lower",
     target: 0.05,
     obs: null,
     scale: 0.05,
-    note: "Frames the stream's encoder put out per second of wall time (its -progress, least-squares, from 5 s after it went live until its process is killed mid-take). The rate itself is `streamed.streamFps` in the details.",
+    note: "Decided 2026-10-31, for smoothness: frames the encoder put out per second of the Windows clock, end to end over each stream process once steady (the first from 20 s after live to its kill, sink drop included; the relaunched one from 5 s after live to End Stream). Latency wander is not a bar: the first process's lag is `streamed.streamLag` in the details, the rate `streamed.streamFps`.",
   },
   {
     id: "stream_dup_frames",
-    label: "Live Stream frames duplicated (its first process's whole run)",
+    label: "Live Stream frames duplicated (the whole take, every process)",
     group: "reliability",
     unit: "frames",
     better: "lower",
@@ -581,7 +582,7 @@ export const METRICS: readonly MetricDef[] = [
   },
   {
     id: "stream_drop_frames",
-    label: "Live Stream frames dropped (its first process's whole run)",
+    label: "Live Stream frames dropped (the whole take, every process)",
     group: "reliability",
     unit: "frames",
     better: "lower",
@@ -625,7 +626,7 @@ export const METRICS: readonly MetricDef[] = [
     target: 0.05,
     obs: null,
     scale: 0.05,
-    note: "As `stream_fps_off_60`, from 5 s after the relaunched process went live to End Stream. Details: `streamed.faults.relaunchedPicture`.",
+    note: "As `stream_take_fps_off_60`, over the relaunched process alone: from 5 s after it went live to End Stream. Details: `streamed.faults.relaunchedFps`.",
   },
   {
     id: "card_click_to_screen_ms",

@@ -5,12 +5,14 @@ import type { RecorderMessage } from "../../recorder-service/protocol";
 import { findFfmpegExe } from "../../recorder-service/windows-launcher";
 import { analysePicture, decodeStamps } from "./footage-analysis";
 import { isState, type Received } from "./service-control";
-import type { ProgressSample, Stretch } from "./stream-sink";
+import type { ProgressSample, Span } from "./stream-sink";
 import {
   readProgress,
   SCORECARD_STREAM_KEY,
   sinkArgs,
-  streamRate,
+  streamLag,
+  takeDupsDrops,
+  takeFps,
 } from "./stream-sink";
 import { CAMERA_FPS, SCREEN_FPS } from "./synthetic-sources";
 import { streamFaults, type Sinks } from "./stream-faults";
@@ -22,8 +24,8 @@ import { killMarked, windowsGuard } from "./windows";
  * real ffmpeg.exe, the Live Stream pushed to a local RTMP sink (never
  * YouTube, with a fake Stream Key), for `seconds`, then End Stream. Raw
  * footage first: the take's camera and screen framesLost; then the
- * stream's own picture: frames per second of wall time, duplicated and
- * dropped frames. Mid-take the sink drops and comes back, then the stream
+ * stream's own picture over the whole take: duplicated and dropped frames,
+ * and its average frames per second of wall time, with its lag reported. Mid-take the sink drops and comes back, then the stream
  * process is killed (`stream-faults.ts`, #2459): the Live Stream must come
  * back on its own each time, and the take must not notice.
  *
@@ -140,24 +142,50 @@ const footageLost = (
   };
 };
 
+const offSixty = (fps: number | null) =>
+  fps === null ? null : Math.abs(fps - 60);
+
 /**
- * One stream process's picture from its -progress, until `endAt`; its rate
- * over its steady `stretches` (none: it never went live).
+ * The whole take's picture (decided 2026-10-31): every process's dups and
+ * drops, and the average rate over each process once it is steady, the
+ * sink's drop and return included. The first process's lag behind the take
+ * is reported, not a bar. Nothing but the relaunch is measured when the
+ * first process never went live.
  */
-const streamPicture = (
+const takePicture = (
   samples: readonly ProgressSample[],
-  stretches: readonly Stretch[] | null,
-  endAt: number
+  at: {
+    liveAt: number | null;
+    killAt: number;
+    relaunchedLiveAt: number | null;
+    endAt: number;
+    t0Ms: number;
+  }
 ) => {
-  const pushed = samples.filter((p) => p.at <= endAt);
-  const last = stretches === null ? undefined : pushed.at(-1);
-  const fps = stretches === null ? null : streamRate(pushed, stretches);
+  const pushed = samples.filter((p) => p.at <= at.endAt);
+  const relaunched: Span | null =
+    at.relaunchedLiveAt === null
+      ? null
+      : [at.relaunchedLiveAt + WARM_UP_MS, at.endAt];
+  const relaunchedFps = relaunched && takeFps(pushed, [relaunched]);
+  if (at.liveAt === null)
+    return {
+      fps: null,
+      relaunchedFps,
+      dupFrames: null,
+      dropFrames: null,
+      lag: null,
+      ffmpegFps: null,
+      encodedFrames: null,
+    };
+  const first: Span = [at.liveAt + FIRST_WARM_UP_MS, at.killAt];
   return {
-    fps,
-    ffmpegFps: last?.fps ?? null,
-    encodedFrames: last?.frame ?? null,
-    dupFrames: last?.dupFrames ?? null,
-    dropFrames: last?.dropFrames ?? null,
+    fps: takeFps(pushed, relaunched ? [first, relaunched] : [first]),
+    relaunchedFps,
+    ...takeDupsDrops(pushed),
+    lag: streamLag(pushed, first, at.t0Ms),
+    ffmpegFps: pushed.at(-1)?.fps ?? null,
+    encodedFrames: pushed.at(-1)?.frame ?? null,
   };
 };
 
@@ -248,39 +276,23 @@ export const streamed = async (
 
     const endedEarly = stopped.at < end.at || s.reason !== "requested";
     const lost = footageLost(s, endedEarly, (end.wall - answer.wall) / 1000);
-    // The first stream process's picture, until it was killed: steady
-    // before the sink dropped, and again once its push was back.
-    const picture = streamPicture(
-      progress.samples,
-      live
-        ? [
-            [live.at + FIRST_WARM_UP_MS, faults.sinkDown.from],
-            [faults.sinkDown.until + WARM_UP_MS, faults.killAt],
-          ]
-        : null,
-      faults.killAt
-    );
+    const picture = takePicture(progress.samples, {
+      liveAt: live?.at ?? null,
+      killAt: faults.killAt,
+      relaunchedLiveAt: faults.relaunchedLiveAt,
+      endAt: end.at,
+      t0Ms: started.t0Ms,
+    });
     const fault = faults.result();
     const m = ctx.measured;
     m.streamed_camera_frames_lost = lost.camera;
     m.streamed_screen_frames_lost = lost.screen;
-    m.stream_fps_off_60 =
-      picture.fps === null ? null : Math.abs(picture.fps - 60);
+    m.stream_take_fps_off_60 = offSixty(picture.fps);
     m.stream_dup_frames = picture.dupFrames;
     m.stream_drop_frames = picture.dropFrames;
     m.stream_back_after_sink_drop = fault.backAfterSinkDrop ? 1 : 0;
     m.stream_back_after_kill = fault.backAfterKill ? 1 : 0;
-    // The relaunched process's own picture, from once it is live again.
-    const relaunched =
-      faults.relaunchedLiveAt === null
-        ? null
-        : streamPicture(
-            progress.samples,
-            [[faults.relaunchedLiveAt + WARM_UP_MS, end.at]],
-            end.at
-          );
-    m.stream_relaunched_fps_off_60 =
-      relaunched?.fps == null ? null : Math.abs(relaunched.fps - 60);
+    m.stream_relaunched_fps_off_60 = offSixty(picture.relaunchedFps);
 
     ctx.details.streamed = {
       seconds,
@@ -289,10 +301,12 @@ export const streamed = async (
       goLiveToStreamLiveMs: live ? live.at - go.at : null,
       streamStatuses: statusesFrom(ctx.client.received.slice(go.from)),
       streamFps: picture.fps,
+      // The first process's lag behind the take, once steady, until the kill.
+      streamLag: picture.lag,
       ffmpegFps: picture.ffmpegFps,
       encodedFrames: picture.encodedFrames,
       sinkFrames: sink.frames(),
-      faults: { ...fault.details, relaunchedPicture: relaunched },
+      faults: { ...fault.details, relaunchedFps: picture.relaunchedFps },
       health: healthOf(ctx.client.received.slice(go.from)),
       sinkStderr: sink.stderr(),
       endedBeforeEndStream: endedEarly,
