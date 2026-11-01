@@ -108,6 +108,7 @@ export const start = async (
     streamListenBoundMs?: number;
     streamStallMs?: number;
     cardAnswerMs?: number;
+    cardStartMs?: number;
     onBusyChanged?: (busy: boolean) => void;
   } = {}
 ) => {
@@ -126,6 +127,7 @@ export const start = async (
       o.streamListenBoundMs ?? LIVE_STREAM_SETTINGS.streamListenBoundMs,
     streamStallMs: o.streamStallMs ?? LIVE_STREAM_SETTINGS.streamStallMs,
     cardAnswerMs: o.cardAnswerMs ?? LIVE_STREAM_SETTINGS.cardAnswerMs,
+    cardStartMs: o.cardStartMs ?? LIVE_STREAM_SETTINGS.cardStartMs,
   });
   cleanups.unshift(() => service.close());
   return {

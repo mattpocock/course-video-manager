@@ -39,13 +39,15 @@ export const cardPng = (w: number, h: number) => {
 };
 
 /**
- * The card server: ready at once, then a card still for each request line,
- * `quit` to exit, as `card-server.mjs` speaks. `p.written` holds every
+ * The card server: ready at once (or, `hangs`, never), then a card still
+ * for each request line, `quit` to exit, as `card-server.mjs` speaks. `p.written` holds every
  * request it was sent.
  */
-export const playCardServer = (p: FakeProcess) => {
+export const playCardServer = (p: FakeProcess, hangs = false) => {
   const png = cardPng(CARD_CANVAS.width, CARD_CANVAS.height).toString("base64");
   const say = (line: object) => p.stdout(`${JSON.stringify(line)}\n`);
+  // One that hangs starting (its Chromium never comes up) says nothing.
+  if (hangs) return;
   setImmediate(() =>
     say({ type: "ready", ...CARD_CANVAS, startMs: 1, warmRenderMs: 1 })
   );
@@ -122,4 +124,17 @@ export const readCardFeed = (
   socket.on("error", () => {});
   void p.exited.then(() => socket.destroy());
   return { ...reading, cut: () => void socket.destroy() };
+};
+
+/** Each Chat Highlight card server, in launch order: the first `hung` hang starting. */
+export const fakeCardServers = (hung = 0) => {
+  const launched: FakeProcess[] = [];
+  return {
+    launched,
+    launch: (p: FakeProcess) => {
+      launched.push(p);
+      playCardServer(p, launched.length <= hung);
+      return p;
+    },
+  };
 };
