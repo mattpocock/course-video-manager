@@ -21,8 +21,6 @@ export const SHORT_LEAVES_OUT = {
     "fills the Lesson's SEO description from its body, and a Short belongs to no Lesson",
   addVideoToLesson:
     "adds a Video to the Lesson, and a Short belongs to no Lesson",
-  createConcatenatedVideo:
-    "the concatenate page lists and makes Landscape Videos only",
 } as const satisfies LeftOut;
 
 /**

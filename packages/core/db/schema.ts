@@ -414,7 +414,7 @@ export const clips = createTable(
      * (features/videos/clip-origin.ts). Defaults to `video-editor`, which
      * every Clip from before the column holds; `cvm clip add` writes `cli`,
      * and a user-made copy (Create video from selection, Duplicate Video or
-     * Course, concatenation) writes `copy`. Only `video-editor` Clips count in
+     * Course) writes `copy`. Only `video-editor` Clips count in
      * the footage stats.
      */
     origin: text("origin")

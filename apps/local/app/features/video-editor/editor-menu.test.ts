@@ -40,7 +40,6 @@ const everyAction: Required<VideoMenuActions> = {
   addNote: run,
   duplicate: run,
   addVideoToLesson: run,
-  createConcatenatedVideo: run,
   newShort: run,
   moveToLesson: run,
   moveToCourse: run,

@@ -65,7 +65,6 @@
   "apps/local/app/routes/_app.courses.$courseId._index.tsx": 1,
   "apps/local/app/routes/_app.videos.$videoId.thumbnails.tsx": 1,
   "apps/local/app/routes/_app.videos.$videoId.tsx": 1,
-  "apps/local/app/routes/_app.videos.concatenate.tsx": 1,
   "apps/local/app/routes/api.diagrams.$diagramId.snapshots.ts": 1,
   "apps/local/app/routes/api.thumbnails.$thumbnailId.update.ts": 1,
   "apps/local/app/routes/diagram-playground.$diagramId.tsx": 1,

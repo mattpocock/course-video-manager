@@ -432,7 +432,6 @@ export function SortableLessonItem({
               section={section}
               lesson={lesson}
               data={data}
-              navigate={navigate}
               dispatch={dispatch}
               startExportUpload={startExportUpload}
               revealVideoFetcher={revealVideoFetcher}
@@ -447,7 +446,6 @@ export function SortableLessonItem({
             submitEvent={submitEvent}
             section={section}
             data={data}
-            navigate={navigate}
             dispatch={dispatch}
             startExportUpload={startExportUpload}
             revealVideoFetcher={revealVideoFetcher}

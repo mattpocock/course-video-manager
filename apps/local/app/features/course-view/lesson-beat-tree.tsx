@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { Link, type useNavigate, type useFetcher } from "react-router";
+import { Link, type useFetcher } from "react-router";
 import { courseViewReducer } from "@/features/course-view/course-view-reducer";
 import type { CourseEditorEvent } from "@/services/course-editor-service";
 import { BeatList } from "@/features/beats/beat-list";
@@ -20,7 +20,6 @@ import type { LoaderData, Lesson, Section, Video } from "./course-view-types";
 type VideoMenuProps = {
   section: Section;
   data: LoaderData;
-  navigate: ReturnType<typeof useNavigate>;
   dispatch: (action: courseViewReducer.Action) => void;
   startExportUpload: (videoId: string, path: string) => void;
   revealVideoFetcher: ReturnType<typeof useFetcher>;

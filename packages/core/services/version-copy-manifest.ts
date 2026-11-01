@@ -21,11 +21,7 @@ import type { Database } from "./drizzle-service.server.js";
 
 export type CopyDecision = "copied" | { notCopied: string };
 export type CopyPathName =
-  | "submit"
-  | "duplicateCourse"
-  | "videoCopy"
-  | "createVideoFromSelection"
-  | "concatenateVideos";
+  "submit" | "duplicateCourse" | "videoCopy" | "createVideoFromSelection";
 
 const NEVER_POSTED =
   "A Video Post records where one Video row was posted. Only standalone " +
@@ -159,16 +155,6 @@ export const COPY_PATHS: Record<CopyPathName, CopyPath> = {
    * none are lost.
    */
   createVideoFromSelection: {
-    root: schema.videos,
-    tables: TIMELINE_TABLES,
-    keepsArchived: [],
-  },
-  /**
-   * POST /api/videos/concatenate: many Videos' timelines into a new one. The
-   * sources are left as they are, archived Clips and all, so the new Video
-   * is the joined live timelines only.
-   */
-  concatenateVideos: {
     root: schema.videos,
     tables: TIMELINE_TABLES,
     keepsArchived: [],

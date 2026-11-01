@@ -8,7 +8,7 @@ Standalone Videos; `/shorts` shows Shorts.
 - **Shorts list** — every Short with its duration and per-platform posting state
   (`Recorded`, `YouTube`, `TikTok`, `Posted`).
 - **Record** — starts a CVM recorder recording. Needs hardware; WRITES.
-- **New Video** / **Concatenate** (Videos) — both WRITE.
+- **New Video** (Videos) — WRITES.
 
 ## How to get to it (user POV)
 
