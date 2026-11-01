@@ -229,6 +229,7 @@ describe.each([
     const server = createCardServer({
       launch: () => (started = start()),
       answerMs: 5_000,
+      startMs: 30_000,
     });
 
     expect(await server.size()).toEqual(CARD_CANVAS);

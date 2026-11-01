@@ -238,7 +238,10 @@ After calling a tool, you may add a brief conversational message explaining what
 
   const scriptSection = getScriptSection(props.script ?? "");
 
-  const animaticSection = getAnimaticSection(props.animatic ?? "");
+  const animaticSection = getAnimaticSection(
+    props.animatic ?? "",
+    props.transcript
+  );
 
   return {
     role: "system",

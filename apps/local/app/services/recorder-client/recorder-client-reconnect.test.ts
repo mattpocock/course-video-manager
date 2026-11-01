@@ -1,6 +1,4 @@
 import { describe, expect, it, vi } from "vitest";
-import { WebSocket, WebSocketServer } from "ws";
-import type { RecorderCommand } from "recorder-service/protocol";
 import type { CvmRecorderMessage } from "@/features/video-editor/cvm-recorder-wire";
 import { clock, connect } from "recorder-service/test-utils/service-harness";
 import {
@@ -13,6 +11,7 @@ import {
   recordOn,
   saveEvent,
   speak,
+  startLink,
   startService,
   type Ingest,
 } from "./recorder-client-test-harness";
@@ -24,59 +23,6 @@ import {
  */
 
 setupClipServiceTests();
-
-/**
- * Stands between the recorder client and the service, so a test can cut the
- * connection (and keep it cut) without either end closing. Records the
- * commands the client sends.
- */
-const startLink = async (servicePort: number) => {
-  const server = new WebSocketServer({ port: 0, host: "127.0.0.1" });
-  await new Promise((r) => server.once("listening", r));
-  const sent: RecorderCommand[] = [];
-  let up = true;
-  const pairs = new Set<[WebSocket, WebSocket]>();
-  server.on("connection", (client) => {
-    if (!up) return client.terminate();
-    const service = new WebSocket(`ws://127.0.0.1:${servicePort}`);
-    const pair: [WebSocket, WebSocket] = [client, service];
-    pairs.add(pair);
-    const queued: string[] = [];
-    service.on("open", () => queued.splice(0).forEach((m) => service.send(m)));
-    service.on("message", (data) => client.send(String(data)));
-    client.on("message", (data) => {
-      sent.push(JSON.parse(String(data)) as RecorderCommand);
-      if (service.readyState === WebSocket.OPEN) service.send(String(data));
-      else queued.push(String(data));
-    });
-    const end = () => {
-      pairs.delete(pair);
-      client.terminate();
-      service.terminate();
-    };
-    client.on("close", end);
-    service.on("close", end);
-  });
-  const { port } = server.address() as { port: number };
-  return {
-    port,
-    sent,
-    cut: () => {
-      up = false;
-      for (const [client] of pairs) client.terminate();
-    },
-    restore: () => {
-      up = true;
-    },
-    close: () => {
-      for (const [client, service] of pairs) {
-        client.terminate();
-        service.terminate();
-      }
-      server.close();
-    },
-  };
-};
 
 const timeline = async (videoId: string) =>
   (await clipService.getTimeline(videoId)).flatMap((i) =>

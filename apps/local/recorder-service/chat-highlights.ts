@@ -34,8 +34,14 @@ export const startChatHighlights = async (o: {
   now: () => number;
   /** How long a card's still may take before its click is refused (`CARD_ANSWER_MS`). */
   answerMs: number;
+  /** How long the card server may take to be ready (`CARD_START_MS`). */
+  startMs: number;
 }) => {
-  const server = createCardServer({ launch: o.launch, answerMs: o.answerMs });
+  const server = createCardServer({
+    launch: o.launch,
+    answerMs: o.answerMs,
+    startMs: o.startMs,
+  });
   // Warmed from Go Live on, while the take arms and the stream starts: its
   // start (Chromium, the cached card bundle, a warm-up card) takes about a
   // second, so even a first click right after going live finds it ready
