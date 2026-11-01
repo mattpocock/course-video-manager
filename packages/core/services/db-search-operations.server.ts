@@ -11,6 +11,11 @@ import {
   videos,
 } from "../db/schema.js";
 import { UnknownDBServiceError } from "./db-service-errors.js";
+import { matchesSearchQuery } from "../lib/search-match.js";
+import {
+  resolveVideoFormat,
+  type VideoFormat,
+} from "../features/videos/video-format.js";
 import { and, asc, desc, eq, ilike, inArray, isNull } from "drizzle-orm";
 import { Effect } from "effect";
 
@@ -33,7 +38,8 @@ export type SearchKind =
  * matched entity's id, its immediate parent id + owning `courseId` (so a hit is
  * navigable without re-walking), the `field` that matched, and a `snippet`
  * (an excerpt around the match — for short fields, the whole value). Pitches
- * live off the course tree, so they carry no parent/course ids.
+ * live off the course tree, so they carry no parent/course ids; nor does a
+ * Standalone Video (see {@link SearchVideoHit}).
  */
 export type SearchHit =
   | {
@@ -61,15 +67,7 @@ export type SearchHit =
       field: string;
       snippet: string;
     }
-  | {
-      kind: "video";
-      id: string;
-      courseId: string;
-      lessonId: string;
-      title: string;
-      field: string;
-      snippet: string;
-    }
+  | SearchVideoHit
   | {
       kind: "beat";
       id: string;
@@ -88,8 +86,40 @@ export type SearchHit =
     };
 
 /**
+ * A `video` hit, in either **Video Format** (a Short is a `video` hit with
+ * format `short`, not a kind of its own). A Video in a Lesson carries the ids
+ * that place it in its Course, and its Course's name and Lesson's title (so
+ * two Videos with one title can be told apart); a **Standalone Video** (no
+ * Lesson, including one made from a Pitch) carries none of them.
+ */
+export type SearchVideoHit = {
+  kind: "video";
+  id: string;
+  format: VideoFormat;
+  title: string;
+  field: string;
+  snippet: string;
+} & (
+  | {
+      courseId: string;
+      sectionId: string;
+      lessonId: string;
+      courseName: string;
+      lessonTitle: string;
+    }
+  | {
+      courseId?: undefined;
+      sectionId?: undefined;
+      lessonId?: undefined;
+      courseName?: undefined;
+      lessonTitle?: undefined;
+    }
+);
+
+/**
  * The root a search is confined to. `null` is the top-level search (every
- * active course's Draft tree + all pitches). A scoped root pins the walk to a
+ * active course's Draft tree + every non-archived Standalone Video + all
+ * pitches). A scoped root pins the walk to a
  * course / section / lesson subtree — pitches are never in scope there.
  */
 export type SearchRoot =
@@ -132,9 +162,13 @@ type VideoNode = {
   title: string;
   /** The shipped article. Null until a body is authored. */
   body: string | null;
+  /** The raw column; read through `resolveVideoFormat`. */
+  format: string;
   lessonId: string;
   beats: BeatNode[];
 };
+/** A Video with no Lesson. Its Beats are never searched. */
+type StandaloneVideoNode = Omit<VideoNode, "lessonId" | "beats">;
 type LessonNode = {
   id: string;
   title: string;
@@ -168,7 +202,13 @@ const sectionWith = {
       orderBy: asc(lessons.order),
       with: {
         videos: {
-          columns: { id: true, title: true, body: true, lessonId: true },
+          columns: {
+            id: true,
+            title: true,
+            body: true,
+            format: true,
+            lessonId: true,
+          },
           where: eq(videos.archived, false),
           orderBy: asc(videos.title),
           with: {
@@ -195,19 +235,24 @@ const createSearchOperations = (db: Database) => {
    * Search the entity tree for a literal, case-insensitive substring.
    *
    * Returns hits in depth-first Draft-tree order (course -> sections -> lessons
-   * -> videos -> beats), courses in `course list` order, pitches last. One
+   * -> videos -> beats), courses in `course list` order, then Standalone
+   * Videos (top-level only, oldest first), pitches last. One
    * hit per entity (first matching field wins: for a video, title before body
    * before transcript). When a scoped `root` id is missing or archived, returns
    * `null` so the CLI can own not-found detection.
    */
   const search = Effect.fn("search")(function* (params: SearchParams) {
-    const { root, query, types } = params;
+    const { root, types } = params;
+    const query = params.query.trim();
+    // An empty query matches nothing here (the in-page lists read it as
+    // "show everything" instead). The CLI rejects one before it gets here.
+    if (query === "") return [];
 
     const ql = query.toLowerCase();
     const pattern = `%${escapeLike(query)}%`;
 
     const matches = (value: string | null | undefined): boolean =>
-      typeof value === "string" && value.toLowerCase().includes(ql);
+      matchesSearchQuery(value, query);
 
     // `matches`/ILIKE compare the query against the RAW value, but the snippet
     // is drawn from a whitespace-collapsed copy. Collapse the needle the same
@@ -245,6 +290,7 @@ const createSearchOperations = (db: Database) => {
 
     let courseHead: CourseHead | null = null; // present => emit a course hit path
     let courseId = ""; // owning course for the walked subtree
+    let courseName = ""; // its name, carried on every Video hit in a Lesson
     let sectionNodes: SectionNode[] = [];
     // A lesson root walks a single lesson's subtree (no section above it).
     let lessonRoot: LessonNode | null = null;
@@ -306,13 +352,17 @@ const createSearchOperations = (db: Database) => {
           where: and(eq(sections.id, root.id), isNull(sections.archivedAt)),
           columns: { id: true, title: true, description: true, order: true },
           with: {
-            repoVersion: { columns: { repoId: true } },
+            repoVersion: {
+              columns: { repoId: true },
+              with: { repo: { columns: { name: true } } },
+            },
             lessons: sectionWith.with.lessons,
           },
         })
       );
       if (!sec) return null;
       courseId = sec.repoVersion?.repoId ?? "";
+      courseName = sec.repoVersion?.repo?.name ?? "";
       sectionNodes = [
         {
           id: sec.id,
@@ -335,7 +385,12 @@ const createSearchOperations = (db: Database) => {
           with: {
             section: {
               columns: { id: true },
-              with: { repoVersion: { columns: { repoId: true } } },
+              with: {
+                repoVersion: {
+                  columns: { repoId: true },
+                  with: { repo: { columns: { name: true } } },
+                },
+              },
             },
             videos: sectionWith.with.lessons.with.videos,
           },
@@ -343,6 +398,7 @@ const createSearchOperations = (db: Database) => {
       );
       if (!les) return null;
       courseId = les.section?.repoVersion?.repoId ?? "";
+      courseName = les.section?.repoVersion?.repo?.name ?? "";
       lessonRoot = {
         id: les.id,
         title: les.title,
@@ -352,14 +408,29 @@ const createSearchOperations = (db: Database) => {
       };
     }
 
+    // -- Standalone Videos (top-level only): no Lesson, either Video Format,
+    //    including those made from a Pitch. -----------------------------------
+
+    let standaloneVideos: StandaloneVideoNode[] = [];
+    if (root === null && types.has("video")) {
+      standaloneVideos = yield* makeDbCall(() =>
+        db.query.videos.findMany({
+          where: and(isNull(videos.lessonId), eq(videos.archived, false)),
+          columns: { id: true, title: true, body: true, format: true },
+          orderBy: [asc(videos.createdAt), asc(videos.id)],
+        })
+      );
+    }
+
     // -- Transcript matching (SQL): which in-scope videos have a matching clip
     //    or chapter, plus a snippet drawn from the first matching clip. --------
 
     // Gather every in-scope video id across all three tree shapes we may have
     // populated above: a scoped subtree (`sectionNodes`), a lone lesson root
-    // (`lessonRoot`), or the top-level per-course sections (`courseHeads`). Only
-    // one of these is non-empty for any given call; reading all three from the
-    // closure keeps the collector's inputs explicit rather than half-passed.
+    // (`lessonRoot`), or the top-level per-course sections (`courseHeads`) plus
+    // the Standalone Videos. Only one tree shape is non-empty for any given
+    // call; reading all of them from the closure keeps the collector's inputs
+    // explicit rather than half-passed.
     const collectVideoIds = (): string[] => {
       const ids: string[] = [];
       for (const sec of sectionNodes)
@@ -370,6 +441,7 @@ const createSearchOperations = (db: Database) => {
         for (const sec of secs)
           for (const les of sec.lessons)
             for (const v of les.videos) ids.push(v.id);
+      for (const v of standaloneVideos) ids.push(v.id);
       return ids;
     };
 
@@ -424,22 +496,40 @@ const createSearchOperations = (db: Database) => {
     const hits: SearchHit[] = [];
     const want = (k: SearchKind) => types.has(k);
 
-    const emitVideo = (v: VideoNode, cid: string) => {
+    /**
+     * Title, then the shipped body, then the transcript: the shorter and more
+     * deliberate the text, the stronger the signal it is the reason this video
+     * matched. The same fields for a Video in a Lesson and a Standalone Video.
+     */
+    const videoMatch = (v: StandaloneVideoNode): FieldMatch | null =>
+      firstMatch([
+        ["title", v.title],
+        ["body", v.body ?? ""],
+      ]) ??
+      transcriptMatch.get(v.id) ??
+      null;
+
+    /** The Course a walked Video sits in: its id and its name. */
+    type Owner = { id: string; name: string };
+
+    const emitVideo = (
+      v: VideoNode,
+      owner: Owner,
+      sectionId: string,
+      lessonTitle: string
+    ) => {
       if (want("video")) {
-        // Title, then the shipped body, then the transcript: the shorter and
-        // more deliberate the text, the stronger the signal it is the reason
-        // this video matched.
-        const m =
-          firstMatch([
-            ["title", v.title],
-            ["body", v.body ?? ""],
-          ]) ?? transcriptMatch.get(v.id);
+        const m = videoMatch(v);
         if (m)
           hits.push({
             kind: "video",
             id: v.id,
-            courseId: cid,
+            format: resolveVideoFormat(v.format),
+            courseId: owner.id,
+            sectionId,
             lessonId: v.lessonId,
+            courseName: owner.name,
+            lessonTitle,
             title: v.title,
             field: m.field,
             snippet: m.snippet,
@@ -455,7 +545,7 @@ const createSearchOperations = (db: Database) => {
             hits.push({
               kind: "beat",
               id: seg.id,
-              courseId: cid,
+              courseId: owner.id,
               videoId: seg.videoId,
               title: seg.title,
               field: m.field,
@@ -465,7 +555,7 @@ const createSearchOperations = (db: Database) => {
       }
     };
 
-    const emitLesson = (les: LessonNode, cid: string) => {
+    const emitLesson = (les: LessonNode, owner: Owner) => {
       if (want("lesson")) {
         const m = firstMatch([
           ["title", les.title],
@@ -475,17 +565,17 @@ const createSearchOperations = (db: Database) => {
           hits.push({
             kind: "lesson",
             id: les.id,
-            courseId: cid,
+            courseId: owner.id,
             sectionId: les.sectionId,
             path: les.title,
             field: m.field,
             snippet: m.snippet,
           });
       }
-      for (const v of les.videos) emitVideo(v, cid);
+      for (const v of les.videos) emitVideo(v, owner, les.sectionId, les.title);
     };
 
-    const emitSection = (sec: SectionNode, cid: string) => {
+    const emitSection = (sec: SectionNode, owner: Owner) => {
       if (want("section")) {
         const m = firstMatch([
           ["title", sec.title],
@@ -495,13 +585,13 @@ const createSearchOperations = (db: Database) => {
           hits.push({
             kind: "section",
             id: sec.id,
-            courseId: cid,
+            courseId: owner.id,
             path: sec.title,
             field: m.field,
             snippet: m.snippet,
           });
       }
-      for (const les of sec.lessons) emitLesson(les, cid);
+      for (const les of sec.lessons) emitLesson(les, owner);
     };
 
     const emitCourse = (head: CourseHead, secs: SectionNode[]) => {
@@ -520,7 +610,8 @@ const createSearchOperations = (db: Database) => {
             snippet: m.snippet,
           });
       }
-      for (const sec of secs) emitSection(sec, head.id);
+      for (const sec of secs)
+        emitSection(sec, { id: head.id, name: head.name });
     };
 
     if (root === null) {
@@ -529,9 +620,23 @@ const createSearchOperations = (db: Database) => {
     } else if (courseHead) {
       emitCourse(courseHead, sectionNodes);
     } else if (lessonRoot) {
-      emitLesson(lessonRoot, courseId);
+      emitLesson(lessonRoot, { id: courseId, name: courseName });
     } else {
-      for (const sec of sectionNodes) emitSection(sec, courseId);
+      for (const sec of sectionNodes)
+        emitSection(sec, { id: courseId, name: courseName });
+    }
+
+    for (const v of standaloneVideos) {
+      const m = videoMatch(v);
+      if (m)
+        hits.push({
+          kind: "video",
+          id: v.id,
+          format: resolveVideoFormat(v.format),
+          title: v.title,
+          field: m.field,
+          snippet: m.snippet,
+        });
     }
 
     // -- Pitches (top-level only), appended last -----------------------------

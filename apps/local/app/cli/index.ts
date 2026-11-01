@@ -246,7 +246,8 @@ NOUNS
 
 SEARCH
   search <query>   Case-insensitive substring search DOWN THE TREE across every
-                   active course's Draft Version + all pitches (--type to narrow
+                   active course's Draft Version + every Standalone Video
+                   (Landscape and Short) + all pitches (--type to narrow
                    result kinds). Scoped variants: 'cvm course|section|lesson
                    search <id> <query>' confine the walk to that subtree.`;
 
