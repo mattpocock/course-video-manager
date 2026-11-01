@@ -230,7 +230,7 @@ export const createTextWritingAgent = (props: {
       memorySection +
       scriptSection +
       beatsSection +
-      getAnimaticSection(props.animatic ?? ""),
+      getAnimaticSection(props.animatic ?? "", props.transcript),
   });
 };
 
