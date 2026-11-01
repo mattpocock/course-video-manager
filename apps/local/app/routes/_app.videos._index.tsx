@@ -2,6 +2,13 @@ import { AddStandaloneVideoModal } from "@/components/add-standalone-video-modal
 import { Button } from "@/components/ui/button";
 import { ContextMenu, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { EntityMenuContent } from "@/features/action-menu/action-menu";
+import { ListSearchBox } from "@/features/list-search/list-search-box";
+import {
+  isSearching,
+  onlySearchChanged,
+  searchQueryOf,
+  searchVideos,
+} from "@/features/list-search/list-search";
 import { useVideoDialogs } from "@/features/video-menu/video-dialogs";
 import { videoMenuGroups } from "@/features/video-menu/video-menu";
 import { useUploadActions } from "@/features/upload-manager/upload-context";
@@ -13,7 +20,13 @@ import { makeLoader } from "@/services/route-action.server";
 import { Effect } from "effect";
 import { Archive, Plus, VideoIcon, VideoOffIcon } from "lucide-react";
 import { useState } from "react";
-import { Link, useFetcher, useNavigate } from "react-router";
+import {
+  Link,
+  useFetcher,
+  useNavigate,
+  useSearchParams,
+  type ShouldRevalidateFunction,
+} from "react-router";
 import type { Route } from "./+types/_app.videos._index";
 
 export const meta: Route.MetaFunction = () => {
@@ -50,8 +63,25 @@ export const loader = makeLoader({
     }),
 });
 
+/** Typing in the search box filters what is loaded: no reload (#2512). */
+export const shouldRevalidate: ShouldRevalidateFunction = ({
+  currentUrl,
+  nextUrl,
+  formMethod,
+  defaultShouldRevalidate,
+}) =>
+  formMethod === undefined && onlySearchChanged(currentUrl, nextUrl)
+    ? false
+    : defaultShouldRevalidate;
+
 export default function Component(props: Route.ComponentProps) {
-  const { videos, archivedVideos, hasExportedVideoMap } = props.loaderData;
+  const { hasExportedVideoMap } = props.loaderData;
+  const [searchParams] = useSearchParams();
+  const query = searchQueryOf(searchParams);
+  const searching = isSearching(query);
+  const videos = searchVideos(props.loaderData.videos, query);
+  // Search shows only Videos still being worked on.
+  const archivedVideos = searching ? [] : props.loaderData.archivedVideos;
   const [isAddVideoOpen, setIsAddVideoOpen] = useState(false);
   const navigate = useNavigate();
   const revealVideoFetcher = useFetcher();
@@ -143,7 +173,15 @@ export default function Component(props: Route.ComponentProps) {
 
           {dialogs.dialogs}
 
-          {videos.length === 0 ? (
+          <div className="mb-6">
+            <ListSearchBox placeholder="Search Standalone Videos by title" />
+          </div>
+
+          {videos.length === 0 && searching ? (
+            <p className="text-center py-12 text-muted-foreground">
+              No matches
+            </p>
+          ) : videos.length === 0 ? (
             <div className="text-center py-12">
               <VideoIcon className="w-16 h-16 mx-auto text-muted-foreground/50 mb-4" />
               <h3 className="text-xl font-semibold mb-2">
