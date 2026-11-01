@@ -10,7 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useFetcher, useNavigate } from "react-router";
+import { useFetcher } from "react-router";
 import { toast } from "@/components/ui/toast";
 import {
   resolveForVideo,
@@ -160,7 +160,6 @@ function useEditorVideoActions(): {
   );
   const { startExportUpload, startRenderVerticalUpload } = useUploadActions();
   const openInVSCodeFetcher = useFetcher();
-  const navigate = useNavigate();
   const newShort = useNewShortAction();
   const retranscribeAllClips = useRetranscribeAllClips();
   const revealVideoFetcher = useFetcher();
@@ -221,8 +220,6 @@ function useEditorVideoActions(): {
         {},
         { method: "post", action: `/api/videos/${videoId}/open-in-vscode` }
       ),
-    createConcatenatedVideo: () =>
-      navigate(`/videos/concatenate?initial=${videoId}`),
     reference: isReferenceOpen
       ? { close: () => setReferenceVideoId(null) }
       : { candidates: referenceCandidates, open: setReferenceVideoId },

@@ -5,7 +5,7 @@ import { useRequestCreateBeat } from "@/features/beats/create-beat-dialog";
 import { useVideoDialogs } from "@/features/video-menu/video-dialogs";
 import { videoMenuGroups } from "@/features/video-menu/video-menu";
 import { Suspense, use, type ReactNode } from "react";
-import type { useNavigate, useFetcher } from "react-router";
+import type { useFetcher } from "react-router";
 import type { LoaderData, Section, Lesson, Video } from "./course-view-types";
 import { useAutofillChaptersAction } from "./autofill-chapters-context";
 import { VIDEO_WARNING_LABELS } from "./video-warning-labels";
@@ -15,7 +15,6 @@ interface VideoContextMenuProps {
   section: Section;
   lesson: Lesson;
   data: LoaderData;
-  navigate: ReturnType<typeof useNavigate>;
   dispatch: (action: courseViewReducer.Action) => void;
   startExportUpload: (videoId: string, path: string) => void;
   revealVideoFetcher: ReturnType<typeof useFetcher>;
@@ -66,7 +65,6 @@ function VideoMenu({
   section,
   lesson,
   data,
-  navigate,
   dispatch,
   startExportUpload,
   revealVideoFetcher,
@@ -127,8 +125,6 @@ function VideoMenu({
               beatCount: video.beats.length,
               hasScript: video.hasScript,
             }),
-          createConcatenatedVideo: () =>
-            navigate(`/videos/concatenate?initial=${video.id}`),
           moveToLesson: () =>
             dispatch({
               type: "open-move-video",

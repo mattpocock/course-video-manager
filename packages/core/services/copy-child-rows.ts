@@ -164,8 +164,8 @@ export const copyClipChildren = async (
 
 /**
  * Copies Clips onto a Video, each at the place given, with every row that
- * hangs off them. For the Video-level copies — the Video copy, Create video
- * from selection, Video concatenation — so none of them hand-lists what a
+ * hangs off them. For the Video-level copies — the Video copy and Create video
+ * from selection — so neither of them hand-lists what a
  * Clip is made of. Every Clip column but its identity and its place comes from
  * spreading the source row, so a Clip column added later travels with no edit
  * here; a Clip child table added later fails copy-paths-table-guard.test.ts

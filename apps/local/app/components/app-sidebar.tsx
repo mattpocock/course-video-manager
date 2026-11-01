@@ -133,9 +133,7 @@ export function AppSidebar({ variant }: AppSidebarProps) {
 
   const onPitchesPath = location.pathname.startsWith("/pitches");
   const onShortsPath = location.pathname.startsWith("/shorts");
-  const onVideosPath =
-    location.pathname === "/videos" ||
-    location.pathname === "/videos/concatenate";
+  const onVideosPath = location.pathname === "/videos";
   const onDeliverablesPath =
     location.pathname === "/" || location.pathname.startsWith("/deliverables");
 

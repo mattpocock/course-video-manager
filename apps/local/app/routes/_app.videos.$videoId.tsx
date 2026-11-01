@@ -203,10 +203,6 @@ export default function VideoLayout({ loaderData }: Route.ComponentProps) {
         { method: "post", action: `/api/videos/${videoId}/reveal` }
       ),
     rename: () => dialogs.rename(video),
-    createConcatenatedVideo:
-      videoFormat === "short"
-        ? undefined
-        : () => navigate(`/videos/concatenate?initial=${videoId}`),
     moveToCourse:
       isStandalone && videoFormat !== "short"
         ? () => navigate(`/videos/${videoId}/move-to-course`)

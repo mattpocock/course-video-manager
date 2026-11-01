@@ -1,10 +1,8 @@
 import { describe, it, expect, beforeAll, beforeEach } from "vitest";
-import { Effect, Layer } from "effect";
-import { DrizzleService, type Database } from "./drizzle-service.server.js";
-import { VideoOperationsService } from "./db-video-operations.server.js";
+import { Effect } from "effect";
+import type { Database } from "./drizzle-service.server.js";
 import { copyVideoImpl } from "./db-video-operations.copy.server.js";
 import { createVideoFromSelectionImpl } from "./db-video-from-selection.server.js";
-import { concatenateVideos } from "./db-video-concatenation.server.js";
 import {
   createTestDb,
   truncateAllTables,
@@ -102,15 +100,9 @@ const overrides = (ctx: {
 });
 
 let testDb: TestDb;
-let videoLayer: Layer.Layer<VideoOperationsService | DrizzleService>;
 
 beforeAll(async () => {
   testDb = (await createTestDb()).testDb;
-  const drizzleLayer = Layer.succeed(DrizzleService, testDb as any);
-  videoLayer = Layer.mergeAll(
-    VideoOperationsService.Default.pipe(Layer.provide(drizzleLayer)),
-    drizzleLayer
-  );
 });
 
 beforeEach(async () => {
@@ -202,16 +194,6 @@ const RUN_PATH: Partial<
         title: "Selection",
         mode: "copy",
       })
-    );
-    return copy.id;
-  },
-  concatenateVideos: async (sourceVideoId) => {
-    const copy = await Effect.runPromise(
-      concatenateVideos({
-        name: "Joined",
-        sourceVideoIds: [sourceVideoId],
-        format: "landscape",
-      }).pipe(Effect.provide(videoLayer))
     );
     return copy.id;
   },

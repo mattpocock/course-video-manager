@@ -14,7 +14,6 @@ import {
   ClipboardCopy,
   ClipboardIcon,
   CodeIcon,
-  Combine,
   FileText,
   FileX,
   FilmIcon,
@@ -78,7 +77,6 @@ export interface VideoMenuActions {
   addNote?: VideoAction;
   duplicate?: VideoAction;
   addVideoToLesson?: VideoAction;
-  createConcatenatedVideo?: VideoAction;
   /** Creates a Short and opens it, its back button returning here. */
   newShort?: VideoAction;
   // move
@@ -209,10 +207,6 @@ export function videoMenuGroups(
             opensDialog: true,
           },
           a.addVideoToLesson
-        ),
-        leaf(
-          { label: "Create Concatenated Video", icon: Combine },
-          a.createConcatenatedVideo
         ),
       ]),
     ],

@@ -7,7 +7,7 @@
  * - `cli` — created by the `cvm` CLI (`cvm clip add`): a Clip built from
  *   Footage that was already filmed, so it is not new filming.
  * - `copy` — the new Clip of a user-made copy: Create video from selection,
- *   Duplicate Video, Duplicate Course, Video concatenation. The original
+ *   Duplicate Video, Duplicate Course. The original
  *   stays where it was, so the copy is not new filming either.
  *
  * Only `video-editor` Clips count in the footage stats.

@@ -6,8 +6,6 @@ import { DrizzleService, type Database } from "./drizzle-service.server.js";
 import { makeDuplicateCourse } from "./db-course-duplicate.server.js";
 import { copyVideoImpl } from "./db-video-operations.copy.server.js";
 import { createVideoFromSelectionImpl } from "./db-video-from-selection.server.js";
-import { concatenateVideos } from "./db-video-concatenation.server.js";
-import { VideoOperationsService } from "./db-video-operations.server.js";
 import {
   createTestDb,
   truncateAllTables,
@@ -42,17 +40,11 @@ import {
 
 let testDb: TestDb;
 let versionLayer: Layer.Layer<VersionOperationsService>;
-let videoLayer: Layer.Layer<VideoOperationsService | DrizzleService>;
 
 beforeAll(async () => {
   testDb = (await createTestDb()).testDb;
   versionLayer = VersionOperationsService.Default.pipe(
     Layer.provide(Layer.succeed(DrizzleService, testDb as any))
-  );
-  const drizzleLayer = Layer.succeed(DrizzleService, testDb as any);
-  videoLayer = Layer.mergeAll(
-    VideoOperationsService.Default.pipe(Layer.provide(drizzleLayer)),
-    drizzleLayer
   );
 });
 
@@ -238,16 +230,6 @@ const RUN_PATH: Record<
         title: "Selection",
         mode: "copy",
       })
-    );
-    return copy.id;
-  },
-  concatenateVideos: async ({ video }) => {
-    const copy = await Effect.runPromise(
-      concatenateVideos({
-        name: "Joined",
-        sourceVideoIds: [video.id],
-        format: "landscape",
-      }).pipe(Effect.provide(videoLayer))
     );
     return copy.id;
   },

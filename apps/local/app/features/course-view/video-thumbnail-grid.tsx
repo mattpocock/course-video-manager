@@ -2,7 +2,7 @@ import { formatDuration } from "@/lib/format-duration";
 import { courseViewReducer } from "@/features/course-view/course-view-reducer";
 import { AlertTriangle, FileVideo } from "lucide-react";
 import { Suspense } from "react";
-import { Link, useNavigate, useFetcher } from "react-router";
+import { Link, useFetcher } from "react-router";
 import type { LoaderData, Section, Lesson, Video } from "./course-view-types";
 import { UnexportedDot } from "./export-status";
 import { VideoContextMenu } from "./video-context-menu";
@@ -19,7 +19,6 @@ function VideoThumbnailItem({
   section,
   lesson,
   data,
-  navigate,
   dispatch,
   startExportUpload,
   revealVideoFetcher,
@@ -29,7 +28,6 @@ function VideoThumbnailItem({
   section: Section;
   lesson: Lesson;
   data: LoaderData;
-  navigate: ReturnType<typeof useNavigate>;
   dispatch: (action: courseViewReducer.Action) => void;
   startExportUpload: (videoId: string, path: string) => void;
   revealVideoFetcher: ReturnType<typeof useFetcher>;
@@ -46,7 +44,6 @@ function VideoThumbnailItem({
       section={section}
       lesson={lesson}
       data={data}
-      navigate={navigate}
       dispatch={dispatch}
       startExportUpload={startExportUpload}
       revealVideoFetcher={revealVideoFetcher}
@@ -108,7 +105,6 @@ export function VideoThumbnailGrid({
   section,
   lesson,
   data,
-  navigate,
   dispatch,
   startExportUpload,
   revealVideoFetcher,
@@ -118,7 +114,6 @@ export function VideoThumbnailGrid({
   section: Section;
   lesson: Lesson;
   data: LoaderData;
-  navigate: ReturnType<typeof useNavigate>;
   dispatch: (action: courseViewReducer.Action) => void;
   startExportUpload: (videoId: string, path: string) => void;
   revealVideoFetcher: ReturnType<typeof useFetcher>;
@@ -135,7 +130,6 @@ export function VideoThumbnailGrid({
           section={section}
           lesson={lesson}
           data={data}
-          navigate={navigate}
           dispatch={dispatch}
           startExportUpload={startExportUpload}
           revealVideoFetcher={revealVideoFetcher}

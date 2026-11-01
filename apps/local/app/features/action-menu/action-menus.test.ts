@@ -173,7 +173,6 @@ describe("action menus", () => {
         addNote: run,
         duplicate: run,
         addVideoToLesson: run,
-        createConcatenatedVideo: run,
         newShort: run,
         export: run,
         renderVerticalShort: run,

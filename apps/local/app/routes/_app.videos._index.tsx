@@ -130,8 +130,6 @@ export default function Component(props: Route.ComponentProps) {
                 { method: "post", action: `/api/videos/${video.id}/reveal` }
               ),
             rename: () => dialogs.rename(video),
-            createConcatenatedVideo: () =>
-              navigate(`/videos/concatenate?initial=${video.id}`),
             moveToCourse: archived
               ? undefined
               : () => navigate(`/videos/${video.id}/move-to-course`),
@@ -158,12 +156,6 @@ export default function Component(props: Route.ComponentProps) {
               Standalone Videos
             </h1>
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                onClick={() => navigate("/videos/concatenate")}
-              >
-                Concatenate
-              </Button>
               <Button onClick={() => setIsAddVideoOpen(true)}>
                 <Plus className="w-4 h-4 mr-2" />
                 New Video

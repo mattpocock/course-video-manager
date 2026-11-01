@@ -273,7 +273,6 @@
         "apps/local/app/routes/_app.courses.$courseId._index.tsx",
         "apps/local/app/routes/_app.videos.$videoId.thumbnails.tsx",
         "apps/local/app/routes/_app.videos.$videoId.tsx",
-        "apps/local/app/routes/_app.videos.concatenate.tsx",
         "apps/local/app/routes/api.diagrams.$diagramId.snapshots.ts",
         "apps/local/app/routes/api.thumbnails.$thumbnailId.update.ts",
         "apps/local/app/routes/diagram-playground.$diagramId.tsx",
