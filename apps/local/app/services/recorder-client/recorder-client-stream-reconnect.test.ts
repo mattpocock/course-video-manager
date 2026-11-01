@@ -242,6 +242,8 @@ describe("the Live Stream's health", () => {
         duplicatedFrames: 0,
         bitrateKbps: null,
         reconnects: 0,
+        feedOverflows: 0,
+        feedsDropping: false,
       },
       {
         fps: 60,
@@ -250,6 +252,8 @@ describe("the Live Stream's health", () => {
         duplicatedFrames: 1,
         bitrateKbps: 9_000,
         reconnects: 0,
+        feedOverflows: 0,
+        feedsDropping: false,
       },
     ]);
 
@@ -290,6 +294,70 @@ describe("the Live Stream's health", () => {
       expect(l.atMs).toEqual(expect.any(Number));
       expect(l.fileTime).toEqual(expect.any(Number));
     }
+  });
+});
+
+describe("a feed that overflows", () => {
+  it("turns the health amber, counts it and logs it, while the stream and the take carry on; amber clears once the feeds stop overflowing", async () => {
+    const errors: string[] = [];
+    const error = vi
+      .spyOn(console, "error")
+      .mockImplementation((...a) => void errors.push(a.map(String).join(" ")));
+    const r = await live();
+    const stream = r.windows.streams[0]!;
+    stream.stdout(progress({ frame: 60 }));
+    await vi.waitFor(() => expect(r.kinds().at(-1)).toBe("live"));
+    expect(r.healths().at(-1)).toMatchObject({
+      feedOverflows: 0,
+      feedsDropping: false,
+    });
+
+    // The stream fell behind the camera writer: its tee's fifo drops packets
+    // until the next keyframe, and the encoder's numbers stay green (#2525).
+    r.windows
+      .recorder("camera")
+      .stderr("[fifo @ 000001] [warning] FIFO queue full\r\n");
+    r.windows
+      .recorder("screen")
+      .stderr("[fifo @ 000002] [warning] FIFO queue full\r\n");
+
+    // Said at once, not at the next -progress.
+    await vi.waitFor(() =>
+      expect(r.healths().at(-1)).toMatchObject({
+        fps: 60,
+        feedOverflows: 2,
+        feedsDropping: true,
+      })
+    );
+    expect(errors.join("\n")).toMatch(
+      /recorder: Live Stream: a take's feed to it overflowed/
+    );
+    // Nothing relaunched, nothing reconnected: the fifo recovers itself.
+    expect(r.windows.streams).toHaveLength(1);
+    expect(r.kinds().at(-1)).toBe("live");
+
+    // Still dropping a moment later.
+    clock.ms += 1_000;
+    stream.stdout(progress({ frame: 120, outTimeUs: 1_000_000 }));
+    await vi.waitFor(() =>
+      expect(r.healths().at(-1)).toMatchObject({ feedsDropping: true })
+    );
+
+    // No overflow for a while: whole again, the count kept. The writer with it.
+    clock.ms += 5_000;
+    r.windows
+      .recorder("camera")
+      .stdout("frame=180\nout_time_us=6000000\nprogress=continue\n");
+    stream.stdout(progress({ frame: 420, outTimeUs: 6_000_000 }));
+    await vi.waitFor(() =>
+      expect(r.healths().at(-1)).toMatchObject({
+        feedOverflows: 2,
+        feedsDropping: false,
+      })
+    );
+    r.untouched();
+    await r.client.endStream(r.video.id);
+    error.mockRestore();
   });
 });
 

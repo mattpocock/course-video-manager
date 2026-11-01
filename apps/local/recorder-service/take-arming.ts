@@ -1,4 +1,5 @@
 import type { Launcher } from "./launcher";
+import { hearingFeedOverflows } from "./stream-feeds";
 import { Refusal } from "./refusal";
 import { armTake, type ArmedTake } from "./recording-session";
 import { sameTake, type TakeSettings } from "./take-settings";
@@ -21,12 +22,17 @@ export const createTakeArming = (o: {
   now: () => number;
   /** What the next take records with, if one can be armed now. */
   wanted: () => TakeSettings | undefined;
+  /** A streamed take's feed to the Live Stream overflowed (#2525). */
+  onFeedOverflow: () => void;
 }) => {
   let armed: ArmedTake | undefined;
 
   const arm = (settings: TakeSettings) => {
     const take: ArmedTake = armTake({
-      launch: o.launch,
+      // A streamed take's processes are heard for their feeds' overflows.
+      launch: settings.streamed
+        ? hearingFeedOverflows(o.launch, o.onFeedOverflow)
+        : o.launch,
       now: o.now,
       settings,
       onQuit: (errors) => {

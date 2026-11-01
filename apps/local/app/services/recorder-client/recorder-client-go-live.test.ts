@@ -120,6 +120,36 @@ describe("Go Live and End Stream", () => {
     });
   });
 
+  it("goes live again straight after End Stream: it waits for the last stream process to quit, never refusing, and never runs two", async () => {
+    const r = await ready();
+    expect(Either.isRight(await r.goLive())).toBe(true);
+    await vi.waitFor(() =>
+      expect(r.heard.map((m) => m.type)).toContain("recording-started")
+    );
+    // The last stream takes its time to quit, as ffmpeg.exe does closing its push.
+    const first = r.windows.streams[0]!;
+    first.stuck = true;
+    // Answered once the push has stopped; the Streaming tab offers Go Live
+    // again as soon as the Live Stream says it ended.
+    const ending = r.client.endStream(r.video.id);
+    await vi.waitFor(() =>
+      expect(r.heard.map((m) => m.type)).toContain("recording-stopped")
+    );
+    expect(ended(r.streamStatuses())).toEqual(["End Stream."]);
+
+    const again = r.goLive();
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    // Not launched while the last one runs.
+    expect(r.windows.streams).toHaveLength(1);
+    first.exit(0);
+
+    expect(await ending).toEqual({ broadcastId: "office-hours" });
+    expect(Either.isRight(await again)).toBe(true);
+    expect(r.windows.streams).toHaveLength(2);
+    expect(r.windows.streams[1]!.running).toBe(true);
+    await r.client.endStream(r.video.id);
+  });
+
   it("leaves a Recording Session that is not streamed exactly as it was: no tee, no feed, no stream", async () => {
     const r = await ready();
 

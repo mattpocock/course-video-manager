@@ -15,8 +15,11 @@ import type { StreamHealth } from "./stream-protocol";
 /** How often health goes out, in seconds of the stream's own time. */
 const HEALTH_PERIOD_S = 1;
 
-/** One process's part of the health: all but the reconnect count. */
-export type ProcessHealth = Omit<StreamHealth, "reconnects">;
+/** One process's part of the health: all but what outlives it (reconnects, the feeds'). */
+export type ProcessHealth = Omit<
+  StreamHealth,
+  "reconnects" | "feedOverflows" | "feedsDropping"
+>;
 
 /** Before a stream process has said anything. */
 export const NO_HEALTH: ProcessHealth = {
