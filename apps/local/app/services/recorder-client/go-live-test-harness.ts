@@ -196,6 +196,7 @@ export const ready = async (
     streamListenBoundMs?: number;
     streamStallMs?: number;
     cardAnswerMs?: number;
+    cardStartMs?: number;
     format?: "landscape" | "short";
   } = {}
 ) => {
@@ -205,6 +206,7 @@ export const ready = async (
     streamListenBoundMs: o.streamListenBoundMs,
     streamStallMs: o.streamStallMs,
     cardAnswerMs: o.cardAnswerMs,
+    cardStartMs: o.cardStartMs,
   });
   /** What the client told the app server of the Live Stream, in order. */
   const liveStreams: (RecorderLiveStream | null)[] = [];

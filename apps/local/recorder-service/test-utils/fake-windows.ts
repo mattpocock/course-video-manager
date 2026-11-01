@@ -4,7 +4,7 @@ import net from "node:net";
 import { armedWriter } from "./fake-writer";
 import { CAPTURE_TAG, PREVIEW_TAGS } from "../capture-args";
 import { STREAM_TAG } from "../stream-args";
-import { playCardServer, readCardFeed } from "./fake-card-server";
+import { fakeCardServers, readCardFeed } from "./fake-card-server";
 import type { Launch, LaunchedProcess, Launcher } from "../launcher";
 import { flvHeader, flvVideoTag } from "./flv";
 
@@ -309,6 +309,8 @@ export const fakeWindows = (
     screensListingMs?: number;
     /** The Live Stream reads its card feed this far behind, at 60 fps (`readCardFeed`). */
     cardReadBehindMs?: number;
+    /** `fakeCardServers`. */
+    hungCardServers?: number;
     /** The DELL as screens.ps1 lists it (default 1920x1080); null: not plugged in. */
     dell?: { width: number; height: number } | null;
     /**
@@ -363,8 +365,7 @@ export const fakeWindows = (
   const streams: FakeProcess[] = [];
   /** Each one's reading of its card feed. */
   const cardFeeds: ReturnType<typeof readCardFeed>[] = [];
-  /** Each Chat Highlight card server, in launch order. */
-  const cardServers: FakeProcess[] = [];
+  const cardServers = fakeCardServers(o.hungCardServers);
   const cameraTries = [...(o.cameraTries ?? [])];
   const launchedProcesses: FakeProcess[] = [];
   const launch: Launcher = (l) => {
@@ -372,11 +373,7 @@ export const fakeWindows = (
     launchedProcesses.push(p);
     if (l.tool === "nvidia-smi")
       return answer(p, { stdout: `${o.driver ?? "591.74"}\r\n` });
-    if (l.tool === "card-server") {
-      cardServers.push(p);
-      playCardServer(p);
-      return p;
-    }
+    if (l.tool === "card-server") return cardServers.launch(p);
     if (l.tool === "powershell" && l.script === "screens.ps1") {
       // The older 7-column listing for the first two, as a Windows with an
       // old screens.ps1 would print them; the adapter column after that.
@@ -601,7 +598,7 @@ export const fakeWindows = (
     screenPreviews,
     streams,
     cardFeeds,
-    cardServers,
+    cardServers: cardServers.launched,
     armedWriters,
     camerasRunning,
     meter,
