@@ -177,9 +177,10 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
       });
 
       /**
-       * A Choose Screenshot capture. A screen frame alone (No face) keeps
-       * the screen's native size; a composite or a Footage frame is scaled
-       * to 720p.
+       * A Choose Screenshot capture, at its source's own size and never
+       * scaled: a screen frame (No face), a composite (With face, 1920x1080
+       * Landscape) or a Footage frame. The route writes a lossless PNG, so
+       * there is no quality setting to raise.
        */
       const captureFrameAtTime = Effect.fn("captureFrameAtTime")(function* (
         frame: ClipFrame,
@@ -188,14 +189,9 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
         const args = [
           "-y",
           "-hide_banner",
-          ...clipFrameFfmpegArgs(frame, {
-            seek: String(frame.time),
-            filter: frame.kind === "screen" ? undefined : "scale=-2:720",
-          }),
+          ...clipFrameFfmpegArgs(frame, { seek: String(frame.time) }),
           "-vframes",
           "1",
-          "-q:v",
-          "2",
           outputPath,
         ];
 
