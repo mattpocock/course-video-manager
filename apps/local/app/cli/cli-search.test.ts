@@ -375,6 +375,65 @@ describe("search over rows a test writes", () => {
     });
   });
 
+  it("finds non-archived Standalone Videos and Shorts, each with its Video Format", async () => {
+    // A Short made from a Pitch is still a Standalone Video (no Lesson).
+    const [short] = await testDb
+      .insert(schema.videos)
+      .values({
+        title: "standalone-short.mp4",
+        originalFootagePath: "f.mp4",
+        format: "short",
+        pitchId: s.pitchActiveId,
+      })
+      .returning();
+    await testDb.insert(schema.videos).values({
+      title: "standalone-short-archived.mp4",
+      originalFootagePath: "f.mp4",
+      format: "short",
+      archived: true,
+    });
+
+    const { stdout, exitCode } = await run(["search", "standalone"]);
+    expect(exitCode).toBe(0);
+    // The seed's archived Landscape Standalone Video and the archived Short
+    // are never returned, and a Standalone Video's hit carries no tree ids.
+    expect(ndjson(stdout)).toEqual([
+      {
+        kind: "video",
+        id: s.standaloneActiveId,
+        format: "landscape",
+        title: "standalone-active.mp4",
+        field: "title",
+        snippet: "standalone-active.mp4",
+      },
+      {
+        kind: "video",
+        id: short!.id,
+        format: "short",
+        title: "standalone-short.mp4",
+        field: "title",
+        snippet: "standalone-short.mp4",
+      },
+    ]);
+
+    // A Video in a Lesson carries every id needed to link to it.
+    const tree = await run(["search", "--type", "video", "intro"]);
+    expect(ndjson(tree.stdout)).toEqual([
+      expect.objectContaining({
+        kind: "video",
+        id: s.lessonVideoId,
+        format: "landscape",
+        courseId: s.courseAId,
+        sectionId: s.draftSectionId,
+        lessonId: s.lessonId,
+      }),
+    ]);
+
+    // Scoped searches never reach Standalone Videos.
+    const scoped = await run(["course", "search", s.courseAId, "standalone"]);
+    expect(scoped.stdout).toBe("");
+  });
+
   describe("literal matching: SQL wildcards are escaped", () => {
     it("treats % and _ as literals in a transcript search", async () => {
       await testDb.insert(schema.clips).values({
