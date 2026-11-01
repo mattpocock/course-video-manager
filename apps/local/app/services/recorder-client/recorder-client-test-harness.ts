@@ -3,6 +3,8 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, afterEach, vi } from "vitest";
 import { Effect, Layer } from "effect";
+import { WebSocket, WebSocketServer } from "ws";
+import type { RecorderCommand } from "recorder-service/protocol";
 import {
   CALIBRATION,
   start,
@@ -253,4 +255,57 @@ export const film = (
       `frame=${i + 1}\nout_time_us=${Math.round(t * 1e6)}\nprogress=continue\n`
     );
   }
+};
+
+/**
+ * Stands between the recorder client and the service, so a test can cut the
+ * connection (and keep it cut) without either end closing. Records the
+ * commands the client sends.
+ */
+export const startLink = async (servicePort: number) => {
+  const server = new WebSocketServer({ port: 0, host: "127.0.0.1" });
+  await new Promise((r) => server.once("listening", r));
+  const sent: RecorderCommand[] = [];
+  let up = true;
+  const pairs = new Set<[WebSocket, WebSocket]>();
+  server.on("connection", (client) => {
+    if (!up) return client.terminate();
+    const service = new WebSocket(`ws://127.0.0.1:${servicePort}`);
+    const pair: [WebSocket, WebSocket] = [client, service];
+    pairs.add(pair);
+    const queued: string[] = [];
+    service.on("open", () => queued.splice(0).forEach((m) => service.send(m)));
+    service.on("message", (data) => client.send(String(data)));
+    client.on("message", (data) => {
+      sent.push(JSON.parse(String(data)) as RecorderCommand);
+      if (service.readyState === WebSocket.OPEN) service.send(String(data));
+      else queued.push(String(data));
+    });
+    const end = () => {
+      pairs.delete(pair);
+      client.terminate();
+      service.terminate();
+    };
+    client.on("close", end);
+    service.on("close", end);
+  });
+  const { port } = server.address() as { port: number };
+  return {
+    port,
+    sent,
+    cut: () => {
+      up = false;
+      for (const [client] of pairs) client.terminate();
+    },
+    restore: () => {
+      up = true;
+    },
+    close: () => {
+      for (const [client, service] of pairs) {
+        client.terminate();
+        service.terminate();
+      }
+      server.close();
+    },
+  };
 };

@@ -209,6 +209,26 @@ describe("Chat Highlights", () => {
     await r.client.endStream(r.video.id);
   });
 
+  it("never leaves Chat Highlights on a card server that hangs starting: it is stopped once overdue, and a fresh one draws the next click", async () => {
+    const r = await live({
+      cardStartMs: 300,
+      windows: fakeWindows({ hungCardServers: 1 }),
+    });
+
+    await vi.waitFor(() =>
+      expect(r.windows.cardServers[0]!.running).toBe(false)
+    );
+    const shown = await r.show("msg-1");
+
+    expect(r.windows.cardServers).toHaveLength(2);
+    await vi.waitFor(async () =>
+      expect((await r.rows()).map((h) => h.id)).toEqual([shown.highlightId])
+    );
+    expect(r.windows.streams).toHaveLength(1);
+    expect(r.windows.recorder("camera").running).toBe(true);
+    await r.client.endStream(r.video.id);
+  });
+
   it("never makes the picture wait on it: a card feed that falls behind the recorder's clock catches up at once, each slot it missed holding the last card frame it sent", async () => {
     const r = await live();
     const feed = r.windows.cardFeeds[0]!;

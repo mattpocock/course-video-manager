@@ -235,6 +235,28 @@ describe("the Live Stream surface's chat buffer", () => {
     });
   });
 
+  it("clicking the picked Broadcast again restarts a chat that gave up", () => {
+    const tester = listed(officeHours, qa)
+      .send({ type: "broadcast-clicked", broadcastId: "office-hours" })
+      .send({
+        type: "chat-connection-changed",
+        broadcastId: "office-hours",
+        connection: { state: "needs-reconnect", reason: "missing-live-access" },
+      })
+      .send({ type: "broadcast-clicked", broadcastId: "office-hours" });
+
+    const pickOfficeHours = {
+      type: "pick-broadcast",
+      pick: { broadcastId: "office-hours", liveChatId: "chat-office-hours" },
+    };
+    expect(tester.getEffects()).toEqual([
+      { type: "list-broadcasts" },
+      pickOfficeHours,
+      pickOfficeHours,
+    ]);
+    expect(tester.getState().chat.connection).toEqual({ state: "connecting" });
+  });
+
   it("after a reload, re-attaches to the chat the app server kept, and re-picks its Broadcast without asking again", () => {
     const tester = start()
       .send({

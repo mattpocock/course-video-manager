@@ -11,7 +11,7 @@ import { runtimeLive } from "@/services/layer.server";
 import { makeLoader, makeAction } from "@/services/route-action.server";
 import { Effect } from "effect";
 import { useState } from "react";
-import { redirect, useRevalidator } from "react-router";
+import { useRevalidator } from "react-router";
 import type { WriterContextData } from "@/services/video-posting-context.server";
 import { VideoFilePasteModal } from "@/components/video-file-paste-modal";
 import type { Route } from "./+types/_app.videos.$videoId.lesson";
@@ -24,14 +24,13 @@ export const loader = makeLoader({
       const videoId = params.videoId!;
       const videoOps = yield* VideoOperationsService;
       const video = yield* videoOps.getVideoWithLessonById(videoId);
-      if (!video.lesson) {
-        return yield* Effect.die(redirect(`/videos/${videoId}/edit`));
-      }
       const ctx = yield* loadVideoPostingContext(videoId);
       const writerContextPromise: Promise<WriterContextData> =
         runtimeLive.runPromise(loadWriterContext(videoId));
       return {
         ...ctx,
+        // A Standalone Video has a Body too: its Article (issue #2509).
+        isStandalone: !video.lesson,
         videoBody: video.body,
         videoDescription: video.description,
         writerContextPromise,
@@ -69,8 +68,13 @@ export const action = makeAction({
 
 export default function LessonPostPage(props: Route.ComponentProps) {
   const { videoId } = props.params;
-  const { files, videoBody, videoDescription, writerContextPromise } =
-    props.loaderData;
+  const {
+    files,
+    isStandalone,
+    videoBody,
+    videoDescription,
+    writerContextPromise,
+  } = props.loaderData;
 
   const writerContext = useWriterContext(writerContextPromise);
   const revalidator = useRevalidator();
@@ -83,6 +87,7 @@ export default function LessonPostPage(props: Route.ComponentProps) {
         <div className="flex-1 flex flex-col p-6 overflow-y-auto scrollbar scrollbar-track-transparent scrollbar-thumb-muted hover:scrollbar-thumb-muted-foreground">
           <LessonPage
             videoId={videoId}
+            isStandalone={isStandalone}
             body={videoBody}
             description={videoDescription}
             writerContext={writerContext}

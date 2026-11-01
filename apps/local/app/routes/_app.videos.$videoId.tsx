@@ -11,21 +11,17 @@ import { useVideoDialogs } from "@/features/video-menu/video-dialogs";
 import { videoMenuGroups } from "@/features/video-menu/video-menu";
 import { getBackButtonUrl } from "@/features/video-editor/video-editor-selectors";
 import { cn } from "@/lib/utils";
+import { postSubTabs } from "@/features/video-posting/post-sub-tabs";
 import { type VideoFormat } from "@/features/videos/video-format";
 import { ClipMockupOperationsService } from "@/services/db-clip-mockup-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { makeLoader } from "@/services/route-action.server";
 import { Effect } from "effect";
 import {
-  BookOpenIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   VideoIcon,
   SendIcon,
-  YoutubeIcon,
-  NewspaperIcon,
-  MailIcon,
-  HistoryIcon,
   PlayIcon,
 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
@@ -131,33 +127,6 @@ const topTabsDef: {
   },
 ];
 
-type PostSubTab = {
-  id: Tab;
-  label: string;
-  path: string;
-  icon: React.ComponentType<{ className?: string }>;
-};
-
-const lessonTab: PostSubTab = {
-  id: "lesson",
-  label: "Lesson",
-  path: "lesson",
-  icon: BookOpenIcon,
-};
-
-const commonPostSubTabs: PostSubTab[] = [
-  { id: "post", label: "YouTube", path: "post", icon: YoutubeIcon },
-  { id: "social", label: "X / LinkedIn", path: "social", icon: SendIcon },
-  { id: "ai-hero", label: "AI Hero", path: "ai-hero", icon: NewspaperIcon },
-  {
-    id: "skills-changelog",
-    label: "Skills Changelog",
-    path: "skills-changelog",
-    icon: HistoryIcon,
-  },
-  { id: "newsletter", label: "Newsletter", path: "newsletter", icon: MailIcon },
-];
-
 const isPostTab = (tab: Tab): boolean =>
   tab === "lesson" ||
   tab === "post" ||
@@ -188,10 +157,7 @@ export default function VideoLayout({ loaderData }: Route.ComponentProps) {
   const location = useLocation();
   const [addVideoModalOpen, setAddVideoModalOpen] = useState(false);
 
-  const postSubTabs = useMemo(
-    () => (lessonId ? [lessonTab, ...commonPostSubTabs] : commonPostSubTabs),
-    [lessonId]
-  );
+  const subTabs = useMemo(() => postSubTabs({ isStandalone }), [isStandalone]);
 
   const topTabs = useMemo(
     () =>
@@ -410,7 +376,7 @@ export default function VideoLayout({ loaderData }: Route.ComponentProps) {
             {/* Post sub-tabs */}
             {isPostTab(activeTab) && (
               <div className="flex gap-1 px-4 py-2 border-b">
-                {postSubTabs.map((tab) => (
+                {subTabs.map((tab) => (
                   <Link
                     key={tab.id}
                     to={`/videos/${videoId}/${tab.path}`}

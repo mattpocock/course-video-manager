@@ -305,3 +305,29 @@ describe("a Live Stream left behind", () => {
     expect(orphan.running).toBe(false);
   });
 });
+
+describe("the app server, cut off from the recorder service mid-stream", () => {
+  it("keeps the Broadcast chat and the Live indicator: only a recorder that answers can say the streamed Recording Session ended", async () => {
+    const r = await live({ linked: true });
+    await vi.waitFor(() =>
+      expect(r.liveStreams.at(-1)?.status.kind).toMatch(/starting|connecting/)
+    );
+    const before = r.liveStreams.length;
+    const reachable = () =>
+      r.heard.flatMap((m) =>
+        m.type === "recorder-status" ? [m.reachable] : []
+      );
+
+    r.link!.cut();
+    await vi.waitFor(() => expect(reachable().at(-1)).toBe(false));
+    r.link!.restore();
+    await vi.waitFor(() => expect(reachable().at(-1)).toBe(true));
+
+    expect(r.streamedSessionsEnded()).toBe(0);
+    expect(r.liveStreams.slice(before)).not.toContain(null);
+    r.untouched();
+
+    await r.endStream();
+    await vi.waitFor(() => expect(r.streamedSessionsEnded()).toBe(1));
+  });
+});
