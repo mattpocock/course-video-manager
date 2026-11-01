@@ -38,6 +38,7 @@ export function useKeyboardShortcuts(
           dispatch({ type: "press-arrow-down" });
         }
       } else if (e.key === "l" && !(e.ctrlKey || e.metaKey)) {
+        // Ctrl/Cmd+L is the browser's (its address bar), never 2x.
         dispatch({ type: "press-l" });
       } else if (e.key === "k" && !(e.ctrlKey || e.metaKey)) {
         // Ctrl/Cmd+K is Global Search's, never 1x.
