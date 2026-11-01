@@ -158,15 +158,18 @@ const limitOpt = Options.integer("limit").pipe(
 // ---------------------------------------------------------------------------
 
 const TOP_HELP = `Search DOWN THE TREE for a case-insensitive, literal substring, across EVERY
-active course's Draft Version PLUS all pitches. Matching is a plain substring
-(no tokenising, regex or fuzzy); '%' and '_' in the query are literal.
+active course's Draft Version, PLUS every Standalone Video (a Video in no
+Lesson, in either Video Format, so every Short too, and those made from a
+Pitch), PLUS all pitches. Matching is a plain substring (no tokenising, regex
+or fuzzy); '%' and '_' in the query are literal.
 
 WHAT IS SEARCHED (archived records are never returned; Draft Version only)
   course    name, slug
   section   path, description
   lesson    path, title, description
   video     title, its BODY (the shipped article), and its TRANSCRIPT
-            (clip text + chapter names)
+            (clip text + chapter names). The same for a Video in a Lesson
+            and a Standalone Video (Landscape or Short).
   beat      title, description
   pitch     title, description, contentPlan, youtubeTitle,
             youtubeThumbnailDescription, newsletterTitle, tweet
@@ -177,8 +180,13 @@ RESULTS (NDJSON — one compact hit per line; empty result prints nothing, exit 
   body beats transcript); 'snippet' is an excerpt around the match (the whole
   value for short fields). One hit per entity. Hits stream in depth-first tree
   order (course -> sections -> lessons -> videos -> beats), courses in
-  'course list' order,
-  pitches last. Use 'cvm <noun> get <id>' for the full record.
+  'course list' order, then Standalone Videos (oldest first), pitches last.
+  Use 'cvm <noun> get <id>' for the full record.
+
+  Every video hit carries its Video Format: { format: "landscape" | "short" }.
+  A Short is a video hit with format "short", not a kind of its own. A Video in
+  a Lesson also carries courseId, sectionId and lessonId; a Standalone Video
+  carries none of them (it belongs to no Course).
 
   Parent-id fields that would just echo an id you already know are omitted: a
   'course' hit never repeats its own id as courseId, and NONE of this
@@ -193,13 +201,15 @@ EXAMPLES
   cvm search "infer keyword"
   cvm search --type video --type beat "generics"
   cvm search --limit 200 "infer keyword"
-  cvm search "typescript" | jq 'select(.kind == "pitch")'`;
+  cvm search "typescript" | jq 'select(.kind == "pitch")'
+  cvm search --type video "generics" | jq 'select(.format == "short")'`;
 
 const scopedHelp = (noun: Scope, kinds: ReadonlyArray<SearchKind>) =>
   `Search DOWN THE TREE from a single ${noun} (by id) for a case-insensitive,
 literal substring. Same matching and hit shape as 'cvm search', but confined to
 this ${noun}'s subtree — searchable kinds here: ${kinds.join(", ")}. A --type
-outside that set is rejected (exit 3). Archived records are never returned.
+outside that set is rejected (exit 3). Archived records are never returned,
+and nor are Standalone Videos or Shorts: they belong to no ${noun}.
 
 Every hit here is inside the ${noun} you passed, so whichever field would
 just echo that id back (e.g. ${SCOPE_ID_FIELD[noun]} on a matching child) is
