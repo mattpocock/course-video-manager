@@ -24,6 +24,7 @@ import { YOUTUBE_INGEST } from "./stream-args";
 import { pickStreamFeedPorts, type StreamFeedPorts } from "./stream-feeds";
 import {
   createStreamSide,
+  LAST_STREAM_QUIT_BOUND_MS,
   redactStreamKey,
   STREAM_LISTEN_BOUND_MS,
   STREAM_STALL_MS,
@@ -104,6 +105,8 @@ export type LiveStreamOptions = {
   streamListenBoundMs: number;
   /** No new frame this long and the stream process has stalled (`STREAM_STALL_MS`). */
   streamStallMs: number;
+  /** How long Go Live waits for the last stream process to quit (`LAST_STREAM_QUIT_BOUND_MS`). */
+  lastStreamQuitBoundMs: number;
   /** How long a card's still may take before its click is refused (`CARD_ANSWER_MS`). */
   cardAnswerMs: number;
   /** How long the card server may take to be ready before it is started afresh (`CARD_START_MS`). */
@@ -117,6 +120,7 @@ export const LIVE_STREAM_SETTINGS = {
   streamIngest: YOUTUBE_INGEST,
   streamListenBoundMs: STREAM_LISTEN_BOUND_MS,
   streamStallMs: STREAM_STALL_MS,
+  lastStreamQuitBoundMs: LAST_STREAM_QUIT_BOUND_MS,
   cardAnswerMs: CARD_ANSWER_MS,
   cardStartMs: CARD_START_MS,
 } satisfies Partial<LiveStreamOptions>;
@@ -146,6 +150,7 @@ export const createGoLive = (
     },
     // Each launch, a relaunch too, reads the card from its picture's start.
     onLaunch: (startSeconds) => highlights?.launching(startSeconds),
+    now: o.now,
   });
   /** The Recording Session Go Live started: its end ends the Live Stream. */
   let streamed: RecordingSession | undefined;
@@ -194,6 +199,8 @@ export const createGoLive = (
     goingLive: () => goingLive,
     /** The service's scene changed: the Live Stream follows it. */
     sceneSwitched: (scene: Scene) => side.switchScene(scene),
+    /** A streamed take's feed overflowed: the health turns amber (#2525). */
+    feedOverflowed: () => side.feedOverflowed(),
     /** A Recording Session stopped: if it was streamed, the Live Stream ends. */
     sessionEnded: (session: RecordingSession, why: string) => {
       if (streamed !== session) return;
@@ -216,6 +223,11 @@ export const createGoLive = (
       const capture = r.capture();
       if (!capture) throw new Refusal(GO_LIVE_REFUSALS.cameraNotLive);
       const redact = redactStreamKey(command.streamKey);
+      // Straight after End Stream, the last stream process may still be
+      // quitting: wait for it, bounded, before anything is armed.
+      await side.lastGone(o.lastStreamQuitBoundMs).catch((e: unknown) => {
+        throw new Refusal(e instanceof Error ? e.message : String(e));
+      });
       // The gate first, as Record's: a stale AV Calibration starts nothing.
       const { thresholdDb } = await r.gate(command.record.calibration);
       const ports = pickStreamFeedPorts();

@@ -1,3 +1,5 @@
+import { lineSplitter, type Launcher } from "./launcher";
+
 /**
  * THE LIVE STREAM'S FEEDS (spec #2445, ADR 0054): what a streamed Recording
  * Session's own processes send the stream process, beside their files. Only
@@ -20,8 +22,35 @@
  * Windows loopback ports before Record (`stream-side.ts`); a feed that finds
  * no one there retries every half second, so a relaunched stream gets every
  * feed back. An overflow drops the queue and starts again at the next
- * keyframe.
+ * keyframe: the take's process says so (`FEED_OVERFLOW`), and the stream
+ * side turns the health amber (`stream-side.ts`, #2525).
  */
+
+/**
+ * What a take's process prints when one of its feeds overflows: its tee's
+ * fifo, full because the stream fell behind, dropped its queue.
+ */
+export const FEED_OVERFLOW = /FIFO queue full/;
+
+/** A feed whole again: no overflow for this long, and the health is no longer amber. */
+export const FEED_RECOVERED_MS = 5_000;
+
+/**
+ * A streamed take's launcher: each process it launches (the camera writer,
+ * the screen recorder) is heard for `FEED_OVERFLOW` on its stderr, beside
+ * whatever else reads it. Only told; the take never waits on it.
+ */
+export const hearingFeedOverflows =
+  (launch: Launcher, onOverflow: () => void): Launcher =>
+  (l) => {
+    const p = launch(l);
+    p.onStderr(
+      lineSplitter((line) => {
+        if (FEED_OVERFLOW.test(line)) onOverflow();
+      })
+    );
+    return p;
+  };
 
 /**
  * Where a Live Stream's three inputs listen: loopback ports picked at Go

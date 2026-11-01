@@ -1,10 +1,11 @@
 import { useContextSelector } from "use-context-selector";
 import { RadioIcon, SquareIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { VideoEditorContext } from "@/features/video-editor/video-editor-context";
 import { useLiveStream } from "./live-stream-context";
 import { goLiveControl } from "./live-stream-reducer";
-import { streamHealthLine } from "./stream-health-line";
+import { streamHealthAmber, streamHealthLine } from "./stream-health-line";
 
 /**
  * Go Live / End Stream: the Streaming tab's only main button, under the
@@ -57,7 +58,12 @@ export const GoLiveControls = () => {
       </div>
       {healthLine && (
         <p
-          className="text-xs text-muted-foreground tabular-nums"
+          className={cn(
+            "text-xs tabular-nums",
+            streamHealthAmber(health)
+              ? "text-amber-600"
+              : "text-muted-foreground"
+          )}
           data-testid="stream-health"
         >
           {healthLine}

@@ -164,7 +164,6 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
   const noteBusy = watchBusy(busy, o.onBusyChanged);
 
   const devices = createRecordingDevices(o.launch);
-  const findCamera = devices.findCamera;
 
   /** What the next take records with, if the recorder can arm it now. */
   const wantedTake = (): TakeSettings | undefined => {
@@ -188,6 +187,7 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
     launch: o.launch,
     now: o.now,
     wanted: wantedTake,
+    onFeedOverflow: () => live.feedOverflowed(),
   });
   const rearm = arming.rearm;
 
@@ -222,7 +222,7 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
     broadcast,
     now: o.now,
     findCamera: async () => {
-      const found = await findCamera();
+      const found = await devices.findCamera();
       if (!found)
         throw new Refusal(
           `${CAMERA_NAME} (video) is not among the DirectShow devices.`
