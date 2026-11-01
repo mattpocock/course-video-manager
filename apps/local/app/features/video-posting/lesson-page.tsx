@@ -20,12 +20,14 @@ import { WritableField } from "@/features/article-writer/writable-field";
 
 export function LessonPage({
   videoId,
+  isStandalone,
   body,
   description,
   writerContext,
   onAddFileFromClipboard,
 }: {
   videoId: string;
+  isStandalone: boolean;
   body: string | null;
   description: string | null;
   writerContext: WriterContext | null;
@@ -128,7 +130,9 @@ export function LessonPage({
 
   return (
     <div className="space-y-6 max-w-3xl">
-      <h2 className="text-lg font-semibold">Lesson Content</h2>
+      <h2 className="text-lg font-semibold">
+        {isStandalone ? "Article" : "Lesson Content"}
+      </h2>
 
       <div className="space-y-2">
         <Label>Body (Markdown)</Label>

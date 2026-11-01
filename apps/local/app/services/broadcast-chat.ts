@@ -14,6 +14,7 @@ import type {
   ChatMessage,
   ChatSnapshot,
 } from "@/features/streaming/broadcast-chat";
+import { chatGaveUp } from "@/features/streaming/broadcast-chat";
 import type { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
 import {
   listChatPage,
@@ -256,7 +257,8 @@ export const createBroadcastChat = (o: {
   return {
     pick: (pick) =>
       Effect.gen(function* () {
-        if (pick.broadcastId === broadcastId) return;
+        // A chat that gave up starts again; one still reading is left alone.
+        if (pick.broadcastId === broadcastId && !chatGaveUp(connection)) return;
         stop();
         broadcastId = pick.broadcastId;
         messages = [];

@@ -92,6 +92,7 @@ export const createRecorderClient = (o: RecorderClientOptions) => {
   const watch = watchRecorder(o, () => ({
     kind: reachable ? state.kind : "closed",
     liveStream: live.liveStream(),
+    reachable,
   }));
 
   const publish = (videoId: string, message: CvmRecorderMessage) => {

@@ -2,7 +2,7 @@ import fs from "node:fs";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 import path from "node:path";
-import { afterAll, beforeAll, expect, vi } from "vitest";
+import { afterAll, beforeAll, expect, onTestFinished, vi } from "vitest";
 import { ConfigProvider, Effect, Either, Layer } from "effect";
 import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
@@ -25,6 +25,7 @@ import {
 import {
   connectClient,
   freshCalibration,
+  startLink,
   startService,
   tmp,
 } from "./recorder-client-test-harness";
@@ -198,6 +199,8 @@ export const ready = async (
     cardAnswerMs?: number;
     cardStartMs?: number;
     format?: "landscape" | "short";
+    /** Between the client and the service, so a test can cut it (`link.cut`). */
+    linked?: boolean;
   } = {}
 ) => {
   const windows = o.windows ?? fakeWindows();
@@ -211,10 +214,18 @@ export const ready = async (
   /** What the client told the app server of the Live Stream, in order. */
   const liveStreams: (RecorderLiveStream | null)[] = [];
   let streamedSessionsEnded = 0;
-  const client = connectClient(port, undefined, undefined, undefined, {
-    onLiveStreamChanged: (l) => liveStreams.push(l),
-    onStreamedSessionEnded: () => (streamedSessionsEnded += 1),
-  });
+  const link = o.linked ? await startLink(port) : undefined;
+  if (link) onTestFinished(() => link.close());
+  const client = connectClient(
+    link?.port ?? port,
+    undefined,
+    undefined,
+    undefined,
+    {
+      onLiveStreamChanged: (l) => liveStreams.push(l),
+      onStreamedSessionEnded: () => (streamedSessionsEnded += 1),
+    }
+  );
   await freshCalibration();
   await testDb.insert(schema.youtubeAuth).values({
     accessToken: "stored-access-token",
@@ -270,6 +281,8 @@ export const ready = async (
     folder,
     stateDir,
     port,
+    /** The client's connection to the service, if `linked`. */
+    link,
     /** The service's busy check, which its idle stop asks (ADR 0053). */
     busy,
     goLive: goLiveWith,

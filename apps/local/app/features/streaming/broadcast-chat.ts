@@ -54,7 +54,7 @@ export const ChatConnection = Schema.Union(
   }),
   /**
    * YouTube refused the stream connection before it ever opened for this
-   * Broadcast: no chat is read, and none is polled, until another pick.
+   * Broadcast: no chat is read, and none is polled, until it is picked again.
    */
   Schema.Struct({ state: Schema.Literal("refused"), message: Schema.String }),
   Schema.Struct({ state: Schema.Literal("over"), reason: ChatOverReason }),
@@ -64,6 +64,13 @@ export const ChatConnection = Schema.Union(
   })
 );
 export type ChatConnection = typeof ChatConnection.Type;
+
+/**
+ * The chat stopped for good (refused, over, or Google to reconnect): picking
+ * its Broadcast again starts it afresh. Any other chat is still reading.
+ */
+export const chatGaveUp = (c: ChatConnection) =>
+  c.state === "refused" || c.state === "over" || c.state === "needs-reconnect";
 
 /** Everything the app server holds of the chat, sent to each new listener. */
 export const ChatSnapshot = Schema.Struct({
