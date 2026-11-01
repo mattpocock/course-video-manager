@@ -116,9 +116,10 @@ const childQuery = (type: ChildType, id: string, place?: LessonPlace) =>
  * a Lesson, and anything on its pages, also carries the Course, Section and
  * Lesson as query params (see PLACE_PARAMS). A Lesson has no page of its own, so it links to its
  * Section's page with the Lesson's anchor in the hash, which that page
- * scrolls into view.
+ * scrolls into view. The path half of `entityDeepLink`, for an in-app
+ * navigation (Global Search).
  */
-function entityPath(entity: EntityRef): string {
+export function entityPath(entity: EntityRef): string {
   switch (entity.type) {
     case "course":
       return `/courses/${enc(entity.id)}`;

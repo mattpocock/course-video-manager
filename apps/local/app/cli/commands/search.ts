@@ -185,8 +185,9 @@ RESULTS (NDJSON — one compact hit per line; empty result prints nothing, exit 
 
   Every video hit carries its Video Format: { format: "landscape" | "short" }.
   A Short is a video hit with format "short", not a kind of its own. A Video in
-  a Lesson also carries courseId, sectionId and lessonId; a Standalone Video
-  carries none of them (it belongs to no Course).
+  a Lesson also carries courseId, sectionId and lessonId, plus courseName and
+  lessonTitle (to tell same-titled Videos apart); a Standalone Video carries
+  none of them (it belongs to no Course).
 
   Parent-id fields that would just echo an id you already know are omitted: a
   'course' hit never repeats its own id as courseId, and NONE of this

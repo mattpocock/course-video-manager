@@ -16,6 +16,7 @@ import {
   type CourseMenuIntent,
 } from "@/features/course-view/course-menu";
 import { cn } from "@/lib/utils";
+import { useOpenGlobalSearch } from "@/features/global-search/global-search";
 import { openPlayground } from "@/lib/diagram-window";
 import {
   Archive,
@@ -32,6 +33,7 @@ import {
   PenTool,
   Plus,
   RadioIcon,
+  Search,
   VideoIcon,
 } from "lucide-react";
 import { useEffect, useMemo } from "react";
@@ -110,6 +112,7 @@ export function AppSidebar({ variant }: AppSidebarProps) {
   const createStreamVideoFetcher = useFetcher();
 
   const { state, dispatch } = useAppSidebarReducer();
+  const openGlobalSearch = useOpenGlobalSearch();
 
   // Bridge: navigating anywhere closes the mobile sheet.
   useEffect(() => {
@@ -138,6 +141,20 @@ export function AppSidebar({ variant }: AppSidebarProps) {
 
   const content = (
     <div className="space-y-3 flex-1 overflow-y-auto">
+      <button
+        type="button"
+        onClick={openGlobalSearch}
+        className="w-full rounded-lg border bg-card flex items-center justify-between gap-2 px-3 py-2.5 hover:bg-accent/40 transition-colors text-left"
+      >
+        <span className="flex items-center gap-2 min-w-0">
+          <Search className="w-4 h-4 text-muted-foreground" />
+          <span className="text-sm font-medium">Search</span>
+        </span>
+        <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+          Ctrl K
+        </kbd>
+      </button>
+
       <EntityCard
         icon={<CalendarDays className="w-4 h-4 text-muted-foreground" />}
         label="Deliverables"

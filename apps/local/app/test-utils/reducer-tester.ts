@@ -9,7 +9,9 @@ import type {
 export const createMockExec = () => {
   const fn = vi.fn() as any;
   fn.stop = vi.fn();
-  fn.replace = vi.fn();
+  // Like the real `exec.replace`: it declares the new effect, so
+  // `getEffects()` lists it, and returns that effect's entity.
+  fn.replace = vi.fn((_entity: unknown, effect: unknown) => fn(effect));
   return fn;
 };
 

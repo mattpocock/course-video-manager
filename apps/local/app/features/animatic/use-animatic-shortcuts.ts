@@ -96,9 +96,10 @@ export function useAnimaticShortcuts(handlers: AnimaticShortcutHandlers) {
         held.current.onSelectEdge("first");
       } else if (e.key === "End") {
         held.current.onSelectEdge("last");
-      } else if (e.key === "l") {
+      } else if (e.key === "l" && !(e.ctrlKey || e.metaKey)) {
         held.current.onChooseRate(2);
-      } else if (e.key === "k") {
+      } else if (e.key === "k" && !(e.ctrlKey || e.metaKey)) {
+        // Ctrl/Cmd+K is Global Search's, never 1x (as on the Video page).
         held.current.onChooseRate(1);
       } else if (e.key === "c") {
         held.current.onToggleSubtitles();
