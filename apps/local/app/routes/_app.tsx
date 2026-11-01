@@ -8,6 +8,7 @@ import { CourseOperationsService } from "@/services/db-course-operations.server"
 import { DrizzleService } from "@/services/drizzle-service.server";
 import { makeLoader } from "@/services/route-action.server";
 import { onlyRootFilterChanged } from "@/features/storage/root-filter";
+import { onlySearchChanged } from "@/features/list-search/list-search";
 import { offlineStorageRoots } from "@/services/storage-root-availability.server";
 import { getFootageStats } from "@cvm/core/services/db-footage-stats.server";
 import { Effect } from "effect";
@@ -58,7 +59,8 @@ export const loader = makeLoader({
  * Also reload on every move to a new page, not only after a form submit, so
  * the sidebar's footage stats pick up a take recorded on the page just left.
  * It runs alongside the new page's own loader. Toggling the Storage Root
- * filter (#2431) only filters what the page already has: no reload.
+ * filter (#2431) or typing in a list's search box (#2512) only filters what
+ * the page already has: no reload.
  */
 export const shouldRevalidate: ShouldRevalidateFunction = ({
   currentUrl,
@@ -66,7 +68,9 @@ export const shouldRevalidate: ShouldRevalidateFunction = ({
   formMethod,
   defaultShouldRevalidate,
 }) =>
-  formMethod === undefined && onlyRootFilterChanged(currentUrl, nextUrl)
+  formMethod === undefined &&
+  (onlyRootFilterChanged(currentUrl, nextUrl) ||
+    onlySearchChanged(currentUrl, nextUrl))
     ? false
     : defaultShouldRevalidate || currentUrl.pathname !== nextUrl.pathname;
 

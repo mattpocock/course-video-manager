@@ -17,6 +17,14 @@ import { Button } from "@/components/ui/button";
 import { ContextMenu, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { EntityMenuContent } from "@/features/action-menu/action-menu";
 import { usePitchMenu } from "@/features/pitches/pitch-menu";
+import { ListSearchBox } from "@/features/list-search/list-search-box";
+import {
+  isSearching,
+  onlySearchChanged,
+  searchPitches,
+  searchQueryOf,
+  SEARCH_PARAM,
+} from "@/features/list-search/list-search";
 import { cn } from "@/lib/utils";
 import { CoursePublishReadService } from "@/services/course-publish-reads";
 import { PitchOperationsService } from "@/services/db-pitch-operations.server";
@@ -25,7 +33,13 @@ import { formatDuration } from "@/lib/format-duration";
 import { Effect } from "effect";
 import { FileVideo, Lightbulb, Plus } from "lucide-react";
 import { useEffect } from "react";
-import { Link, useFetcher, useNavigate, useSearchParams } from "react-router";
+import {
+  Link,
+  useFetcher,
+  useNavigate,
+  useSearchParams,
+  type ShouldRevalidateFunction,
+} from "react-router";
 import type { Route } from "./+types/_app.pitches._index";
 
 export const meta: Route.MetaFunction = () => {
@@ -136,14 +150,28 @@ export const loader = async (args: Route.LoaderArgs) => {
   })(args);
 };
 
+/** Typing in the search box filters what is loaded: no reload (#2512). */
+export const shouldRevalidate: ShouldRevalidateFunction = ({
+  currentUrl,
+  nextUrl,
+  formMethod,
+  defaultShouldRevalidate,
+}) =>
+  formMethod === undefined && onlySearchChanged(currentUrl, nextUrl)
+    ? false
+    : defaultShouldRevalidate;
+
 export default function PitchesIndexRoute(props: Route.ComponentProps) {
-  const { pitches, hasExportedVideoMap } = props.loaderData;
+  const { pitches: loadedPitches, hasExportedVideoMap } = props.loaderData;
   const createPitchFetcher = useFetcher();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const priorityFilter = parsePriorityParam(searchParams.get("priority"));
   const effortFilter = parseEffortParam(searchParams.get("effort"));
   const showShipped = searchParams.get("shipped") === "1";
+  const query = searchQueryOf(searchParams);
+  const searching = isSearching(query);
+  const pitches = searchPitches(loadedPitches, query);
 
   const updateFilters = (
     nextPriority: PitchPriority[],
@@ -190,11 +218,20 @@ export default function PitchesIndexRoute(props: Route.ComponentProps) {
   };
 
   const clearAll = () => {
-    updateFilters([], [], false);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      for (const param of ["priority", "effort", "shipped", SEARCH_PARAM]) {
+        next.delete(param);
+      }
+      return next;
+    });
   };
 
   const hasActiveFilters =
-    priorityFilter.length > 0 || effortFilter.length > 0 || showShipped;
+    priorityFilter.length > 0 ||
+    effortFilter.length > 0 ||
+    showShipped ||
+    searching;
 
   return (
     <div className="flex-1 flex flex-col bg-background text-foreground">
@@ -221,7 +258,8 @@ export default function PitchesIndexRoute(props: Route.ComponentProps) {
             </Button>
           </div>
 
-          <div className="mb-6">
+          <div className="mb-6 space-y-3">
+            <ListSearchBox placeholder="Search Pitches by title or description" />
             <div className="flex items-center gap-2 flex-wrap">
               {([1, 2, 3] as const).map((priority) => {
                 const isSelected = priorityFilter.includes(priority);
@@ -303,7 +341,11 @@ export default function PitchesIndexRoute(props: Route.ComponentProps) {
             </div>
           </div>
 
-          {pitches.length === 0 ? (
+          {pitches.length === 0 && searching ? (
+            <p className="text-center py-12 text-muted-foreground">
+              No matches
+            </p>
+          ) : pitches.length === 0 ? (
             <div className="text-center py-12">
               <Lightbulb className="w-16 h-16 mx-auto text-muted-foreground/50 mb-4" />
               <h3 className="text-xl font-semibold mb-2">No pitches yet</h3>
