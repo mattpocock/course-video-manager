@@ -28,7 +28,7 @@ import {
   STREAM_LISTEN_BOUND_MS,
   STREAM_STALL_MS,
 } from "./stream-side";
-import { CARD_ANSWER_MS } from "./card-server";
+import { CARD_ANSWER_MS, CARD_START_MS } from "./card-server";
 import { openStreamHealthLog } from "./stream-health";
 
 /**
@@ -106,6 +106,8 @@ export type LiveStreamOptions = {
   streamStallMs: number;
   /** How long a card's still may take before its click is refused (`CARD_ANSWER_MS`). */
   cardAnswerMs: number;
+  /** How long the card server may take to be ready before it is started afresh (`CARD_START_MS`). */
+  cardStartMs: number;
   /** Windows wall-clock ms, the Recording Session's T0's clock. */
   now: () => number;
 };
@@ -116,6 +118,7 @@ export const LIVE_STREAM_SETTINGS = {
   streamListenBoundMs: STREAM_LISTEN_BOUND_MS,
   streamStallMs: STREAM_STALL_MS,
   cardAnswerMs: CARD_ANSWER_MS,
+  cardStartMs: CARD_START_MS,
 } satisfies Partial<LiveStreamOptions>;
 
 export const createGoLive = (
@@ -222,6 +225,7 @@ export const createGoLive = (
           launch: o.launch,
           now: o.now,
           answerMs: o.cardAnswerMs,
+          startMs: o.cardStartMs,
         });
         await r.relayFree();
         goingLive = {

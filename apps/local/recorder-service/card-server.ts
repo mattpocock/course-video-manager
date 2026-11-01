@@ -35,6 +35,18 @@ const QUIT_MS = 5_000;
  */
 export const CARD_ANSWER_MS = 3_000;
 
+/**
+ * How long the card server may take to say it is ready: about 1.1 s from the
+ * cached bundle, several seconds when it must bundle again. One still not
+ * ready by then has hung starting (its Chromium never came up): it is killed,
+ * any click waiting on it refused, and the next click starts a fresh one.
+ */
+export const CARD_START_MS = 30_000;
+
+/** Why a click was refused when the card server never got ready. */
+export const cardServerHung = (ms: number) =>
+  `The card server was not ready within ${ms / 1000} s; a fresh one starts with the next click.`;
+
 /** Why a click was refused when its still came too late. */
 export const cardServerStalled = (ms: number) =>
   `The card server did not draw the card within ${ms / 1000} s; a fresh one is starting.`;
@@ -48,6 +60,8 @@ export const createCardServer = (o: {
   launch: Launcher;
   /** `CARD_ANSWER_MS` on the rig. */
   answerMs: number;
+  /** `CARD_START_MS` on the rig. */
+  startMs: number;
 }) => {
   let running:
     | {
@@ -106,6 +120,17 @@ export const createCardServer = (o: {
     const self = { process: child, ready, answers };
     running = self;
     void ready.catch(() => {});
+    const hung = setTimeout(() => {
+      if (running !== self) return;
+      console.error(`recorder: ${cardServerHung(o.startMs)}`);
+      failed?.(cardServerHung(o.startMs));
+      running = undefined;
+      child.kill();
+    }, o.startMs);
+    void ready.then(
+      () => clearTimeout(hung),
+      () => clearTimeout(hung)
+    );
     void child.exited.then((code) => {
       const why = `The card server quit (exit ${code}): ${tail.join(" ").slice(-400)}`;
       failed?.(why);
