@@ -1,5 +1,12 @@
 import { ContextMenu, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { EntityMenuContent } from "@/features/action-menu/action-menu";
+import { ListSearchBox } from "@/features/list-search/list-search-box";
+import {
+  isSearching,
+  onlySearchChanged,
+  searchQueryOf,
+  searchVideos,
+} from "@/features/list-search/list-search";
 import { useVideoDialogs } from "@/features/video-menu/video-dialogs";
 import { videoMenuGroups } from "@/features/video-menu/video-menu";
 import {
@@ -25,7 +32,12 @@ import { findExportedVideo } from "@/services/finished-videos.server";
 import { storageRootsConfig } from "@/services/storage-roots";
 import { Clapperboard, Plus, VideoIcon } from "lucide-react";
 import { useState } from "react";
-import { Link, useFetcher } from "react-router";
+import {
+  Link,
+  useFetcher,
+  useSearchParams,
+  type ShouldRevalidateFunction,
+} from "react-router";
 import { NEW_SHORT_ACTION, newShortFormData } from "@/lib/new-short";
 import type { Route } from "./+types/_app.shorts._index";
 
@@ -108,8 +120,22 @@ function RecordTile() {
   );
 }
 
+/** Typing in the search box filters what is loaded: no reload (#2512). */
+export const shouldRevalidate: ShouldRevalidateFunction = ({
+  currentUrl,
+  nextUrl,
+  formMethod,
+  defaultShouldRevalidate,
+}) =>
+  formMethod === undefined && onlySearchChanged(currentUrl, nextUrl)
+    ? false
+    : defaultShouldRevalidate;
+
 export default function ShortsIndex(props: Route.ComponentProps) {
-  const { shorts, exportedMap, postedMap } = props.loaderData;
+  const { exportedMap, postedMap } = props.loaderData;
+  const [searchParams] = useSearchParams();
+  const query = searchQueryOf(searchParams);
+  const shorts = searchVideos(props.loaderData.shorts, query);
   const [videoToPost, setVideoToPost] = useState<{
     id: string;
     title: string;
@@ -143,6 +169,10 @@ export default function ShortsIndex(props: Route.ComponentProps) {
           </div>
 
           {dialogs.dialogs}
+
+          <div className="mb-6">
+            <ListSearchBox placeholder="Search Shorts by title" />
+          </div>
 
           {videoToPost && (
             <ShortsPostingModal
@@ -247,6 +277,11 @@ export default function ShortsIndex(props: Route.ComponentProps) {
               );
             })}
           </div>
+          {shorts.length === 0 && isSearching(query) && (
+            <p className="text-center py-12 text-muted-foreground">
+              No matches
+            </p>
+          )}
         </div>
       </div>
     </div>
