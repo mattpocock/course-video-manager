@@ -33,7 +33,11 @@ export namespace globalSearchReducer {
   }
 
   export type Action =
-    | { type: "shortcut-pressed" }
+    /**
+     * `repeat`: the key's auto-repeat while it is held down. Ignored, so
+     * holding Ctrl/Cmd+K toggles the dialog once rather than flickering it.
+     */
+    | { type: "shortcut-pressed"; repeat: boolean }
     | { type: "search-button-clicked" }
     /** Escape, a click outside, or the close button. */
     | { type: "dismissed" }
@@ -123,6 +127,7 @@ export const globalSearchReducer: EffectReducer<
 > = (state, action, exec) => {
   switch (action.type) {
     case "shortcut-pressed":
+      if (action.repeat) return state;
       // The summon key is the dismiss key too.
       return state.open ? closed(state, exec) : opened();
     case "search-button-clicked":

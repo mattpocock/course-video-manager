@@ -50,12 +50,13 @@ export function GlobalSearchProvider({
   const listRef = useRef<HTMLDivElement>(null);
 
   // Bridge: Ctrl/Cmd+K anywhere, the dialog's own input included. It also
-  // keeps the browser's own Ctrl+K (its address-bar search) from running.
+  // keeps the browser's own Ctrl+K (its address-bar search) from running,
+  // auto-repeats included; the reducer ignores those.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (!isGlobalSearchShortcut(e)) return;
       e.preventDefault();
-      dispatch({ type: "shortcut-pressed" });
+      dispatch({ type: "shortcut-pressed", repeat: e.repeat });
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);

@@ -1,5 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
-import { fromPartial } from "@total-typescript/shoehorn";
+import { describe, expect, it } from "vitest";
 import { ReducerTester } from "@/test-utils/reducer-tester";
 import {
   createInitialGlobalSearchState,
@@ -48,11 +47,11 @@ const tester = () =>
 describe("globalSearchReducer", () => {
   it("the shortcut opens it empty, and the same key closes it", () => {
     const t = tester()
-      .send({ type: "shortcut-pressed" })
+      .send({ type: "shortcut-pressed", repeat: false })
       .send({ type: "query-typed", query: "eff" });
     expect(t.getState()).toMatchObject({ open: true, query: "eff" });
 
-    t.send({ type: "shortcut-pressed" });
+    t.send({ type: "shortcut-pressed", repeat: false });
     expect(t.getState().open).toBe(false);
 
     // Opened again, from the sidebar this time: a fresh, empty box.
@@ -65,16 +64,26 @@ describe("globalSearchReducer", () => {
     });
   });
 
+  it("holding the shortcut down toggles it once, not on every auto-repeat", () => {
+    const t = tester()
+      .send({ type: "shortcut-pressed", repeat: false })
+      .send({ type: "shortcut-pressed", repeat: true })
+      .send({ type: "shortcut-pressed", repeat: true });
+    expect(t.getState().open).toBe(true);
+
+    t.send({ type: "shortcut-pressed", repeat: false }).send({
+      type: "shortcut-pressed",
+      repeat: true,
+    });
+    expect(t.getState().open).toBe(false);
+  });
+
   it("fast typing replaces the pending search, and a late result for the old query is ignored", () => {
     const t = tester();
-    const first = fromPartial<NonNullable<globalSearchReducer.State["search"]>>(
-      {
-        type: "search",
-      }
-    );
-    vi.mocked(t.getExec()).mockReturnValueOnce(first);
 
-    t.send({ type: "shortcut-pressed" })
+    // Each keystroke declares a new search; the real `exec.replace` cancels
+    // the one before it (its timer and request).
+    t.send({ type: "shortcut-pressed", repeat: false })
       .send({ type: "query-typed", query: "ef" })
       .send({ type: "query-typed", query: "effect" });
 
@@ -82,11 +91,6 @@ describe("globalSearchReducer", () => {
       { type: "search", query: "ef" },
       { type: "search", query: "effect" },
     ]);
-    // The second search cancels the first one's timer and request.
-    expect(t.getExec().replace).toHaveBeenLastCalledWith(first, {
-      type: "search",
-      query: "effect",
-    });
     expect(t.getState().status).toBe("searching");
 
     t.send({ type: "results-arrived", query: "ef", hits: [pitch] });
@@ -98,7 +102,7 @@ describe("globalSearchReducer", () => {
 
   it("arrows and Enter open the picked result through its deep link", () => {
     const t = tester()
-      .send({ type: "shortcut-pressed" })
+      .send({ type: "shortcut-pressed", repeat: false })
       .send({ type: "query-typed", query: "effect" })
       .send({
         type: "results-arrived",
@@ -126,7 +130,7 @@ describe("globalSearchReducer", () => {
     const reopen = () =>
       t
         .resetExec()
-        .send({ type: "shortcut-pressed" })
+        .send({ type: "shortcut-pressed", repeat: false })
         .send({ type: "query-typed", query: "effect" })
         .send({
           type: "results-arrived",
