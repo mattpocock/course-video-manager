@@ -10,10 +10,11 @@ import {
   type BroadcastListAnswer,
   type ReconnectReason,
 } from "./broadcast";
-import type {
-  BroadcastChatEvent,
-  BroadcastPick,
-  ChatSnapshot,
+import {
+  chatGaveUp,
+  type BroadcastChatEvent,
+  type BroadcastPick,
+  type ChatSnapshot,
 } from "./broadcast-chat";
 import {
   chatHighlightReducer,
@@ -154,7 +155,10 @@ const broadcastsAnswered = (
   };
 };
 
-/** Picking a Broadcast hands its chat to the app server, unless it has it. */
+/**
+ * Picking a Broadcast hands its chat to the app server, unless it has it and
+ * is still reading it: picked again, a chat that gave up starts afresh.
+ */
 const broadcastClicked = (
   state: State,
   broadcastId: string,
@@ -162,7 +166,10 @@ const broadcastClicked = (
 ): State => {
   const broadcast = listedBroadcast(state, broadcastId);
   if (!broadcast) return state;
-  if (state.chat.broadcastId === broadcast.id) {
+  if (
+    state.chat.broadcastId === broadcast.id &&
+    !chatGaveUp(state.chat.connection)
+  ) {
     return { ...state, pickedBroadcast: broadcast };
   }
   exec({

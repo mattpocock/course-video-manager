@@ -525,6 +525,34 @@ describe("the Broadcast's live chat, owned by the app server", () => {
     });
   });
 
+  it("starts again when its Broadcast is picked again once it gave up (refused, Google to reconnect, over); a chat still running is left alone", async () => {
+    await storeGrant();
+    youtube.chatStreams.push(refuseStream);
+    youtube.chatStreams.push((res) =>
+      sendPages(res, [chatPage({ messages: [fakeViewerMessage(1)] })])
+    );
+    const chat = startChat();
+    const officeHours = {
+      broadcastId: "office-hours",
+      liveChatId: "chat-office-hours",
+    };
+
+    await pick(chat, officeHours);
+    await vi.waitFor(() =>
+      expect(chat.snapshot().connection.state).toBe("refused")
+    );
+    // Matt clicks it again (after reconnecting Google, say).
+    await pick(chat, officeHours);
+
+    await vi.waitFor(() =>
+      expect(chat.snapshot().messages).toEqual([shown(1)])
+    );
+    await pick(chat, officeHours);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(chatRequests()).toHaveLength(2);
+    expect(chat.snapshot().messages).toEqual([shown(1)]);
+  });
+
   it("polls, at YouTube's interval, only once a stream connection that worked breaks down mid-stream", async () => {
     await storeGrant();
     youtube.chatStreams.push((res) => {

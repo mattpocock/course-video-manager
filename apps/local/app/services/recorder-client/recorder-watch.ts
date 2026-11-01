@@ -15,6 +15,8 @@ import { holdWhisperWarm } from "./whisper-warmth";
 type Heard = {
   kind: "closed" | "open" | "recording";
   liveStream: RecorderLiveStream | null;
+  /** Whether the recorder service answers: one that doesn't says nothing of its Live Stream. */
+  reachable: boolean;
 };
 
 const sameLiveStream = (
@@ -51,6 +53,15 @@ export const watchRecorder = (
   let was = false;
   let wasLive: RecorderLiveStream | null = null;
   let wasStreamed = false;
+  const liveStreamHeard = (now: Heard) => {
+    if (!sameLiveStream(wasLive, now.liveStream)) {
+      wasLive = now.liveStream;
+      o.onLiveStreamChanged(now.liveStream);
+    }
+    const streamed = streamedSession(now);
+    if (wasStreamed && !streamed) o.onStreamedSessionEnded();
+    wasStreamed = streamed;
+  };
   return {
     /** For the recorder client's own API: the Still Gate's signal. */
     signal: {
@@ -65,13 +76,9 @@ export const watchRecorder = (
     changed() {
       whisper.changed();
       const now = heard();
-      if (!sameLiveStream(wasLive, now.liveStream)) {
-        wasLive = now.liveStream;
-        o.onLiveStreamChanged(now.liveStream);
-      }
-      const streamed = streamedSession(now);
-      if (wasStreamed && !streamed) o.onStreamedSessionEnded();
-      wasStreamed = streamed;
+      // Cut off, the recorder may well be live still: the Live indicator
+      // and the chat wait for what it says once it answers again.
+      if (now.reachable) liveStreamHeard(now);
       const isRecording = now.kind === "recording";
       if (isRecording === was) return;
       was = isRecording;
