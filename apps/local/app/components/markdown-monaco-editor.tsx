@@ -1,6 +1,11 @@
-import { lazy, Suspense, useCallback } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef } from "react";
 import type { OnMount } from "@monaco-editor/react";
 import type * as Monaco from "monaco-editor";
+import { useEffectReducer } from "@/hooks/use-effect-reducer";
+import {
+  createInitialMarkdownEditorSyncState,
+  markdownEditorSyncReducer,
+} from "./markdown-editor-sync-reducer";
 
 const MonacoEditor = lazy(() => import("@monaco-editor/react"));
 
@@ -69,9 +74,74 @@ export function MarkdownMonacoEditor({
   options,
   fallback,
 }: MarkdownMonacoEditorProps) {
+  // Monaco owns its text: it gets `value` once, as its default, and a later
+  // `value` reaches it only when the sync reducer says it is not a lagging
+  // echo of the user's own typing. Passing `value` straight through let
+  // @monaco-editor/react overwrite fresh keystrokes with a stale round-trip.
+  const ownEditorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
+  const valueRef = useRef(value);
+  valueRef.current = value;
+  const replacingTextRef = useRef(false);
+
+  const [, dispatch] = useEffectReducer<
+    markdownEditorSyncReducer.State,
+    markdownEditorSyncReducer.Action,
+    markdownEditorSyncReducer.Effect
+  >(markdownEditorSyncReducer, createInitialMarkdownEditorSyncState, {
+    "replace-text": (_state, effect) => {
+      const editor = ownEditorRef.current;
+      const model = editor?.getModel();
+      if (!editor || !model || model.getValue() === effect.text) return;
+      replacingTextRef.current = true;
+      try {
+        if (editor.getRawOptions().readOnly) {
+          editor.setValue(effect.text);
+        } else {
+          editor.executeEdits("", [
+            {
+              range: model.getFullModelRange(),
+              text: effect.text,
+              forceMoveMarkers: true,
+            },
+          ]);
+          editor.pushUndoStop();
+        }
+      } finally {
+        replacingTextRef.current = false;
+      }
+    },
+  });
+
+  useEffect(() => {
+    const editor = ownEditorRef.current;
+    if (!editor) return;
+    dispatch({
+      type: "value-prop-received",
+      value,
+      modelValue: editor.getValue(),
+    });
+  }, [value, dispatch]);
+
+  const handleChange = useCallback(
+    (next: string | undefined) => {
+      if (replacingTextRef.current) return;
+      const text = next ?? "";
+      dispatch({ type: "editor-content-changed", value: text });
+      onChange(text);
+    },
+    [dispatch, onChange]
+  );
+
   const handleMount = useCallback<OnMount>(
     (editor, monaco) => {
+      ownEditorRef.current = editor;
       if (editorRef) editorRef.current = editor;
+      // A `value` that changed while the editor was loading.
+      dispatch({
+        type: "value-prop-received",
+        value: valueRef.current,
+        modelValue: editor.getValue(),
+      });
       registerPrettierFormatter(monaco);
 
       editor.addCommand(
@@ -87,7 +157,7 @@ export function MarkdownMonacoEditor({
 
       onMount?.(editor, monaco);
     },
-    [editorRef, onMount, onSave]
+    [editorRef, onMount, onSave, dispatch]
   );
 
   return (
@@ -106,8 +176,8 @@ export function MarkdownMonacoEditor({
       <MonacoEditor
         height={height}
         defaultLanguage="markdown"
-        value={value}
-        onChange={(v) => onChange(v ?? "")}
+        defaultValue={value}
+        onChange={handleChange}
         onMount={handleMount}
         theme="vs-dark"
         options={{ ...DEFAULT_OPTIONS, ...options }}
