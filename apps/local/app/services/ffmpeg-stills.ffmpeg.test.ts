@@ -73,11 +73,18 @@ describe.skipIf(!hasFfmpeg)("a screenshot, decoded on the GPU", () => {
       opts
     );
 
-  const capture = (name: string, opts?: Parameters<typeof clipFrame>[2]) => {
+  const capture = (
+    name: string,
+    opts?: Parameters<typeof clipFrame>[2] | { footage: string }
+  ) => {
     const out = path.join(dir, name);
+    const still =
+      opts && "footage" in opts
+        ? { kind: "footage" as const, inputVideo: opts.footage, time: 0.5 }
+        : frame(opts);
     return Effect.runPromise(
       Effect.flatMap(FFmpegCommandsService, (ffmpeg) =>
-        ffmpeg.captureFrameAtTime(frame(opts), out)
+        ffmpeg.captureFrameAtTime(still, out)
       ).pipe(
         Effect.provide(
           Layer.mergeAll(FFmpegCommandsService.Default, NodeContext.layer)
@@ -99,8 +106,12 @@ describe.skipIf(!hasFfmpeg)("a screenshot, decoded on the GPU", () => {
     });
   };
 
-  it("captures the frame at 720p", async () => {
-    expect(await capture("gpu.jpg")).toBe("1280,720");
+  it("captures a With-face frame at the composite's full 1920x1080, never scaled down", async () => {
+    expect(await capture("gpu.png")).toBe("1920,1080");
+  });
+
+  it("captures an OBS Clip's frame at its Footage's native size", async () => {
+    expect(await capture("footage.png", { footage: camera })).toBe("384,216");
   });
 
   it("captures a No-face frame as the screen alone, at its native size", async () => {
@@ -123,7 +134,7 @@ describe.skipIf(!hasFfmpeg)("a screenshot, decoded on the GPU", () => {
     });
 
     it("captures it all the same, on the CPU", async () => {
-      expect(await capture("cpu.jpg")).toBe("1280,720");
+      expect(await capture("cpu.png")).toBe("1920,1080");
     });
   });
 });
