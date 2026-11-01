@@ -44,6 +44,17 @@ export type StreamHealth = {
   bitrateKbps: number | null;
   /** Times it reconnected since Go Live: its push retried, or its process relaunched. */
   reconnects: number;
+  /**
+   * Times a take's feed to it overflowed since Go Live (#2525): the stream
+   * fell behind, and that feed's fifo dropped what it held. The encoder's
+   * numbers stay green through it, so this is the feeds' own signal.
+   */
+  feedOverflows: number;
+  /**
+   * A feed overflowed within the last `FEED_RECOVERED_MS`: packets are being
+   * dropped, and the health line is amber until the feeds are whole again.
+   */
+  feedsDropping: boolean;
 };
 
 /**

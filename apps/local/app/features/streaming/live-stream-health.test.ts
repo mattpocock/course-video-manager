@@ -6,7 +6,7 @@ import {
   goLiveControl,
   liveStreamReducer,
 } from "./live-stream-reducer";
-import { streamHealthLine } from "./stream-health-line";
+import { streamHealthAmber, streamHealthLine } from "./stream-health-line";
 
 /**
  * The Live Stream's health line and reconnect state on the Live Stream
@@ -22,6 +22,8 @@ const health = (o: Partial<StreamHealth> = {}): StreamHealth => ({
   duplicatedFrames: 0,
   bitrateKbps: 9_160,
   reconnects: 0,
+  feedOverflows: 0,
+  feedsDropping: false,
   ...o,
 });
 
@@ -68,6 +70,24 @@ describe("the Live Stream's health line", () => {
     expect(
       streamHealthLine(tester.getState(), VIDEO, health({ reconnects: 2 }))
     ).toMatch(/^Live · .* · 2 reconnects$/);
+  });
+
+  it("goes amber while a feed is dropping packets, counting its overflows, though the encoder's numbers are green (#2525)", () => {
+    const tester = liveOn();
+    const dropping = health({ feedOverflows: 3, feedsDropping: true });
+
+    expect(streamHealthLine(tester.getState(), VIDEO, dropping)).toBe(
+      "Live · 60.0 fps · 1.00x · 0 dropped · 0 duplicated · 9.2 Mb/s · 0 reconnects · 3 feed overflows"
+    );
+    expect(streamHealthAmber(dropping)).toBe(true);
+
+    // Whole again: the count stays, the amber goes.
+    const whole = health({ feedOverflows: 3, feedsDropping: false });
+    expect(streamHealthLine(tester.getState(), VIDEO, whole)).toMatch(
+      / · 3 feed overflows$/
+    );
+    expect(streamHealthAmber(whole)).toBe(false);
+    expect(streamHealthAmber(null)).toBe(false);
   });
 
   it("shows only the state until the stream process has said how it is doing", () => {

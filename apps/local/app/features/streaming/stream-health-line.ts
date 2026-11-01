@@ -7,7 +7,8 @@ import { isLiveOn, type liveStreamReducer } from "./live-stream-reducer";
 /**
  * THE HEALTH LINE under the stream picture (spec #2445, stories 46–47): the
  * Live Stream's state, then fps, speed, dropped and duplicated frames,
- * bitrate and how many times it has reconnected, from what the Streaming
+ * bitrate, how many times it has reconnected and how many times a feed to
+ * it overflowed (once one has, #2525), from what the Streaming
  * tab's recorder last said (`cvmRecorder.state.streamHealth`, which a Live
  * Stream's end forgets). Only while the Live Stream on this Video runs.
  */
@@ -42,5 +43,14 @@ export const streamHealthLine = (
       ? "— Mb/s"
       : `${(h.bitrateKbps / 1000).toFixed(1)} Mb/s`,
     plural(h.reconnects, "reconnect"),
+    ...(h.feedOverflows > 0 ? [plural(h.feedOverflows, "feed overflow")] : []),
   ].join(" · ");
 };
+
+/**
+ * Whether the health line is amber: a feed to the stream is dropping
+ * packets (#2525), which the encoder's numbers never show. It clears once
+ * the feeds have been whole a few seconds (`FEED_RECOVERED_MS`).
+ */
+export const streamHealthAmber = (health: StreamHealth | null): boolean =>
+  health?.feedsDropping === true;

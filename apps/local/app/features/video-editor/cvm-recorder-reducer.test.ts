@@ -257,6 +257,8 @@ describe("the Live Stream's health on the CVM recorder", () => {
       duplicatedFrames: 0,
       bitrateKbps: 9_000,
       reconnects: 4,
+      feedOverflows: 0,
+      feedsDropping: false,
     };
     const t = tester()
       .send(status())

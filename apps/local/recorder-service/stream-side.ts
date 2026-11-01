@@ -13,7 +13,7 @@ import {
   STREAM_TAG,
   type StreamCard,
 } from "./stream-args";
-import type { StreamFeedPorts } from "./stream-feeds";
+import { FEED_RECOVERED_MS, type StreamFeedPorts } from "./stream-feeds";
 import {
   NO_HEALTH,
   readStreamHealth,
@@ -78,6 +78,17 @@ const HEALTHY_MS = 30_000;
 
 /** How long `q` gets before the stream process is killed. */
 const STREAM_QUIT_TIMEOUT_MS = 5_000;
+
+/**
+ * How long Go Live waits for the last Live Stream's process to quit, after
+ * End Stream: its own `q` and kill (`STREAM_QUIT_TIMEOUT_MS`), and a little
+ * more for its Windows side. Only past it is Go Live refused.
+ */
+export const LAST_STREAM_QUIT_BOUND_MS = STREAM_QUIT_TIMEOUT_MS + 3_000;
+
+/** Why Go Live is refused when the last stream process outlived that bound. */
+export const LAST_STREAM_STILL_QUITTING =
+  "The last Live Stream's process has not quit yet: press Go Live again in a moment.";
 
 /** How long a stalled one gets: it is likely deaf to `q`. */
 const STALLED_QUIT_TIMEOUT_MS = 1_000;
@@ -160,6 +171,8 @@ export const createStreamSide = (o: {
   fileTime: () => number | null;
   /** A process is launching, its picture starting at this file time (s). */
   onLaunch: (startSeconds: number) => void;
+  /** Wall-clock ms, for how long ago a feed last overflowed. */
+  now: () => number;
 }) => {
   const stallMs = o.stallMs;
   let status: StreamStatus = STREAM_IDLE;
@@ -169,6 +182,9 @@ export const createStreamSide = (o: {
   /** The service's scene, which every stream process launched starts on. */
   let scene: Scene | undefined;
   let reconnects = 0;
+  /** The take's feeds' overflows since Go Live, and when the last was. */
+  let feedOverflows = 0;
+  let lastOverflowAt = -Infinity;
   let health: ProcessHealth = NO_HEALTH;
   /** Relaunches since a process was last healthy: how long the next waits. */
   let relaunches = 0;
@@ -181,7 +197,34 @@ export const createStreamSide = (o: {
     status = next;
     o.onStatus(next);
   };
-  const sendHealth = () => o.onHealth({ ...health, reconnects });
+  const feedsDropping = () => o.now() - lastOverflowAt < FEED_RECOVERED_MS;
+  const sendHealth = () =>
+    o.onHealth({
+      ...health,
+      reconnects,
+      feedOverflows,
+      feedsDropping: feedsDropping(),
+    });
+
+  /**
+   * A FEED OVERFLOWED (#2525): the stream fell behind a take's process, and
+   * that feed's fifo dropped its queue, starting again at the next keyframe.
+   * The encoder's numbers stay green through it, so it turns the health
+   * amber at once, and stays so until no feed has overflowed for
+   * `FEED_RECOVERED_MS`. Its fifo recovers on its own; nothing is relaunched,
+   * and the take never hears of it. Logged once per run of overflows.
+   */
+  const feedOverflowed = () => {
+    if (!held) return;
+    const wasDropping = feedsDropping();
+    feedOverflows += 1;
+    lastOverflowAt = o.now();
+    if (!wasDropping)
+      console.error(
+        "recorder: Live Stream: a take's feed to it overflowed (the stream fell behind it): packets dropped until its next keyframe; the recording carries on"
+      );
+    sendHealth();
+  };
   /** It lost YouTube, or its process: one more reconnect, said at once. */
   const reconnecting = () => {
     reconnects += 1;
@@ -324,11 +367,32 @@ export const createStreamSide = (o: {
     return self;
   };
 
+  /**
+   * Waits, up to `boundMs`, for the last Live Stream's process to have gone:
+   * Go Live straight after End Stream is a restart, not a refusal. Only a
+   * process still there past the bound refuses, so two never push at once.
+   */
+  const lastGone = async (boundMs: number): Promise<void> => {
+    if (held) throw new Error("A Live Stream is already running.");
+    if (quitting.size === 0) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const gone = await Promise.race([
+      Promise.all(quitting).then(() => true),
+      new Promise<false>((resolve) => {
+        timer = setTimeout(() => resolve(false), boundMs);
+      }),
+    ]);
+    clearTimeout(timer);
+    if (!gone) throw new Error(LAST_STREAM_STILL_QUITTING);
+  };
+
   const start = async (s: StreamStart): Promise<void> => {
     if (running || held) throw new Error("A Live Stream is already running.");
     const log = stderrLog(redactStreamKey(s.streamKey));
     held = { start: s, log };
     reconnects = 0;
+    feedOverflows = 0;
+    lastOverflowAt = -Infinity;
     relaunches = 0;
     health = NO_HEALTH;
     set({ kind: "starting" });
@@ -382,6 +446,8 @@ export const createStreamSide = (o: {
   };
 
   return {
+    lastGone,
+    feedOverflowed,
     start,
     end,
     switchScene,
