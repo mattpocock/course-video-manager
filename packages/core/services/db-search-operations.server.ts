@@ -88,8 +88,9 @@ export type SearchHit =
 /**
  * A `video` hit, in either **Video Format** (a Short is a `video` hit with
  * format `short`, not a kind of its own). A Video in a Lesson carries the ids
- * that place it in its Course; a **Standalone Video** (no Lesson, including one
- * made from a Pitch) carries none of them.
+ * that place it in its Course, and its Course's name and Lesson's title (so
+ * two Videos with one title can be told apart); a **Standalone Video** (no
+ * Lesson, including one made from a Pitch) carries none of them.
  */
 export type SearchVideoHit = {
   kind: "video";
@@ -99,8 +100,20 @@ export type SearchVideoHit = {
   field: string;
   snippet: string;
 } & (
-  | { courseId: string; sectionId: string; lessonId: string }
-  | { courseId?: undefined; sectionId?: undefined; lessonId?: undefined }
+  | {
+      courseId: string;
+      sectionId: string;
+      lessonId: string;
+      courseName: string;
+      lessonTitle: string;
+    }
+  | {
+      courseId?: undefined;
+      sectionId?: undefined;
+      lessonId?: undefined;
+      courseName?: undefined;
+      lessonTitle?: undefined;
+    }
 );
 
 /**
@@ -277,6 +290,7 @@ const createSearchOperations = (db: Database) => {
 
     let courseHead: CourseHead | null = null; // present => emit a course hit path
     let courseId = ""; // owning course for the walked subtree
+    let courseName = ""; // its name, carried on every Video hit in a Lesson
     let sectionNodes: SectionNode[] = [];
     // A lesson root walks a single lesson's subtree (no section above it).
     let lessonRoot: LessonNode | null = null;
@@ -338,13 +352,17 @@ const createSearchOperations = (db: Database) => {
           where: and(eq(sections.id, root.id), isNull(sections.archivedAt)),
           columns: { id: true, title: true, description: true, order: true },
           with: {
-            repoVersion: { columns: { repoId: true } },
+            repoVersion: {
+              columns: { repoId: true },
+              with: { repo: { columns: { name: true } } },
+            },
             lessons: sectionWith.with.lessons,
           },
         })
       );
       if (!sec) return null;
       courseId = sec.repoVersion?.repoId ?? "";
+      courseName = sec.repoVersion?.repo?.name ?? "";
       sectionNodes = [
         {
           id: sec.id,
@@ -367,7 +385,12 @@ const createSearchOperations = (db: Database) => {
           with: {
             section: {
               columns: { id: true },
-              with: { repoVersion: { columns: { repoId: true } } },
+              with: {
+                repoVersion: {
+                  columns: { repoId: true },
+                  with: { repo: { columns: { name: true } } },
+                },
+              },
             },
             videos: sectionWith.with.lessons.with.videos,
           },
@@ -375,6 +398,7 @@ const createSearchOperations = (db: Database) => {
       );
       if (!les) return null;
       courseId = les.section?.repoVersion?.repoId ?? "";
+      courseName = les.section?.repoVersion?.repo?.name ?? "";
       lessonRoot = {
         id: les.id,
         title: les.title,
@@ -485,7 +509,15 @@ const createSearchOperations = (db: Database) => {
       transcriptMatch.get(v.id) ??
       null;
 
-    const emitVideo = (v: VideoNode, cid: string, sectionId: string) => {
+    /** The Course a walked Video sits in: its id and its name. */
+    type Owner = { id: string; name: string };
+
+    const emitVideo = (
+      v: VideoNode,
+      owner: Owner,
+      sectionId: string,
+      lessonTitle: string
+    ) => {
       if (want("video")) {
         const m = videoMatch(v);
         if (m)
@@ -493,9 +525,11 @@ const createSearchOperations = (db: Database) => {
             kind: "video",
             id: v.id,
             format: resolveVideoFormat(v.format),
-            courseId: cid,
+            courseId: owner.id,
             sectionId,
             lessonId: v.lessonId,
+            courseName: owner.name,
+            lessonTitle,
             title: v.title,
             field: m.field,
             snippet: m.snippet,
@@ -511,7 +545,7 @@ const createSearchOperations = (db: Database) => {
             hits.push({
               kind: "beat",
               id: seg.id,
-              courseId: cid,
+              courseId: owner.id,
               videoId: seg.videoId,
               title: seg.title,
               field: m.field,
@@ -521,7 +555,7 @@ const createSearchOperations = (db: Database) => {
       }
     };
 
-    const emitLesson = (les: LessonNode, cid: string) => {
+    const emitLesson = (les: LessonNode, owner: Owner) => {
       if (want("lesson")) {
         const m = firstMatch([
           ["title", les.title],
@@ -531,17 +565,17 @@ const createSearchOperations = (db: Database) => {
           hits.push({
             kind: "lesson",
             id: les.id,
-            courseId: cid,
+            courseId: owner.id,
             sectionId: les.sectionId,
             path: les.title,
             field: m.field,
             snippet: m.snippet,
           });
       }
-      for (const v of les.videos) emitVideo(v, cid, les.sectionId);
+      for (const v of les.videos) emitVideo(v, owner, les.sectionId, les.title);
     };
 
-    const emitSection = (sec: SectionNode, cid: string) => {
+    const emitSection = (sec: SectionNode, owner: Owner) => {
       if (want("section")) {
         const m = firstMatch([
           ["title", sec.title],
@@ -551,13 +585,13 @@ const createSearchOperations = (db: Database) => {
           hits.push({
             kind: "section",
             id: sec.id,
-            courseId: cid,
+            courseId: owner.id,
             path: sec.title,
             field: m.field,
             snippet: m.snippet,
           });
       }
-      for (const les of sec.lessons) emitLesson(les, cid);
+      for (const les of sec.lessons) emitLesson(les, owner);
     };
 
     const emitCourse = (head: CourseHead, secs: SectionNode[]) => {
@@ -576,7 +610,8 @@ const createSearchOperations = (db: Database) => {
             snippet: m.snippet,
           });
       }
-      for (const sec of secs) emitSection(sec, head.id);
+      for (const sec of secs)
+        emitSection(sec, { id: head.id, name: head.name });
     };
 
     if (root === null) {
@@ -585,9 +620,10 @@ const createSearchOperations = (db: Database) => {
     } else if (courseHead) {
       emitCourse(courseHead, sectionNodes);
     } else if (lessonRoot) {
-      emitLesson(lessonRoot, courseId);
+      emitLesson(lessonRoot, { id: courseId, name: courseName });
     } else {
-      for (const sec of sectionNodes) emitSection(sec, courseId);
+      for (const sec of sectionNodes)
+        emitSection(sec, { id: courseId, name: courseName });
     }
 
     for (const v of standaloneVideos) {

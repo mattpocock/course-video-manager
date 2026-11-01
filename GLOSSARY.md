@@ -492,7 +492,7 @@ A named, immutable piece of a drawing, saved from a selection and able to be put
 _Avoid_: template, stencil, symbol, DiagramComponent (there is no such record on a Diagram), "saved selection"
 
 **Command Palette**:
-The single keyboard way, inside the **Active Diagram**, to insert an **Icon** or a **Component**, replace an Icon, save a selection as a Component, search all Diagrams by content, and reach the snapshot and diagram actions (ADR 0004). It exists only with an Active Diagram, never on **Playground Home**.
+The single keyboard way, inside the **Active Diagram**, to insert an **Icon** or a **Component**, replace an Icon, save a selection as a Component, search all Diagrams by content, and reach the snapshot and diagram actions (ADR 0004). It exists only with an Active Diagram, never on **Playground Home**. It is the Diagram Playground's only: the main app's Ctrl/Cmd+K is **Global Search**.
 _Avoid_: Command bar, Quick actions, Spotlight, Omnibox
 
 **Icon**:
@@ -560,6 +560,12 @@ _Avoid_: Broken dependency, Invalid order
 **Dependency Group**:
 The longest run of lessons next to each other in one **Section**, in display order, linked by **Lesson Dependencies**: going from top to bottom, a Lesson joins the group only if it depends directly on a Lesson already in it. Dependencies that skip over lessons or point forward are not part of it. It is only a visual grouping, different from a **Section**.
 _Avoid_: Dependency block, Cluster, Chain, Lesson group
+
+### Search
+
+**Global Search**:
+The main app's Ctrl/Cmd+K dialog (also opened from the sidebar's Search button) that finds any non-archived **Course**, **Section**, **Lesson**, **Video** (either **Video Format**, **Standalone Videos** included) or **Pitch**, in each Course's **Draft Version**, and opens it. It runs the same search as `cvm search`, without **Beats**. It exists on every page under the app layout, never in the Diagram Playground, whose **Command Palette** keeps that key.
+_Avoid_: Command Palette (the Diagram Playground's), Omnibox, Spotlight, Quick open
 
 ### Remote access
 

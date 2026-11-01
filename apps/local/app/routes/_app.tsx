@@ -4,6 +4,7 @@ import { GlobalUploadProgress } from "@/features/upload-manager/global-upload-pr
 import { UploadProvider } from "@/features/upload-manager/upload-context";
 import { LiveStreamProvider } from "@/features/streaming/live-stream-context";
 import { LiveIndicator } from "@/features/streaming/live-indicator";
+import { GlobalSearchProvider } from "@/features/global-search/global-search";
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { DrizzleService } from "@/services/drizzle-service.server";
 import { makeLoader } from "@/services/route-action.server";
@@ -107,18 +108,24 @@ export default function AppLayout() {
   //
   // The Live Stream surface lives here too, so the picked Broadcast (and the
   // Live Stream) outlive the Streaming tab.
+  //
+  // So does Global Search (Ctrl/Cmd+K): every page under this layout has it,
+  // and the Diagram Playground, which keeps that key for its own Command
+  // Palette, does not.
   return (
     <UploadProvider>
       <LiveStreamProvider>
-        <GlobalUploadProgress />
-        <div className="flex min-h-screen">
-          <AppSidebar variant={isFullscreen ? "floating" : "rail"} />
-          <div className="flex-1 min-w-0 flex flex-col">
-            <LiveIndicator />
-            <OfflineStorageRootsBanner />
-            <Outlet />
+        <GlobalSearchProvider>
+          <GlobalUploadProgress />
+          <div className="flex min-h-screen">
+            <AppSidebar variant={isFullscreen ? "floating" : "rail"} />
+            <div className="flex-1 min-w-0 flex flex-col">
+              <LiveIndicator />
+              <OfflineStorageRootsBanner />
+              <Outlet />
+            </div>
           </div>
-        </div>
+        </GlobalSearchProvider>
       </LiveStreamProvider>
     </UploadProvider>
   );

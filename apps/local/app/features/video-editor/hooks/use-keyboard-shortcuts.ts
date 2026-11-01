@@ -37,9 +37,10 @@ export function useKeyboardShortcuts(
         } else {
           dispatch({ type: "press-arrow-down" });
         }
-      } else if (e.key === "l") {
+      } else if (e.key === "l" && !(e.ctrlKey || e.metaKey)) {
         dispatch({ type: "press-l" });
-      } else if (e.key === "k") {
+      } else if (e.key === "k" && !(e.ctrlKey || e.metaKey)) {
+        // Ctrl/Cmd+K is Global Search's, never 1x.
         dispatch({ type: "press-k" });
       } else if (e.key === "Home") {
         dispatch({ type: "press-home" });

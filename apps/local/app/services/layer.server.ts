@@ -22,6 +22,7 @@ import { LessonSectionOperationsService } from "@/services/db-lesson-section-ope
 import { DiagramOperationsService } from "@/services/db-diagram-operations.server";
 import { DiagramComponentOperationsService } from "@/services/db-diagram-component-operations.server";
 import { PitchOperationsService } from "@/services/db-pitch-operations.server";
+import { SearchOperationsService } from "@/services/db-search-operations.server";
 import { BeatOperationsService } from "@/services/db-beat-operations.server";
 import { ClipMockupOperationsService } from "@/services/db-clip-mockup-operations.server";
 import { ClipMockupChapterOperationsService } from "@/services/db-clip-mockup-chapter-operations.server";
@@ -54,6 +55,8 @@ const coreLayer = Layer.mergeAll(
   DiagramOperationsService.Default,
   DiagramComponentOperationsService.Default,
   PitchOperationsService.Default,
+  // Global Search's API route; the same search `cvm search` runs.
+  SearchOperationsService.Default,
   BeatOperationsService.Default,
   ClipMockupOperationsService.Default,
   ClipMockupChapterOperationsService.Default,

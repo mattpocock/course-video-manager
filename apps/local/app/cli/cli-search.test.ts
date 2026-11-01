@@ -416,7 +416,8 @@ describe("search over rows a test writes", () => {
       },
     ]);
 
-    // A Video in a Lesson carries every id needed to link to it.
+    // A Video in a Lesson carries every id needed to link to it, and the
+    // names of its Course and Lesson, so two same-titled Videos differ.
     const tree = await run(["search", "--type", "video", "intro"]);
     expect(ndjson(tree.stdout)).toEqual([
       expect.objectContaining({
@@ -426,6 +427,8 @@ describe("search over rows a test writes", () => {
         courseId: s.courseAId,
         sectionId: s.draftSectionId,
         lessonId: s.lessonId,
+        courseName: "Alpha",
+        lessonTitle: "Welcome",
       }),
     ]);
 
