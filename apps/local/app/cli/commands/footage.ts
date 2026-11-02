@@ -35,6 +35,7 @@ import { enqueueJob, JOB_KIND_SPECS } from "../../../sidecar/job-specs";
 import { FILE_NAMES } from "recorder-service/capture-args";
 import { footageOnDisk } from "./footage-on-disk";
 import { importCmd } from "./footage-import";
+import { searchCmd } from "./footage-search";
 import { requireLocalFootage, withFootageJobs } from "./footage-jobs";
 import { waitForFootageTranscription } from "./footage-transcribe-wait";
 import {
@@ -246,5 +247,11 @@ const transcriptCmd = Command.make(
 
 export const footageCommand = Command.make("footage").pipe(
   Command.withDescription(detail(HELP)),
-  Command.withSubcommands([listCmd, importCmd, transcribeCmd, transcriptCmd])
+  Command.withSubcommands([
+    listCmd,
+    importCmd,
+    searchCmd,
+    transcribeCmd,
+    transcriptCmd,
+  ])
 );

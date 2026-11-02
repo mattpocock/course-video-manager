@@ -49,6 +49,8 @@ Verbs:
                                          every Imported Footage file
   import     <file> [--no-wait]          Copy a 16:9 file in as Imported
                                          Footage, and transcribe it
+  search     <query>                     Find a phrase in what was said in
+                                         Imported Footage (per segment)
   transcribe <path> [--no-wait]          Transcribe a file, caching the result
   transcript <path>                      Read the cached transcript (never runs
                                          Whisper; not-found if never transcribed)`;
@@ -186,3 +188,34 @@ Examples:
   cvm footage import ~/Downloads/streamyard-interview.mp4
   cvm footage import --no-wait /tmp/b-roll.mov
   cvm footage list --imported`;
+
+export const SEARCH_HELP = `Find a phrase in what was said in Imported Footage.
+
+Searches the transcript of every Imported Footage file (everything under
+raw-footage/imported/ on every Storage Root, as 'footage list --imported'
+walks it). Nothing else is searched: other Footage, Clips and Videos are not
+(use 'cvm search' for those).
+
+The match is PER SEGMENT: each transcript segment (Whisper's sentence-sized
+run of words, with a start and end) is a hit when its text contains the query
+as a literal, case-insensitive substring, the same rule as 'cvm search'. A
+phrase split across two segments is not found. An empty query is a ParseError
+(exit 3).
+
+Only a FRESH transcript is searched: one whose content hash still matches the
+file's bytes. A file never transcribed, still being transcribed, or changed
+since is NOT TRANSCRIBED, never "no matches": after the hits, one JSON line on
+STDERR names them, { notTranscribed: [path, ...] } (absent when there are
+none). Transcribe one with 'footage transcribe <path>'.
+
+Prints NDJSON, one hit per line, in path then time order (no hits prints
+nothing, exit 0):
+  path   ROOT-RELATIVE ("raw-footage/imported/interview.mp4"), ready for
+         'clip add --source'
+  start  the segment's start, in seconds on the file's own timeline
+  end    the segment's end
+  text   the segment's words
+
+Examples:
+  cvm footage search "type inference"
+  cvm footage search "generics" | jq -r '"\\(.path) \\(.start)"'`;
