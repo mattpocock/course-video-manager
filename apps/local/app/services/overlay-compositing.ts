@@ -8,45 +8,28 @@
  * catch — no test in this repo drives real ffmpeg.
  */
 
-import {
-  clipExportDurationInSeconds,
-  expectedExportDurationInSeconds,
-  type ExportClipDuration,
-} from "./export-duration-check";
+import type { ExportClipDuration } from "./export-duration-check";
+import { placeOnTimeline } from "./overlay-timeline";
 import type { OverlayContent } from "./overlay-render-cache";
 import { resolveOverlayKind } from "@/features/videos/overlay-kind";
 import type { ExportOverlay } from "./export-hash";
 import { overlayTransformVideoFilter } from "@/features/videos/overlay-transform";
-import { bRollFootageTime } from "@/features/video-editor/b-roll-footage-time";
 import { VIDEO_FORMAT_DIMENSIONS } from "@/features/videos/video-format";
 import { BITEXACT_ARGS, LANDSCAPE_VIDEO_ENCODE_ARGS } from "./ffmpeg-run";
-
-/**
- * A B-roll's picture: a stretch of Imported Footage (root-relative), from
- * `footageStart` seconds into the file. It is never rendered — the compositing
- * pass reads the Footage itself — so it has no Overlay Render Cache entry.
- */
-export type BRollFootage = {
-  kind: "bRoll";
-  footagePath: string;
-  footageStart: number;
-  durationInSeconds: number;
-};
 
 /**
  * One Overlay placed on the Video's own timeline: the seconds at which it
  * appears and disappears in the finished export.
  *
  * `content` is what the Overlay Render Cache is asked for — a Definition Card
- * or a Bullet Panel, discriminated by the Overlay's own Kind — or, for a
- * B-roll, the Footage the pass reads instead of a render. It carries the
+ * or a Bullet Panel, discriminated by the Overlay's own Kind. It carries the
  * Overlay's OWN `durationInSeconds`, not `endInSeconds - startInSeconds`: a
  * card truncated by the end of the Video is still rendered at full length, so
  * the same card at the end of one Video and the middle of another shares one
  * cached render.
  */
 export type PlacedOverlay = {
-  content: OverlayContent | BRollFootage;
+  content: OverlayContent;
   startInSeconds: number;
   /** Never past the end of the Video — a card that runs off the end is cut. */
   endInSeconds: number;
@@ -71,13 +54,10 @@ export type OverlayCameraMove = {
  * the ffmpeg pass needs and nothing it does not — the content has already done
  * its job by naming the file.
  *
- * `inputPath` is the ffmpeg input drawn over the span: the rendered `.mov`,
- * or, for a B-roll, its Imported Footage found on a Storage Root,
- * and `footageStart` is where in that file its window starts; null otherwise.
+ * `inputPath` is the ffmpeg input drawn over the span: the rendered `.mov`.
  */
 export type RenderedOverlay = {
   inputPath: string;
-  footageStart: number | null;
   startInSeconds: number;
   endInSeconds: number;
 } & OverlayCameraMove;
@@ -94,64 +74,12 @@ export const withRenderedContent = (
   inputPath: string
 ): RenderedOverlay => ({
   inputPath,
-  footageStart:
-    placed.content.kind === "bRoll" ? placed.content.footageStart : null,
   startInSeconds: placed.startInSeconds,
   endInSeconds: placed.endInSeconds,
   kind: placed.kind,
   disableEnterAnimation: placed.disableEnterAnimation,
   disableExitAnimation: placed.disableExitAnimation,
 });
-
-/**
- * Convert every Overlay's Clip-relative anchor into an absolute offset on the
- * finished Video's timeline.
- *
- * The export concatenates the Clips end to end, so a Clip's start on the
- * timeline is the sum of what every preceding Clip contributes — its padded
- * duration plus its long Pause, exactly the number ffmpeg is told to cut. The
- * Clips must arrive in playback order and with the archived ones already gone,
- * which is what `getVideoWithClipsById` returns and what the renderer is fed.
- *
- * An Overlay lasts as long as it says, not as long as its anchor Clip: one
- * that outlives its Clip keeps showing over the Clips that follow, and is cut
- * off at the end of the Video. An Overlay anchored past the end of the Video —
- * only reachable from data that no longer matches its Clip — is dropped rather
- * than composited into a span that does not exist.
- *
- * Every Kind is placed, a Chat Card included: this is the one placement both
- * the export and a Short's render read.
- */
-export const placeOnTimeline = <
-  O extends { at: number; durationInSeconds: number },
->(
-  clips: ReadonlyArray<{ overlays: ReadonlyArray<O> }>,
-  clipDurations: ReadonlyArray<ExportClipDuration>
-): Array<{ overlay: O; startInSeconds: number; endInSeconds: number }> => {
-  const videoEndInSeconds = expectedExportDurationInSeconds(clipDurations);
-  const placed: Array<{
-    overlay: O;
-    startInSeconds: number;
-    endInSeconds: number;
-  }> = [];
-  let clipStartInSeconds = 0;
-
-  clips.forEach((clip, index) => {
-    const duration = clipDurations[index];
-    for (const overlay of clip.overlays) {
-      const startInSeconds = clipStartInSeconds + overlay.at;
-      const endInSeconds = Math.min(
-        startInSeconds + overlay.durationInSeconds,
-        videoEndInSeconds
-      );
-      if (!(endInSeconds > startInSeconds)) continue;
-      placed.push({ overlay, startInSeconds, endInSeconds });
-    }
-    clipStartInSeconds += duration ? clipExportDurationInSeconds(duration) : 0;
-  });
-
-  return placed;
-};
 
 /**
  * The Overlays the export composites, placed by {@link placeOnTimeline}. A
@@ -190,23 +118,11 @@ export const placeOverlaysOnTimeline = (
  * A Bullet Panel with no bullets at all is still a panel — its heading renders
  * — so the empty array is passed through rather than treated as absent.
  */
-const overlayContent = (
-  overlay: ExportOverlay
-): OverlayContent | BRollFootage | null => {
+const overlayContent = (overlay: ExportOverlay): OverlayContent | null => {
   switch (resolveOverlayKind(overlay.kind)) {
     case "chatCard":
       // Shorts only: never composited by the export.
       return null;
-    case "bRoll":
-      // `cvm overlay` never writes a B-roll without both. A row that somehow
-      // lacks its path is looked for as "" and fails the export as Footage
-      // not found, rather than compositing nothing.
-      return {
-        kind: "bRoll",
-        footagePath: overlay.footagePath ?? "",
-        footageStart: overlay.footageStart ?? 0,
-        durationInSeconds: overlay.durationInSeconds,
-      };
     case "bulletPanel":
       return {
         kind: "bulletPanel",
@@ -273,11 +189,6 @@ const NORMALIZE_FILTER = `scale=${VIDEO_FORMAT_DIMENSIONS.landscape.width}:${VID
  * An Overlay whose kind carries none — every Definition Card — adds no move at
  * all, so its graph is what it always was.
  *
- * A B-roll's input is its Imported Footage, already sought to its `from` by
- * {@link buildOverlayCompositeArgs}. Its node trims it to the window, shifts it
- * onto the window, and scales it to the landscape frame, which it then covers
- * whole. It moves no camera.
- *
  * Returns `null` for no Overlays at all — the signal to skip the pass entirely,
  * which is what leaves a Video without Overlays byte-for-byte as it was.
  */
@@ -291,17 +202,10 @@ export const buildOverlayCompositeFilterGraph = (
 ): string | null => {
   if (overlays.length === 0) return null;
 
-  const shifts = overlays.map((overlay, index) => {
-    const shift = `setpts=PTS-STARTPTS+${formatSeconds(overlay.startInSeconds)}/TB`;
-    // A B-roll's input is timed from its `from` (0), with the frame before
-    // an off-grid `from` kept at a time below 0: shifted, not restarted, so
-    // that frame is the one on screen when the window opens.
-    const node =
-      overlay.kind === "bRoll"
-        ? `trim=end=${formatSeconds(overlay.endInSeconds - overlay.startInSeconds)},setpts=PTS+${formatSeconds(overlay.startInSeconds)}/TB,${NORMALIZE_FILTER}`
-        : shift;
-    return `[${index + 1}:v]${node}[ovl${index}]`;
-  });
+  const shifts = overlays.map(
+    (overlay, index) =>
+      `[${index + 1}:v]setpts=PTS-STARTPTS+${formatSeconds(overlay.startInSeconds)}/TB[ovl${index}]`
+  );
 
   let current = "[0:v]";
 
@@ -367,23 +271,7 @@ export const buildOverlayCompositeArgs = (
     "-hide_banner",
     "-i",
     videoPath,
-    // A B-roll's Footage is sought to its `from`, so a long file is never
-    // decoded from its start, and its node's `trim` ends the read at the
-    // window's end (an input `-t` would cut the frames kept before `from`).
-    // Not an accurate seek: that drops every frame before `from`, so an
-    // off-grid `from` would open on the frame after the one the preview
-    // shows.
-    ...overlays.flatMap((overlay) =>
-      overlay.footageStart === null
-        ? ["-i", overlay.inputPath]
-        : [
-            "-noaccurate_seek",
-            "-ss",
-            formatSeconds(bRollFootageTime(overlay.footageStart, 0)),
-            "-i",
-            overlay.inputPath,
-          ]
-    ),
+    ...overlays.flatMap((overlay) => ["-i", overlay.inputPath]),
     "-filter_complex",
     filterGraph,
     "-map",

@@ -337,6 +337,20 @@
       "when": 1793652362284,
       "tag": "0047_overlay_chat_spin",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1793656495335,
+      "tag": "0048_clip_layer",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1793658550980,
+      "tag": "0049_b_roll_to_footage_layers",
+      "breakpoints": true
     }
   ]
 }

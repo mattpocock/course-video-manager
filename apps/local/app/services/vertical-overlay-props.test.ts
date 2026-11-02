@@ -15,8 +15,6 @@ const overlay = (overrides: Partial<ExportOverlay> = {}): ExportOverlay => ({
   title: "@fake_viewer_1",
   description: "A fake question?",
   bullets: null,
-  footagePath: null,
-  footageStart: null,
   chatSpin: [
     { author: "@fake_viewer_2", text: "Fake message two" },
     { author: "@fake_viewer_3", text: "Fake message three" },
@@ -29,7 +27,6 @@ const props = (overlays: ExportOverlay[][]) =>
     fps: 60,
     durationInFrames: 1200,
     subtitles: [],
-    ctaDurationInFrames: 120,
     clips: overlays.map((o) => ({ overlays: o })),
     clipDurations: overlays.map(() => ({ duration: 10, pauseType: "none" })),
   });
@@ -62,14 +59,14 @@ describe("a Short's render props", () => {
     ).toEqual([]);
   });
 
-  it("are as they were for a Short with no Chat Card", () => {
+  it("draw no call to action: captions, and nothing else, for a Short with no Chat Card", () => {
     expect(props([[]])).toEqual({
       width: 1080,
       height: 1920,
       fps: 60,
       durationInFrames: 1200,
       subtitles: [],
-      cta: { variant: "ai", durationInFrames: 120 },
+      cta: null,
       chatCards: [],
     });
   });

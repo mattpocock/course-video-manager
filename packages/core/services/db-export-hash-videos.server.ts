@@ -1,4 +1,5 @@
 import { asc, eq } from "drizzle-orm";
+import { clipLayersRelation } from "./clip-layers-relation.js";
 import { clips } from "../db/schema.js";
 import { clipRecordingSessionRelation } from "./clip-recording-session-relation.js";
 import { overlayExportRelation } from "./db-overlay-operations.server.js";
@@ -44,6 +45,7 @@ export const listVideosForExportHash = async (db: Database) => {
         with: {
           overlays: overlayExportRelation,
           recordingSession: clipRecordingSessionRelation,
+          layers: clipLayersRelation,
         },
       },
     },

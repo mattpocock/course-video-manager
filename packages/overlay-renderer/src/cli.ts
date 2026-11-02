@@ -1,17 +1,20 @@
 import { readFile } from "node:fs/promises";
 import { parseOverlayProps } from "./props";
-import { renderOverlay } from "./render";
+import { renderOverlay, renderOverlayFrame } from "./render";
 
-const USAGE = `Render a CVM overlay to a transparent ProRes 4444 .mov.
+const USAGE = `Render a CVM overlay to a transparent ProRes 4444 .mov, or one
+frame of it to a transparent PNG.
 
 Usage:
   render-overlay --props-file <path.json> --out <path.mov>
+  render-overlay --props-file <path.json> --frame <n> --out <path.png>
   render-overlay --out <path.mov>   # props read from stdin
 
 Options:
   --props-file <path>  JSON file with the overlay props. If omitted, props are
                        read from stdin.
-  --out <path>         Output .mov location (required).
+  --out <path>         Output .mov location (required); a .png with --frame.
+  --frame <n>          Render only frame n (0-based) of the composition.
   --quiet              Do not print progress.
   -h, --help           Show this help.
 
@@ -35,6 +38,7 @@ const parseArgs = (argv: string[]) => {
   const args: {
     propsFile?: string;
     out?: string;
+    frame?: number;
     quiet: boolean;
     help: boolean;
   } = { quiet: false, help: false };
@@ -46,6 +50,11 @@ const parseArgs = (argv: string[]) => {
         break;
       case "--out":
         args.out = argv[++i];
+        break;
+      case "--frame":
+        args.frame = Number(argv[++i]);
+        if (!Number.isInteger(args.frame) || args.frame < 0)
+          throw new Error("--frame must be a whole number, 0 or more.");
         break;
       case "--quiet":
         args.quiet = true;
@@ -76,6 +85,15 @@ export const main = async (argv: string[]): Promise<void> => {
     ? await readFile(args.propsFile, "utf8")
     : await readStdin();
   const props = parseOverlayProps(JSON.parse(rawJson));
+
+  if (args.frame !== undefined) {
+    const still = await renderOverlayFrame(props, {
+      frame: args.frame,
+      outputLocation: args.out,
+    });
+    process.stdout.write(JSON.stringify(still) + "\n");
+    return;
+  }
 
   const result = await renderOverlay(props, {
     outputLocation: args.out,

@@ -18,7 +18,7 @@ import {
  * the Chat Spin's cells into `chatSpin`). Content is copied, never linked.
  *
  * Split out of overlay.ts so that module stays under the repo's per-file token
- * budget, as `overlay.b-roll.ts` holds the B-roll's.
+ * budget, as `overlay.bullets.ts` holds the Bullet Panel's.
  */
 
 export const chatCardOpts = {
@@ -48,7 +48,7 @@ const refuse = (message: string) => parseError(message, "overlay");
 /**
  * Which flags go with the kind the Overlay will BE. A Chat Card's content is
  * its Chat Highlight's, so it takes no `--title`, `--description` or
- * `--bullets-json` (and, as every kind but a B-roll, no `--footage`/`--from`).
+ * `--bullets-json`.
  * Every other kind refuses the Chat Card's two flags.
  */
 export const requireChatCardFlags = (params: {

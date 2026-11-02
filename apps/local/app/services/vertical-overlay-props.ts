@@ -2,15 +2,22 @@ import { chatCardInputProps } from "@/features/video-editor/chat-card-input-prop
 import { resolveOverlayKind } from "@/features/videos/overlay-kind";
 import type { ExportClipDuration } from "./export-duration-check";
 import type { ExportOverlay } from "./export-hash";
-import { placeOnTimeline } from "./overlay-compositing";
+import { placeOnTimeline } from "./overlay-timeline";
+
+/**
+ * How a Short's overlay is drawn over its picture: by the render's final pass
+ * (`compositeOverlay`) and by `cvm clip frame`, alike.
+ */
+export const SHORT_OVERLAY_COMPOSITE_FILTER =
+  "[0:v][1:v]overlay=0:0:format=auto[outv]";
 
 /** A caption segment, timed in frames, as `loadShortSubtitles` builds it. */
 type Subtitle = { startFrame: number; endFrame: number; text: string };
 
 /**
  * The props a Short's render hands its one Remotion composition: the
- * captions, the CTA, and the Short's Chat Cards. Pure, so what a Short draws
- * is tested without a render.
+ * captions and the Short's Chat Cards. Pure, so what a Short draws is tested
+ * without a render. A Short draws no call to action: `cta` is always null.
  *
  * Chat Cards are the only Overlays a Short draws. Each is placed with the
  * export's own placement (`placeOnTimeline`), on the same Clip durations the
@@ -21,7 +28,6 @@ export const verticalOverlayProps = (p: {
   fps: number;
   durationInFrames: number;
   subtitles: Subtitle[];
-  ctaDurationInFrames: number;
   clips: ReadonlyArray<{ overlays: ReadonlyArray<ExportOverlay> }>;
   clipDurations: ReadonlyArray<ExportClipDuration>;
 }) => ({
@@ -30,7 +36,7 @@ export const verticalOverlayProps = (p: {
   fps: p.fps,
   durationInFrames: p.durationInFrames,
   subtitles: p.subtitles,
-  cta: { variant: "ai" as const, durationInFrames: p.ctaDurationInFrames },
+  cta: null,
   chatCards: chatCardProps(p.clips, p.clipDurations, p.fps),
 });
 

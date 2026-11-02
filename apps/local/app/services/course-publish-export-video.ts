@@ -1,6 +1,7 @@
 import {
   clipComposite,
   clipFfmpegInput,
+  clipLayers,
   clipSource,
 } from "@/packages/clip-source";
 import path from "node:path";
@@ -23,7 +24,6 @@ import {
   locateExportedVideo,
 } from "./finished-videos.server";
 import { resolveClipSourceFiles } from "./clip-source-files.server";
-import { resolveStoragePath } from "@/packages/storage/server";
 import {
   ensureExportDigest,
   ensureExportDuration,
@@ -220,7 +220,11 @@ export const exportVideoToItsAddress = Effect.fn("exportVideoToItsAddress")(
       // Footage is on an unplugged drive still ships.
       const renderClips = yield* Effect.forEach(video.clips, (clip, index) =>
         Effect.gen(function* () {
-          const source = yield* resolveClipSourceFiles(clipSource(clip), roots);
+          // Its Scene Layer drawn in the Video's format, as it is hashed.
+          const source = yield* resolveClipSourceFiles(
+            clipSource(clip, { videoFormat: resolveVideoFormat(video.format) }),
+            roots
+          );
           const input = clipFfmpegInput(source);
           const asked = clipDurations[index]!;
           return {
@@ -232,6 +236,7 @@ export const exportVideoToItsAddress = Effect.fn("exportVideoToItsAddress")(
             composite: clipComposite(source, {
               durationSeconds: clipExportDurationInSeconds(asked),
             }),
+            layers: clipLayers(source),
           };
         })
       ).pipe(
@@ -246,19 +251,6 @@ export const exportVideoToItsAddress = Effect.fn("exportVideoToItsAddress")(
       const placedOverlays = placeOverlaysOnTimeline(
         video.clips,
         clipDurations
-      );
-
-      // A B-roll's Imported Footage is an input of the compositing pass, so
-      // it is found now, like each Clip's: a file on no root fails the export
-      // with "Footage not found (E: offline?)" before anything is encoded.
-      const bRollFootage = yield* Effect.forEach(placedOverlays, (placed) =>
-        placed.content.kind === "bRoll"
-          ? resolveStoragePath(placed.content.footagePath, roots, "Footage")
-          : Effect.succeed(null)
-      ).pipe(
-        Effect.mapError(
-          (error) => new ExportError({ message: error.message, cause: error })
-        )
       );
 
       if (shortExportPath !== null) {
@@ -341,24 +333,19 @@ export const exportVideoToItsAddress = Effect.fn("exportVideoToItsAddress")(
           // the export never got past. It is named for Overlays and not for
           // Definition Cards because every Overlay Kind renders through it.
           stage = "render-overlays";
-          // A B-roll is not rendered: the pass reads its Footage directly.
           const renderedOverlays = yield* Effect.forEach(
             placedOverlays,
-            (placed, index) =>
-              placed.content.kind === "bRoll"
-                ? Effect.succeed(
-                    withRenderedContent(placed, bRollFootage[index]!)
+            (placed) =>
+              overlayRenderCache
+                .renderOverlay({
+                  courseId: namespace,
+                  content: placed.content,
+                })
+                .pipe(
+                  Effect.map((overlayPath) =>
+                    withRenderedContent(placed, overlayPath)
                   )
-                : overlayRenderCache
-                    .renderOverlay({
-                      courseId: namespace,
-                      content: placed.content,
-                    })
-                    .pipe(
-                      Effect.map((overlayPath) =>
-                        withRenderedContent(placed, overlayPath)
-                      )
-                    )
+                )
           );
 
           stage = "composite-overlays";

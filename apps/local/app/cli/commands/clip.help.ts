@@ -42,14 +42,23 @@ Verbs:
   clip delete <id>                           archive the clip (soft delete; see 'clip restore')
   clip restore <id>                          undo 'clip delete'
   clip words <id>                            the clip's Transcript Words, in spoken order (NDJSON)
+  clip layer list|add|update|move|remove     the clip's Layers: its picture (see 'clip layer --help')
+  clip update --layers-from <id> <id...>     copy one clip's Layers onto others
+  clip frame --at <t> <id>                   a PNG of a Short's clip as posted: Layers, captions, Chat Cards
 
 All writes are immediate — no confirmation, no dry-run (agent-facing tool). There is no 'clip tree'
 (clips are leaves) — use 'video tree' then 'clip get'. 'clip add' cuts a single clip from a footage
 file + time range and takes its text from that footage's cached transcript (see 'cvm footage').`;
 
-export const UPDATE_HELP = `Update a Clip: set its Clip Zoom and/or retime its cut.
+export const UPDATE_HELP = `Update a Clip: set its Clip Zoom and/or retime its cut, or copy another Clip's Layers.
 
-At least one of --zoom / --start / --end is required.
+At least one of --zoom / --start / --end / --layers-from is required.
+
+--layers-from <clip>: copy that Clip's Layers (see 'clip layer') onto every clip named, in one
+write: 'clip update --layers-from clip_src clip_a clip_b'. A copy each; nothing is linked, so
+editing one later changes no other. It goes alone (no --zoom / --start / --end), and is refused
+whole (exit 3) when any clip cannot take them (camera/screen on a clip with no Recording Session,
+a Landscape shape). --zoom / --start / --end update one clip at a time.
 
 --zoom <t>: "none" (as filmed) or "subtle", rendering the clip slightly tighter so a run of
 face-only camera clips has some visual change across its cuts. Only camera scenes can be zoomed —
@@ -69,7 +78,8 @@ transcriptionStatus, which says whether a Transcription landed at all).
 
 Retiming DOES cascade to everything positioned relative to the clip's start, in the same
 transaction as the recut itself, because moving the in-point moves the footage out from under
-every stored offset:
+every stored offset (and a Footage Layer of a file keeps showing the same Footage at the same
+moment: its start and span move with the cut):
 
   Transcript Words ('cvm clip words') are shifted by the same delta as the recut. A word the new,
   shorter range no longer contains — either end outside [0, duration] — is DROPPED. Words are

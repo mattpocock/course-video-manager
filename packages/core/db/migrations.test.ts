@@ -210,4 +210,186 @@ describe("drizzle migrations", () => {
     },
     MIGRATION_TIMEOUT_MS
   );
+  /**
+   * The picture a B-roll drew, read back from its Footage Layers: at a moment
+   * `t` of the Video (on the timeline the export placed Overlays on), the
+   * instant of which Footage file is on screen, or null for the Scene Layer.
+   */
+  const footageAt = (
+    layers: {
+      clip_id: string;
+      footage_path: string;
+      footage_start: number;
+      span_at: number;
+      span_duration: number;
+    }[],
+    clipStarts: Record<string, number>,
+    t: number
+  ) => {
+    for (const layer of layers) {
+      const at = clipStarts[layer.clip_id]! + layer.span_at;
+      if (t >= at && t < at + layer.span_duration) {
+        return {
+          path: layer.footage_path,
+          instant: layer.footage_start + (t - at),
+        };
+      }
+    }
+    return null;
+  };
+
+  it(
+    "0049 turns each B-roll into Footage Layers showing the same Footage at the same Video times",
+    async () => {
+      const { close, db } = await migrateUpTo("0049_b_roll_to_footage_layers");
+
+      await db.execute(sql`
+        INSERT INTO "course-video-manager_video"
+          (id, lineage_id, title, original_footage_path, format)
+        VALUES ('one', 'l1', 'One', '', 'landscape'), ('two', 'l2', 'Two', '', 'landscape')
+      `);
+      // Video one: a (10 s), then b (4 s + a long Pause), then c (5 s + the
+      // final padding). Video two: x (3 s), an archived Clip, y (2 s + a long
+      // Pause), z (1 s + the final padding).
+      await db.execute(sql`
+        INSERT INTO "course-video-manager_clip"
+          (id, video_id, video_filename, source_start_time, source_end_time, "order", text, archived, pause_type)
+        VALUES
+          ('a', 'one', 'f.mp4', 0, 10, 'a', '', false, 'none'),
+          ('b', 'one', 'f.mp4', 20, 24, 'b', '', false, 'long'),
+          ('c', 'one', 'f.mp4', 0, 5, 'c', '', false, 'none'),
+          ('x', 'two', 'f.mp4', 0, 3, 'a', '', false, 'none'),
+          ('gone', 'two', 'f.mp4', 0, 50, 'b', '', true, 'none'),
+          ('y', 'two', 'f.mp4', 10, 12, 'c', '', false, 'long'),
+          ('z', 'two', 'f.mp4', 5, 6, 'd', '', false, 'none')
+      `);
+      await db.execute(sql`
+        INSERT INTO "course-video-manager_overlay"
+          (id, clip_id, at, duration_in_seconds, kind, title, description, footage_path, footage_start)
+        VALUES
+          ('part', 'a', 2, 3, 'bRoll', '', '', 'raw-footage/imported/part.mp4', 10),
+          ('whole', 'b', 0, 4.18, 'bRoll', '', '', 'raw-footage/imported/whole.mp4', 7),
+          ('card', 'c', 1, 2, 'definitionCard', 'Term', 'Body', NULL, NULL),
+          ('several', 'x', 2, 10, 'bRoll', '', '', 'raw-footage/imported/several.mp4', 1),
+          ('archived', 'gone', 1, 2, 'bRoll', '', '', 'raw-footage/imported/never.mp4', 0)
+      `);
+
+      await migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
+
+      const overlays = await db.execute<{ id: string }>(
+        sql`SELECT id FROM "course-video-manager_overlay" ORDER BY id`
+      );
+      expect(overlays.rows).toEqual([{ id: "card" }]);
+
+      const rows = (
+        await db.execute<{
+          clip_id: string;
+          position: number;
+          kind: string;
+          footage_path: string;
+          footage_start: number;
+          crop: number[];
+          place: number[];
+          volume: number;
+          span_at: number;
+          span_duration: number;
+        }>(sql`
+          SELECT clip_id, position, kind, footage_path, footage_start,
+            ARRAY[crop_x, crop_y, crop_w, crop_h] AS crop,
+            ARRAY[place_x, place_y, place_w, place_h] AS place,
+            volume, span_at, span_duration
+          FROM "course-video-manager_clip_layer" ORDER BY clip_id, position
+        `)
+      ).rows;
+      // A Scene Layer at the bottom of every Clip a B-roll covered, and a
+      // full-frame, muted Footage Layer above it.
+      expect(rows.map((r) => [r.clip_id, r.position, r.kind])).toEqual([
+        ["a", 0, "scene"],
+        ["a", 1, "footage"],
+        ["b", 0, "scene"],
+        ["b", 1, "footage"],
+        ["x", 0, "scene"],
+        ["x", 1, "footage"],
+        ["y", 0, "scene"],
+        ["y", 1, "footage"],
+        ["z", 0, "scene"],
+        ["z", 1, "footage"],
+      ]);
+      const footage = rows.filter((r) => r.kind === "footage");
+      for (const layer of footage) {
+        expect(layer.crop).toEqual([0, 0, 1, 1]);
+        expect(layer.place).toEqual([0, 0, 1920, 1080]);
+        expect(layer.volume).toBe(0);
+      }
+      const spans = Object.fromEntries(
+        footage.map((r) => [
+          r.clip_id,
+          [r.footage_start, r.span_at, r.span_duration].map((n) =>
+            Number(n.toFixed(6))
+          ),
+        ])
+      );
+      expect(spans).toEqual({
+        // Part of one Clip.
+        a: [10, 2, 3],
+        // A whole Clip, its long Pause included.
+        b: [7, 0, 4.18],
+        // Several Clips, the archived one skipped, cut at the Video's end.
+        x: [1, 2, 1],
+        y: [2, 0, 2.18],
+        z: [4.18, 0, 1.42],
+      });
+
+      // Each B-roll's picture, sampled across its window and either side of
+      // it: before, the Footage instant `from + (t - window start)`; after,
+      // the same instant from the Footage Layers.
+      const bRolls: {
+        clipStarts: Record<string, number>;
+        path: string;
+        from: number;
+        start: number;
+        end: number;
+      }[] = [
+        {
+          clipStarts: { a: 0, b: 10, c: 14.18 },
+          path: "part",
+          from: 10,
+          start: 2,
+          end: 5,
+        },
+        {
+          clipStarts: { a: 0, b: 10, c: 14.18 },
+          path: "whole",
+          from: 7,
+          start: 10,
+          end: 14.18,
+        },
+        {
+          clipStarts: { x: 0, y: 3, z: 5.18 },
+          path: "several",
+          from: 1,
+          start: 2,
+          end: 6.6,
+        },
+      ];
+      for (const bRoll of bRolls) {
+        const layers = footage.filter((r) => r.clip_id in bRoll.clipStarts);
+        for (let t = bRoll.start - 0.5; t < bRoll.end + 0.5; t += 1 / 60) {
+          const shown = footageAt(layers, bRoll.clipStarts, t);
+          const inWindow = t >= bRoll.start && t < bRoll.end - 1e-9;
+          if (!inWindow) {
+            if (t < bRoll.start - 1e-9 || t > bRoll.end + 1e-9) {
+              expect(shown?.path.includes(bRoll.path) ?? false).toBe(false);
+            }
+            continue;
+          }
+          expect(shown?.path).toBe(`raw-footage/imported/${bRoll.path}.mp4`);
+          expect(shown!.instant).toBeCloseTo(bRoll.from + (t - bRoll.start), 9);
+        }
+      }
+
+      await close();
+    },
+    MIGRATION_TIMEOUT_MS
+  );
 });

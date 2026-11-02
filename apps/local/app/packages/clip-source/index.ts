@@ -10,27 +10,29 @@
 // files with the scene segments the layout module draws and the mic offset (a
 // CVM-recorder Clip, when the row is loaded with its `recordingSession`).
 // `clipComposite` says what the export draws for a CVM-recorder Clip, drawn
-// in its Recording Session's Video Format; `compositeFiles` says which files a
+// in the Video's format (a Short draws every Clip in the Short layout; a
+// Landscape Video keeps its session's own); `compositeFiles` says which files a
 // run of its segments opens (a Short opens only what it draws);
 // `sceneOverrideScenes` says which scenes a Scene Override may pick (only
 // Camera on a session that captured no screen).
+//
+// A Clip's picture is its Layers (ADR 0056): `clipLayers` lists them, bottom
+// to top, and every picture function here draws from them. A Clip with none
+// stored is one Scene Layer, and draws, plays and hashes as it always did.
 export {
   clipComposite,
-  compositeFiles,
   clipCompositePicture,
   clipFfmpegInput,
   clipFrame,
   clipFrameFfmpegArgs,
+  clipLayers,
   clipPlaybackClock,
   clipPlaybackUrl,
   clipScreenPicture,
   sceneAt,
-  sceneOverrideScenes,
   clipSource,
   clipSourceColumns,
   clipSourceHashFields,
-  mapClipFrameFiles,
-  mapClipSourceFiles,
   type ClipComposite,
   type ClipFfmpegInput,
   type ClipFrame,
@@ -39,4 +41,15 @@ export {
   type ClipSourceColumns,
   type ClipSourceRow,
 } from "./lib/clip-source";
+export { compositeFiles, sceneOverrideScenes } from "./lib/composite-files";
+export { mapClipFrameFiles, mapClipSourceFiles } from "./lib/map-files";
+export {
+  isUntouched,
+  footageLayers,
+  footageLayerTime,
+  type FootageLayer,
+  type Layer,
+  type SceneLayer,
+} from "./lib/layers";
 export { clampCrop, type ScreenCrop } from "./lib/screen-crop";
+export { EXPORT_FPS, exportFrameAt, exportFrameCount } from "./lib/frame-grid";

@@ -51,6 +51,7 @@ const clipRow = (videoFilename: string) => ({
   recordingSessionId: null,
   sceneOverride: null,
   recordingSession: null,
+  layers: [],
   pauseType: "none",
   zoomType: "none",
   overlays: [],

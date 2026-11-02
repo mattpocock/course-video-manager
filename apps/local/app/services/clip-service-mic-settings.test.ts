@@ -61,7 +61,7 @@ const readClips = (videoId: string) =>
   testDb.query.clips.findMany({
     where: eq(schema.clips.videoId, videoId),
     orderBy: (c, { asc }) => asc(c.order),
-    with: { recordingSession: clipRecordingSessionRelation },
+    with: { recordingSession: clipRecordingSessionRelation, layers: true },
   });
 
 const exportHashOf = async (videoId: string) =>

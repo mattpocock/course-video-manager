@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it, expect, beforeAll, beforeEach } from "vitest";
@@ -10,11 +10,6 @@ import {
 } from "@/test-utils/test-db";
 import { ClipOperationsService } from "@/services/db-clip-operations.server";
 import { DrizzleService } from "@/services/drizzle-service.server";
-import * as schema from "@/db/schema";
-import { buildProgram } from "@/cli/main";
-import { makeTestCliOutput } from "@/cli/output";
-import { FootageProbe } from "@/services/footage-probe";
-import { LOCAL_MACHINE_ENV_KEY } from "./env";
 import {
   buildWriteLayer,
   makeRun,
@@ -375,159 +370,14 @@ describe("only one Overlay at a time", () => {
 });
 
 // ===========================================================================
-// B-roll: an Imported Footage file's picture over the whole frame. It reads
-// the file, so these run as the author's machine, over a temp Storage Root,
-// with ffprobe faked: every file is 20s long.
+// B-roll is no Overlay Kind: footage over footage is a Footage Layer.
 // ===========================================================================
 
 describe("a B-roll", () => {
-  let root: string;
-  let runLocal: (argv: ReadonlyArray<string>) => Promise<RunResult>;
-
-  beforeAll(() => {
-    const layer = Layer.mergeAll(
-      buildWriteLayer(testDb),
-      Layer.succeed(FootageProbe, {
-        probe: () => Effect.succeed({ video: null, durationSeconds: 20 }),
-      })
-    );
-    runLocal = async (argv) => {
-      const out = makeTestCliOutput();
-      const exitCode = await Effect.runPromise(
-        buildProgram(argv).pipe(
-          Effect.provide(out.layer),
-          Effect.provide(layer)
-        )
-      );
-      return { stdout: out.stdout(), stderr: out.stderr(), exitCode };
-    };
-  });
-
-  beforeEach(() => {
-    root = mkdtempSync(join(tmpdir(), "cvm-broll-"));
-    mkdirSync(join(root, "raw-footage/imported"), { recursive: true });
-    writeFileSync(join(root, "raw-footage/imported/city.mp4"), "x");
-    writeFileSync(join(root, "raw-footage/imported/park.mp4"), "x");
-    writeFileSync(join(root, "raw-footage/take.mp4"), "x");
-    process.env.STORAGE_ROOTS = root;
-    process.env[LOCAL_MACHINE_ENV_KEY] = "true";
-    return () => {
-      delete process.env.STORAGE_ROOTS;
-      delete process.env[LOCAL_MACHINE_ENV_KEY];
-    };
-  });
-
-  const addBRoll = async (
-    clipId: string,
-    extra: string[] = [],
-    { footage = "raw-footage/imported/city.mp4", from = "10" } = {}
-  ) =>
-    runLocal([
-      "overlay",
-      "add",
-      "--clip",
-      clipId,
-      "--at",
-      "2",
-      "--duration",
-      "5",
-      "--kind",
-      "bRoll",
-      "--footage",
-      footage,
-      "--from",
-      from,
-      ...extra,
-    ]);
-
-  it("is added with its Footage and from, and echoed by get and list", async () => {
+  it("is refused as an unknown Kind, pointing at cvm clip layer", async () => {
     const clip = await seedClip(s.standaloneActiveId, { start: 0, end: 10 });
 
-    const created = one<OverlayRow>((await addBRoll(clip.id)).stdout);
-
-    const expected = {
-      kind: "bRoll",
-      title: "",
-      description: "",
-      footagePath: "raw-footage/imported/city.mp4",
-      footageStart: 10,
-    };
-    expect(created).toMatchObject(expected);
-    expect(
-      one((await run(["overlay", "get", created.id])).stdout)
-    ).toMatchObject(expected);
-    expect(
-      ndjson(
-        (await run(["overlay", "list", "--video", s.standaloneActiveId])).stdout
-      )
-    ).toMatchObject([expected]);
-  });
-
-  it("can change its Footage and from with update", async () => {
-    const clip = await seedClip(s.standaloneActiveId, { start: 0, end: 10 });
-    const created = one<OverlayRow>((await addBRoll(clip.id)).stdout);
-
-    const result = await runLocal([
-      "overlay",
-      "update",
-      "--footage",
-      join(root, "raw-footage/imported/park.mp4"),
-      "--from",
-      "1",
-      created.id,
-    ]);
-
-    expect(result.exitCode).toBe(0);
-    expect(one(result.stdout)).toMatchObject({
-      footagePath: "raw-footage/imported/park.mp4",
-      footageStart: 1,
-    });
-  });
-
-  it.each<[string, string[], { footage?: string; from?: string }]>([
-    ["a title", ["--title", "t"], {}],
-    ["a description", ["--description", "d"], {}],
-    ["bullets", ["--bullets-json", "-"], {}],
-    ["an Animation Toggle", ["--disable-enter-animation", "true"], {}],
-    [
-      "Footage that is not Imported Footage",
-      [],
-      { footage: "raw-footage/take.mp4" },
-    ],
-    [
-      "Footage that is not found",
-      [],
-      { footage: "raw-footage/imported/gone.mp4" },
-    ],
-    ["a from below 0", [], { from: "-1" }],
-    ["a window past the end of the file", [], { from: "16" }],
-  ])("is refused with %s", async (_, extra, flags) => {
-    const clip = await seedClip(s.standaloneActiveId, { start: 0, end: 10 });
-
-    const { exitCode, stdout, stderr } = await addBRoll(clip.id, extra, flags);
-
-    expect(exitCode).toBe(3);
-    expect(stdout).toBe("");
-    expect(tagOf(stderr)).toBe("ParseError");
-  });
-
-  it("is refused on a Short", async () => {
-    const [short] = await testDb
-      .insert(schema.videos)
-      .values({ title: "short", originalFootagePath: "", format: "short" })
-      .returning();
-    const clip = await seedClip(short!.id, { start: 0, end: 10 });
-
-    const { exitCode, stderr } = await addBRoll(clip.id);
-
-    expect(exitCode).toBe(3);
-    expect(stderr).toContain("is a Short");
-  });
-
-  it("lends its --footage and --from to no other kind", async () => {
-    const clip = await seedClip(s.standaloneActiveId, { start: 0, end: 10 });
-
-    const { exitCode, stderr } = await runLocal([
+    const { exitCode, stdout } = await run([
       "overlay",
       "add",
       "--clip",
@@ -536,15 +386,14 @@ describe("a B-roll", () => {
       "2",
       "--duration",
       "5",
-      "--title",
-      "t",
-      "--description",
-      "d",
-      "--from",
-      "3",
+      "--kind",
+      "bRoll",
     ]);
 
     expect(exitCode).toBe(3);
-    expect(stderr).toContain("--footage and --from are B-roll content");
+    expect(stdout).toBe("");
+    expect((await run(["overlay", "--help"])).stdout).toContain(
+      "cvm clip layer"
+    );
   });
 });

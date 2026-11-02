@@ -2,6 +2,7 @@ import type { PgInsertValue, PgTable } from "drizzle-orm/pg-core";
 import {
   agentSessionEntries,
   beatLearningGoals,
+  clipLayers,
   clips,
   clipTranscriptWords,
   clipWebLinks,
@@ -32,6 +33,7 @@ export type ClipWithChildren = {
     typeof clipTranscriptWords.$inferSelect
   >;
   readonly overlays: ReadonlyArray<typeof overlays.$inferSelect>;
+  readonly layers: ReadonlyArray<typeof clipLayers.$inferSelect>;
   readonly agentSessionEntries: ReadonlyArray<
     typeof agentSessionEntries.$inferSelect
   >;
@@ -42,6 +44,7 @@ export const clipChildrenWith = {
   webLinks: true,
   transcriptWords: true,
   overlays: true,
+  layers: true,
   agentSessionEntries: true,
 } as const;
 
@@ -117,8 +120,8 @@ const rebaseOntoClips = <R extends { id: string; clipId: string }>(
   });
 
 /**
- * A copied Clip's Clip Web Links, Transcript Words, Overlays and Agent Session
- * Entries. Each is timed against the Clip's own start or its Footage, and the
+ * A copied Clip's Clip Web Links, Transcript Words, Overlays, Layers and Agent
+ * Session Entries. Each is timed against the Clip's own start or its Footage, and the
  * copy keeps the Clip's source range, so every row carries over verbatim. An
  * Agent Session Entry keeps pointing at the same Agent Session: sessions are
  * shared by every copy, never copied.
@@ -149,6 +152,14 @@ export const copyClipChildren = async (
     overlays,
     rebaseOntoClips(
       sourceClips.flatMap((clip) => clip.overlays),
+      clipIds
+    )
+  );
+  await insertInChunks(
+    tx,
+    clipLayers,
+    rebaseOntoClips(
+      sourceClips.flatMap((clip) => clip.layers),
       clipIds
     )
   );
@@ -203,6 +214,7 @@ export const copyClipsOntoVideo = async (
         webLinks: _webLinks,
         transcriptWords: _transcriptWords,
         overlays: _overlays,
+        layers: _layers,
         agentSessionEntries: _agentSessionEntries,
         ...carried
       } = clip;

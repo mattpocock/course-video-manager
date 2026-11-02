@@ -21,7 +21,11 @@ import type { Database } from "./drizzle-service.server.js";
 
 export type CopyDecision = "copied" | { notCopied: string };
 export type CopyPathName =
-  "submit" | "duplicateCourse" | "videoCopy" | "createVideoFromSelection";
+  | "submit"
+  | "duplicateCourse"
+  | "videoCopy"
+  | "createVideoFromSelection"
+  | "shortCreate";
 
 const NEVER_POSTED =
   "A Video Post records where one Video row was posted. Only standalone " +
@@ -53,6 +57,7 @@ const VERSION_TABLES: Record<string, CopyDecision> = {
   clip_web_link: "copied",
   clip_transcript_word: "copied",
   overlay: "copied",
+  clip_layer: "copied",
   agent_session_entry: "copied",
   chapter: "copied",
   beat: "copied",
@@ -74,6 +79,7 @@ const CLIP_TABLES: Record<string, CopyDecision> = {
   clip_web_link: "copied",
   clip_transcript_word: "copied",
   overlay: "copied",
+  clip_layer: "copied",
   agent_session_entry: "copied",
 };
 
@@ -158,6 +164,29 @@ export const COPY_PATHS: Record<CopyPathName, CopyPath> = {
     root: schema.videos,
     tables: TIMELINE_TABLES,
     keepsArchived: [],
+  },
+  /**
+   * `cvm short create` from a Video range (#2577): a Standalone Short holding
+   * copies of the live Clips a range covers. A Short draws only Chat Card
+   * Overlays, so the source's Overlays and Chapters stay behind (the agent
+   * adds Chat Cards afterwards); everything else on a Clip travels with it.
+   */
+  shortCreate: {
+    root: schema.videos,
+    keepsArchived: [],
+    tables: {
+      ...TIMELINE_TABLES,
+      overlay: {
+        notCopied:
+          "A Short draws only Chat Card Overlays, added to it afterwards; " +
+          "the source's Overlays were placed for the source's picture.",
+      },
+      chapter: {
+        notCopied:
+          "A Short is one short run of speech, with no Chapters; its ranges " +
+          "are joined by jump cuts.",
+      },
+    },
   },
 };
 

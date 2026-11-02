@@ -8,7 +8,7 @@ import { STORAGE_FOLDERS } from "./storage-roots";
  * so a later multi-track import can put several files in one folder.
  *
  * The only place the folder's name is spelled: the import, the Storage
- * Buckets, the search and the B-roll checks all ask {@link isImportedFootage}.
+ * Buckets and the search ask {@link isImportedFootage}.
  */
 export const IMPORTED_FOOTAGE_FOLDER = path.posix.join(
   STORAGE_FOLDERS.rawFootage,

@@ -16,6 +16,23 @@ export type ConcatClip = {
 };
 
 /**
+ * A Footage file's picture scaled to the export frame. On a Short (the
+ * portrait frame) it covers the frame and is centre-cropped, never
+ * stretched: a 16:9 file shows its middle, a 9:16 one all of itself. A
+ * Landscape export scales exactly as it always has.
+ */
+export const footageScaleFilter = ({
+  width,
+  height,
+}: {
+  readonly width: number;
+  readonly height: number;
+}): string =>
+  height > width
+    ? `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}`
+    : `scale=${width}:${height}`;
+
+/**
  * The single-pass concat's ffmpeg command line: every Clip cut from its
  * Footage as its own input, in order (so ffmpeg's input number IS the Clip's
  * position in the Video), normalized, and joined by the concat filter.
@@ -70,7 +87,7 @@ export const buildClipConcatArgs = (opts: {
     filterParts.push(
       `[${i}:v]setpts=PTS-STARTPTS,${
         cropFilter ? `${cropFilter},` : ""
-      }scale=${dimensions.width}:${dimensions.height},setsar=1[v${i}]`,
+      }${footageScaleFilter(dimensions)},setsar=1[v${i}]`,
       `[${i}:a]asetpts=PTS-STARTPTS,aformat=channel_layouts=stereo[a${i}]`
     );
     concatInputs.push(`[v${i}][a${i}]`);

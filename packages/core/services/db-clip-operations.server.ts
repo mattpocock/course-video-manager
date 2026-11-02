@@ -22,6 +22,7 @@ import {
 } from "./draft-guard.server.js";
 import { transactionalizeWrites } from "./with-db-transaction.server.js";
 import { clipRecordingSessionRelation } from "./clip-recording-session-relation.js";
+import { clipLayersRelation } from "./clip-layers-relation.js";
 import {
   compareOrderStrings,
   orderKeyBeforeItem,
@@ -35,6 +36,7 @@ import {
 } from "./db-transcript-word-operations.server.js";
 import { createClipRetimeOperationsUnwrapped } from "./db-clip-retime.server.js";
 import { createClipMoveOperationsUnwrapped } from "./db-clip-move.server.js";
+import { createClipLayerOperationsUnwrapped } from "./db-clip-layers.server.js";
 
 const makeDbCall = <T>(fn: () => Promise<T>) => {
   return Effect.tryPromise({
@@ -75,18 +77,31 @@ const createClipOperationsUnwrapped = (db: Database) => {
     return yield* makeDbCall(() =>
       db.query.clips.findMany({
         where: inArray(clips.id, clipIds),
-        with: { recordingSession: clipRecordingSessionRelation },
+        with: {
+          recordingSession: clipRecordingSessionRelation,
+          layers: clipLayersRelation,
+        },
       })
     );
   });
 
   /**
-   * A Clip with its Recording Session (null for an OBS Clip): everything the
-   * Clip Source module needs to show its picture.
+   * A Clip with its Recording Session (null for an OBS Clip) and its Video's
+   * format, which its Scene Layer is drawn in: everything the Clip Source
+   * module needs to show its picture.
    */
   const getClipWithRecordingSession = Effect.fn("getClipWithRecordingSession")(
     function* (clipId: string) {
-      const [clip] = yield* getClipsWithRecordingSessionByIds([clipId]);
+      const clip = yield* makeDbCall(() =>
+        db.query.clips.findFirst({
+          where: eq(clips.id, clipId),
+          with: {
+            recordingSession: clipRecordingSessionRelation,
+            layers: clipLayersRelation,
+            video: { columns: { format: true } },
+          },
+        })
+      );
       if (!clip) {
         return yield* new NotFoundError({
           type: "getClipWithRecordingSession",
@@ -627,6 +642,7 @@ const createClipOperationsUnwrapped = (db: Database) => {
     deleteClipWebLink,
     ...transcriptWordOps,
     ...retimeOps,
+    ...createClipLayerOperationsUnwrapped(db),
   };
 };
 
@@ -656,6 +672,7 @@ export const createClipOperations = (db: Database) =>
     "deleteClipWebLink",
     "replaceTranscriptWords",
     "retimeClip",
+    "setClipLayers",
   ]);
 
 export class ClipOperationsService extends Effect.Service<ClipOperationsService>()(

@@ -291,7 +291,7 @@ describe("streamStorageScan", () => {
     });
   });
 
-  it("counts a B-roll's Footage in Used Imported Footage", async () => {
+  it("counts a Footage Layer's Footage in Used Imported Footage", async () => {
     const a = await seedCourse("Course A");
     const video = await seedVideo({ lessonId: a.lessonId, footage: [] });
     const [clip] = await testDb
@@ -305,16 +305,25 @@ describe("streamStorageScan", () => {
         text: "",
       })
       .returning();
-    await testDb.insert(schema.overlays).values({
-      clipId: clip!.id,
-      at: 1,
-      durationInSeconds: 3,
-      kind: "bRoll",
-      title: "",
-      description: "",
-      footagePath: "raw-footage/imported/city.mp4",
-      footageStart: 5,
-    });
+    await testDb.insert(schema.clipLayers).values([
+      { clipId: clip!.id, position: 0, kind: "scene", volume: 1 },
+      {
+        clipId: clip!.id,
+        position: 1,
+        kind: "footage",
+        footagePath: "raw-footage/imported/city.mp4",
+        footageStart: 5,
+        cropX: 0,
+        cropY: 0,
+        cropW: 1,
+        cropH: 1,
+        placeX: 0,
+        placeY: 0,
+        placeW: 1920,
+        placeH: 1080,
+        volume: 0,
+      },
+    ]);
     put(d, "raw-footage/take.mkv", 1);
     put(d, "raw-footage/imported/city.mp4", 40);
 

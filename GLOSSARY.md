@@ -128,7 +128,7 @@ The **Video Format** of a horizontal, long-form video. The default.
 _Avoid_: Standard (the old value name)
 
 **Short**:
-The **Video Format** of a vertical, short-form video (the kind posted to YouTube Shorts, TikTok and similar). "Short" is the name to use everywhere. Like every Video it records with the CVM recorder (ADR 0051); its older OBS Clips still export. It is planned with an **Animatic** like a Landscape Video, opening with one Camera **Clip Mockup** and then Code ones (ADR 0052).
+The **Video Format** of a vertical, short-form video (the kind posted to YouTube Shorts, TikTok and similar). "Short" is the name to use everywhere. Like every Video it records with the CVM recorder (ADR 0051); its older OBS Clips still export. It is planned with an **Animatic** like a Landscape Video, opening with one Camera **Clip Mockup** and then Code ones (ADR 0052). Its render draws its captions and Chat Cards, and no call to action.
 _Avoid_: TikTok (reserved for the actual TikTok platform, and NOT the name for a Short)
 
 **Clip**:
@@ -300,7 +300,7 @@ The **Storage Bucket** of **Footage** under `raw-footage/`, except **Imported Fo
 _Avoid_: Orphaned footage, Unreferenced footage, Dead footage
 
 **Used Imported Footage**:
-The **Storage Bucket** of **Imported Footage** that a **Clip** (live or archived) or a **B-roll** uses. Its transcript and Whisper pieces are counted with it. It is never counted in a **Course**'s bucket, so moving a Course does not carry it: it is moved on its own, as one, like **Shared Footage**, and it lists the Courses whose Videos use it, as Shared Footage does.
+The **Storage Bucket** of **Imported Footage** that a **Clip** (live or archived) or a **Footage Layer** uses. Its transcript and Whisper pieces are counted with it. It is never counted in a **Course**'s bucket, so moving a Course does not carry it: it is moved on its own, as one, like **Shared Footage**, and it lists the Courses whose Videos use it, as Shared Footage does.
 
 **Unused Imported Footage**:
 The **Storage Bucket** of **Imported Footage** that nothing uses, with its transcripts and Whisper pieces. It can be moved between **Storage Roots** as one, and CVM never deletes it, at any age: the page offers no delete, and a delete of it is refused.
@@ -313,7 +313,7 @@ _Avoid_: Cleanup, Finish the move, Delete source
 ### Recording
 
 **Recording Session**:
-A period of time, from start to stop, during which clips are captured for one **Video**. In the editor it groups Optimistic Clips before they are saved. Filmed with the CVM **Recorder** it is also stored: three **Footage** files (camera, screen and mic, on one shared clock), its scene timeline (which scene was live from each moment), its speech events, its mic offset (how much later the mic's sound is played at export: it starts with the **Mic Offset** of its camera + mic pair, taken from the latest passed **AV Calibration** on that pair, and 150 ms only when the pair was never measured; a later AV Calibration never changes it, only Mic Settings does), its **Silence Length**, a link to the **AV Calibration** it was recorded under (whose silence threshold it cut with; none for one from before AV Calibration) and whether it stopped cleanly or crashed. It is filmed in its Video's **Video Format**, which it remembers (the Video's format can change later): its Clips' picture is drawn in that format's layout. A **Short**'s may be camera-only (no screen file), when the screen could not be captured. Its Clips point at it, and their picture is drawn from its files and scene timeline at export instead of being baked into the Footage. An old OBS Recording Session was never stored. Getting the camera ready before a Recording Session starts is "opening the recorder for a Video", not opening a Recording Session.
+A period of time, from start to stop, during which clips are captured for one **Video**. In the editor it groups Optimistic Clips before they are saved. Filmed with the CVM **Recorder** it is also stored: three **Footage** files (camera, screen and mic, on one shared clock), its scene timeline (which scene was live from each moment), its speech events, its mic offset (how much later the mic's sound is played at export: it starts with the **Mic Offset** of its camera + mic pair, taken from the latest passed **AV Calibration** on that pair, and 150 ms only when the pair was never measured; a later AV Calibration never changes it, only Mic Settings does), its **Silence Length**, a link to the **AV Calibration** it was recorded under (whose silence threshold it cut with; none for one from before AV Calibration) and whether it stopped cleanly or crashed. It is filmed in its Video's **Video Format**, which it remembers (the Video's format can change later). It supplies its Clips' **Scene Layer**: the files, the scene timeline, the mic offset and the **Mic EQ**. The layout is the Video's: a Landscape Recording Session's Clip on a **Short** is drawn in the Short layout (its screen's left square on top, the camera band below), in export, editor playback and stills alike. A Short Recording Session's Clip on a **Landscape** Video keeps its own Short layout. A **Short**'s may be camera-only (no screen file), when the screen could not be captured. Its Clips point at it, and their picture is drawn from its files and scene timeline at export instead of being baked into the Footage. An old OBS Recording Session was never stored. Getting the camera ready before a Recording Session starts is "opening the recorder for a Video", not opening a Recording Session.
 _Avoid_: Session, Take session, Recording (a Video's _Avoid_)
 
 **Recorder**:
@@ -396,17 +396,43 @@ _Avoid_: Caption, Subtitle
 Where a **Clip**'s **Transcription** stands, stored on the Clip: **queued** (recorded, no text yet, a Transcription asked for), **transcribing** (running), **failed** (the last attempt did not finish) or **done** (it finished; the text may be empty, because nothing was said). A failed Transcription changes nothing but the status: the Clip keeps any text and **Transcript Words** it had, and transcribing it again is the fix, so the editor shows it as failed with a retry, never as still transcribing. A Clip that gets its text another way (an **Effect Clip**, a Clip cut from **Footage**) starts done. Every copy of the Clip carries its status.
 _Avoid_: transcribedAt (only says when text last landed, not whether one is coming)
 
+### Layers
+
+**Layer**:
+One piece of a **Clip**'s picture. A Clip's picture is its **Layers**, drawn bottom to top; there is no collective noun for them, they are just "the Clip's Layers". Each Layer has a Kind (a **Scene Layer** or a **Footage Layer**) and a volume. A Clip with no Layers stored is exactly one Scene Layer, and draws, plays, stills and hashes as it always has. Layers are set per Clip, explicitly: copying one Clip's Layers to another is a copy, and nothing is linked. On a **Short** any mix is allowed: a Scene Layer alone, a Scene Layer with Footage Layers above it, or Footage Layers only. On a **Landscape** Video only a Scene Layer at the bottom with Footage Layers above it. **Overlays** and captions always draw above every Layer (ADR 0056).
+_Avoid_: Track, Stack, Composition, Layout (that is the scene layout a Scene Layer draws)
+
+**Scene Layer**:
+The **Layer** that draws a **Clip**'s own source in its scene layout: an OBS or **Imported Footage** Clip's file, or a **Recording Session**'s camera and screen in the scenes of its timeline (or its **Scene Override**). The Clip's own sound (the mic, read the mic offset earlier with its **Mic EQ**, or the file's own sound) is carried by it, at full volume (with no Scene Layer, by the Clip itself). It is what every Clip's picture was before Layers, and an untouched Clip's only Layer. It is drawn in the **Video**'s **Video Format**: on a **Short**, a Recording Session filmed Landscape is drawn in the Short layout, and a single file (OBS, **Imported Footage**) covers the 1080x1920 frame, centre-cropped, never stretched. On a **Landscape** Video every Clip keeps its own Recording Session's layout.
+_Avoid_: Base layer, Background, Scene (one of Camera, Code or No Face, which a Scene Layer draws)
+
+**Footage Layer**:
+A **Layer** that draws one **Footage** file: a **Source Crop** of it, scaled to its **Placement**, with a volume (muted by default) and a start time in that file. The file plays along with the Clip: the frame shown is the latest one at or before the start time plus the time elapsed in the Clip, the same in preview and export. It may name a file, or the camera or screen of the Clip's own **Recording Session**, which plays on the Clip's clock. It may cover only a span of the Clip. A B-roll is a full-frame, muted Footage Layer over part of a Clip (one per Clip it runs across); migration 0049 turned every B-roll Overlay into these. Authored with `cvm clip layer`.
+_Avoid_: B-roll (as a term: it was an Overlay Kind, now one use of a Footage Layer; fine in prose), Cutaway, Picture-in-picture, Inset
+
+**Source Crop**:
+The part of a **Footage Layer**'s file it draws: x, y, width and height as fractions (0 to 1) of the file's frame. The whole frame is 0, 0, 1, 1.
+_Avoid_: Crop (alone), Region, Viewport
+
+**Placement**:
+Where a **Footage Layer** is drawn: x, y, width and height in output pixels of the **Video**'s frame (1920x1080 for **Landscape**, 1080x1920 for a **Short**). A full-frame Placement covers the whole frame.
+_Avoid_: Position, Rect, Frame (a single picture)
+
 ### Overlays and transitions
 
 **Overlay Template** and **Transition** are **not yet implemented**: they are a design in progress, the planned replacement for today's **Effect Clip** and **Clip Zoom**. Treat those two terms as proposed. **Transform** exists today in one narrow form only (see that entry).
 
 **Overlay**:
-A visual layer shown on top of a Video's footage: rendered, or for a **B-roll** drawn from **Imported Footage**. It starts at a moment inside a specific **Clip**, so moving or trimming earlier Clips carries it along. Its length does not depend on that Clip: it can run on across later Clips, but never past the end of the Video. Different from a **Transition**, which replaces footage at a cut instead of sitting on top of it. It can carry a **Transform**, visible content, or both; its **Overlay Kind** names which content it carries and whether it has a Transform. Each Kind needs its own content. Its **Animation Toggles** control how it enters and leaves. At most one Overlay is visible at any moment in the whole Video: Overlays never overlap, and one that would is refused. Shortening an Overlay is refused if a **Bullet** would no longer fit. An Overlay cannot move to another Video. Deleting one is permanent, because nothing else refers to it. Recutting its Clip moves it with the Clip (see **Retiming Cascade**). Every copy of the Clip carries its Overlays.
-_Avoid_: Layer, Track, Effect
+A rendered graphic shown on top of a Video's picture, always drawn above every **Layer** of the **Clips** under it (and below the captions). Overlays are graphics only: footage drawn in a Clip's picture is a **Footage Layer**, not an Overlay. It starts at a moment inside a specific **Clip**, so moving or trimming earlier Clips carries it along. Its length does not depend on that Clip: it can run on across later Clips, but never past the end of the Video. Different from a **Transition**, which replaces footage at a cut instead of sitting on top of it. It can carry a **Transform**, visible content, or both; its **Overlay Kind** names which content it carries and whether it has a Transform. Each Kind needs its own content. Its **Animation Toggles** control how it enters and leaves. At most one Overlay is visible at any moment in the whole Video: Overlays never overlap, and one that would is refused. Shortening an Overlay is refused if a **Bullet** would no longer fit. An Overlay cannot move to another Video. Deleting one is permanent, because nothing else refers to it. Recutting its Clip moves it with the Clip (see **Retiming Cascade**). Every copy of the Clip carries its Overlays.
+_Avoid_: Layer (a piece of a Clip's picture, under every Overlay), Track, Effect
 
 **Overlay Kind**:
-Which content an **Overlay** carries: a **Definition Card** (the default), a **Bullet Panel**, a **B-roll** or a **Chat Card**. It is part of the **Export Hash**, because it changes what is rendered. The Kind also decides the Overlay's **Transform**: the camera move comes from the Kind and is never written separately, so a Bullet Panel always gets its panel and its camera move together.
+Which content an **Overlay** carries: a **Definition Card** (the default), a **Bullet Panel** or a **Chat Card**. Every Kind is a graphic: B-roll, once a Kind, is now **Footage Layers**. It is part of the **Export Hash**, because it changes what is rendered. The Kind also decides the Overlay's **Transform**: the camera move comes from the Kind and is never written separately, so a Bullet Panel always gets its panel and its camera move together.
 _Avoid_: Type, Variant, Overlay Type
+
+**B-roll**:
+Footage shown over part of a Clip in place of its own picture. It was an **Overlay Kind**. Superseded by **Footage Layers**: a B-roll is now a full-frame, muted Footage Layer over part of a Clip, and migration 0049 turned every B-roll Overlay into these. `--kind bRoll` is refused.
+_Avoid_: B-roll Overlay (no longer exists)
 
 **Definition Card**:
 An **Overlay**'s visible content: a small, AI Hero branded card on screen that defines a term at the moment it is said. It has exactly a title (the term) and a description (the definition). It is written on the Overlay itself: there is no shared glossary to pick a definition from, so two Overlays that define the same term each have their own copy. The default **Overlay Kind**.
@@ -420,17 +446,13 @@ _Avoid_: Bullet List, Side Panel, Callout, List Overlay
 One line of a **Bullet Panel**: an icon, its text, and the time it appears, measured from the Overlay's own start. The time is set for each Bullet so that it can appear exactly as its words are said. Bullets must appear in the order they are read, and no two at the same moment, because a staggered reveal is the point. Each Bullet must have time to appear fully before the panel starts to leave. Each Bullet appears on its own, except one that appears at the very start, which arrives with the panel. The panel leaves all at once.
 _Avoid_: Item, Point, Row, Line
 
-**B-roll**:
-The third **Overlay Kind** (`bRoll`). It shows a stretch of an **Imported Footage** file's picture over the whole frame, starting `from` seconds into that file, while the Video's own sound plays on.
-_Avoid_: Cutaway, Picture-in-picture, Layer, Track
-
 **Chat Card**:
-The fourth **Overlay Kind** (`chatCard`), for a **Short** only: one **Chat Highlight** at the top of the Short, opening with its **Chat Spin**. It is made on request from a Chat Highlight, by default the one showing at its anchor point when its Clip is from a **Streamed Recording Session**. Its author, text and spin are COPIED onto the Overlay, with no link back, so it outlives its Recording Session and is copied with its Clip. It is drawn only in the Shorts editor and the Short's render; there is no Landscape one.
+The third **Overlay Kind** (`chatCard`), for a **Short** only: one **Chat Highlight** at the top of the Short, opening with its **Chat Spin**. It is made on request from a Chat Highlight, by default the one showing at its anchor point when its Clip is from a **Streamed Recording Session**. Its author, text and spin are COPIED onto the Overlay, with no link back, so it outlives its Recording Session and is copied with its Clip. It is drawn only in the Shorts editor and the Short's render; there is no Landscape one.
 _Avoid_: Chat Overlay, Comment Card, Chat Highlight (the stream's own card)
 
 **Chat Spin**:
-A **Chat Card**'s intro, about 1.2 s: the same Recording Session's other **Chat Highlights** fly past in a slot-machine reel and it lands on the pick. It uses up to 8 of them; with fewer than 2 there is no spin and the card simply eases in. It can be turned off. It is never shown on the **Live Stream**.
-_Avoid_: Slot machine, Reel, Spinner
+A **Chat Card**'s intro, about 1.2 s: the same Recording Session's other **Chat Highlights** fly past in a slot-machine reel and it lands on the pick. Its cells are the **reel** (the word is allowed for them, and the code uses it). It uses up to 8 of them; with fewer than 2 there is no spin and the card simply eases in. It can be turned off. It is never shown on the **Live Stream**.
+_Avoid_: Slot machine, Spinner
 
 **Animation Toggles**:
 Two settings on an **Overlay**: no enter animation and no exit animation. Each turns one end of the Overlay into a hard cut. The change still happens at the same moment, so turning one off does not move any **Bullet**. They are on the Overlay, not on its content, because they control the content and the camera move TOGETHER, so the two can never get out of step. They are part of the **Export Hash**.

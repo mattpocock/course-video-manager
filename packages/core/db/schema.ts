@@ -460,6 +460,61 @@ export const clips = createTable(
 );
 
 /**
+ * A Clip's Layers (ADR 0056), bottom (`position` 0) to top. A Clip with no
+ * rows is one Scene Layer at full volume, so an untouched Clip has none and
+ * every Clip from before Layers needs no backfill. Written whole, a Clip at a
+ * time (`setClipLayers`); read through `clipLayersRelation` and
+ * `features/videos/clip-layer.ts`, never raw.
+ *
+ * A Footage Layer draws either a file (`footage_path`, root-relative, ADR
+ * 0040, from `footage_start` seconds in) or its Clip's own Recording
+ * Session's `camera` or `screen` (`session_file`), which plays on the Clip's
+ * own clock. The Source Crop is fractions of the Footage's frame, the
+ * Placement output pixels of the Video's frame. The span (`span_at`,
+ * `span_duration`, seconds from the Clip's start) is null for the whole Clip.
+ * Copied with its Clip on every copy path.
+ */
+export const clipLayers = createTable(
+  "clip_layer",
+  {
+    id: varchar("id", { length: 255 })
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    clipId: varchar("clip_id", { length: 255 })
+      .references(() => clips.id, { onDelete: "cascade" })
+      .notNull(),
+    position: integer("position").notNull(),
+    kind: text("kind").$type<"scene" | "footage">().notNull(),
+    footagePath: text("footage_path"),
+    footageStart: doublePrecision("footage_start"),
+    sessionFile: text("session_file").$type<"camera" | "screen">(),
+    cropX: doublePrecision("crop_x"),
+    cropY: doublePrecision("crop_y"),
+    cropW: doublePrecision("crop_w"),
+    cropH: doublePrecision("crop_h"),
+    placeX: integer("place_x"),
+    placeY: integer("place_y"),
+    placeW: integer("place_w"),
+    placeH: integer("place_h"),
+    volume: doublePrecision("volume").notNull(),
+    spanAt: doublePrecision("span_at"),
+    spanDuration: doublePrecision("span_duration"),
+  },
+  (table) => [
+    uniqueIndex("clip_layer_clip_position_uniq").on(
+      table.clipId,
+      table.position
+    ),
+    check("clip_layer_kind_valid", sql`${table.kind} IN ('scene', 'footage')`),
+    check(
+      "clip_layer_session_file_valid",
+      sql`${table.sessionFile} IS NULL OR ${table.sessionFile} IN ('camera', 'screen')`
+    ),
+  ]
+);
+
+/**
  * A Recording Session filmed with the CVM recorder: one start-to-stop capture
  * of three Footage files (camera, screen, mic) on one shared clock, plus its
  * scene timeline (`recordingSessionSceneEvents`). The picture is drawn from
@@ -910,7 +965,7 @@ export const overlays = createTable(
     durationInSeconds: doublePrecision("duration_in_seconds").notNull(),
     /**
      * Which content-kind this Overlay carries — "definitionCard",
-     * "bulletPanel", "bRoll" or "chatCard". Read through `resolveOverlayKind`, never raw.
+     * "bulletPanel" or "chatCard". Read through `resolveOverlayKind`, never raw.
      */
     kind: varchar("kind", { length: 255 }).notNull().default("definitionCard"),
     /**
@@ -933,16 +988,10 @@ export const overlays = createTable(
      * the time a row is written the array is already validated.
      */
     bullets: jsonb("bullets").$type<BulletPanelBullet[]>(),
-    /**
-     * A B-roll's Imported Footage, root-relative (ADR 0040) — null for every
-     * other content-kind.
-     */
-    footagePath: text("footage_path"),
-    /**
-     * A B-roll's "from": seconds into its Imported Footage where the picture
-     * starts — null for every other content-kind.
-     */
-    footageStart: doublePrecision("footage_start"),
+    // `footage_path` and `footage_start` held a B-roll's Footage until
+    // migration 0049 turned every B-roll into Footage Layers. Nothing reads
+    // or writes them; they are dropped in a follow-up migration (contract
+    // first: the deploy-migration skill).
     /**
      * A Chat Card's Chat Spin: the cells that fly past before it lands on its
      * own message (`title`, `description`), in fly-past order — `[]` when its
@@ -1305,6 +1354,7 @@ export const clipsRelations = relations(clips, ({ one, many }) => ({
   webLinks: many(clipWebLinks),
   transcriptWords: many(clipTranscriptWords),
   overlays: many(overlays),
+  layers: many(clipLayers),
   agentSessionEntries: many(agentSessionEntries),
   recordingSession: one(recordingSessions, {
     fields: [clips.recordingSessionId],
@@ -1337,6 +1387,13 @@ export const recordingSessionSceneEventsRelations = relations(
     }),
   })
 );
+
+export const clipLayersRelations = relations(clipLayers, ({ one }) => ({
+  clip: one(clips, {
+    fields: [clipLayers.clipId],
+    references: [clips.id],
+  }),
+}));
 
 export const overlaysRelations = relations(overlays, ({ one }) => ({
   clip: one(clips, {
