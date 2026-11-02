@@ -35,6 +35,7 @@ import { FILE_NAMES } from "recorder-service/capture-args";
 import { footageOnDisk } from "./footage-on-disk";
 import { importCmd } from "./footage-import";
 import { searchCmd } from "./footage-search";
+import { frameCmd } from "./footage-frame";
 import {
   footageStorageRoots,
   requireLocalFootage,
@@ -253,5 +254,6 @@ export const footageCommand = Command.make("footage").pipe(
     searchCmd,
     transcribeCmd,
     transcriptCmd,
+    frameCmd,
   ])
 );

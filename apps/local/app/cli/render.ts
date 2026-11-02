@@ -52,6 +52,13 @@ const EXIT_CODES: Record<string, number> = {
   // A Clip's Layers refused (a Source Crop outside the frame, a Placement
   // with no area, a disallowed Landscape shape): invalid input.
   ClipLayersRefusedError: 3,
+  // `cvm footage frame` / `cvm clip frame` asked for while the recorder
+  // records: the Still Gate's "ask again after the Stop". Not a failure of
+  // this machine; the same command succeeds once the take stops.
+  StillHeldError: 3,
+  // A frame refused for its input: a t outside the Footage or the Clip, or a
+  // Video whose frame cannot be drawn yet.
+  FrameRefusedError: 3,
   // Defensive: domain error tags that could leak through a command.
   UnknownDBServiceError: 4,
   // The deployed API rejected the token — unknown, expired or revoked; it

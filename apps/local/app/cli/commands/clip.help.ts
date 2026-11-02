@@ -44,6 +44,7 @@ Verbs:
   clip words <id>                            the clip's Transcript Words, in spoken order (NDJSON)
   clip layer list|add|update|move|remove     the clip's Layers: its picture (see 'clip layer --help')
   clip update --layers-from <id> <id...>     copy one clip's Layers onto others
+  clip frame --at <t> <id>                   a PNG of a Short's clip as posted: Layers, captions, Chat Cards
 
 All writes are immediate — no confirmation, no dry-run (agent-facing tool). There is no 'clip tree'
 (clips are leaves) — use 'video tree' then 'clip get'. 'clip add' cuts a single clip from a footage

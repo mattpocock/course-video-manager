@@ -4,6 +4,13 @@ import type { ExportClipDuration } from "./export-duration-check";
 import type { ExportOverlay } from "./export-hash";
 import { placeOnTimeline } from "./overlay-compositing";
 
+/**
+ * How a Short's overlay is drawn over its picture: by the render's final pass
+ * (`compositeOverlay`) and by `cvm clip frame`, alike.
+ */
+export const SHORT_OVERLAY_COMPOSITE_FILTER =
+  "[0:v][1:v]overlay=0:0:format=auto[outv]";
+
 /** A caption segment, timed in frames, as `loadShortSubtitles` builds it. */
 type Subtitle = { startFrame: number; endFrame: number; text: string };
 

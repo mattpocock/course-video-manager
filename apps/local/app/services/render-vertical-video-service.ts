@@ -1,14 +1,8 @@
-import {
-  clipComposite,
-  clipFfmpegInput,
-  clipLayers,
-  clipSource,
-} from "@/packages/clip-source";
 import { needsClipSegments } from "./clip-segment-args";
 import { clipExportDurationInSeconds } from "./export-duration-check";
-import { Command, FileSystem } from "@effect/platform";
+import { FileSystem } from "@effect/platform";
 import { NodeContext } from "@effect/platform-node";
-import { Cause, Data, Effect, Stream } from "effect";
+import { Cause, Data, Effect } from "effect";
 import path from "node:path";
 import { tmpdir } from "os";
 import crypto from "node:crypto";
@@ -19,14 +13,12 @@ import { FFmpegCommandsService } from "./ffmpeg-commands";
 import { VideoEditorLoggerService } from "./video-editor-logger-service";
 import { makeFfmpegLogger } from "./ffmpeg-video-logger";
 import { VIDEO_FORMAT_DIMENSIONS } from "@/features/videos/video-format";
-import { overlayRendererBinPath } from "./overlay-renderer-bin";
-import { loadShortSubtitles } from "./short-subtitles";
-import { verticalOverlayProps } from "./vertical-overlay-props";
+import { shortOverlayProps, shortRenderClips } from "./short-render-clips";
+import { ShortOverlayRendererService } from "./short-overlay-renderer";
 import { removeBestEffort } from "@/services/remove-best-effort";
 import { formatFailureCause } from "./format-failure-cause";
 import { SidecarContext } from "./sidecar-context";
 import { storageRootsConfig } from "./storage-roots";
-import { resolveClipSourceFiles } from "./clip-source-files.server";
 import { STORAGE_FOLDERS, writeFolder } from "@/packages/storage";
 
 export type RenderVerticalStage =
@@ -49,6 +41,7 @@ export class RenderVerticalVideoService extends Effect.Service<RenderVerticalVid
       const ffmpegEncode = yield* FFmpegEncodeService;
       const effectFs = yield* FileSystem.FileSystem;
       const videoEditorLogger = yield* VideoEditorLoggerService;
+      const overlayRenderer = yield* ShortOverlayRendererService;
 
       const renderVerticalVideo = Effect.fn("renderVerticalVideo")(
         function* (opts: {
@@ -129,42 +122,17 @@ export class RenderVerticalVideoService extends Effect.Service<RenderVerticalVid
             // Step 1: Concatenate clips → temp file (not the final output path,
             // since the composite step will write the final .mp4)
             enterStage("concatenating-clips");
-            const renderClips = yield* Effect.forEach(video.clips, (clip) =>
-              Effect.gen(function* () {
-                // Its files found on a Storage Root, or "Footage not found
-                // (E: offline?)".
-                // Every Clip drawn in the Short layout: a stream's Landscape
-                // session too, never its own picture squashed.
-                const source = yield* resolveClipSourceFiles(
-                  clipSource(clip, { videoFormat: "short" }),
-                  storageRoots
-                ).pipe(
-                  Effect.mapError(
-                    (error) =>
-                      new RenderVerticalError({
-                        cause: error,
-                        message: error.message,
-                      })
-                  )
-                );
-                const input = {
-                  ...clipFfmpegInput(source),
-                  pauseType: clip.pauseType as "none" | "long",
-                  zoomType: clip.zoomType,
-                };
-                const duration = clipExportDurationInSeconds(input);
-                return {
-                  ...input,
-                  id: clip.id,
-                  text: clip.text,
-                  // A CVM-recorder Clip's picture is drawn from its Recording
-                  // Session, over everything it outputs (long Pause included).
-                  composite: clipComposite(source, {
-                    durationSeconds: duration,
-                  }),
-                  layers: clipLayers(source),
-                };
-              })
+            const renderClips = yield* shortRenderClips(
+              video.clips,
+              storageRoots
+            ).pipe(
+              Effect.mapError(
+                (error) =>
+                  new RenderVerticalError({
+                    cause: error,
+                    message: error.message,
+                  })
+              )
             );
             // The vertical renderer always produces a 9:16 short — the Remotion
             // caption overlay below is rendered at 1080x1920 to match.
@@ -205,18 +173,13 @@ export class RenderVerticalVideoService extends Effect.Service<RenderVerticalVid
             // Clean up raw concatenated file
             yield* removeBestEffort(effectFs, rawConcatenatedPath);
 
-            // Step 2: The subtitles, from the Clips' own text and Transcript
-            // Words (#2172) — never a second transcription. Each Clip takes the
-            // seconds the concat was asked for, so the two timelines match.
+            // Step 2: The overlay's props, on the concat's own frame rate.
             const fps = yield* ffmpegCommands.getFPS(concatenatedPath);
-            const { subtitles, durationInFrames } = yield* loadShortSubtitles(
-              renderClips.map((clip) => ({
-                id: clip.id,
-                text: clip.text,
-                durationSeconds: clipExportDurationInSeconds(clip),
-              })),
-              fps
-            ).pipe(Effect.provideService(ClipOperationsService, clipOps));
+            const props = yield* shortOverlayProps({
+              renderClips,
+              clips: video.clips,
+              fps,
+            }).pipe(Effect.provideService(ClipOperationsService, clipOps));
 
             // Step 3: Render Remotion overlay
             enterStage("rendering-overlay");
@@ -231,17 +194,16 @@ export class RenderVerticalVideoService extends Effect.Service<RenderVerticalVid
 
             // The captions and the Short's Chat Cards (the only
             // Overlays a Short draws), placed on the concat's own durations.
-            const propsJson = JSON.stringify(
-              verticalOverlayProps({
-                fps,
-                durationInFrames,
-                subtitles,
-                clips: video.clips,
-                clipDurations: renderClips,
-              })
+            yield* overlayRenderer.renderVideo(props, overlayPath).pipe(
+              Effect.catchTag(
+                "ShortOverlayRenderError",
+                (error) =>
+                  new RenderVerticalError({
+                    cause: error.cause,
+                    message: error.message,
+                  })
+              )
             );
-
-            yield* renderOverlay(effectFs, propsJson, overlayPath);
 
             // Step 4: Composite overlay onto concatenated video
             enterStage("compositing");
@@ -276,80 +238,7 @@ export class RenderVerticalVideoService extends Effect.Service<RenderVerticalVid
       FFmpegCommandsService.Default,
       FFmpegEncodeService.Default,
       VideoEditorLoggerService.Default,
+      ShortOverlayRendererService.Default,
     ],
   }
 ) {}
-
-function renderOverlay(
-  effectFs: FileSystem.FileSystem,
-  propsJson: string,
-  overlayPath: string
-) {
-  return Effect.gen(function* () {
-    const propsDir = path.join(tmpdir(), "cvm-overlay-props");
-    yield* effectFs.makeDirectory(propsDir, { recursive: true });
-    const propsHash = crypto
-      .createHash("sha256")
-      .update(propsJson)
-      .digest("hex")
-      .slice(0, 12);
-    const propsFile = path.join(propsDir, `${propsHash}.json`);
-    yield* effectFs.writeFileString(propsFile, propsJson);
-
-    const binPath = yield* Effect.try({
-      try: () => overlayRendererBinPath(),
-      catch: (e) =>
-        new RenderVerticalError({
-          cause: e,
-          message: `Could not locate the overlay renderer: ${e instanceof Error ? e.message : String(e)}`,
-        }),
-    });
-
-    const result = yield* Effect.scoped(
-      Effect.gen(function* () {
-        const process = yield* Command.start(
-          Command.make(
-            "node",
-            binPath,
-            "--props-file",
-            propsFile,
-            "--out",
-            overlayPath,
-            "--quiet"
-          )
-        ).pipe(
-          Effect.mapError(
-            (e) =>
-              new RenderVerticalError({
-                cause: e,
-                message: `Failed to start overlay renderer: ${e.message}`,
-              })
-          )
-        );
-
-        const [stdout, stderr] = yield* Effect.all(
-          [
-            process.stdout.pipe(Stream.decodeText(), Stream.mkString),
-            process.stderr.pipe(Stream.decodeText(), Stream.mkString),
-          ],
-          { concurrency: 2 }
-        );
-
-        const exitCode = yield* process.exitCode;
-        if (exitCode !== 0) {
-          return yield* new RenderVerticalError({
-            cause: null,
-            message: `Overlay renderer exited with code ${exitCode}: ${stderr}`,
-          });
-        }
-
-        return stdout;
-      })
-    );
-
-    // Clean up props file
-    yield* removeBestEffort(effectFs, propsFile);
-
-    return result;
-  });
-}

@@ -91,6 +91,7 @@ describe("on a box that is not the author's", () => {
       ["footage", "import", "/tmp/whatever.mp4"],
       ["footage", "transcribe", "/tmp/whatever.mkv"],
       ["footage", "transcript", "/tmp/whatever.mkv"],
+      ["footage", "frame", "--at", "1", "/tmp/whatever.mkv"],
     ];
 
     for (const argv of invocations) {
@@ -139,6 +140,14 @@ describe("on a box that is not the author's", () => {
     expect(result.exitCode).toBe(7);
     expect(failureOf(result)._tag).toBe("LocalOnlyCommandError");
     expect(failureOf(result).command).toBe("cvm short render");
+    expect(result.stdout).toBe("");
+  });
+
+  it("refuses cvm clip frame", async () => {
+    const result = await run(["clip", "frame", "--at", "1", "clip_1"]);
+
+    expect(result.exitCode).toBe(7);
+    expect(failureOf(result).command).toBe("cvm clip frame");
     expect(result.stdout).toBe("");
   });
 

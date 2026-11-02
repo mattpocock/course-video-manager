@@ -21,6 +21,7 @@ import { resolveBeforeItemId } from "./timeline-position";
 import { requireActiveClip, withEffectiveScene } from "./clip.shared";
 import { updateCmd } from "./clip.update";
 import { clipLayerCommand } from "./clip.layer";
+import { clipFrameCmd } from "./clip-frame";
 import { MINIMUM_CLIP_LENGTH_SECONDS } from "@/silence-detection-constants";
 import { readFootageTranscript } from "@/services/footage-cache";
 import {
@@ -442,5 +443,6 @@ export const clipCommand = Command.make("clip").pipe(
     restoreCmd,
     wordsCmd,
     clipLayerCommand,
+    clipFrameCmd,
   ])
 );
