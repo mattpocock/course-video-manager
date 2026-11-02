@@ -14,6 +14,10 @@
 // run of its segments opens (a Short opens only what it draws);
 // `sceneOverrideScenes` says which scenes a Scene Override may pick (only
 // Camera on a session that captured no screen).
+//
+// A Clip's picture is its Layers (ADR 0056): `clipLayers` lists them, bottom
+// to top, and every picture function here draws from them. Today that is
+// always one Scene Layer, so nothing draws, plays or hashes differently.
 export {
   clipComposite,
   compositeFiles,
@@ -21,6 +25,7 @@ export {
   clipFfmpegInput,
   clipFrame,
   clipFrameFfmpegArgs,
+  clipLayers,
   clipPlaybackClock,
   clipPlaybackUrl,
   clipScreenPicture,
@@ -29,8 +34,6 @@ export {
   clipSource,
   clipSourceColumns,
   clipSourceHashFields,
-  mapClipFrameFiles,
-  mapClipSourceFiles,
   type ClipComposite,
   type ClipFfmpegInput,
   type ClipFrame,
@@ -39,4 +42,6 @@ export {
   type ClipSourceColumns,
   type ClipSourceRow,
 } from "./lib/clip-source";
+export { mapClipFrameFiles, mapClipSourceFiles } from "./lib/map-files";
+export { type Layer, type SceneLayer } from "./lib/layers";
 export { clampCrop, type ScreenCrop } from "./lib/screen-crop";
