@@ -19,7 +19,9 @@ footage by path: a root-relative path (looked up on each Storage Root in order),
 or an absolute one as 'footage list' prints it. CVM deletes Footage only from
 the Storage page: Unused Footage (7+ days old, no Clip uses it, after a
 confirmation) and a moved file's original that has an identical copy elsewhere.
-Imported Footage is never Unused Footage, so CVM never deletes it.
+Imported Footage is never Unused Footage, so CVM never deletes it. A file comes
+in as Imported Footage only through 'cvm footage import', which copies it (the
+original is never moved, changed or deleted) and transcribes the copy.
 
 The point of transcribing footage is to read what was said BEFORE editing, so an
 agent can decide where Clips and Chapters should fall. The loop is:
@@ -43,7 +45,10 @@ machine; on any other box it is refused before doing anything (_tag
 "LocalOnlyCommandError", exit 7). That is a full stop, not a retry.
 
 Verbs:
-  list       [--dir <path>]              List video files in a directory
+  list       [--dir <path> | --imported] List video files in a directory, or
+                                         every Imported Footage file
+  import     <file> [--no-wait]          Copy a 16:9 file in as Imported
+                                         Footage, and transcribe it
   transcribe <path> [--no-wait]          Transcribe a file, caching the result
   transcript <path>                      Read the cached transcript (never runs
                                          Whisper; not-found if never transcribed)`;
@@ -70,8 +75,15 @@ mic offset (default 150 ms). Each line carries:
 for the current bytes is checked by 'footage transcript' / 'footage transcribe',
 which re-hash the file.
 
+--imported lists Imported Footage instead: every video file under
+raw-footage/imported/ (nested folders too) on every Storage Root, each once
+(the first root that has it wins; an Offline root lists nothing). Its 'path' is
+ROOT-RELATIVE ("raw-footage/imported/interview.mp4"), ready for 'clip add
+--source'. --dir and --imported cannot be passed together.
+
 Examples:
   cvm footage list
+  cvm footage list --imported
   cvm footage list --dir /mnt/d/raw-footage
   cvm footage list | jq -r 'select(.transcribed | not) | .path'`;
 
@@ -132,3 +144,45 @@ Examples:
   cvm footage transcript raw-footage/take.mkv
   cvm footage transcript /mnt/d/raw-footage/take.mkv
   cvm footage transcript ./rec.mp4 | jq -r '.segments[].text'`;
+
+export const IMPORT_HELP = `Import a file CVM did not film (a StreamYard interview's composed file, a
+b-roll shot) as Imported Footage, and transcribe it.
+
+PROBED FIRST. Before anything is copied or queued, ffprobe reads the file. It is
+refused (ParseError, exit 3, naming the size and ratio found) when it is not a
+video file, ffprobe can't read it, it has no video stream, or its display aspect
+ratio (width x sample aspect ratio / height) is not within 1% of 16:9. A refusal
+copies nothing and queues no Job. Non-16:9 files are never letterboxed or
+cropped.
+
+COPIED, NEVER MOVED. The file is copied into raw-footage/imported/ on the FIRST
+Storage Root (STORAGE_ROOTS), under its own name. The original is only ever
+read: never moved, changed or deleted. The copy is an 'import-footage' Job the
+Sidecar runs ('pnpm dev' / 'pnpm start'), so a multi-gigabyte copy survives
+closing the terminal and shows in the Jobs list. It is written as
+"<name>.cvm-import-partial" and renamed into place only once its size and
+checksum match the original, so a copy cut off by a restart never has the final
+name (the Job redoes it). Nothing is ever overwritten:
+  - a file of that name with IDENTICAL bytes is already there: no copy, that
+    file is the import (running the command again is safe);
+  - a file of that name with different bytes: the copy is named "<name>-2",
+    "<name>-3", ... (the next free one).
+
+TRANSCRIBED. A 'transcribe-footage' Job waits on the copy, then transcribes it
+exactly as 'footage transcribe' does (Local Whisper, no diarization). An import
+already transcribed is not transcribed again.
+
+Echoes one JSON object once both Jobs are done: { path, size, width, height,
+durationSeconds, transcript: { words, segments } } (counts). 'path' is
+ROOT-RELATIVE ("raw-footage/imported/interview.mp4"): pass it straight to
+'cvm clip add --source' (a normal Clip, Clip Origin 'cli').
+
+--no-wait returns once the Jobs are queued: { jobId, transcribeJobId, status:
+"queued", path }. A Job id is null when there was nothing to do (the file was
+already imported, or already transcribed); status is "imported" when neither
+was needed.
+
+Examples:
+  cvm footage import ~/Downloads/streamyard-interview.mp4
+  cvm footage import --no-wait /tmp/b-roll.mov
+  cvm footage list --imported`;

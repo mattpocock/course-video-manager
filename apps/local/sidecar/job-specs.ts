@@ -13,6 +13,7 @@ import {
   CLIP_MOCKUP_VOICE_POLICY,
   CLIP_TRANSCRIPTION_POLICY,
   COURSE_DUPLICATE_POLICY,
+  FOOTAGE_IMPORT_POLICY,
   FOOTAGE_TRANSCRIPTION_POLICY,
   IMAGE_UPLOAD_POLICY,
   POSTING_JOB_POLICY,
@@ -99,6 +100,16 @@ export const JOB_KIND_SPECS = {
     coveredBy: (params, live) =>
       (live.params as { path?: unknown } | null)?.path ===
       (params as { path: string }).path,
+  },
+  // The subject is the destination. The same file retried follows the live
+  // copy; a different file for the same name waits for it, then finds the
+  // name taken and overwrites nothing.
+  "import-footage": {
+    ...spec(FOOTAGE_IMPORT_POLICY, JOB_PARAMS["import-footage"]),
+    coveredBy: (params, live) =>
+      (live.params as { source?: unknown } | null)?.source ===
+      (params as { source: string }).source,
+    queuesBehind: () => true,
   },
   // Upload pressed again (the tab closed before the first Job settled) waits
   // for the live Job for the same body, then reuses every URL it recorded

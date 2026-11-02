@@ -157,7 +157,8 @@ root-relative form), so moving the Footage to another drive changes no row and
 no Export Hash. A path under no Storage Root is stored as typed.
 
 Footage is anything the Recorder filmed, or Imported Footage (a file CVM did not
-film, copied in under raw-footage/imported/). A Clip cut from
+film, copied in under raw-footage/imported/ by 'cvm footage import', which
+prints the root-relative path to pass here). A Clip cut from
 Imported Footage is an ordinary Clip with no Recording Session: its picture and
 sound replace the author's for that stretch, and its Clip Origin is 'cli' too.
 
@@ -167,7 +168,8 @@ the owning CourseVersion to be a Draft (a non-Draft is refused).
 Examples:
   cvm footage transcribe raw-footage/take.mkv
   cvm clip add --video vid_123 --source raw-footage/take.mkv --start 12.4 --end 40.0
-  cvm clip add --video vid_123 --source /mnt/d/raw-footage/take.mkv --start 5 --end 9 --before clip_def`;
+  cvm clip add --video vid_123 --source /mnt/d/raw-footage/take.mkv --start 5 --end 9 --before clip_def
+  cvm clip add --video vid_123 --source "$(cvm footage import ~/Downloads/interview.mp4 | jq -r .path)" --start 0 --end 30`;
 
 export const DELETE_HELP = `Archive (soft-delete) a Clip.
 

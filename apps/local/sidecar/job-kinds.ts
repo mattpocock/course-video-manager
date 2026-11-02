@@ -8,6 +8,7 @@ import { batchExportJobKind } from "./kinds/batch-export";
 import { duplicateCourseJobKind } from "./kinds/duplicate-course";
 import { exportJobKind } from "./kinds/export";
 import { exportAnimaticJobKind } from "./kinds/export-animatic";
+import { importFootageJobKind } from "./kinds/import-footage";
 import { noopJobKind } from "./kinds/noop";
 import { publishJobKind } from "./kinds/publish";
 import { renderVerticalJobKind } from "./kinds/render-vertical";
@@ -39,6 +40,7 @@ export const JOB_KINDS = {
   autofill: autofillJobKind,
   "transcribe-clips": transcribeClipsJobKind,
   "transcribe-footage": transcribeFootageJobKind,
+  "import-footage": importFootageJobKind,
   "upload-images": uploadImagesJobKind,
   "remove-local-images": removeLocalImagesJobKind,
   "duplicate-course": duplicateCourseJobKind,
