@@ -21,7 +21,8 @@ the Storage page: Unused Footage (7+ days old, no Clip uses it, after a
 confirmation) and a moved file's original that has an identical copy elsewhere.
 Imported Footage is never Unused Footage, so CVM never deletes it. A file comes
 in as Imported Footage only through 'cvm footage import', which copies it (the
-original is never moved, changed or deleted) and transcribes the copy.
+original is never moved, changed or deleted) or downloads it from a YouTube URL,
+and transcribes the copy.
 
 The point of transcribing footage is to read what was said BEFORE editing, so an
 agent can decide where Clips and Chapters should fall. The loop is:
@@ -47,7 +48,8 @@ machine; on any other box it is refused before doing anything (_tag
 Verbs:
   list       [--dir <path> | --imported] List video files in a directory, or
                                          every Imported Footage file
-  import     <file> [--no-wait]          Copy a 16:9 file in as Imported
+  import     <file|youtube-url>          Copy a 16:9 file (or download a
+             [--no-wait]                 YouTube video) in as Imported
                                          Footage, and transcribe it
   search     <query>                     Find a phrase in what was said in
                                          Imported Footage (per segment)
@@ -149,7 +151,8 @@ Examples:
   cvm footage transcript ./rec.mp4 | jq -r '.segments[].text'`;
 
 export const IMPORT_HELP = `Import a file CVM did not film (a StreamYard interview's composed file, a
-b-roll shot) as Imported Footage, and transcribe it.
+b-roll shot), or a YouTube video by its URL, as Imported Footage, and transcribe
+it.
 
 PROBED FIRST. Before anything is copied or queued, ffprobe reads the file. It is
 refused (ParseError, exit 3, naming the size and ratio found) when it is not a
@@ -185,8 +188,21 @@ ROOT-RELATIVE ("raw-footage/imported/interview.mp4"): pass it straight to
 already imported, or already transcribed); status is "imported" when neither
 was needed.
 
+FROM A YOUTUBE URL (watch?v=, youtu.be/, shorts/, live/, embed/). The download
+is an 'import-youtube-footage' Job the Sidecar runs with yt-dlp, which must be
+on the Sidecar's PATH (Linux; the Job fails naming the install when it is not).
+It takes the best video up to 1080p plus the best audio, merged to MP4, from
+that one video (never a playlist). The 16:9 probe runs on the download: a
+refused video is deleted and nothing lands in raw-footage/imported/. The file
+is named "<title> [<video id>].mp4" (the title made filename-safe) and copied
+in as above, with "<file>.youtube.json" ({ url, title, videoId }) beside it.
+A video id already imported is reused, never downloaded again. The echo adds
+{ title, url }. --no-wait prints { jobId, transcribeJobId, status, path }:
+jobId is the download's, and path is null until it has landed.
+
 Examples:
   cvm footage import ~/Downloads/streamyard-interview.mp4
+  cvm footage import "https://www.youtube.com/watch?v=<id>"
   cvm footage import --no-wait /tmp/b-roll.mov
   cvm footage list --imported`;
 

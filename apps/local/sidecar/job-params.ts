@@ -104,6 +104,15 @@ export const JOB_PARAMS = {
     source: AbsoluteFootagePath,
     destination: AbsoluteFootagePath,
   }),
+  /**
+   * One YouTube video downloaded and copied in as Imported Footage
+   * (`cvm footage import <url>`, the Imported Footage page). `url` is the
+   * video's watch URL, rebuilt from its id.
+   */
+  "import-youtube-footage": Schema.Struct({
+    url: Schema.String.pipe(Schema.startsWith("https://")),
+    videoId: Schema.String.pipe(Schema.pattern(/^[A-Za-z0-9_-]{11}$/)),
+  }),
   /** A Course copied under a new name; the route chose the new Course's id. */
   "duplicate-course": Schema.Struct({
     sourceCourseId: Schema.String,

@@ -1,7 +1,7 @@
 import path from "node:path";
 import { inArray } from "drizzle-orm";
 import { Effect } from "effect";
-import { MoreHorizontal, Search } from "lucide-react";
+import { Download, MoreHorizontal, Search } from "lucide-react";
 import {
   Form,
   Link,
@@ -47,6 +47,7 @@ import { loadStorageOwnership } from "@/packages/storage/scan";
 import { DrizzleService } from "@/services/drizzle-service.server";
 import { makeLoader } from "@/services/route-action.server";
 import { storageRootsConfig } from "@/services/storage-roots";
+import { readYoutubeSource } from "@/services/youtube-footage-import.server";
 import type { Route } from "./+types/_app.imported-footage";
 
 export const meta: Route.MetaFunction = () => [
@@ -61,8 +62,9 @@ const shortRootLabel = (root: string) => {
 
 /**
  * Every Imported Footage file, with whether its transcript is fresh and
- * which Videos use it (the Storage page's ownership), and the shared search
- * over the transcripts when `?q=` is set (#2537). Read-only.
+ * which Videos use it (the Storage page's ownership), where a YouTube import
+ * came from (#2545), and the shared search over the transcripts when `?q=` is
+ * set (#2537). Read-only: the URL box posts to `api.footage.import-youtube`.
  */
 export const loader = makeLoader({
   effect: ({ request }) =>
@@ -95,11 +97,16 @@ export const loader = makeLoader({
                 .where(inArray(videos.id, videoIds))
             )).map((v) => [v.id, v.title] as const)
       );
+      const sources = yield* Effect.forEach(
+        files,
+        (file) => readYoutubeSource(path.posix.join(file.location, file.path)),
+        { concurrency: 8 }
+      );
       const notTranscribed = new Set(search.notTranscribed);
       return {
         query,
         searched: isSearching(query),
-        files: files.map((file) => ({
+        files: files.map((file, i) => ({
           path: file.path,
           name: path.posix.basename(file.path),
           location: file.location,
@@ -107,6 +114,7 @@ export const loader = makeLoader({
           absolute: path.posix.join(file.location, file.path),
           bytes: file.size,
           transcribed: !notTranscribed.has(file.path),
+          youtube: sources[i] ?? null,
           used:
             classifyStorageFile(ownership, file.path)?.bucketId ===
             "used-imported-footage",
@@ -170,10 +178,17 @@ export default function ImportedFootagePage({
           <h1 className="text-3xl font-bold mb-2">Imported Footage</h1>
           <p className="text-sm text-muted-foreground">
             Footage CVM did not film, copied in with{" "}
-            <code>cvm footage import</code>. Cut Clips and B-roll from it with{" "}
-            <code>cvm</code>.
+            <code>cvm footage import</code> or downloaded from a YouTube URL.
+            Cut Clips and B-roll from it with <code>cvm</code>.
           </p>
         </div>
+
+        <YoutubeImportBox
+          key={state.urlBoxGeneration}
+          starting={state.startingUrl !== null}
+          downloads={Object.entries(state.downloads)}
+          dispatch={dispatch}
+        />
 
         {/* A new search keeps the hit playing: only `q` changes. */}
         <Form method="get" className="flex gap-2 max-w-xl" key={query}>
@@ -232,7 +247,8 @@ export default function ImportedFootagePage({
           {files.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               Nothing imported yet. Run{" "}
-              <code>cvm footage import &lt;file&gt;</code>.
+              <code>cvm footage import &lt;file&gt;</code>, or paste a YouTube
+              URL above.
             </p>
           ) : (
             <table className="w-full text-sm">
@@ -260,6 +276,55 @@ export default function ImportedFootagePage({
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function YoutubeImportBox({
+  starting,
+  downloads,
+  dispatch,
+}: {
+  starting: boolean;
+  downloads: [string, importedFootageReducer.Download][];
+  dispatch: (action: importedFootageReducer.Action) => void;
+}) {
+  return (
+    <div className="space-y-2 max-w-xl">
+      <form
+        className="flex gap-2"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const url = new FormData(event.currentTarget).get("url");
+          dispatch({ type: "youtube-url-submitted", url: String(url ?? "") });
+        }}
+      >
+        <Input
+          type="url"
+          name="url"
+          aria-label="YouTube URL"
+          placeholder="Paste a YouTube URL to import it"
+          disabled={starting}
+          className="flex-1"
+        />
+        <Button type="submit" variant="outline" disabled={starting}>
+          <Download className="size-4" />
+          Import
+        </Button>
+      </form>
+      {downloads.length > 0 && (
+        <ul className="text-sm space-y-1" data-testid="youtube-downloads">
+          {downloads.map(([jobId, download]) => (
+            <li key={jobId} className="flex gap-2 text-muted-foreground">
+              <span>YouTube {download.videoId}:</span>
+              <span>
+                {download.stage ?? "waiting"}
+                {download.percent !== null ? ` ${download.percent}%` : ""}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
@@ -358,6 +423,16 @@ function FootageFileRow({
           <td className="py-2 pr-4 break-all">
             <div>{file.name}</div>
             <div className="text-xs text-muted-foreground">{file.path}</div>
+            {file.youtube && (
+              <a
+                href={file.youtube.url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs underline-offset-2 hover:underline"
+              >
+                From YouTube: {file.youtube.title}
+              </a>
+            )}
           </td>
           <td className="py-2 pr-4 whitespace-nowrap">
             <Badge variant="secondary" title={file.location}>
