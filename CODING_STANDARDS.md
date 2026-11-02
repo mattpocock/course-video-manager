@@ -209,9 +209,8 @@ that runs mid-take must never take time from the capture (#2214, which lost
   is open (`recorder-client/whisper-warmth.ts`).
 - Heavier work waits for Stop: `transcribe-footage` Jobs
   (`HELD_WHILE_RECORDING_KINDS`) and the stills of the live take
-  (`holdsStillsOf`). The one exception is the last-frame overlay on the live
-  preview (`/clips/:id/last-frame`), brought back to see whether dropped
-  frames return (#2294).
+  (`holdsStillsOf`), the last-frame overlay on the live preview included:
+  #2294 let it through and it cost the camera frames.
 
 ### A script, harness or test starts Windows processes only through the Windows guard
 

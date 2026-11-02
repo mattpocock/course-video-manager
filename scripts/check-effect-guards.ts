@@ -98,6 +98,10 @@ const RUN_BOUNDARIES: ReadonlyArray<readonly [RegExp, string]> = [
     /^apps\/local\/scripts\/storage-relocate\.ts$/,
     "the one-off relocation onto a Storage Root (#2105): its entry point runs the plan",
   ],
+  [
+    /^apps\/local\/scripts\/recorder-scorecard\/stills\.ts$/,
+    "the recorder scorecard's stills mid-take: it asks for each still as the still routes do",
+  ],
 ];
 
 export const isRunBoundary = (file: string): boolean =>
