@@ -300,10 +300,10 @@ The **Storage Bucket** of **Footage** under `raw-footage/`, except **Imported Fo
 _Avoid_: Orphaned footage, Unreferenced footage, Dead footage
 
 **Used Imported Footage**:
-The **Storage Bucket** of **Imported Footage** that a **Clip** (live or archived) or a **B-roll** uses. It lists the Courses whose Videos use it, as **Shared Footage** does, and is moved as one.
+The **Storage Bucket** of **Imported Footage** that a **Clip** (live or archived) or a **B-roll** uses. Its transcript and Whisper pieces are counted with it. It is never counted in a **Course**'s bucket, so moving a Course does not carry it: it is moved on its own, as one, like **Shared Footage**, and it lists the Courses whose Videos use it, as Shared Footage does.
 
 **Unused Imported Footage**:
-The **Storage Bucket** of **Imported Footage** that nothing uses. It can be moved between **Storage Roots**, and CVM never deletes it.
+The **Storage Bucket** of **Imported Footage** that nothing uses, with its transcripts and Whisper pieces. It can be moved between **Storage Roots** as one, and CVM never deletes it, at any age: the page offers no delete, and a delete of it is refused.
 _Avoid_: Unused Footage (a different bucket, and the only deletable one)
 
 **Delete originals**:
