@@ -1,9 +1,6 @@
 import { createHash } from "node:crypto";
-import { createReadStream, createWriteStream } from "node:fs";
 import nodeFs from "node:fs/promises";
 import path from "node:path";
-import { Transform } from "node:stream";
-import { pipeline } from "node:stream/promises";
 import { Data } from "effect";
 import { assertUnder } from "@/services/assert-under";
 import {
@@ -12,12 +9,13 @@ import {
   isFootageFileName,
 } from "./imported-footage";
 import {
+  checkpoint,
   hashFile,
   placeNoReplace,
   removePartial,
   type Control,
 } from "./move-copy.server";
-import { lstatOrNull } from "./move-io.server";
+import { CHUNK_BYTES, lstatOrNull } from "./move-io.server";
 import type { StorageRoots } from "./storage-roots";
 
 /**
@@ -81,6 +79,53 @@ export const chooseImportDestination = async (
 };
 
 /**
+ * Copy `source` (opened read-only) to `partial`, created `wx` so nothing
+ * already there is written through, hashing what was read; synced to disk
+ * before it is checked.
+ */
+const copyHashing = async (
+  source: string,
+  partial: string,
+  hash: ReturnType<typeof createHash>,
+  control: Control
+) => {
+  const input = await nodeFs.open(source, "r");
+  try {
+    const out = await nodeFs.open(partial, "wx");
+    try {
+      const buffer = Buffer.allocUnsafe(CHUNK_BYTES);
+      for (let position = 0; ;) {
+        checkpoint(control);
+        const { bytesRead } = await input.read(
+          buffer,
+          0,
+          CHUNK_BYTES,
+          position
+        );
+        if (bytesRead === 0) break;
+        hash.update(buffer.subarray(0, bytesRead));
+        let written = 0;
+        while (written < bytesRead) {
+          const { bytesWritten } = await out.write(
+            buffer,
+            written,
+            bytesRead - written,
+            position + written
+          );
+          written += bytesWritten;
+        }
+        position += bytesRead;
+      }
+      await out.sync();
+    } finally {
+      await out.close().catch(() => undefined);
+    }
+  } finally {
+    await input.close().catch(() => undefined);
+  }
+};
+
+/**
  * Copy `source` to `destination`, which must be under `raw-footage/imported/`
  * on `root`. A cut-off run's partial is started again; a file already at
  * `destination` is kept if it has the source's bytes, and is never replaced.
@@ -125,19 +170,7 @@ export const copyIntoImportedFootage = async (opts: {
   await removePartial(partial);
   try {
     const hash = createHash("sha256");
-    // `wx`: never through something already there; `flush`: on the disk
-    // before it is checked.
-    await pipeline(
-      createReadStream(opts.source, { flags: "r" }),
-      new Transform({
-        transform(chunk: Buffer, _encoding, done) {
-          hash.update(chunk);
-          done(null, chunk);
-        },
-      }),
-      createWriteStream(partial, { flags: "wx", flush: true }),
-      { signal: opts.signal }
-    );
+    await copyHashing(opts.source, partial, hash, control);
 
     const after = await lstatOrNull(opts.source);
     const copy = await lstatOrNull(partial);
