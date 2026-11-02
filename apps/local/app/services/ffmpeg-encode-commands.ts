@@ -197,7 +197,7 @@ export class FFmpegEncodeService extends Effect.Service<FFmpegEncodeService>()(
       });
 
       /**
-       * A Short's final pass: its subtitle/CTA overlay (a Remotion ProRes 4444
+       * A Short's final pass: its caption overlay (a Remotion ProRes 4444
        * render with alpha) burned into the concatenated video.
        *
        * The video decodes on NVDEC and encodes on NVENC
