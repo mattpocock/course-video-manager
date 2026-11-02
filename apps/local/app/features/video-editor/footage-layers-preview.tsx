@@ -1,6 +1,11 @@
 import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
-import { footageLayerTime, type FootageLayer } from "@/packages/clip-source";
+import {
+  EXPORT_FPS,
+  exportFrameAt,
+  footageLayerTime,
+  type FootageLayer,
+} from "@/packages/clip-source";
 import {
   VIDEO_FORMAT_DIMENSIONS,
   type VideoFormat,
@@ -14,9 +19,6 @@ import {
  */
 const PLAYING_DRIFT_SECONDS = 0.15;
 
-/** The export's frame rate: the preview reads Footage on its frame grid. */
-const EXPORT_FPS = 60;
-
 /**
  * Where in its Footage a Footage Layer is at `currentTime` (seconds into its
  * Clip): {@link footageLayerTime} of the time since its span began, on the
@@ -29,8 +31,7 @@ export const footageLayerTimeAt = (
 ): number =>
   footageLayerTime(
     layer.start,
-    Math.max(0, Math.floor((currentTime - layer.span.at) * EXPORT_FPS)) /
-      EXPORT_FPS
+    Math.max(0, exportFrameAt(currentTime - layer.span.at)) / EXPORT_FPS
   );
 
 /** Whether the Footage Layer is drawn at `currentTime`, seconds into its Clip. */
@@ -109,7 +110,16 @@ const FootageLayerVideo = (props: {
       return;
     }
     if (drift > PLAYING_DRIFT_SECONDS) video.currentTime = props.footageTime;
-    if (video.paused) void video.play().catch(() => {});
+    // play() rejects when a pause or a new src interrupts it (AbortError);
+    // the next render plays it again, so nothing is lost. Anything else is
+    // a real failure, and is logged.
+    if (video.paused) {
+      void video.play().catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
+        console.error("A Footage Layer's preview would not play", error);
+      });
+    }
   }, [props.footageTime, props.playing, props.playbackRate]);
 
   // The Clip's clock can stall (buffering) while the editor still plays. The

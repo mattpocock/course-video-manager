@@ -18,6 +18,7 @@ import { FRAMES_DIRECTORY } from "@/services/frame-stills";
  */
 export const loader = makeLoader({
   errors: {
+    NotFoundError: 404,
     StorageFileNotFoundError: 404,
     StillHeldError: 503,
     FrameRefusedError: 422,

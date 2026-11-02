@@ -359,6 +359,71 @@ describe("cvm short create from Video ranges", () => {
       description: "Fake question",
     });
   });
+  it("carries a Landscape Clip's Footage Layers into the Short's frame by fractions, centre-cropped so nothing stretches", async () => {
+    const stream = await seedStream();
+    const c0 = stream.clipIds[0]!;
+    const footage = {
+      clipId: c0,
+      kind: "footage" as const,
+      footagePath: "broll.mp4",
+      footageStart: 4,
+      cropX: 0,
+      cropY: 0,
+      cropW: 1,
+      cropH: 1,
+      volume: 0,
+    };
+    // A migrated full-frame B-roll, and a 640x360 picture-in-picture.
+    await testDb.insert(schema.clipLayers).values([
+      { clipId: c0, position: 0, kind: "scene", volume: 1 },
+      {
+        ...footage,
+        position: 1,
+        placeX: 0,
+        placeY: 0,
+        placeW: 1920,
+        placeH: 1080,
+      },
+      {
+        ...footage,
+        position: 2,
+        placeX: 1280,
+        placeY: 0,
+        placeW: 640,
+        placeH: 360,
+      },
+    ]);
+
+    const { clips } = await created(
+      await create("--video", stream.videoId, "--range", `${c0}..${c0}`)
+    );
+
+    const layers = await testDb.query.clipLayers.findMany({
+      where: eq(schema.clipLayers.clipId, clips[0]!.id),
+      orderBy: schema.clipLayers.position,
+    });
+    // 16:9 into 9:16 keeps the middle (9/16) / (16/9) of the width.
+    const keep = 9 / 16 / (16 / 9);
+    expect(
+      layers.map((l) => [l.kind, l.placeX, l.placeY, l.placeW, l.placeH])
+    ).toEqual([
+      ["scene", null, null, null, null],
+      ["footage", 0, 0, 1080, 1920],
+      ["footage", 720, 0, 360, 640],
+    ]);
+    for (const layer of layers.slice(1)) {
+      expect(layer.cropW).toBeCloseTo(keep, 9);
+      expect(layer.cropX).toBeCloseTo((1 - keep) / 2, 9);
+      expect([layer.cropY, layer.cropH]).toEqual([0, 1]);
+    }
+    // The source keeps its own.
+    const source = await testDb.query.clipLayers.findMany({
+      where: eq(schema.clipLayers.clipId, c0),
+    });
+    expect(source.map((l) => l.placeW)).toEqual(
+      expect.arrayContaining([1920, 640])
+    );
+  });
 });
 
 describe("cvm short create from a Recording Session or Footage range", () => {

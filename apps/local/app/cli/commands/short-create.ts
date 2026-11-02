@@ -1,6 +1,6 @@
+import { FileSystem } from "@effect/platform";
 import { Command, Options } from "@effect/cli";
 import { Effect, Option } from "effect";
-import { existsSync } from "node:fs";
 import { draftIdOption, optionalDraftId } from "../entity-id";
 import { ClipOperationsService } from "@/services/db-clip-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
@@ -180,7 +180,8 @@ const footageCut = (
     const { start, end } = yield* parseSpan(range);
     yield* requireLength(start, end, `--range '${range}'`);
     const onDisk = footageOnDisk(footage);
-    if (!existsSync(onDisk)) {
+    const fs = yield* FileSystem.FileSystem;
+    if (!(yield* fs.exists(onDisk))) {
       return yield* refuse(`no such Footage file: ${footage}`);
     }
     const probe = yield* probeFootage(onDisk).pipe(

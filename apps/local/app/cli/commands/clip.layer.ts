@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { FileSystem } from "@effect/platform";
 import { Args, Command, Options } from "@effect/cli";
 import { Effect, Option } from "effect";
 import {
@@ -136,7 +136,8 @@ const footageSource = (typed: string, from: number | undefined) =>
       NEEDS_FOOTAGE_ON_DISK
     );
     const onDisk = footageOnDisk(typed);
-    if (!existsSync(onDisk)) {
+    const fs = yield* FileSystem.FileSystem;
+    if (!(yield* fs.exists(onDisk))) {
       return yield* refuse(`no such Footage on any Storage Root: ${typed}`);
     }
     return {

@@ -1,6 +1,11 @@
 import type { EffectReducer } from "use-effect-reducer";
 import type { ClipLayerRow } from "@cvm/core/features/videos/clip-layer";
 import type { RunningState } from "./video-state-reducer";
+import {
+  EXPORT_FPS,
+  exportFrameAt,
+  exportFrameCount,
+} from "@/packages/clip-source";
 
 /**
  * THE PORTRAIT STUDIO'S PREVIEW (#2580). Paused or scrubbing, a Short shows
@@ -18,7 +23,7 @@ import type { RunningState } from "./video-state-reducer";
  */
 
 /** The export's frame rate: a frame is asked for on its grid. */
-const FPS = 60;
+const FPS = EXPORT_FPS;
 
 /** One composed frame of a Short's Clip: `at` seconds into the Clip. */
 export type ShortFrameRequest = {
@@ -73,9 +78,9 @@ export const shortFrameRequest = (input: {
       ? input.scrubSeekTime - clip.sourceStartTime
       : input.currentTimeInClip;
   const lastFrame =
-    Math.ceil((clip.sourceEndTime - clip.sourceStartTime) * FPS - 1e-6) - 1;
+    exportFrameCount(clip.sourceEndTime - clip.sourceStartTime) - 1;
   const frame = Math.min(
-    Math.max(0, Math.floor(time * FPS + 1e-6)),
+    Math.max(0, exportFrameAt(time)),
     Math.max(0, lastFrame)
   );
   const at = frame / FPS;
