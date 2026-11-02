@@ -76,6 +76,9 @@ const overrides = (ctx: {
   "video.recorder": () => "cvm",
   // CHECK clip_scene_override_valid.
   "clip.sceneOverride": () => "Code",
+  // CHECKs on a Layer's kind and session file.
+  "clip_layer.kind": () => "footage",
+  "clip_layer.sessionFile": () => "screen",
   // CHECK clip_origin_valid; the non-default value, so a copy that drops
   // it (back to "video-editor") fails.
   "clip.origin": () => "cli",
