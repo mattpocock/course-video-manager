@@ -246,7 +246,8 @@ const rootRelativeHashFields = <F extends { f: string }>(
  * join its entry (see
  * `clipSourceHashFields`), drawn in the Video's format: a Landscape
  * session's Clip on a Short is addressed by the Short layout's version. An
- * OBS Clip's entry is untouched.
+ * OBS Clip's entry is untouched on a Landscape Video; on a Short it adds
+ * `cv`, since it now covers the frame instead of being stretched.
  *
  * The file a Clip's entry names (`f`) is its ROOT-RELATIVE path
  * (`raw-footage/x.mp4`), never the drive it is on: a legacy absolute path
@@ -266,17 +267,23 @@ export const computeExportHash = (
   const payload = {
     v: EXPORT_VERSION,
     fmt: videoFormat,
-    clips: clips.map((c) => ({
-      ...rootRelativeHashFields(
-        clipSourceHashFields(clipSource(c, { videoFormat })),
-        storageRoots
-      ),
-      ...(c.pauseType === LONG_PAUSE ? { p: LONG_PAUSE } : {}),
-      ...(resolveClipZoomType(c.zoomType) === DEFAULT_CLIP_ZOOM_TYPE
-        ? {}
-        : { z: resolveClipZoomType(c.zoomType) }),
-      ...(c.overlays.length === 0 ? {} : { o: toOverlayPayload(c.overlays) }),
-    })),
+    clips: clips.map((c) => {
+      const source = clipSource(c, { videoFormat });
+      return {
+        ...rootRelativeHashFields(clipSourceHashFields(source), storageRoots),
+        // A single file on a Short covers the frame, centre-cropped (it was
+        // stretched before #2575): `cv` re-addresses it. Landscape, and every
+        // CVM-recorder Clip, is untouched.
+        ...(source.kind === "footage" && videoFormat === "short"
+          ? { cv: 1 }
+          : {}),
+        ...(c.pauseType === LONG_PAUSE ? { p: LONG_PAUSE } : {}),
+        ...(resolveClipZoomType(c.zoomType) === DEFAULT_CLIP_ZOOM_TYPE
+          ? {}
+          : { z: resolveClipZoomType(c.zoomType) }),
+        ...(c.overlays.length === 0 ? {} : { o: toOverlayPayload(c.overlays) }),
+      };
+    }),
   };
 
   return crypto

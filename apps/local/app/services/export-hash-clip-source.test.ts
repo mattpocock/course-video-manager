@@ -53,9 +53,14 @@ describe("an OBS Clip's Export Hash through the Clip Source", () => {
     expect(computeExportHash(clips, "landscape", [])).toBe(
       "9a58c78eb23dbfc7020e1c84ae3cc711"
     );
-    expect(computeExportHash(clips, "short", [])).toBe(
-      "4950ba6b38ec40b7cff9bc03a37d84d1"
-    );
+  });
+
+  it("is re-addressed on a Short, where a file now covers the frame instead of stretching", () => {
+    const clips = toExportClips(obsRows);
+    const onAShort = computeExportHash(clips, "short", []);
+    // Was 4950ba6b38ec40b7cff9bc03a37d84d1 while it rendered stretched.
+    expect(onAShort).not.toBe("4950ba6b38ec40b7cff9bc03a37d84d1");
+    expect(onAShort).toBe("20677066089b83688c8b116434bc5213");
   });
 });
 
