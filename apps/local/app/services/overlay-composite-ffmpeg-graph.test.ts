@@ -93,6 +93,16 @@ describe.skipIf(!hasFfmpeg)(
       expect(graph).not.toBeNull();
       expect(() => runGraph(graph!, 4)).not.toThrow();
     });
+
+    it("runs a B-roll, trimmed and scaled, next to a Definition Card", () => {
+      const graph = buildOverlayCompositeFilterGraph([
+        { startInSeconds: 0, endInSeconds: 0.1, kind: "definitionCard" },
+        { startInSeconds: 0.1, endInSeconds: 0.2, kind: "bRoll" },
+      ]);
+
+      expect(graph).toContain("trim=");
+      expect(() => runGraph(graph!, 3)).not.toThrow();
+    });
   }
 );
 
