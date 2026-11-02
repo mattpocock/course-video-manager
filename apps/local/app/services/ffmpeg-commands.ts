@@ -1,5 +1,7 @@
 import { Command } from "@effect/platform";
-import { NodeContext } from "@effect/platform-node";
+// The subpath, not the barrel: the barrel loads undici into every `cvm` call
+// (`cvm footage frame` reaches this module).
+import * as NodeContext from "@effect/platform-node/NodeContext";
 import { Effect, Stream } from "effect";
 import {
   cpuFallbackArgs,

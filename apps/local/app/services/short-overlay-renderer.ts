@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { Command, CommandExecutor, FileSystem } from "@effect/platform";
-import { NodeContext } from "@effect/platform-node";
+import * as NodeContext from "@effect/platform-node/NodeContext";
 import { Data, Effect, Stream } from "effect";
 import { overlayRendererBinPath } from "./overlay-renderer-bin";
 import { removeBestEffort } from "@/services/remove-best-effort";
