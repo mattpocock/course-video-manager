@@ -9,6 +9,7 @@ import {
   EXPORT_SCRATCH_BUCKET,
   ORPHANED_EXPORTS_BUCKET,
   OVERLAY_RENDER_CACHE_BUCKET,
+  UNUSED_IMPORTED_FOOTAGE_BUCKET,
   type StorageOwnership,
 } from "./buckets";
 import {
@@ -157,6 +158,13 @@ export const deleteOtherStorageBucket = (opts: {
     const bucketId = DELETABLE_STORAGE_BUCKETS.find(
       (id) => id === opts.bucketId
     );
+    if (opts.bucketId === UNUSED_IMPORTED_FOOTAGE_BUCKET.id) {
+      return yield* new StorageDeleteRefusedError({
+        bucketId: opts.bucketId,
+        reason: "not-deletable",
+        message: `${UNUSED_IMPORTED_FOOTAGE_BUCKET.name} is never deleted by CVM: it can only be moved`,
+      });
+    }
     if (bucketId === undefined) {
       return yield* new StorageDeleteRefusedError({
         bucketId: opts.bucketId,

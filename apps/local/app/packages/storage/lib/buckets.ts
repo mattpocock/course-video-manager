@@ -1,4 +1,5 @@
 import path from "node:path";
+import { isImportedFootage } from "./imported-footage";
 import { MOVE_PARTIAL_SUFFIX } from "./move-wire";
 import { rootRelativePath, STORAGE_FOLDERS } from "./storage-roots";
 
@@ -7,8 +8,9 @@ import { rootRelativePath, STORAGE_FOLDERS } from "./storage-roots";
  * in. Each Course; Standalone Videos; Shorts; Shared Footage (Footage used by
  * more than one Course's Clips, listing those Courses); Unused
  * Footage (Footage under `raw-footage/` no Clip, live or archived, uses, and
- * no Recording Session still recording or under 7 days old); and the Other
- * buckets.
+ * no Recording Session still recording or under 7 days old); Used and Unused
+ * Imported Footage (everything under `raw-footage/imported/`, split by whether
+ * a Clip, live or archived, uses it); and the Other buckets.
  */
 export type StorageBucketKind =
   | "course"
@@ -16,6 +18,8 @@ export type StorageBucketKind =
   | "shorts"
   | "shared-footage"
   | "unused-footage"
+  | "used-imported-footage"
+  | "unused-imported-footage"
   | "clip-mockups"
   | "overlay-render-cache"
   | "export-scratch"
@@ -26,7 +30,10 @@ export type StorageBucket = {
   readonly id: string;
   readonly kind: StorageBucketKind;
   readonly name: string;
-  /** Shared Footage only: the names of the Courses whose Clips share it. */
+  /**
+   * Shared Footage and Used Imported Footage only: the names of the Courses
+   * whose Clips use it.
+   */
   readonly sharedBy?: readonly string[];
 };
 
@@ -65,6 +72,15 @@ export const UNUSED_FOOTAGE_BUCKET: StorageBucket = {
   kind: "unused-footage",
   name: "Unused Footage",
 };
+/**
+ * Imported Footage no Clip, live or archived, uses. Never Unused Footage:
+ * CVM never deletes it, at any age; it can only be moved.
+ */
+export const UNUSED_IMPORTED_FOOTAGE_BUCKET: StorageBucket = {
+  id: "unused-imported-footage",
+  kind: "unused-imported-footage",
+  name: "Unused Imported Footage",
+};
 export const CLIP_MOCKUPS_BUCKET: StorageBucket = {
   id: "clip-mockups",
   kind: "clip-mockups",
@@ -96,6 +112,7 @@ export const ORPHANED_EXPORTS_BUCKET: StorageBucket = {
   name: "Exported Videos of no current Video",
 };
 const SHARED_FOOTAGE_ID = "shared-footage";
+const USED_IMPORTED_FOOTAGE_ID = "used-imported-footage";
 
 export const courseBucketId = (courseId: string) => `course:${courseId}`;
 
@@ -147,7 +164,8 @@ export type StorageOwnership = {
  * Assign every used Footage file and every current Exported Video to its
  * Storage Bucket. Footage used by Clips in more than one Course goes to the
  * single Shared Footage bucket, so it is counted once and never moved out from
- * under another Course.
+ * under another Course. Imported Footage a Clip uses goes to Used Imported
+ * Footage, never to a Course: it is moved on its own, like Shared Footage.
  */
 export const assignStorageBuckets = (
   input: StorageOwnershipInput,
@@ -194,9 +212,13 @@ export const assignStorageBuckets = (
   // Course, it is Standalone Videos' (unless only Shorts use it).
   const footage = new Map<string, string>();
   const sharers = new Map<string, StorageBucket>();
+  const importers = new Map<string, StorageBucket>();
   for (const [relative, set] of users) {
     const courses = [...set].filter((b) => b.kind === "course");
-    if (courses.length > 1) {
+    if (isImportedFootage(relative)) {
+      footage.set(relative, USED_IMPORTED_FOOTAGE_ID);
+      for (const course of courses) importers.set(course.id, course);
+    } else if (courses.length > 1) {
       footage.set(relative, SHARED_FOOTAGE_ID);
       for (const course of courses) sharers.set(course.id, course);
     } else if (courses.length === 1) {
@@ -227,9 +249,8 @@ export const assignStorageBuckets = (
     }
   }
 
-  const sharedBy = [...sharers.values()]
-    .map((b) => b.name)
-    .sort((a, b) => a.localeCompare(b));
+  const namesOf = (buckets: Map<string, StorageBucket>) =>
+    [...buckets.values()].map((b) => b.name).sort((a, b) => a.localeCompare(b));
   return {
     buckets: [
       ...courseBuckets.values(),
@@ -239,9 +260,16 @@ export const assignStorageBuckets = (
         id: SHARED_FOOTAGE_ID,
         kind: "shared-footage",
         name: "Shared Footage",
-        sharedBy,
+        sharedBy: namesOf(sharers),
       },
       UNUSED_FOOTAGE_BUCKET,
+      {
+        id: USED_IMPORTED_FOOTAGE_ID,
+        kind: "used-imported-footage",
+        name: "Used Imported Footage",
+        sharedBy: namesOf(importers),
+      },
+      UNUSED_IMPORTED_FOOTAGE_BUCKET,
       CLIP_MOCKUPS_BUCKET,
       OVERLAY_RENDER_CACHE_BUCKET,
       EXPORT_SCRATCH_BUCKET,
@@ -263,7 +291,9 @@ export const assignStorageBuckets = (
 /**
  * The Footage a file under `raw-footage/` belongs with: itself, or — for a
  * transcript or Whisper piece kept beside it (`a.mkv.transcript.json`) — the
- * longest used Footage path it extends.
+ * longest used Footage path it extends. Used by nothing, it is Unused
+ * Imported Footage when it is under `raw-footage/imported/` (an import's
+ * partial file and every companion too), else Unused Footage.
  */
 const footageOwner = (
   ownership: StorageOwnership,
@@ -278,7 +308,10 @@ const footageOwner = (
     const owner = ownership.footage.get(footage);
     if (owner !== undefined) return { bucketId: owner, companionOf: footage };
   }
-  return { bucketId: UNUSED_FOOTAGE_BUCKET.id, companionOf: null };
+  const unused = isImportedFootage(relative)
+    ? UNUSED_IMPORTED_FOOTAGE_BUCKET
+    : UNUSED_FOOTAGE_BUCKET;
+  return { bucketId: unused.id, companionOf: null };
 };
 
 /** `x.mp4.sha256` and other companions are counted with `x.mp4`. */

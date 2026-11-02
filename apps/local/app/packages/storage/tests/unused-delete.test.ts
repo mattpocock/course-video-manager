@@ -15,6 +15,7 @@ import { classifyStorageFile } from "../buckets";
 import { loadStorageOwnership } from "../scan";
 import { unusedDeletedFiles } from "../client";
 import { deleteUnusedFootage } from "../unused";
+import { deleteOtherStorageBucket } from "../delete";
 
 /**
  * Deleting Unused Footage for good (#2157, #2423). Storage Roots are real temp
@@ -327,6 +328,62 @@ describe("which Footage is Unused", () => {
       classifyStorageFile(ownership, "raw-footage/rec-live/camera.mkv")
         ?.bucketId
     ).toBe("standalone-videos");
+  });
+});
+
+describe("Imported Footage", () => {
+  it("is never deleted as Unused Footage, however old, and a named one says why", async () => {
+    put(d, "raw-footage/imported/interview.mp4");
+    put(d, "raw-footage/imported/interview.mp4.transcript.json");
+    put(e, "raw-footage/imported/broll/city.mp4");
+    put(d, "raw-footage/unused.mkv");
+
+    const whole = await del();
+
+    expect(unusedDeletedFiles(whole)).toBe(1);
+    expect(whole.kept).toEqual([]);
+    expect(tree(path.join(d, "raw-footage"))).toEqual([
+      "imported/interview.mp4",
+      "imported/interview.mp4.transcript.json",
+    ]);
+    expect(exists(e, "raw-footage/imported/broll/city.mp4")).toBe(true);
+
+    const named = await del({
+      files: [{ location: e, path: "raw-footage/imported/broll/city.mp4" }],
+    });
+
+    expect(unusedDeletedFiles(named)).toBe(0);
+    expect(named.kept).toEqual([
+      {
+        path: "raw-footage/imported/broll/city.mp4",
+        location: e,
+        reason: "it is Imported Footage, which CVM never deletes",
+      },
+    ]);
+    expect(exists(e, "raw-footage/imported/broll/city.mp4")).toBe(true);
+  });
+
+  it("refuses a delete of Unused Imported Footage", async () => {
+    put(d, "raw-footage/imported/interview.mp4");
+
+    const failure = failureOf(
+      await Effect.runPromiseExit(
+        deleteOtherStorageBucket({
+          db: db(),
+          roots,
+          bucketId: "unused-imported-footage",
+          scratchDir: outside,
+        })
+      )
+    );
+
+    expect(failure).toMatchObject({
+      _tag: "StorageDeleteRefusedError",
+      reason: "not-deletable",
+      message:
+        "Unused Imported Footage is never deleted by CVM: it can only be moved",
+    });
+    expect(exists(d, "raw-footage/imported/interview.mp4")).toBe(true);
   });
 });
 
