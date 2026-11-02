@@ -54,7 +54,10 @@ const exportHashOf = async (videoId: string) =>
       (
         await testDb.query.clips.findMany({
           where: eq(schema.clips.videoId, videoId),
-          with: { recordingSession: clipRecordingSessionRelation },
+          with: {
+            recordingSession: clipRecordingSessionRelation,
+            layers: true,
+          },
         })
       ).map((c) => ({ ...c, overlays: [] }))
     ),

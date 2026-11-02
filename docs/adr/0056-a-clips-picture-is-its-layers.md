@@ -28,6 +28,8 @@ A Short cut from a live stream needs a picture the scene layout can't draw: the 
 
 ## Consequences
 
-- Until Footage Layers can be stored (#2574), `clipLayers` always answers one Scene Layer, and nothing renders, hashes or previews differently.
+- Layers are stored in their own table (migration 0048), written whole per Clip. A Clip with no rows is one Scene Layer, and writing back a lone full-volume Scene Layer stores nothing, so the Clip is untouched again (#2574).
+- A Footage Layer may name the camera or screen of the Clip's own Recording Session instead of a file: it reads that file on the Clip's clock, so it stays in sync when the Clip is retimed or its Layers are copied to another Clip of the session. A Footage Layer of a file keeps showing the same Footage at the same source moment when its Clip is retimed.
+- A Clip with Layers of its own is exported as its own segment (as a composite is); an untouched Clip takes the export path it always took.
 - A Clip's Layers will join its Export Hash only when they are not one Scene Layer, so no export made before Layers is re-addressed.
 - Storage ownership (Used Imported Footage) reads Footage Layers once B-roll is gone.

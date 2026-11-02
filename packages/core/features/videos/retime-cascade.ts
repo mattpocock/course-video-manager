@@ -28,6 +28,8 @@
  * (db-clip-retime.server.ts) is then only plumbing.
  */
 
+import type { ClipLayerSpec } from "./clip-layer.js";
+
 /** A Clip's cut into its source file. Both ends in source-file seconds. */
 export interface ClipRange {
   readonly sourceStartTime: number;
@@ -141,3 +143,43 @@ export const shiftOverlayAnchors = <O extends ShiftableOverlay>(
     const at = clampOverlayAnchor(overlay.at, shift);
     return at === overlay.at ? [] : [{ id: overlay.id, at }];
   });
+
+/**
+ * Shift a Footage Layer of a file so it shows the same Footage at the same
+ * moment of the source after the recut (a Scene Layer, or a Footage Layer of
+ * the Clip's own Recording Session, is on the Clip's clock already and never
+ * moves).
+ *
+ * - A whole-Clip Layer's start moves by the recut's delta: the Footage at the
+ *   new in-point is what was shown there before (never before 0).
+ * - A span moves by the delta. A span pushed before the new in-point loses
+ *   that head, its start moving on to match; one that would lose all of it,
+ *   or lands past the new end, is clamped inside the Clip like an Overlay,
+ *   never deleted: it is hand-authored.
+ */
+export const shiftFootageLayer = (
+  layer: ClipLayerSpec,
+  shift: RetimeShift
+): ClipLayerSpec => {
+  if (layer.kind === "scene" || layer.source.kind === "session") return layer;
+  const { source, span } = layer;
+  if (span === null) {
+    const start = Math.max(0, source.start - shift.delta);
+    return { ...layer, source: { ...source, start } };
+  }
+  const at = span.at + shift.delta;
+  if (at < 0 && span.duration + at > 0) {
+    return {
+      ...layer,
+      source: { ...source, start: source.start - at },
+      span: { at: 0, duration: span.duration + at },
+    };
+  }
+  return {
+    ...layer,
+    span: {
+      at: Math.max(0, Math.min(at, shift.newDuration)),
+      duration: span.duration,
+    },
+  };
+};

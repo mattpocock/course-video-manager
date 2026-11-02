@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { VIDEO_FORMAT_DIMENSIONS } from "@cvm/core/features/videos/video-format";
-import { clipComposite, clipSource } from "@/packages/clip-source";
+import { clipComposite, clipLayers, clipSource } from "@/packages/clip-source";
 import type { Scene } from "@/packages/scene-layout";
 import { clipSegmentArgs } from "./clip-segment-args";
 
@@ -15,6 +15,9 @@ import { clipSegmentArgs } from "./clip-segment-args";
  * segments draw — a camera-only Short session has no screen file at all.
  */
 const SHORT = VIDEO_FORMAT_DIMENSIONS.short;
+
+/** An untouched Clip's Layers: one Scene Layer. */
+const UNTOUCHED = [{ kind: "scene" as const, volume: 1 }];
 
 const shortClip = (
   dir: string,
@@ -50,6 +53,7 @@ const shortClip = (
     startTime: 0.5,
     duration: 1,
     composite: clipComposite(source),
+    layers: clipLayers(source),
   };
 };
 
@@ -109,7 +113,13 @@ describe("a Short CVM-recorder Clip's segment arguments", () => {
 
   it("covers the Short's frame with a single 16:9 file, centre-cropped", () => {
     const args = clipSegmentArgs(
-      { inputVideo: "/obs/a.mkv", startTime: 0, duration: 1, composite: null },
+      {
+        inputVideo: "/obs/a.mkv",
+        startTime: 0,
+        duration: 1,
+        composite: null,
+        layers: UNTOUCHED,
+      },
       SHORT,
       "/out/0.mov"
     );
@@ -301,6 +311,7 @@ describe.skipIf(!hasFfmpeg)("rendering a 16:9 Footage Clip on a Short", () => {
           startTime: 0.5,
           duration: 1,
           composite: null,
+          layers: UNTOUCHED,
         },
         SHORT,
         out

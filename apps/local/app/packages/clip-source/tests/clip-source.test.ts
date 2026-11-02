@@ -29,6 +29,7 @@ const obsClip = {
   recordingSessionId: null,
   sceneOverride: null,
   recordingSession: null,
+  layers: [],
 };
 
 describe("an OBS Clip's source", () => {
@@ -83,6 +84,7 @@ describe("an OBS Clip's source", () => {
       recordingSessionId: null,
       sceneOverride: null,
       recordingSession: null,
+      layers: [],
     });
   });
 
@@ -91,7 +93,7 @@ describe("an OBS Clip's source", () => {
   });
 
   it("is pictured by one Scene Layer", () => {
-    expect(clipLayers(source)).toEqual([{ kind: "scene" }]);
+    expect(clipLayers(source)).toEqual([{ kind: "scene", volume: 1 }]);
   });
 });
 
@@ -150,11 +152,12 @@ describe("a CVM-recorder Clip's source", () => {
       ],
       start: 10,
       end: 14,
+      layers: [{ kind: "scene", volume: 1 }],
     });
   });
 
   it("is pictured by one Scene Layer", () => {
-    expect(clipLayers(source)).toEqual([{ kind: "scene" }]);
+    expect(clipLayers(source)).toEqual([{ kind: "scene", volume: 1 }]);
   });
 
   it("is exported as the composite of its Session's files, mic EQ applied", () => {

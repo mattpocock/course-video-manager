@@ -1,6 +1,7 @@
 import {
   clipComposite,
   clipFfmpegInput,
+  clipLayers,
   clipSource,
 } from "@/packages/clip-source";
 import path from "node:path";
@@ -236,6 +237,7 @@ export const exportVideoToItsAddress = Effect.fn("exportVideoToItsAddress")(
             composite: clipComposite(source, {
               durationSeconds: clipExportDurationInSeconds(asked),
             }),
+            layers: clipLayers(source),
           };
         })
       ).pipe(

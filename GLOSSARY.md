@@ -407,7 +407,7 @@ The **Layer** that draws a **Clip**'s own source in its scene layout: an OBS or 
 _Avoid_: Base layer, Background, Scene (one of Camera, Code or No Face, which a Scene Layer draws)
 
 **Footage Layer**:
-A **Layer** that draws one **Footage** file: a **Source Crop** of it, scaled to its **Placement**, with a volume (muted by default) and a start time in that file. The file plays along with the Clip: the frame shown is the latest one at or before the start time plus the time elapsed in the Clip, the same in preview and export. It replaces the **B-roll** Overlay Kind. Not stored yet (#2574).
+A **Layer** that draws one **Footage** file: a **Source Crop** of it, scaled to its **Placement**, with a volume (muted by default) and a start time in that file. The file plays along with the Clip: the frame shown is the latest one at or before the start time plus the time elapsed in the Clip, the same in preview and export. It may name a file, or the camera or screen of the Clip's own **Recording Session**, which plays on the Clip's clock. It may cover only a span of the Clip. It replaces the **B-roll** Overlay Kind. Authored with `cvm clip layer`.
 _Avoid_: B-roll (the Overlay Kind it supersedes), Picture-in-picture, Inset
 
 **Source Crop**:
