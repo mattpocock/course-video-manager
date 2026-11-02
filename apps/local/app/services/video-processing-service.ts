@@ -22,12 +22,12 @@ export class VideoProcessingService extends Effect.Service<VideoProcessingServic
       /**
        * Renders a still to a cached PNG. An OBS Clip's frame is cached under
        * its file and time as it always was; a composite under the whole frame.
-       * `gated: false` skips the Still Gate (the last-frame overlay, below).
+       * Every decode goes through the Still Gate: none reads the growing
+       * Footage of a live Recording Session.
        */
       const renderStill = Effect.fn("renderStill")(function* (
         frame: ClipFrame,
-        cacheKeyPrefix: string,
-        { gated }: { gated: boolean }
+        cacheKeyPrefix: string
       ) {
         const seek = frame.time.toFixed(2);
         const inputHash = crypto
@@ -72,9 +72,7 @@ export class VideoProcessingService extends Effect.Service<VideoProcessingServic
         }).pipe(Effect.ensuring(effectFs.remove(partial).pipe(Effect.ignore)));
 
         // Only the app server gates stills on the recorder (`still-gate.ts`).
-        const gate = gated
-          ? yield* Effect.serviceOption(StillGate)
-          : Option.none();
+        const gate = yield* Effect.serviceOption(StillGate);
         yield* Option.match(gate, {
           onNone: () => decode,
           onSome: ({ run }) => run(decode),
@@ -83,14 +81,11 @@ export class VideoProcessingService extends Effect.Service<VideoProcessingServic
         return outputFile;
       });
 
-      // The last frame is NOT gated: the live preview overlays the previous
-      // Take's last frame mid-session. #2214 held it until Stop for dropped
-      // frames; Matt brought it back to see if they return (#2294).
-      const getLastFrame = (frame: ClipFrame) =>
-        renderStill(frame, "", { gated: false });
+      // The last frame is gated too (#2294 let it through mid-session, and
+      // a streamed session's back-to-back ones cost the camera 14 frames).
+      const getLastFrame = (frame: ClipFrame) => renderStill(frame, "");
 
-      const getFirstFrame = (frame: ClipFrame) =>
-        renderStill(frame, "first-", { gated: true });
+      const getFirstFrame = (frame: ClipFrame) => renderStill(frame, "first-");
 
       return {
         /**

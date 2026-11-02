@@ -10,10 +10,15 @@ import {
   TestContext,
 } from "effect";
 import { describe, expect, it, vi } from "vitest";
+import { NodeContext } from "@effect/platform-node";
+import { randomUUID } from "node:crypto";
 import { makeLoader } from "./route-action.server";
+import { FFmpegCommandsService } from "./ffmpeg-commands";
+import { VideoProcessingService } from "./video-processing-service";
 import {
   makeStillGate,
   STILL_DECODES_AT_ONCE,
+  StillGate,
   StillHeldError,
   type RecordingSignal,
 } from "./still-gate";
@@ -130,7 +135,7 @@ describe("the still gate", () => {
 
   it("a still route answers 503 at once while recording, never parking the browser's connection", async () => {
     const gate = makeStillGate(fakeRecorder(true).signal);
-    // The first-frame route's error map.
+    // The first-frame and last-frame routes' error map.
     const loader = makeLoader(
       {
         errors: { StillHeldError: 503 },
@@ -182,5 +187,48 @@ describe("the still gate", () => {
   it("passes a decode's failure on", async () => {
     const gate = makeStillGate(fakeRecorder(false).signal);
     await expect(run(gate(Effect.fail("no GPU")))).rejects.toThrow("no GPU");
+  });
+
+  it("holds a Clip's first and last frame mid-session, never reading its growing files (#2214, #2294)", async () => {
+    let decodes = 0;
+    const stills = VideoProcessingService.DefaultWithoutDependencies.pipe(
+      Layer.provide(NodeContext.layer),
+      Layer.provide(
+        Layer.succeed(FFmpegCommandsService, {
+          runStill: () => Effect.sync(() => ++decodes),
+        } as unknown as FFmpegCommandsService)
+      ),
+      // As the app server's runtime does: the gate beside the service.
+      Layer.merge(
+        Layer.mergeAll(
+          NodeContext.layer,
+          Layer.succeed(StillGate, {
+            run: makeStillGate(fakeRecorder(true).signal),
+          })
+        )
+      )
+    );
+    // A Clip of the Recording Session being recorded: files still growing.
+    const frame = {
+      kind: "composite",
+      format: "landscape",
+      screen: `/footage/${randomUUID()}/screen.mkv`,
+      camera: `/footage/${randomUUID()}/camera.mkv`,
+      scene: "Camera",
+      time: 12.3,
+    } as const;
+    const ask = (which: "getLastFrame" | "getFirstFrame") =>
+      Effect.runPromiseExit(
+        Effect.flatMap(VideoProcessingService, (s) => s[which](frame)).pipe(
+          Effect.provide(stills)
+        )
+      );
+    expect(await ask("getLastFrame")).toEqual(
+      Exit.fail(expect.any(StillHeldError))
+    );
+    expect(await ask("getFirstFrame")).toEqual(
+      Exit.fail(expect.any(StillHeldError))
+    );
+    expect(decodes).toBe(0);
   });
 });

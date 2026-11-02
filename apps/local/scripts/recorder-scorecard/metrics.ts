@@ -10,22 +10,10 @@
  * numbers before and after long-lived capture).
  */
 
-export type MetricGroup = "speed" | "reliability" | "resources";
+import type { MetricDef } from "./metric-def";
+import { STILLS_METRICS } from "./metrics-stills";
 
-export type MetricDef = {
-  id: string;
-  label: string;
-  group: MetricGroup;
-  unit: string;
-  better: "lower" | "higher";
-  target: number;
-  /** OBS's value, or null: no evidence. */
-  obs: number | null;
-  obsSource?: string;
-  /** What one "unit of badness" is, to rank gaps of different units together. */
-  scale: number;
-  note?: string;
-};
+export type { MetricDef, MetricGroup } from "./metric-def";
 
 const RIG = "#1993 rig, OBS 30-min baseline (2026-10-11)";
 
@@ -533,6 +521,7 @@ export const METRICS: readonly MetricDef[] = [
     obs: null,
     scale: 1,
   },
+  ...STILLS_METRICS,
   // THE STREAMED RECORDING SESSION (#2455): raw footage first, then the
   // Live Stream's picture against a local sink, then its Chat Highlights
   // (#2461): click-to-on-screen time and monotonic card opacity.
