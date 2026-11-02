@@ -63,7 +63,12 @@ export const trackFramesLost = (
 ): cvmRecorderReducer.State => {
   const next =
     after.placing !== null && after.placing !== before.placing
-      ? { ...after, lostFrameSpans: [], takeSpans: [] }
+      ? {
+          ...after,
+          lostFrameSpans: [],
+          takeSpans: [],
+          framesLostDismissed: null,
+        }
       : after;
   if (
     !("recordingSessionId" in message) ||

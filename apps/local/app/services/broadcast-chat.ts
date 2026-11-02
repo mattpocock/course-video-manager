@@ -35,8 +35,11 @@ import {
  * 5 quota units however long it stays open; polling `list` would eat the
  * daily quota uploads share. A connection that drops is opened again on its
  * own, from the last page heard, after a pause that doubles from
- * `reconnectMs` up to `maxReconnectMs` (`Schedule.exponential`); a
- * connection that heard a page starts the pause over.
+ * `reconnectMs` up to `maxReconnectMs` (`Schedule.exponential`). A
+ * connection that heard a page and stayed open `steadyMs` starts the pause
+ * over; one YouTube closes sooner, though it heard pages, is reopened after a
+ * pause that doubles too, so a stream that flaps can't spend the quota at 5
+ * units a reopen (#2558).
  *
  * A stream connection YouTube refuses before one has ever opened for the
  * Broadcast reads no chat at all (`refused`): it never polls, to spare the
@@ -50,7 +53,19 @@ import {
  * it runs with the app server's services; the next pick or `end` stops it.
  * It keeps the last `maxMessages` in memory for a listener that comes back;
  * chat messages are never stored.
+ *
+ * Every change of connection is logged (`log`), with how many stream
+ * connections this pick has opened, so a run's log tells polling from
+ * flapping.
  */
+
+/** One logged change of a pick's chat connection. */
+export type ChatConnectionLog = {
+  broadcastId: string;
+  connection: ChatConnection;
+  /** Stream connections opened for this pick so far: 5 quota units each. */
+  streamOpens: number;
+};
 
 export type BroadcastChat = {
   /** Reads this Broadcast's chat instead; picking the same one again is a no-op. */
@@ -87,7 +102,14 @@ export const createBroadcastChat = (o: {
   maxReconnectMs: number;
   /** The longest pause between asks for the stream connection while polling. */
   maxStreamRetryMs: number;
+  /**
+   * A stream connection open this long before it closed was steady: the
+   * reopen pause starts over. One closed sooner doubles it.
+   */
+  steadyMs: number;
   maxMessages: number;
+  /** Hears every change of connection. */
+  log?: (entry: ChatConnectionLog) => void;
 }): BroadcastChat => {
   const listeners = new Set<(event: BroadcastChatEvent) => void>();
   let broadcastId: string | null = null;
@@ -119,6 +141,16 @@ export const createBroadcastChat = (o: {
     let streamed = false;
     /** Polling since the stream broke mid-stream: when to ask for it again. */
     let polling: { retryMs: number; retryAt: number } | null = null;
+    /** Stream connections asked for, and when the last one opened. */
+    let streamOpens = 0;
+    let streamOpenedAt = 0;
+    /** The pause before reopening a stream that closed after pages. */
+    let reopenPauseMs = o.reconnectMs;
+    const openStream = (asked: Parameters<typeof openChatStream>[0]) =>
+      Effect.suspend(() => {
+        streamOpens += 1;
+        return openChatStream(asked);
+      });
     /** Polls, and asks for the stream connection again `retryMs` from now. */
     const retryStreamLater = (retryMs: number) =>
       Effect.map(Clock.currentTimeMillis, (now): Next => {
@@ -129,6 +161,7 @@ export const createBroadcastChat = (o: {
     const setConnection = (next: ChatConnection) => {
       if (sameConnection(next, connection)) return;
       connection = next;
+      o.log?.({ broadcastId: id, connection, streamOpens });
       emit({ type: "chat-connection-changed", broadcastId: id, connection });
     };
     const hear = (page: ChatPage) => {
@@ -155,7 +188,7 @@ export const createBroadcastChat = (o: {
         const wasPolling = polling;
         if (wasPolling && now >= wasPolling.retryAt) {
           // Polling: is the stream connection back yet?
-          const back = yield* openChatStream(asked).pipe(
+          const back = yield* openStream(asked).pipe(
             Effect.catchAll((e) =>
               Effect.succeed({ status: "dropped", message: e.message } as const)
             )
@@ -172,7 +205,7 @@ export const createBroadcastChat = (o: {
           ChatStreamAnswer | ChatListAnswer,
           { message: string },
           LinkAuthOperationsService
-        > = wasPolling ? listChatPage(asked) : openChatStream(asked);
+        > = wasPolling ? listChatPage(asked) : openStream(asked);
         const answer = yield* call.pipe(
           Effect.catchAll((e) => dropped(e.message))
         );
@@ -198,6 +231,7 @@ export const createBroadcastChat = (o: {
         switch (answer.status) {
           case "open": {
             streamed = true;
+            streamOpenedAt = yield* Clock.currentTimeMillis;
             setConnection({ state: "streaming" });
             let heard = false;
             // Each page as it comes. Interrupted mid-read, the scope's abort
@@ -242,9 +276,19 @@ export const createBroadcastChat = (o: {
         )
       ),
       Effect.retry({ schedule: reconnects, while: (e) => !e.heard }),
-      // It heard chat before it dropped: the pause starts over.
+      // It heard chat before it dropped: the pause starts over if it was
+      // steady, and grows if YouTube keeps closing it.
       Effect.catchTag("ChatDropped", () =>
-        Effect.as(Effect.sleep(Duration.millis(o.reconnectMs)), "again" as Next)
+        Effect.gen(function* () {
+          const now = yield* Clock.currentTimeMillis;
+          const steady = now - streamOpenedAt >= o.steadyMs;
+          const pauseMs = steady ? o.reconnectMs : reopenPauseMs;
+          reopenPauseMs = steady
+            ? o.reconnectMs
+            : Math.min(pauseMs * 2, o.maxReconnectMs);
+          yield* Effect.sleep(Duration.millis(pauseMs));
+          return "again" as Next;
+        })
       )
     );
 

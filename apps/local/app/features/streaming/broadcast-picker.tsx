@@ -8,7 +8,10 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { broadcastPickerRows } from "./live-stream-reducer";
+import {
+  broadcastPickerRows,
+  broadcastPickerView,
+} from "./live-stream-reducer";
 import { useLiveStream } from "./live-stream-context";
 import type { ReconnectReason } from "./broadcast";
 
@@ -33,6 +36,8 @@ const formatScheduledStart = (iso: string | null) =>
  * The Streaming tab's Broadcast picker: Matt's active and upcoming YouTube
  * Broadcasts, a Refresh, and a reconnect prompt when Google's grant lacks
  * live-streaming access. The pick lives in the app-wide Live Stream surface.
+ * Once a Broadcast is picked, only the pick shows, with Change to bring the
+ * list back (`broadcastPickerView`), so the chat below gets the room.
  */
 export const BroadcastPicker = () => {
   const { state, dispatch } = useLiveStream();
@@ -42,6 +47,39 @@ export const BroadcastPicker = () => {
   useEffect(() => {
     dispatch({ type: "broadcast-picker-shown" });
   }, [dispatch]);
+
+  const view = broadcastPickerView(state);
+  if (view.kind === "picked") {
+    return (
+      <div className="flex flex-col gap-1" data-testid="broadcast-picker">
+        <div className="flex items-center gap-2">
+          <YoutubeIcon className="size-4 shrink-0 text-red-500" />
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium">
+              {view.broadcast.title}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {formatScheduledStart(view.broadcast.scheduledStartTime)}
+            </p>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="ml-auto shrink-0"
+            onClick={() => dispatch({ type: "change-broadcast-clicked" })}
+          >
+            Change
+          </Button>
+        </div>
+        {view.refusal !== null && (
+          <div className="flex gap-1 text-xs text-amber-600">
+            <AlertTriangleIcon className="size-3.5 shrink-0 mt-0.5" />
+            <span>{view.refusal}</span>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   const list = state.broadcastList;
   const rows = broadcastPickerRows(state);

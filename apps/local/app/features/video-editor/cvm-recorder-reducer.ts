@@ -18,6 +18,7 @@ import {
 import { isSceneAvailable, isScreenWaking } from "./cvm-recorder-screen";
 import { placeClips } from "./cvm-recorder-clips";
 import {
+  clipsHitByLostFrames,
   describeFramesLostInClips,
   trackFramesLost,
   type TakeSpan,
@@ -138,6 +139,12 @@ export namespace cvmRecorderReducer {
      */
     framesLost: FramesLost | null;
     /**
+     * The frames lost in Clips (camera and screen) when Matt dismissed the
+     * frames-lost alert: it stays hidden until a Clip loses more, and the
+     * next Recording Session starts with none dismissed.
+     */
+    framesLostDismissed: { camera: number; screen: number } | null;
+    /**
      * Where in the Recording Session placed frames were lost, and its
      * Takes' spans: the frames-lost alert is for a loss inside one
      * (`cvm-recorder-frames-lost.ts`, #2227).
@@ -165,6 +172,7 @@ export namespace cvmRecorderReducer {
     | { type: "silence-length-chosen"; silenceLength: SilenceLength }
     | { type: "press-stop" }
     | { type: "dismiss-alert" }
+    | { type: "dismiss-frames-lost-alert" }
     | { type: "press-retry" }
     | { type: "press-wake-spacedesk" }
     | { type: "retry-screen-failed"; message: string }
@@ -211,6 +219,7 @@ export const createInitialCvmRecorderState = (
   error: null,
   alert: null,
   framesLost: null,
+  framesLostDismissed: null,
   lostFrameSpans: [],
   takeSpans: [],
   silenceLength: null,
@@ -304,8 +313,22 @@ export const stillRound = (state: cvmRecorderReducer.State): string =>
  */
 export const framesLostAlert = (
   state: cvmRecorderReducer.State
-): string | null =>
-  describeFramesLostInClips(state, isCvmRecorderRecording(state));
+): string | null => {
+  const dismissed = state.framesLostDismissed;
+  if (dismissed) {
+    const lost = framesLostInClips(state);
+    if (lost.camera <= dismissed.camera && lost.screen <= dismissed.screen)
+      return null;
+  }
+  return describeFramesLostInClips(state, isCvmRecorderRecording(state));
+};
+
+/** Every frame lost inside a Clip of the Recording Session placed. */
+const framesLostInClips = (state: cvmRecorderReducer.State) =>
+  clipsHitByLostFrames(state).reduce(
+    (n, h) => ({ camera: n.camera + h.camera, screen: n.screen + h.screen }),
+    { camera: 0, screen: 0 }
+  );
 
 /** The message as the shared session reducer hears it, if it is one. */
 const sessionEventOf = (
@@ -528,6 +551,8 @@ export const cvmRecorderReducer: EffectReducer<
       return { ...state, silenceLength: action.silenceLength };
     case "dismiss-alert":
       return { ...state, alert: null };
+    case "dismiss-frames-lost-alert":
+      return { ...state, framesLostDismissed: framesLostInClips(state) };
     case "press-stop":
       return recorderSessionReducer(state, { type: "press-stop" }, exec);
     case "press-retry":

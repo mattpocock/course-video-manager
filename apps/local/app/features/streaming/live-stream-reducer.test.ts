@@ -4,6 +4,7 @@ import type { Broadcast } from "./broadcast";
 import type { ChatMessage } from "./broadcast-chat";
 import {
   broadcastPickerRows,
+  broadcastPickerView,
   createInitialLiveStreamState,
   goLiveControl,
   liveIndicator,
@@ -31,6 +32,50 @@ const start = () =>
   new ReducerTester(liveStreamReducer, createInitialLiveStreamState());
 
 describe("the Live Stream surface's Broadcast picker", () => {
+  const listed = () =>
+    start()
+      .send({ type: "broadcast-picker-shown" })
+      .send({
+        type: "broadcasts-answered",
+        answer: { status: "listed", broadcasts: [officeHours, qa] },
+      });
+
+  it("shows the list until a Broadcast is picked, then only the pick", () => {
+    const tester = listed();
+    expect(broadcastPickerView(tester.getState())).toEqual({ kind: "list" });
+
+    tester.send({ type: "broadcast-clicked", broadcastId: "qa" });
+    expect(broadcastPickerView(tester.getState())).toEqual({
+      kind: "picked",
+      broadcast: qa,
+      refusal: null,
+    });
+  });
+
+  it("brings the list back on Change, and hides it again once a Broadcast is picked", () => {
+    const tester = listed()
+      .send({ type: "broadcast-clicked", broadcastId: "qa" })
+      .send({ type: "change-broadcast-clicked" });
+    expect(broadcastPickerView(tester.getState())).toEqual({ kind: "list" });
+
+    tester.send({ type: "broadcast-clicked", broadcastId: "office-hours" });
+    expect(broadcastPickerView(tester.getState())).toMatchObject({
+      kind: "picked",
+      broadcast: officeHours,
+    });
+  });
+
+  it("shows the list again when the picked Broadcast is no longer listed", () => {
+    const tester = listed()
+      .send({ type: "broadcast-clicked", broadcastId: "qa" })
+      .send({ type: "refresh-broadcasts-clicked" })
+      .send({
+        type: "broadcasts-answered",
+        answer: { status: "listed", broadcasts: [officeHours] },
+      });
+    expect(broadcastPickerView(tester.getState())).toEqual({ kind: "list" });
+  });
+
   it("lists Broadcasts the first time the picker shows, and again only on Refresh", () => {
     const tester = start()
       .send({ type: "broadcast-picker-shown" })

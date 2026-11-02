@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { RotateCcwIcon, TriangleAlertIcon } from "lucide-react";
+import { RotateCcwIcon, TriangleAlertIcon, XIcon } from "lucide-react";
 import { useContextSelector } from "use-context-selector";
 import { VideoEditorContext } from "../video-editor-context";
 import { SilenceLengthToggle } from "./silence-length-toggle";
@@ -10,7 +10,8 @@ import { framesLostAlert } from "../cvm-recorder-reducer";
 
 /**
  * Whether the recorder is simply fine — ready, recording or stopping — so a
- * Short's studio, which gives every pixel it can to the preview, says nothing.
+ * Short's studio, which gives every pixel it can to the preview, and the
+ * Streaming tab, whose takes the teleprompter reports, say nothing.
  */
 const isRecorderSettled = (
   controls: ReturnType<typeof useCvmRecorderControls>
@@ -92,9 +93,10 @@ const CameraProblem = () => {
  * its status speaks only when something is wrong or not ready yet. Record, Stop and the
  * scene are the Stream Deck's: it calls the recorder service directly.
  * Clips appear in the timeline as the recorder hears each take end, already
- * saved.
+ * saved. `quiet` (the Streaming tab) treats a Landscape Video as a Short
+ * does: no Silence Length, and a status only when something is wrong.
  */
-export const CvmRecorderControls = () => {
+export const CvmRecorderControls = (props: { quiet?: boolean }) => {
   const controls = useCvmRecorderControls();
   const gate = useContextSelector(
     VideoEditorContext,
@@ -106,7 +108,8 @@ export const CvmRecorderControls = () => {
   );
   const { state } = controls;
   const calibrationRefusal = isCalibrationRefusal(state.error);
-  const showStatus = !isShort || !isRecorderSettled(controls);
+  const quiet = isShort || props.quiet === true;
+  const showStatus = !quiet || !isRecorderSettled(controls);
   const framesLost = framesLostAlert(state);
   return (
     <div className="mt-2 flex flex-col items-center gap-2 empty:hidden">
@@ -118,6 +121,17 @@ export const CvmRecorderControls = () => {
         >
           <TriangleAlertIcon className="size-7 shrink-0" />
           <p className="flex-1">{framesLost}</p>
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            className="shrink-0 text-white hover:bg-red-700 hover:text-white"
+            aria-label="Dismiss the frames-lost alert"
+            title="Hide until a Clip loses more frames"
+            onClick={controls.onDismissFramesLost}
+          >
+            <XIcon className="size-5" />
+          </Button>
         </div>
       )}
       {state.alert && (
@@ -144,9 +158,9 @@ export const CvmRecorderControls = () => {
           refusal={calibrationRefusal ? state.error : null}
         />
       )}
-      {(!isShort || showStatus) && (
+      {(!quiet || showStatus) && (
         <div className="flex flex-wrap items-center justify-center gap-3">
-          {!isShort && <SilenceLengthToggle />}
+          {!quiet && <SilenceLengthToggle />}
           {showStatus && (
             <span
               className="text-xs text-muted-foreground"
