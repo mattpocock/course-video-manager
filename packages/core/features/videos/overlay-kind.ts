@@ -17,7 +17,11 @@
  * until the new kind is answered for.
  */
 
-export const OVERLAY_KINDS = ["definitionCard", "bulletPanel"] as const;
+export const OVERLAY_KINDS = [
+  "definitionCard",
+  "bulletPanel",
+  "bRoll",
+] as const;
 
 export type OverlayKind = (typeof OVERLAY_KINDS)[number];
 
@@ -51,6 +55,7 @@ export const resolveOverlayKind = (
 const OVERLAY_KIND_LABELS: Record<OverlayKind, string> = {
   definitionCard: "Definition Card",
   bulletPanel: "Bullet Panel",
+  bRoll: "B-roll",
 };
 
 /**

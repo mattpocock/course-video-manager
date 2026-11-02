@@ -291,6 +291,41 @@ describe("streamStorageScan", () => {
     });
   });
 
+  it("counts a B-roll's Footage in Used Imported Footage", async () => {
+    const a = await seedCourse("Course A");
+    const video = await seedVideo({ lessonId: a.lessonId, footage: [] });
+    const [clip] = await testDb
+      .insert(schema.clips)
+      .values({
+        videoId: video,
+        videoFilename: "raw-footage/take.mkv",
+        sourceStartTime: 0,
+        sourceEndTime: 10,
+        order: `a${order++}`,
+        text: "",
+      })
+      .returning();
+    await testDb.insert(schema.overlays).values({
+      clipId: clip!.id,
+      at: 1,
+      durationInSeconds: 3,
+      kind: "bRoll",
+      title: "",
+      description: "",
+      footagePath: "raw-footage/imported/city.mp4",
+      footageStart: 5,
+    });
+    put(d, "raw-footage/take.mkv", 1);
+    put(d, "raw-footage/imported/city.mp4", 40);
+
+    const sizes = totals(await scan());
+
+    expect(sizes["used-imported-footage"]).toEqual({
+      [d]: { footage: 40 },
+    });
+    expect(sizes["unused-imported-footage"]).toBeUndefined();
+  });
+
   it("shows an unreadable root as Offline, with no sizes for it", async () => {
     await seedVideo({ footage: ["raw-footage/s.mkv"] });
     put(d, "raw-footage/s.mkv", 30);

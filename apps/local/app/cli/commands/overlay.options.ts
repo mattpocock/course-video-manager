@@ -74,8 +74,10 @@ export const kindOpt = Options.choice("kind", OVERLAY_KINDS).pipe(
 
 export const titleAddOpt = Options.text("title").pipe(
   Options.withDescription(
-    "The Definition Card's heading — the term being defined (required)."
-  )
+    "The Definition Card's heading — the term being defined, or the Bullet " +
+      "Panel's own heading (required, except refused for a bRoll)."
+  ),
+  Options.optional
 );
 
 export const titleUpdateOpt = Options.text("title").pipe(
