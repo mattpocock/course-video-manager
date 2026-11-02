@@ -283,6 +283,9 @@ export const OverlayPreview = (props: {
               />
             );
           }
+          case "bRoll":
+            // Not previewed yet: the editor's B-roll preview is #2539.
+            return null;
         }
       })()}
     </div>
