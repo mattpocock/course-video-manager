@@ -2,7 +2,7 @@ import { chatCardInputProps } from "@/features/video-editor/chat-card-input-prop
 import { resolveOverlayKind } from "@/features/videos/overlay-kind";
 import type { ExportClipDuration } from "./export-duration-check";
 import type { ExportOverlay } from "./export-hash";
-import { placeOnTimeline } from "./overlay-compositing";
+import { placeOnTimeline } from "./overlay-timeline";
 
 /**
  * How a Short's overlay is drawn over its picture: by the render's final pass

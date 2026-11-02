@@ -1,6 +1,6 @@
 import { Command } from "@effect/cli";
 import { Effect, Option } from "effect";
-import { ShortOverlayRendererService } from "@/services/short-overlay-renderer";
+import { ShortOverlayFrameService } from "@/services/short-overlay-frame";
 import { shortClipFrame } from "@/services/short-clip-frame";
 import { detail, emitObject } from "@/cli/helpers";
 import { NEEDS_FOOTAGE_ON_DISK, requireLocalMachine } from "@/cli/local-only";
@@ -16,8 +16,9 @@ The composed frame, at the Video's size (1080x1920): the Clip's Layers bottom to
 top (its Scene Layer in the Short layout, each Footage Layer's Source Crop at its
 Placement), then the captions and the Chat Cards above them. It is drawn by the
 render's own code — the Clip's export segment and one frame of the Short's
-overlay render — so what it shows is what 'cvm short render' will post. Use it
-after 'clip layer add|update' to check a crop, a band or a card.
+overlay render — so what it shows is what 'cvm short render' will post, and
+what the Portrait Studio's preview shows paused at t. Use it after
+'clip layer add|update' to check a crop, a band or a card.
 
 <t> is seconds into the Clip (0 is its first frame; its long Pause counts). The
 frame is the one showing at t, on the render's 60 fps.
@@ -36,12 +37,12 @@ overlay renderer (Chromium) once, so a frame takes several seconds.`;
 
 /** The test's fake renderer when one is provided; this machine's otherwise. */
 const withOverlayRenderer = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-  Effect.flatMap(Effect.serviceOption(ShortOverlayRendererService), (given) =>
+  Effect.flatMap(Effect.serviceOption(ShortOverlayFrameService), (given) =>
     Option.isSome(given)
       ? effect.pipe(
-          Effect.provideService(ShortOverlayRendererService, given.value)
+          Effect.provideService(ShortOverlayFrameService, given.value)
         )
-      : effect.pipe(Effect.provide(ShortOverlayRendererService.Default))
+      : effect.pipe(Effect.provide(ShortOverlayFrameService.Default))
   );
 
 export const clipFrameCmd = Command.make(

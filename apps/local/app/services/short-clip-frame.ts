@@ -21,7 +21,7 @@ import {
   requireTimeWithin,
   runFrameFfmpeg,
 } from "./frame-stills";
-import { ShortOverlayRendererService } from "./short-overlay-renderer";
+import { ShortOverlayFrameService } from "./short-overlay-frame";
 import {
   shortOverlayProps,
   shortRenderClips,
@@ -37,7 +37,7 @@ import { SHORT_OVERLAY_COMPOSITE_FILTER } from "./vertical-overlay-props";
  *
  * Nothing here draws. The picture is the Clip's own export segment graph
  * (`clipSegmentFrameArgs`), the overlay one frame of the vertical render's
- * own Remotion composition (`ShortOverlayRendererService.renderFrame`) with
+ * own Remotion composition (`ShortOverlayFrameService.renderFrame`) with
  * the same props (`shortOverlayProps`), joined by the render's own overlay
  * filter. The frames line up as the render's do: the picture is frame `n` of
  * the Clip's segment, the overlay frame `n` past where the Clip starts on the
@@ -66,7 +66,7 @@ export const shortClipFrame = (clipId: string, at: number) =>
     const clipOps = yield* ClipOperationsService;
     const videoOps = yield* VideoOperationsService;
     const gate = yield* StillGate;
-    const overlayRenderer = yield* ShortOverlayRendererService;
+    const overlayRenderer = yield* ShortOverlayFrameService;
     const fs = yield* FileSystem.FileSystem;
 
     const [row] = yield* clipOps.getClipsByIds([clipId]);

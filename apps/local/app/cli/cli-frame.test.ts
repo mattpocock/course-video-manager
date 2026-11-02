@@ -21,6 +21,7 @@ import { FFmpegEncodeService } from "@/services/ffmpeg-encode-commands";
 import { VideoEditorLoggerService } from "@/services/video-editor-logger-service";
 import { RenderVerticalVideoService } from "@/services/render-vertical-video-service";
 import { ShortOverlayRendererService } from "@/services/short-overlay-renderer";
+import { ShortOverlayFrameService } from "@/services/short-overlay-frame";
 import type { ShortOverlayProps } from "@/services/short-render-clips";
 import { SidecarContextTest } from "@/services/sidecar-context";
 import { LOCAL_MACHINE_ENV_KEY } from "./env";
@@ -61,7 +62,7 @@ const cardBoxes = (props: ShortOverlayProps) =>
     .join(",");
 const overlaySource = (props: ShortOverlayProps) =>
   `color=c=black@0:s=${props.width}x${props.height}:r=${props.fps}:d=${props.durationInFrames / props.fps},format=rgba${props.chatCards.length ? `,${cardBoxes(props)}` : ""}`;
-const fakeOverlayRenderer = Layer.succeed(
+const fakeOverlayVideo = Layer.succeed(
   ShortOverlayRendererService,
   ShortOverlayRendererService.make({
     renderVideo: (props, out) =>
@@ -81,6 +82,11 @@ const fakeOverlayRenderer = Layer.succeed(
           out,
         ]);
       }),
+  })
+);
+const fakeOverlayFrame = Layer.succeed(
+  ShortOverlayFrameService,
+  ShortOverlayFrameService.make({
     renderFrame: (props, frame, out) =>
       Effect.sync(() => {
         execFileSync("ffmpeg", [
@@ -100,6 +106,8 @@ const fakeOverlayRenderer = Layer.succeed(
       }),
   })
 );
+
+const fakeOverlayRenderer = Layer.merge(fakeOverlayVideo, fakeOverlayFrame);
 
 let testDb: TestDb;
 let run: (argv: ReadonlyArray<string>) => Promise<RunResult>;
