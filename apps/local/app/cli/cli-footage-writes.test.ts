@@ -548,7 +548,16 @@ describe("footage search", () => {
     ]);
     expect(r.stderr).toBe("");
 
+    // Fresh while the size and mtime it was hashed at still match: a search
+    // reads no file's bytes again, so it stays cheap on many-GB files.
     const file = nodePath.join(roots[0], "raw-footage/imported/interview.mp4");
+    const { atime, mtime } = nodeFs.statSync(file);
+    nodeFs.writeFileSync(file, "v2");
+    nodeFs.utimesSync(file, atime, mtime);
+    expect(ndjson((await run(["footage", "search", "world"])).stdout)).toEqual(
+      ndjson(r.stdout)
+    );
+
     nodeFs.writeFileSync(file, "bytes changed since transcribed");
     const stale = await run(["footage", "search", "world"]);
     expect([stale.exitCode, stale.stdout]).toEqual([0, ""]);

@@ -15,7 +15,7 @@ import {
   type TestDb,
 } from "@/test-utils/test-db";
 import type { StorageRoots } from "../index";
-import type { StorageScanMessage } from "../buckets";
+import { assignStorageBuckets, type StorageScanMessage } from "../buckets";
 import { streamStorageScan, type DirtyBitReader } from "../scan";
 
 let testDb: TestDb;
@@ -437,5 +437,28 @@ describe("streamStorageScan", () => {
       false
     );
     await runtime.dispose();
+  });
+});
+
+describe("assignStorageBuckets", () => {
+  it("names the Videos that use each Footage file, by its root-relative path", () => {
+    const ownership = assignStorageBuckets(
+      {
+        courses: [],
+        videos: [],
+        footageUses: [
+          { stored: "/mnt/d/raw-footage/imported/a.mp4", videoId: "v1" },
+          { stored: "raw-footage/imported/a.mp4", videoId: "v2" },
+          { stored: "raw-footage/imported/a.mp4", videoId: "v1" },
+          { stored: "raw-footage/b.mkv", videoId: null },
+        ],
+      },
+      ["/mnt/d"]
+    );
+    expect(
+      Object.fromEntries(
+        [...ownership.videosByFootage].map(([p, v]) => [p, [...v]])
+      )
+    ).toEqual({ "raw-footage/imported/a.mp4": ["v1", "v2"] });
   });
 });
