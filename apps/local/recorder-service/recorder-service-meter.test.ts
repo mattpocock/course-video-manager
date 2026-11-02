@@ -180,7 +180,7 @@ describe("the level meter", () => {
     // The recording's own stamping and mic timing, so the Mic Offset is the
     // recording's.
     const t0 =
-      /\[0:v\]setpts=PTS-([\d.]+)\/TB,fps=30000\/1001:start_time=0/.exec(
+      /\[0:v\]setpts=PTS-([\d.]+)\/TB,setpts='[^']*',fps=30000\/1001:start_time=0/.exec(
         graph
       )?.[1];
     expect(t0).toBeDefined();

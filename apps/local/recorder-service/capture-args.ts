@@ -509,8 +509,17 @@ export const screenPreviewArgs = (o: {
 /** The camera (input 0) stamped in file time: wall time less T0. */
 const cameraOnT0 = (t0: string) => `[0:v]setpts=PTS-${t0}/TB`;
 
+/**
+ * Frames from t=0 on, moved by the first one's distance from its nearest
+ * tick (#2442). Where each frame shows is unchanged; it now sits on a tick,
+ * not half a frame off one, where the relay's 1 ms stamps dropped and
+ * repeated a third of a take.
+ */
+const CAMERA_ON_TICKS =
+  "setpts='if(gte(T,0)*not(ld(1)),st(1,1)+st(0,T-round(T*30000/1001)*1001/30000));PTS-ld(0)/TB'";
+
 /** CFR 29.97 from exactly t=0. */
-export const CAMERA_CFR = "fps=30000/1001:start_time=0";
+export const CAMERA_CFR = `${CAMERA_ON_TICKS},fps=30000/1001:start_time=0`;
 
 /**
  * The camera (input 0) on the shared clock: wall time less T0, then CFR
