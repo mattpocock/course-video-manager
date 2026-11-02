@@ -1,3 +1,4 @@
+import type { VideoFormat } from "@cvm/core/features/videos/video-format";
 import {
   layersOrUntouched,
   SCENE_LAYER_VOLUME,
@@ -145,3 +146,14 @@ export const layersHashPayload = (layers: readonly Layer[]) =>
           d: layer.span.duration,
         }
   );
+
+/**
+ * The Video Format a CVM-recorder Clip's Scene Layer is drawn in: the
+ * Video's. A Short draws every Clip in the Short layout, whatever format its
+ * Recording Session was filmed in. A Landscape Video keeps each session's own
+ * (a Short session's Clip on it is left as it is).
+ */
+export const sceneLayerFormat = (
+  sessionFormat: VideoFormat,
+  videoFormat: VideoFormat | undefined
+): VideoFormat => (videoFormat === "short" ? "short" : sessionFormat);

@@ -73,6 +73,10 @@ const overrides = (ctx: {
   "clip_mockup.voiceError": () => null,
   // CHECK clip_scene_override_valid.
   "clip.sceneOverride": () => "Code",
+  // CHECKs on a Layer's kind and session file; one position per Clip.
+  "clip_layer.kind": () => "footage",
+  "clip_layer.sessionFile": () => "screen",
+  "clip_layer.position": (i) => i,
   // CHECK clip_origin_valid. The source is `cli`, so a copy that carried it
   // instead of stamping `copy` fails.
   "clip.origin": () => "cli",

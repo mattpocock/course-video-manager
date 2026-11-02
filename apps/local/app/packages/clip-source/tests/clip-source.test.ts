@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { LAYOUT_VERSION, LAYOUT_VERSIONS } from "@/packages/scene-layout";
+import {
+  drawInstructions,
+  LAYOUT_VERSION,
+  LAYOUT_VERSIONS,
+} from "@/packages/scene-layout";
 import {
   clipComposite,
   clipFrameFfmpegArgs,
@@ -357,6 +361,86 @@ describe("a CVM-recorder Short Clip's source", () => {
     expect(() =>
       clipFrameFfmpegArgs(clipFrame(source, "first"), { seek: "10" })
     ).toThrow(/captured no screen/);
+  });
+});
+
+/** The Export Hash fields as the address sees them (key order included). */
+const hashOf = (...args: Parameters<typeof clipSource>) =>
+  JSON.stringify(clipSourceHashFields(clipSource(...args)));
+
+describe("a Clip's Scene Layer, drawn in its Video's format", () => {
+  const onAShort = clipSource(cvmRecorderClip, { videoFormat: "short" });
+
+  it("draws a Landscape session's Clip on a Short in the Short layout", () => {
+    expect(clipComposite(onAShort)?.format).toBe("short");
+    expect(clipFrame(onAShort, "first")).toMatchObject({
+      kind: "composite",
+      format: "short",
+    });
+    const picture = clipCompositePicture(onAShort, { from: 10, to: 14 })!;
+    expect(picture.format).toBe("short");
+    // Its 1920x1080 screen's left square on top, the camera band below,
+    // the camera's crop carried over as fractions of its 2560x1440 frame.
+    expect(
+      drawInstructions(
+        "Code",
+        {
+          screen: { width: 1920, height: 1080 },
+          camera: { width: 2560, height: 1440 },
+        },
+        picture.format
+      )
+    ).toEqual([
+      expect.objectContaining({
+        source: "screen",
+        sx: 0,
+        sy: 0,
+        sw: 1080,
+        sh: 1080,
+        dx: 0,
+        dy: 0,
+        dw: 1080,
+        dh: 1080,
+      }),
+      expect.objectContaining({
+        source: "camera",
+        sx: 526,
+        sy: 61,
+        sw: 1445,
+        sh: 1124,
+        dx: 0,
+        dy: 1080,
+        dw: 1080,
+        dh: 840,
+      }),
+    ]);
+    const still = clipFrameFfmpegArgs(clipFrame(onAShort, "first"), {
+      seek: "10",
+    });
+    expect(still.join(" ")).toContain("s=1080x1920");
+  });
+
+  it("re-addresses only the Clip it draws differently", () => {
+    expect(hashOf(cvmRecorderClip, { videoFormat: "short" })).toBe(
+      JSON.stringify({
+        ...clipSourceHashFields(clipSource(cvmRecorderClip)),
+        lv: LAYOUT_VERSIONS.short,
+        vf: "short",
+      })
+    );
+    // Landscape on Landscape, Short on Short: as before the Video's format.
+    expect(hashOf(cvmRecorderClip, { videoFormat: "landscape" })).toBe(
+      hashOf(cvmRecorderClip)
+    );
+    expect(hashOf(shortClip, { videoFormat: "short" })).toBe(hashOf(shortClip));
+  });
+
+  it("leaves a Short session's Clip on a Landscape Video as it is", () => {
+    const onLandscape = clipSource(shortClip, { videoFormat: "landscape" });
+    expect(clipComposite(onLandscape)?.format).toBe("short");
+    expect(hashOf(shortClip, { videoFormat: "landscape" })).toBe(
+      hashOf(shortClip)
+    );
   });
 });
 

@@ -242,6 +242,30 @@ describe("cvm clip layer", () => {
     expect(await layers(s.second)).toHaveLength(2);
   });
 
+  it("keeps a Footage file's Layer on the same Footage moment when its Clip is retimed", async () => {
+    const s = await seed("landscape");
+    await run([
+      "clip",
+      "layer",
+      "add",
+      "--footage",
+      join(root, "raw-footage/imported/city.mp4"),
+      "--from",
+      "10",
+      "--at",
+      "2",
+      "--duration",
+      "1",
+      s.obs,
+    ]);
+    // 1 -> 5 recut to 1.5 -> 5: the span moves 0.5 s earlier into the Clip.
+    await run(["clip", "update", "--start", "1.5", s.obs]);
+    expect((await layers(s.obs))[1]).toMatchObject({
+      source: { kind: "file", start: 10 },
+      span: { at: 1.5, duration: 1 },
+    });
+  });
+
   describe("refuses with exit 3, writing nothing", () => {
     const refused = async (clipId: string, argv: string[]) => {
       const before = await layers(clipId);

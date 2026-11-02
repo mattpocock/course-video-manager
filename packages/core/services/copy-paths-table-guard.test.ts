@@ -132,6 +132,9 @@ async function seedEveryTable() {
     title: "Term",
     description: "Definition",
   });
+  await testDb
+    .insert(schema.clipLayers)
+    .values({ clipId, position: 0, kind: "scene", volume: 0.5 });
   const [agentSession] = await testDb
     .insert(schema.agentSessions)
     .values({ sourceSessionId: "claude-session" })

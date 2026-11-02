@@ -9,6 +9,7 @@ import {
 import { sceneFilterGraph } from "@/packages/scene-layout";
 import { clipZoomCropFilter } from "@/features/videos/clip-zoom";
 import { micEqFilters } from "@/packages/mic-eq";
+import { footageScaleFilter } from "./clip-concat-args";
 import { BITEXACT_ARGS, LANDSCAPE_VIDEO_ENCODE_ARGS } from "./ffmpeg-error";
 
 /**
@@ -85,10 +86,14 @@ const BT709_ARGS = [
 
 const SEGMENT_AUDIO_ARGS = ["-c:a", "pcm_s16le", "-ar", "48000", "-ac", "2"];
 
-/** Scale (after any Clip Zoom crop) to the export frame. */
-const frameFilter = (zoomType: string | undefined, dims: Dimensions) => {
+/**
+ * Scale (after any Clip Zoom crop) to the export frame: a composite is
+ * already drawn on its Video's canvas; a Footage file covers a Short's frame
+ * ({@link footageScaleFilter}).
+ */
+const frameFilter = (zoomType: string | undefined, scale: string) => {
   const crop = clipZoomCropFilter(zoomType ?? "none");
-  return `${crop ? `${crop},` : ""}scale=${dims.width}:${dims.height},setsar=1,format=yuv420p`;
+  return `${crop ? `${crop},` : ""}${scale},setsar=1,format=yuv420p`;
 };
 
 /** Stereo 48 kHz, exactly `duration` long, starting at 0. */
@@ -150,7 +155,7 @@ export const clipSegmentArgs = (
       clip.inputVideo,
       "-filter_complex",
       [
-        `[0:v]setpts=PTS-STARTPTS,fps=60,${frameFilter(clip.zoomType, dims)}[outv]`,
+        `[0:v]setpts=PTS-STARTPTS,fps=60,${frameFilter(clip.zoomType, footageScaleFilter(dims))}[outv]`,
         `[0:a]asetpts=PTS-STARTPTS,${audioTail(duration)}[outa]`,
       ].join(";"),
       ...encode,
@@ -208,7 +213,7 @@ export const clipSegmentArgs = (
         output: "composite",
         format: composite.format,
       }),
-      `[composite]${frameFilter(clip.zoomType, dims)}[outv]`,
+      `[composite]${frameFilter(clip.zoomType, `scale=${dims.width}:${dims.height}`)}[outv]`,
       `[${micInput}:a]${audioFilters.join(",")}[outa]`,
     ].join(";"),
     ...encode,
@@ -317,7 +322,7 @@ const layeredSegment = (
           output: "composite",
           format: composite.format,
         }),
-        `[composite]${frameFilter(clip.zoomType, dims)}[base]`
+        `[composite]${frameFilter(clip.zoomType, `scale=${dims.width}:${dims.height}`)}[base]`
       );
     }
     const mic = compositeMic(composite, duration);
@@ -335,7 +340,7 @@ const layeredSegment = (
     );
     if (scene) {
       graph.push(
-        `[0:v]setpts=PTS-STARTPTS,fps=60,${frameFilter(clip.zoomType, dims)}[base]`
+        `[0:v]setpts=PTS-STARTPTS,fps=60,${frameFilter(clip.zoomType, footageScaleFilter(dims))}[base]`
       );
     }
     mainAudio = "[0:a]";
