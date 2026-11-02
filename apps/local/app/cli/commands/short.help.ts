@@ -72,7 +72,9 @@ SOURCES AND RANGE SYNTAX:
       COPY of every Clip it covers, in timeline order, and trims the first and
       last. A copy keeps its Recording Session, text, Transcript Words
       (trimmed with it), Scene Override, Clip Zoom and Layers; Chapters and
-      Overlays are left behind. Clip Origin: copy.
+      Overlays are left behind. A Landscape Clip's Footage Layers (its B-roll)
+      move into the Short's frame by fractions, their Source Crop narrowed
+      about its centre so nothing stretches. Clip Origin: copy.
   --recording-session <id>   --range <s>-<e>
       Seconds on the Recording Session's clock (from its T0, the clock its
       Chat Highlights use). One new Clip cut from that session, drawn from its

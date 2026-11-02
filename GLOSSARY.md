@@ -430,6 +430,10 @@ _Avoid_: Layer (a piece of a Clip's picture, under every Overlay), Track, Effect
 Which content an **Overlay** carries: a **Definition Card** (the default), a **Bullet Panel** or a **Chat Card**. Every Kind is a graphic: B-roll, once a Kind, is now **Footage Layers**. It is part of the **Export Hash**, because it changes what is rendered. The Kind also decides the Overlay's **Transform**: the camera move comes from the Kind and is never written separately, so a Bullet Panel always gets its panel and its camera move together.
 _Avoid_: Type, Variant, Overlay Type
 
+**B-roll**:
+Footage shown over part of a Clip in place of its own picture. It was an **Overlay Kind**. Superseded by **Footage Layers**: a B-roll is now a full-frame, muted Footage Layer over part of a Clip, and migration 0049 turned every B-roll Overlay into these. `--kind bRoll` is refused.
+_Avoid_: B-roll Overlay (no longer exists)
+
 **Definition Card**:
 An **Overlay**'s visible content: a small, AI Hero branded card on screen that defines a term at the moment it is said. It has exactly a title (the term) and a description (the definition). It is written on the Overlay itself: there is no shared glossary to pick a definition from, so two Overlays that define the same term each have their own copy. The default **Overlay Kind**.
 _Avoid_: Term, Definition, Glossary Entry, Card (reserved for an eventual family of card-shaped content-kinds), Tooltip

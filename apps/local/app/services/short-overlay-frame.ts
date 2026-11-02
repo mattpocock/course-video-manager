@@ -52,6 +52,7 @@ export const runShortOverlayRenderer = (
         }),
     });
 
+    // The props file is scratch: removed whether the render worked or not.
     yield* Effect.scoped(
       Effect.gen(function* () {
         const process = yield* Command.start(
@@ -87,9 +88,7 @@ export const runShortOverlayRenderer = (
           });
         }
       })
-    );
-
-    yield* removeBestEffort(effectFs, propsFile);
+    ).pipe(Effect.ensuring(removeBestEffort(effectFs, propsFile)));
   });
 
 /**

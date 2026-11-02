@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, beforeEach } from "vitest";
 import { Effect } from "effect";
+import { eq } from "drizzle-orm";
 import type { Database } from "./drizzle-service.server.js";
 import { copyVideoImpl } from "./db-video-operations.copy.server.js";
 import { createVideoFromSelectionImpl } from "./db-video-from-selection.server.js";
@@ -203,6 +204,13 @@ const RUN_PATH: Partial<
     return copy.id;
   },
   shortCreate: async (sourceVideoId) => {
+    // From a Short, so its Footage Layers are copied as they are: from a
+    // Landscape Video they move into the Short's frame on purpose
+    // (`layerRowInVideoFormat`, tested in cli-short-create.test.ts).
+    await testDb
+      .update(schema.videos)
+      .set({ format: "short" })
+      .where(eq(schema.videos.id, sourceVideoId));
     const clips = await testDb.query.clips.findMany({
       where: (c, { and, eq }) =>
         and(eq(c.videoId, sourceVideoId), eq(c.archived, false)),

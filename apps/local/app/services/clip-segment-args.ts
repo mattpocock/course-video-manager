@@ -1,5 +1,7 @@
 import {
   compositeFiles,
+  EXPORT_FPS,
+  exportFrameCount,
   footageLayers,
   isUntouched,
   type ClipComposite,
@@ -65,11 +67,11 @@ export const needsClipSegments = (
 
 type Dimensions = { readonly width: number; readonly height: number };
 
-const FPS = 60;
+const FPS = EXPORT_FPS;
 
 /** A duration rounded up to whole 60 fps frames (800 samples at 48 kHz). */
 const wholeFrameSeconds = (seconds: number): number =>
-  Math.ceil(seconds * FPS - 1e-6) / FPS;
+  exportFrameCount(seconds) / FPS;
 
 /** The extension of a segment file: QuickTime, which carries PCM. */
 export const SEGMENT_EXTENSION = ".mov";
@@ -139,7 +141,7 @@ export const clipSegmentArgs = (
 
 /** How many frames a Clip's segment holds: its duration in whole 60 fps frames. */
 export const segmentFrameCount = (duration: number): number =>
-  Math.round(wholeFrameSeconds(duration) * FPS);
+  exportFrameCount(duration);
 
 /**
  * One frame of a Clip's segment, `frame` frames in, as a PNG: the very filter

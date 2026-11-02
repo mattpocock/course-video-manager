@@ -28,6 +28,7 @@ import {
   type ClipOverlay,
 } from "./overlay-preview";
 import { FootageLayersPreview } from "./footage-layers-preview";
+import { footagePlaybackFrame } from "./footage-playback-frame";
 import { useStillsWaitForVideo } from "./components/queued-still";
 import { usePreloadableClipReducer } from "./hooks/use-preloadable-clip-reducer";
 
@@ -266,6 +267,8 @@ export const PreloadableClip = (props: {
         className={cn(
           "w-full",
           props.profile === "TikTok" && "w-92 aspect-[9/16]",
+          footagePlaybackFrame(props.videoFormat) === "cover-portrait" &&
+            "aspect-[9/16] object-cover",
           // A CVM-recorder Clip's clock is its mic: heard, drawn below.
           picture && "hidden",
           props.footageNotFound !== undefined && "hidden"

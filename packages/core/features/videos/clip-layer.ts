@@ -1,4 +1,4 @@
-import type { VideoFormat } from "./video-format.js";
+import { VIDEO_FORMAT_DIMENSIONS, type VideoFormat } from "./video-format.js";
 
 /**
  * A Clip's Layers as they are stored and written (ADR 0056): bottom to top,
@@ -228,4 +228,57 @@ export const clipLayersProblem = (
     if (problem !== null) return `Layer ${index}: ${problem}`;
   }
   return null;
+};
+
+/**
+ * A stored Footage Layer moved from one Video format's frame into another's,
+ * for a Clip copied across formats (`short create` from a Landscape Video).
+ * Its Placement carries over by fractions of the frame, like the Scene
+ * Layer's camera crops. The box changes shape, so its Source Crop is narrowed
+ * about its centre to the box's new aspect: the picture is cropped, never
+ * stretched — what a file drawn on a Short gets (scaled to cover, centre
+ * crop). A Scene Layer, or a Layer kept in its own format, is unchanged.
+ */
+export const layerRowInVideoFormat = <R extends ClipLayerRow>(
+  row: R,
+  from: VideoFormat,
+  to: VideoFormat
+): R => {
+  if (row.kind !== "footage" || from === to) return row;
+  const was = VIDEO_FORMAT_DIMENSIONS[from];
+  const now = VIDEO_FORMAT_DIMENSIONS[to];
+  const placement = {
+    x: num(row.placeX),
+    y: num(row.placeY),
+    w: num(row.placeW),
+    h: num(row.placeH),
+  };
+  const crop = {
+    x: num(row.cropX),
+    y: num(row.cropY),
+    w: num(row.cropW),
+    h: num(row.cropH),
+  };
+  const scaleX = now.width / was.width;
+  const scaleY = now.height / was.height;
+  const x = Math.round(placement.x * scaleX);
+  const y = Math.round(placement.y * scaleY);
+  const w = Math.max(1, Math.round(placement.w * scaleX));
+  const h = Math.max(1, Math.round(placement.h * scaleY));
+  // The box's aspect, after over before: below 1 it grew taller, so keep the
+  // middle of the crop's width; above 1, the middle of its height.
+  const change = w / h / (placement.w / placement.h);
+  const cropW = change < 1 ? crop.w * change : crop.w;
+  const cropH = change > 1 ? crop.h / change : crop.h;
+  return {
+    ...row,
+    placeX: x,
+    placeY: y,
+    placeW: w,
+    placeH: h,
+    cropX: crop.x + (crop.w - cropW) / 2,
+    cropY: crop.y + (crop.h - cropH) / 2,
+    cropW,
+    cropH,
+  };
 };

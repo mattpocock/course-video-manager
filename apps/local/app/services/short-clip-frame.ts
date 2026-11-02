@@ -5,6 +5,7 @@ import {
   VIDEO_FORMAT_DIMENSIONS,
 } from "@/features/videos/video-format";
 import { ClipOperationsService } from "@/services/db-clip-operations.server";
+import { NotFoundError } from "@/services/db-service-errors";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { removeBestEffort } from "@/services/remove-best-effort";
 import {
@@ -28,6 +29,7 @@ import {
   type ShortRenderClip,
 } from "./short-render-clips";
 import { StillGate } from "./still-gate";
+import { EXPORT_FPS, exportFrameAt } from "@/packages/clip-source";
 import { storageRootsConfig } from "./storage-roots";
 import { SHORT_OVERLAY_COMPOSITE_FILTER } from "./vertical-overlay-props";
 
@@ -46,7 +48,7 @@ import { SHORT_OVERLAY_COMPOSITE_FILTER } from "./vertical-overlay-props";
  * The whole of it is behind the Still Gate: it reads raw footage.
  */
 
-const FPS = 60;
+const FPS = EXPORT_FPS;
 
 /** Where the Clip at `index` starts on the Short's timeline, in frames. */
 const startFrameOf = (
@@ -70,7 +72,13 @@ export const shortClipFrame = (clipId: string, at: number) =>
     const fs = yield* FileSystem.FileSystem;
 
     const [row] = yield* clipOps.getClipsByIds([clipId]);
-    const video = yield* videoOps.getVideoWithClipsById(row!.videoId);
+    if (!row || row.archived) {
+      return yield* new NotFoundError({
+        type: "shortClipFrame",
+        params: { clipId },
+      });
+    }
+    const video = yield* videoOps.getVideoWithClipsById(row.videoId);
     if (resolveVideoFormat(video.format) !== "short") {
       return yield* new FrameRefusedError({
         message: `cvm clip frame draws a Short's Clips, and this Clip is on a Landscape Video (${video.id}). A Landscape Video's frame (its Definition Cards and Bullet Panels) is drawn by the course export, not here yet.`,
@@ -87,7 +95,7 @@ export const shortClipFrame = (clipId: string, at: number) =>
         const duration = clipExportDurationInSeconds(clip);
         yield* requireTimeWithin(at, duration, "Clip");
         const frame = Math.min(
-          Math.floor(at * FPS + 1e-6),
+          exportFrameAt(at),
           segmentFrameCount(duration) - 1
         );
         const props = yield* shortOverlayProps({
@@ -100,7 +108,7 @@ export const shortClipFrame = (clipId: string, at: number) =>
           props.durationInFrames - 1
         );
 
-        // Scratch, removed once drawn; only the composed frame is kept.
+        // Scratch, removed once drawn (or failed); only the composed frame is kept.
         const picture = yield* assertUnderEffect(
           FRAMES_DIRECTORY,
           yield* newFramePath("clip-picture")
@@ -109,40 +117,47 @@ export const shortClipFrame = (clipId: string, at: number) =>
           FRAMES_DIRECTORY,
           yield* newFramePath("clip-overlay")
         );
-        const output = yield* newFramePath("clip");
-        yield* runFrameFfmpeg(
-          clipSegmentFrameArgs(
-            { ...clip, duration },
-            VIDEO_FORMAT_DIMENSIONS.short,
-            frame,
-            picture
-          ),
-          `Clip ${clipId}'s picture at ${at}s`
+        return yield* Effect.gen(function* () {
+          const output = yield* newFramePath("clip");
+          yield* runFrameFfmpeg(
+            clipSegmentFrameArgs(
+              { ...clip, duration },
+              VIDEO_FORMAT_DIMENSIONS.short,
+              frame,
+              picture
+            ),
+            `Clip ${clipId}'s picture at ${at}s`
+          );
+          yield* overlayRenderer.renderFrame(props, overlayFrame, overlay);
+          yield* runFrameFfmpeg(
+            [
+              "-y",
+              "-hide_banner",
+              "-v",
+              "error",
+              "-i",
+              picture,
+              "-i",
+              overlay,
+              "-filter_complex",
+              SHORT_OVERLAY_COMPOSITE_FILTER,
+              "-map",
+              "[outv]",
+              "-frames:v",
+              "1",
+              output,
+            ],
+            `Clip ${clipId}'s overlay at ${at}s`
+          );
+          return output;
+        }).pipe(
+          Effect.ensuring(
+            Effect.all([
+              removeBestEffort(fs, picture),
+              removeBestEffort(fs, overlay),
+            ])
+          )
         );
-        yield* overlayRenderer.renderFrame(props, overlayFrame, overlay);
-        yield* runFrameFfmpeg(
-          [
-            "-y",
-            "-hide_banner",
-            "-v",
-            "error",
-            "-i",
-            picture,
-            "-i",
-            overlay,
-            "-filter_complex",
-            SHORT_OVERLAY_COMPOSITE_FILTER,
-            "-map",
-            "[outv]",
-            "-frames:v",
-            "1",
-            output,
-          ],
-          `Clip ${clipId}'s overlay at ${at}s`
-        );
-        yield* removeBestEffort(fs, picture);
-        yield* removeBestEffort(fs, overlay);
-        return output;
       })
     );
   });

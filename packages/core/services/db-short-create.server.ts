@@ -7,6 +7,8 @@ import {
   recordingSessionSceneEvents,
   videos,
 } from "../db/schema.js";
+import { layerRowInVideoFormat } from "../features/videos/clip-layer.js";
+import { resolveVideoFormat } from "../features/videos/video-format.js";
 import { clipChildrenWith, copyClipsOntoVideo } from "./copy-child-rows.js";
 import { createClipRetimeOperationsUnwrapped } from "./db-clip-retime.server.js";
 import { NotFoundError, UnknownDBServiceError } from "./db-service-errors.js";
@@ -150,7 +152,10 @@ export const createShortOperationsUnwrapped = (db: Database) => {
                   inArray(clips.id, copyIds),
                   eq(clips.archived, false)
                 ),
-                with: clipChildrenWith,
+                with: {
+                  ...clipChildrenWith,
+                  video: { columns: { format: true } },
+                },
               })
             );
       const sourceById = new Map(sources.map((c) => [c.id, c]));
@@ -182,15 +187,19 @@ export const createShortOperationsUnwrapped = (db: Database) => {
           clipIds.push(yield* insertCut(short!.id, orders[i]!, part));
           continue;
         }
-        const source = sourceById.get(part.clipId)!;
+        const { video: from, ...source } = sourceById.get(part.clipId)!;
         // One copy per Part (a Clip may be in two ranges), Overlays left behind:
-        // a Short draws only Chat Cards, added afterwards.
+        // a Short draws only Chat Cards, added afterwards. Footage Layers placed
+        // in a Landscape frame are carried into the Short's.
+        const layers = source.layers.map((row) =>
+          layerRowInVideoFormat(row, resolveVideoFormat(from.format), "short")
+        );
         const ids = yield* dbCall(() =>
           copyClipsOntoVideo(
             db,
             [
               {
-                clip: { ...source, overlays: [] },
+                clip: { ...source, overlays: [], layers },
                 videoId: short!.id,
                 order: orders[i]!,
               },

@@ -52,3 +52,4 @@ export {
   type SceneLayer,
 } from "./lib/layers";
 export { clampCrop, type ScreenCrop } from "./lib/screen-crop";
+export { EXPORT_FPS, exportFrameAt, exportFrameCount } from "./lib/frame-grid";
