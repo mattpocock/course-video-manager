@@ -60,14 +60,17 @@ const recordingContext = () => {
 };
 
 describe("the render-vertical Job kind", () => {
-  it.effect("reports every stage as a Job Event, in order", () =>
-    Effect.gen(function* () {
-      const { ctx, events } = recordingContext();
-      yield* renderVerticalJobKind.runRaw({ videoId: "video-1" }, ctx);
-      expect(events).toEqual(
-        STAGES.map((stage) => ({ type: "stage", data: { stage } }))
-      );
-    }).pipe(Effect.provide(fakeRender("succeed")))
+  it.effect(
+    "reports every stage as a Job Event, in order, then the file it wrote",
+    () =>
+      Effect.gen(function* () {
+        const { ctx, events } = recordingContext();
+        yield* renderVerticalJobKind.runRaw({ videoId: "video-1" }, ctx);
+        expect(events).toEqual([
+          ...STAGES.map((stage) => ({ type: "stage", data: { stage } })),
+          { type: "rendered", data: { path: "/finished/video-1.mp4" } },
+        ]);
+      }).pipe(Effect.provide(fakeRender("succeed")))
   );
 
   it.effect(
