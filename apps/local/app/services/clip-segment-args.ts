@@ -113,9 +113,14 @@ export const clipSegmentArgs = (
   dims: Dimensions,
   outputFile: string
 ): string[] => {
-  const { composite } = clip;
   const duration = wholeFrameSeconds(clip.duration);
-  const encode = [
+  const { inputs, graph } = segmentGraph(clip, dims, duration);
+  return [
+    "-y",
+    "-hide_banner",
+    ...inputs,
+    "-filter_complex",
+    graph,
     "-map",
     "[outv]",
     "-map",
@@ -130,48 +135,72 @@ export const clipSegmentArgs = (
     ...BITEXACT_ARGS,
     outputFile,
   ];
+};
 
-  if (!isUntouched(clip.layers)) {
-    const layered = layeredSegment(clip, dims, duration);
-    return [
-      "-y",
-      "-hide_banner",
-      ...layered.inputs,
-      "-filter_complex",
-      layered.graph,
-      ...encode,
-    ];
-  }
+/** How many frames a Clip's segment holds: its duration in whole 60 fps frames. */
+export const segmentFrameCount = (duration: number): number =>
+  Math.round(wholeFrameSeconds(duration) * FPS);
 
+/**
+ * One frame of a Clip's segment, `frame` frames in, as a PNG: the very filter
+ * graph {@link clipSegmentArgs} encodes, so `cvm clip frame` shows what the
+ * export draws (#2578). The graph's picture is 60 fps from frame 0.
+ */
+export const clipSegmentFrameArgs = (
+  clip: SegmentClip,
+  dims: Dimensions,
+  frame: number,
+  outputFile: string
+): string[] => {
+  const { inputs, graph } = segmentGraph(
+    clip,
+    dims,
+    wholeFrameSeconds(clip.duration)
+  );
+  return [
+    "-y",
+    "-hide_banner",
+    "-v",
+    "error",
+    ...inputs,
+    "-filter_complex",
+    `${graph};[outv]select=eq(n\\,${frame})[still];[outa]anullsink`,
+    "-map",
+    "[still]",
+    "-frames:v",
+    "1",
+    outputFile,
+  ];
+};
+
+/** A Clip's segment as ffmpeg inputs and one filter graph ending in `[outv]` and `[outa]`. */
+const segmentGraph = (
+  clip: SegmentClip,
+  dims: Dimensions,
+  duration: number
+): { inputs: string[]; graph: string } => {
+  if (!isUntouched(clip.layers)) return layeredSegment(clip, dims, duration);
+  const { composite } = clip;
   if (!composite) {
-    return [
-      "-y",
-      "-hide_banner",
-      "-ss",
-      String(clip.startTime),
-      "-t",
-      String(duration),
-      "-i",
-      clip.inputVideo,
-      "-filter_complex",
-      [
+    return {
+      inputs: [
+        "-ss",
+        String(clip.startTime),
+        "-t",
+        String(duration),
+        "-i",
+        clip.inputVideo,
+      ],
+      graph: [
         `[0:v]setpts=PTS-STARTPTS,fps=60,${frameFilter(clip.zoomType, footageScaleFilter(dims))}[outv]`,
         `[0:a]asetpts=PTS-STARTPTS,${audioTail(duration)}[outa]`,
       ].join(";"),
-      ...encode,
-    ];
+    };
   }
 
   const start = composite.start;
   // Draw the last scene on to the end of the last frame.
-  const segments = composite.segments.map((segment, i, all) =>
-    i === all.length - 1
-      ? {
-          ...segment,
-          endSeconds: Math.max(segment.endSeconds, start + duration),
-        }
-      : segment
-  );
+  const segments = segmentsToEnd(composite, duration);
   const micStart = start - composite.micOffsetSeconds;
   const silenceMs = Math.max(0, Math.round(-micStart * 1000));
   // Read a little past the end, so the 29.97 camera has a frame to hold.
@@ -185,25 +214,24 @@ export const clipSegmentArgs = (
   // Landscape opens screen then camera; a Short only what its segments draw.
   const pictures = compositeFiles(composite, segments);
   const micInput = pictures.length;
-  return [
-    "-y",
-    "-hide_banner",
-    ...pictures.flatMap(({ file }) => [
+  return {
+    inputs: [
+      ...pictures.flatMap(({ file }) => [
+        "-ss",
+        String(start),
+        "-t",
+        pictureRead,
+        "-i",
+        file,
+      ]),
       "-ss",
-      String(start),
+      String(Math.max(0, micStart)),
       "-t",
-      pictureRead,
+      String(duration),
       "-i",
-      file,
-    ]),
-    "-ss",
-    String(Math.max(0, micStart)),
-    "-t",
-    String(duration),
-    "-i",
-    composite.mic,
-    "-filter_complex",
-    [
+      composite.mic,
+    ],
+    graph: [
       sceneFilterGraph({
         segments,
         inputs: Object.fromEntries(
@@ -216,8 +244,7 @@ export const clipSegmentArgs = (
       `[composite]${frameFilter(clip.zoomType, `scale=${dims.width}:${dims.height}`)}[outv]`,
       `[${micInput}:a]${audioFilters.join(",")}[outa]`,
     ].join(";"),
-    ...encode,
-  ];
+  };
 };
 
 /**

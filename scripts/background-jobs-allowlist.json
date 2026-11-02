@@ -80,9 +80,9 @@
       "reason": "Sidecar only: the Overlay renderer (Remotion's bin.mjs). It asks for SidecarContext, and no module a route reaches may import it (apps/local/.dependency-cruiser.spawn.cjs)."
     },
     {
-      "file": "apps/local/app/services/render-vertical-video-service.ts",
+      "file": "apps/local/app/services/short-overlay-renderer.ts",
       "count": 1,
-      "reason": "Sidecar only: the vertical Short's subtitle render. It asks for SidecarContext, and no module a route reaches may import it (apps/local/.dependency-cruiser.spawn.cjs)."
+      "reason": "The vertical Short's overlay render (Remotion's bin.mjs): the whole overlay for the render-vertical Job, which asks for SidecarContext, and one frame of it for `cvm clip frame`, which an agent waits on. No module a route reaches may import it (apps/local/.dependency-cruiser.spawn.cjs)."
     },
     {
       "file": "apps/local/app/services/ffmpeg-commands.ts",
