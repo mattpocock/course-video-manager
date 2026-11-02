@@ -9,6 +9,8 @@ import { WhisperTranscriptionService } from "@/services/whisper-transcription-se
 import { SidecarContextTest } from "@/services/sidecar-context";
 import { DrizzleService } from "@/services/drizzle-service.server";
 import { JobOperationsService } from "@cvm/core/services/db-job-operations.server";
+import { IMPORT_YOUTUBE_FOOTAGE_JOB_KIND } from "@/features/jobs/import-youtube-footage-job";
+import { enqueueJob, JOB_KIND_SPECS } from "../../sidecar/job-specs";
 import { FootageProbe } from "@/services/footage-probe";
 import { runSidecar } from "../../sidecar/sidecar";
 import { transcribeFootageJobKind } from "../../sidecar/kinds/transcribe-footage";
@@ -34,16 +36,17 @@ const SQUARE_ID = "sqUare4x3Id";
 
 /** The stub, logging to `log`, its every video titled "Live: Q&A / part 1?". */
 const stub = (log: string) => `#!/bin/sh
-out=""; prev=""; url=""
+out=""; prev=""; url=""; skip=""
 for a in "$@"; do
   if [ "$prev" = "--output" ]; then out="$a"; fi
+  if [ "$a" = "--skip-download" ]; then skip=1; fi
   prev="$a"; url="$a"
 done
 echo "$url" >> "${log}"
 base="\${out%.%(ext)s}"
 echo "cvm-progress 5 10"
 echo "cvm-progress 10 10"
-printf 'synthetic media of %s' "$url" > "$base.mp4"
+[ -n "$skip" ] || printf 'synthetic media of %s' "$url" > "$base.mp4"
 printf '{"id":"x","title":"Live: Q&A / part 1?"}' > "$base.info.json"
 `;
 
@@ -66,6 +69,7 @@ const fakeProbe = Layer.succeed(FootageProbe, {
 });
 
 let testDb: TestDb;
+let jobsLayer: Layer.Layer<JobOperationsService>;
 let run: (argv: ReadonlyArray<string>) => Promise<RunResult>;
 let stopSidecar: Deferred.Deferred<string>;
 let sidecarFiber: Fiber.RuntimeFiber<unknown, unknown>;
@@ -77,7 +81,7 @@ const originalLocalMachine = process.env[LOCAL_MACHINE_ENV_KEY];
 
 beforeAll(async () => {
   testDb = (await createTestDb()).testDb;
-  const jobsLayer = JobOperationsService.Default.pipe(
+  jobsLayer = JobOperationsService.Default.pipe(
     Layer.provide(Layer.succeed(DrizzleService, testDb as never))
   );
   const layer = Layer.mergeAll(buildWriteLayer(testDb), jobsLayer, fakeProbe);
@@ -221,6 +225,45 @@ describe("footage import <youtube-url>", () => {
       "https://vimeo.com/123456789",
     ]);
     expect(notYoutube.exitCode).toBe(3);
+  });
+
+  it("keeps the title and URL of a video a cut-off run placed without them", async () => {
+    const name = `Live Q&A part 1 [${VIDEO_ID}].mp4`;
+    const url = `https://www.youtube.com/watch?v=${VIDEO_ID}`;
+    nodeFs.mkdirSync(importedDir(), { recursive: true });
+    nodeFs.writeFileSync(nodePath.join(importedDir(), name), "placed bytes");
+
+    const job = Effect.gen(function* () {
+      const { id } = yield* enqueueJob({
+        id: null,
+        kind: IMPORT_YOUTUBE_FOOTAGE_JOB_KIND,
+        title: "Import",
+        params: { url, videoId: VIDEO_ID },
+        dependsOn: null,
+        subject: null,
+        attemptsSpent: 0,
+        registry: JOB_KIND_SPECS,
+      });
+      const ops = yield* JobOperationsService;
+      let now = yield* ops.getJob(id);
+      for (; now?.status === "queued" || now?.status === "running";) {
+        now = yield* Effect.zipRight(Effect.sleep(20), ops.getJob(id));
+      }
+      return now?.status;
+    });
+    expect(await Effect.runPromise(Effect.provide(job, jobsLayer))).toBe(
+      "succeeded"
+    );
+    const kept = nodePath.join(importedDir(), `${name}.youtube.json`);
+    expect(JSON.parse(nodeFs.readFileSync(kept, "utf8"))).toEqual({
+      url,
+      title: "Live: Q&A / part 1?",
+      videoId: VIDEO_ID,
+    });
+    expect(
+      nodeFs.readFileSync(nodePath.join(importedDir(), name), "utf8")
+    ).toBe("placed bytes");
+    expect(nodeFs.existsSync(staging(VIDEO_ID))).toBe(false);
   });
 
   it("fails naming how to install yt-dlp when it is not on the Sidecar's PATH", async () => {
