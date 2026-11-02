@@ -6,13 +6,15 @@
  * It is a view of the Streaming tab, over BroadcastChannel
  * (`lib/stream-chat-protocol.ts`): the tab hears the chat and holds the Chat
  * Highlight, and sends the chat here; a click here goes back to the tab,
- * which decides. So it opens no connection to the app server, and with no
- * Streaming tab open it shows the last chat it was sent and says so.
+ * which decides (`stream-chat-bridge.ts`): it shows that message on the
+ * stream, or hides it if it is the one showing. So it opens no connection to
+ * the app server, and with no Streaming tab open it shows the last chat it
+ * was sent and says so. It is drawn as a presenter view, for reading at a
+ * distance (`stream-chat-presenter.tsx`, #2590).
  */
 import { useEffect, useReducer } from "react";
-import { MessageSquareIcon } from "lucide-react";
 import { streamChatChannel } from "@/lib/stream-chat-protocol";
-import { ChatList } from "@/features/streaming/broadcast-chat-view";
+import { StreamChatPresenter } from "@/features/streaming/stream-chat-presenter";
 import {
   createInitialStreamChatPopoutState,
   streamChatPopoutReducer,
@@ -52,30 +54,15 @@ export default function StreamChat() {
   }, []);
 
   return (
-    <div
-      className="flex flex-col h-screen p-3 gap-2"
-      data-testid="stream-chat-popout"
-    >
-      <div className="flex items-center gap-2 shrink-0">
-        <MessageSquareIcon className="size-4 text-muted-foreground" />
-        <h1 className="text-sm font-medium">Live chat</h1>
-      </div>
-      {!state.attached && (
-        <p className="text-xs shrink-0 text-amber-600">
-          Open the Streaming tab: this window shows its chat.
-        </p>
-      )}
-      {state.view && (
-        <ChatList
-          view={state.view}
-          onMessageClicked={(messageId) =>
-            streamChatChannel.sendToParent({
-              type: "chat-message-clicked",
-              messageId,
-            })
-          }
-        />
-      )}
-    </div>
+    <StreamChatPresenter
+      view={state.view}
+      attached={state.attached}
+      onMessageClicked={(messageId) =>
+        streamChatChannel.sendToParent({
+          type: "chat-message-clicked",
+          messageId,
+        })
+      }
+    />
   );
 }

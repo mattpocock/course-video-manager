@@ -13,6 +13,7 @@ import {
   BroadcastChatEvent,
 } from "./broadcast-chat";
 import { chatView, type ChatView } from "./chat-view";
+import { streamChatBridgeStep } from "./stream-chat-bridge";
 
 /** Where the app server relays the chat (`routes/api.streaming.chat.events.ts`). */
 const CHAT_EVENTS_HREF = "/api/streaming/chat/events";
@@ -136,17 +137,14 @@ export const BroadcastChatView = (props: {
   useEffect(
     () =>
       streamChatChannel.subscribeParent((message) => {
-        if (message.type === "ping") {
+        const step = streamChatBridgeStep(message, videoId);
+        if (step.type === "send-chat-view") {
           streamChatChannel.sendToChild({
             type: "chat-view",
             view: latestView.current,
           });
         } else {
-          dispatch({
-            type: "chat-message-clicked",
-            videoId,
-            messageId: message.messageId,
-          });
+          dispatch(step.action);
         }
       }),
     [dispatch, videoId]
