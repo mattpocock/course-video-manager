@@ -20,9 +20,12 @@ import { Context, Data, Effect, Option } from "effect";
  * Recording Session: six of them and no Clip could play, and the editor
  * could not even be reloaded. The editor asks again after the Stop.
  *
- * The last-frame still skips the gate (`getLastFrame`): the live preview's
- * overlay of the previous Take's last frame needs it mid-session (#2294).
- * The first-frame still stays gated.
+ * Every still goes through it, the last frame too. #2294 let the live
+ * preview's last-frame overlay through mid-session to see whether frames
+ * would be lost: they were. In a streamed Recording Session two Takes placed
+ * 6 s apart each decoded the growing camera.mkv for 3.6 s, and the camera
+ * lost 14 frames inside a Clip. The recorder scorecard's `stillsMidTake`
+ * scenario keeps it so.
  */
 
 /**
