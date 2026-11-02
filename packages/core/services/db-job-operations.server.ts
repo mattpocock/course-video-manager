@@ -69,7 +69,12 @@ export { dependencyFailedMessage } from "./db-job-calls.server.js";
  * each Clip's text as it arrives. It reads only the Clip's span of the mic
  * file, at the lowest priority, from a Whisper the recorder keeps warm.
  */
-export const HELD_WHILE_RECORDING_KINDS = ["transcribe-footage"] as const;
+export const HELD_WHILE_RECORDING_KINDS = [
+  "transcribe-footage",
+  // A Footage import copies gigabytes onto a Storage Root: the same disk
+  // pressure as a whole-file transcription, so it waits for Stop too.
+  "import-footage",
+] as const;
 
 /**
  * A Recording Session left `recording` longer than this (a service that died

@@ -156,6 +156,24 @@ describe("a Storage move and the Storage page's deletes", () => {
     expect(Exit.isSuccess(self)).toBe(true);
   });
 
+  it("a Footage move and a delete refuse while a Footage import is live", async () => {
+    await testDb.insert(schema.jobs).values({
+      kind: "import-footage",
+      title: "Import interview.mp4",
+      lane: "default",
+      params: {},
+      status: "running",
+      maxAttempts: 2,
+    });
+    const plan = await Effect.runPromise(
+      planStorageMove({ db: db(), roots, bucketId, kind: "footage", target: e })
+    );
+    expect(plan.refusals.map((r) => r.reason)).toContain("storage-busy");
+    expect(failureOf(await deleteRenders()).message).toMatch(
+      /an import is queued or running \(Import/
+    );
+  });
+
   it("while a move is being started, a Purge, a delete and a second move all refuse", async () => {
     const seen: Exit.Exit<unknown, unknown>[] = [];
     const started = await Effect.runPromiseExit(

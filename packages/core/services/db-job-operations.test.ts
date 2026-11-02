@@ -122,13 +122,14 @@ describe("claimNextJob", () => {
   );
 
   it.effect(
-    "holds Footage transcription, queued, while a Recording Session records, and runs everything else, Clip transcription too",
+    "holds Footage transcription and import, queued, while a Recording Session records, and runs everything else, Clip transcription too",
     () =>
       Effect.gen(function* () {
         const ops = yield* JobOperationsService;
         const claim = () =>
           ops.claimNextJob({ lane: "default", holder: "h", leaseMs: LEASE });
         const transcribe = yield* enqueue({ kind: "transcribe-footage" });
+        const importing = yield* enqueue({ kind: "import-footage" });
         // A Clip is transcribed as it arrives, mid-take (#2224).
         const clips = yield* enqueue({ kind: "transcribe-clips" });
         const other = yield* enqueue({ kind: "noop" });
@@ -162,6 +163,7 @@ describe("claimNextJob", () => {
             .where(eq(recordingSessions.id, "rs-1"))
         );
         expect((yield* claim())?.id).toBe(transcribe.id);
+        expect((yield* claim())?.id).toBe(importing.id);
       }).pipe(Effect.provide(testLayer))
   );
 
