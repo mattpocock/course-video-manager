@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   InvalidStorageRootsError,
+  isImportedFootage,
   parseStorageRoots,
   rootLabel,
   rootRelativePath,
@@ -52,5 +53,20 @@ describe("rootLabel", () => {
   it("names a WSL drive mount by its drive letter", () => {
     expect(rootLabel("/mnt/e")).toBe("E:");
     expect(rootLabel("/srv/footage")).toBe("/srv/footage");
+  });
+});
+
+describe("isImportedFootage", () => {
+  it("is any root-relative path under raw-footage/imported/, nested folders included", () => {
+    expect(isImportedFootage("raw-footage/imported/interview.mp4")).toBe(true);
+    expect(isImportedFootage("raw-footage/imported/streamyard/guest.mp4")).toBe(
+      true
+    );
+    expect(isImportedFootage("./raw-footage//imported/b-roll.mp4")).toBe(true);
+    expect(isImportedFootage("raw-footage/take.mkv")).toBe(false);
+    expect(isImportedFootage("raw-footage/imported")).toBe(false);
+    expect(isImportedFootage("raw-footage/imported-old/x.mp4")).toBe(false);
+    expect(isImportedFootage("raw-footage/imported/../take.mkv")).toBe(false);
+    expect(isImportedFootage("/mnt/d/raw-footage/imported/x.mp4")).toBe(false);
   });
 });

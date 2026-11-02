@@ -21,25 +21,11 @@ import {
   type WriteSeed,
 } from "./cli-write-test-harness";
 
-// ===========================================================================
-// cvm clip writes: update / move / delete
-// (Split out like cli-beat-writes.test.ts. Clip has no `add` verb — the only
-// creators are OBS-capture append and "create video from selection", neither
-// CLI-facing — so fixtures here are seeded directly through
-// ClipOperationsService.appendClips rather than through the CLI. `restore`
-// is in cli-clip-restore.test.ts)
-//
-// NOTE on argv shape: like every other write-verb suite, flags go BEFORE the
-// trailing positional <id> (`--start 3 <id>`, not `<id> --start 3`).
-// ===========================================================================
+// cvm clip writes: update / move / delete / add (`restore` is in
+// cli-clip-restore.test.ts). Flags go BEFORE the trailing positional <id>.
 
 let testDb: TestDb;
-/**
- * Fixtures reach the database DIRECTLY, the way `seedWrite` does — `cvm` has
- * no clip-creating verb, so `appendClips` has no endpoint on the deployed API
- * and must not gain one just to seed a test. The commands under test still go
- * over HTTP; only the arranging does not.
- */
+/** Fixtures reach the database directly, the way `seedWrite` does. */
 let seedLayer: Layer.Layer<ClipOperationsService>;
 let run: (argv: ReadonlyArray<string>) => Promise<RunResult>;
 /** Temp dir for the fake footage sidecar caches `clip add` reads. */
@@ -72,9 +58,10 @@ const seedFootageTranscript = (
     words: Array<{ start: number; end: number; text: string }>;
     segments: Array<{ start: number; end: number; text: string }>;
   },
-  opts: { staleHash?: boolean } = {}
+  opts: { staleHash?: boolean; dir?: string } = {}
 ): string => {
-  const source = nodePath.join(sourceDir, name);
+  const source = nodePath.join(opts.dir ?? sourceDir, name);
+  nodeFs.mkdirSync(nodePath.dirname(source), { recursive: true });
   const content = `fake footage bytes for ${name}`;
   nodeFs.writeFileSync(source, content);
   const sourceHash = opts.staleHash
@@ -148,8 +135,7 @@ const timelineIds = (videoId: string): Promise<string[]> =>
   }).pipe(Effect.provide(seedLayer), Effect.runPromise);
 
 /**
- * Seed a clip directly through the service — clip has no CLI `add` verb.
- * Pass `after` (a previously-seeded clip's id) to append it to the END of
+ * Seed a clip directly through the service. Pass `after` (a previously-seeded clip's id) to append it to the END of
  * the timeline instead of the start, so a chain of `seedClip` calls builds
  * clips in the order they're called rather than each landing at the front.
  */
@@ -685,5 +671,47 @@ describe("clip add", () => {
       "6",
     ]);
     expect(exitCode).toBe(3);
+  });
+
+  it("finds a root-relative --source on a Storage Root, and stores it root-relative", async () => {
+    // The test's cwd (the repo) is under no Storage Root.
+    const previousRoots = process.env.STORAGE_ROOTS;
+    const root = nodeFs.mkdtempSync(nodePath.join(os.tmpdir(), "cvm-root-"));
+    process.env.STORAGE_ROOTS = root;
+    try {
+      const absolute = seedFootageTranscript(
+        "raw-footage/x.mkv",
+        SAMPLE_TRANSCRIPT,
+        { dir: root }
+      );
+      const add = async (source: string) =>
+        one<{ videoFilename: string; text: string }>(
+          (
+            await run([
+              "clip",
+              "add",
+              "--video",
+              s.standaloneActiveId,
+              "--source",
+              source,
+              "--start",
+              "2",
+              "--end",
+              "6",
+            ])
+          ).stdout
+        );
+
+      const fromRelative = await add("raw-footage/x.mkv");
+      expect(fromRelative.videoFilename).toBe("raw-footage/x.mkv");
+      expect(fromRelative.text).toBe("quick brown");
+
+      const fromAbsolute = await add(absolute);
+      expect(fromAbsolute.videoFilename).toBe("raw-footage/x.mkv");
+    } finally {
+      nodeFs.rmSync(root, { recursive: true, force: true });
+      if (previousRoots === undefined) delete process.env.STORAGE_ROOTS;
+      else process.env.STORAGE_ROOTS = previousRoots;
+    }
   });
 });

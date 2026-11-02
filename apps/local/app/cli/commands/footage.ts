@@ -10,10 +10,8 @@ import {
   LogLevel,
   Option,
 } from "effect";
-import { existsSync } from "node:fs";
 import { homedir } from "node:os";
-import { findStoragePathSync } from "@/packages/storage/server";
-import { readStorageRootsSync } from "@/services/storage-roots";
+import { footageOnDisk } from "./footage-on-disk";
 import path from "node:path";
 import { GitWorktreeProbeLive } from "@cvm/core/git-worktree";
 import { JobOperationsService } from "@cvm/core/services/db-job-operations.server";
@@ -153,22 +151,6 @@ const noWaitOption = Options.boolean("no-wait").pipe(
     "enqueue the transcription Job and print its id, without waiting for it"
   )
 );
-
-/**
- * The file a typed path names: as typed when it exists, otherwise — for a
- * Clip's root-relative `videoFilename` (`raw-footage/take.mkv`) — the first
- * Storage Root that has it. Unchanged when neither finds it, so the "no such
- * footage file" names what was typed.
- */
-const footageOnDisk = (typed: string): string => {
-  if (existsSync(typed) || path.isAbsolute(typed)) return typed;
-  try {
-    return findStoragePathSync(typed, readStorageRootsSync()) ?? typed;
-  } catch {
-    // No STORAGE_ROOTS: only a path as typed can be found.
-    return typed;
-  }
-};
 
 const transcribeCmd = Command.make(
   "transcribe",
