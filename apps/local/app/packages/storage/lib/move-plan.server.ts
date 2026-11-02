@@ -182,14 +182,6 @@ export const busyRefusals = async (opts: {
   }
 
   if (opts.kind === "footage") {
-    // A Footage import is copying a file into raw-footage/imported/ (#2534).
-    const importing = live.find((j) => j.kind === "import-footage");
-    if (importing) {
-      refusals.push({
-        reason: "storage-busy",
-        message: `"${importing.title}" is copying Footage into raw-footage/imported/; try again once it has finished`,
-      });
-    }
     // A CVM-recorder take is being written into raw-footage/ right now.
     const recording = await opts.db
       .select({ id: recordingSessions.id, videoId: recordingSessions.videoId })

@@ -63,8 +63,6 @@ export const STORAGE_BUSY_JOB_KINDS = [
   "storage-move",
   // A delete Job (#2157): never two deletes, or a delete and a move, at once.
   "storage-delete",
-  // A Footage import writes into raw-footage/imported/ (#2534).
-  "import-footage",
 ] as const;
 
 /**
@@ -93,10 +91,8 @@ export const encodingRefusalMessage = (
       ? "a move"
       : kind === "storage-delete"
         ? "a delete"
-        : kind === "import-footage"
-          ? "an import"
-          : "an export";
-  return `Not deleted: ${encoding.length === 1 ? `${what} is` : `${encoding.length} exports, moves, deletes or imports are`} queued or running (${encoding[0]!.title}). Try again once it has finished.`;
+        : "an export";
+  return `Not deleted: ${encoding.length === 1 ? `${what} is` : `${encoding.length} exports, moves or deletes are`} queued or running (${encoding[0]!.title}). Try again once it has finished.`;
 };
 
 /** "Not deleted: a move is being started…": the in-process write hold. */
