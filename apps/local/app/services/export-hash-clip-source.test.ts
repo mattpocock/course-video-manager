@@ -113,24 +113,39 @@ describe("a Landscape CVM-recorder Clip's Export Hash", () => {
     expect(computeExportHash(clips, "landscape", [])).toBe(
       "040fe2894dcfead6bb03c0086f432b97"
     );
-    expect(computeExportHash(clips, "short", [])).toBe(
-      "7d710ca8c4838658be6378bf73a76a28"
+  });
+
+  it("is re-addressed on a Short, where it is now drawn in the Short layout", () => {
+    // Was 7d710ca8c4838658be6378bf73a76a28 while it was drawn squashed.
+    const onAShort = computeExportHash(
+      toExportClips([sessionRow(150)]),
+      "short",
+      []
+    );
+    expect(onAShort).toBe("5521d112a89503ed83083ef95968908f");
+    // The same picture as the same Clip filmed for a Short.
+    expect(onAShort).toBe(
+      computeExportHash(
+        toExportClips([sessionRow(150, null, "short")]),
+        "short",
+        []
+      )
     );
   });
 });
 
 describe("a Short CVM-recorder Clip's Export Hash", () => {
-  it("is not the same Clip's as if filmed in Landscape (its fields carry the Short layout version: clip-source.test.ts)", () => {
-    const landscape = computeExportHash(
-      toExportClips([sessionRow(150)]),
-      "short",
-      []
+  const clips = toExportClips([sessionRow(150, null, "short")]);
+
+  it("keeps its address on a Short", () => {
+    expect(computeExportHash(clips, "short", [])).toBe(
+      "5521d112a89503ed83083ef95968908f"
     );
-    const short = computeExportHash(
-      toExportClips([sessionRow(150, null, "short")]),
-      "short",
-      []
+  });
+
+  it("is not the same Clip's as if filmed in Landscape, on a Landscape Video (its fields carry the Short layout version: clip-source.test.ts)", () => {
+    expect(computeExportHash(clips, "landscape", [])).not.toBe(
+      computeExportHash(toExportClips([sessionRow(150)]), "landscape", [])
     );
-    expect(short).not.toBe(landscape);
   });
 });

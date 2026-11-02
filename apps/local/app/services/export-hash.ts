@@ -244,7 +244,9 @@ const rootRelativeHashFields = <F extends { f: string }>(
  * its Recording Session, scene segments, Scene Override, mic offset, the
  * saved mic EQ (loaded with its Recording Session) and the layout version
  * join its entry (see
- * `clipSourceHashFields`). An OBS Clip's entry is untouched.
+ * `clipSourceHashFields`), drawn in the Video's format: a Landscape
+ * session's Clip on a Short is addressed by the Short layout's version. An
+ * OBS Clip's entry is untouched.
  *
  * The file a Clip's entry names (`f`) is its ROOT-RELATIVE path
  * (`raw-footage/x.mp4`), never the drive it is on: a legacy absolute path
@@ -260,12 +262,13 @@ export const computeExportHash = (
 ): string | null => {
   if (clips.length === 0) return null;
 
+  const videoFormat = resolveVideoFormat(format);
   const payload = {
     v: EXPORT_VERSION,
-    fmt: resolveVideoFormat(format),
+    fmt: videoFormat,
     clips: clips.map((c) => ({
       ...rootRelativeHashFields(
-        clipSourceHashFields(clipSource(c)),
+        clipSourceHashFields(clipSource(c, { videoFormat })),
         storageRoots
       ),
       ...(c.pauseType === LONG_PAUSE ? { p: LONG_PAUSE } : {}),

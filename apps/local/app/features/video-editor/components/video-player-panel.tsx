@@ -73,6 +73,10 @@ export const VideoPlayerPanel = () => {
     VideoEditorContext,
     (ctx) => ctx.currentClipProfile
   );
+  const videoFormat = useContextSelector(
+    VideoEditorContext,
+    (ctx) => ctx.videoFormat
+  );
   const currentClip = useContextSelector(
     VideoEditorContext,
     (ctx) => ctx.currentClip
@@ -177,6 +181,7 @@ export const VideoPlayerPanel = () => {
                   state={runningState}
                   currentClipId={currentClipId}
                   currentClipProfile={currentClipProfile}
+                  videoFormat={videoFormat}
                   onClipFinished={onClipFinished}
                   onUpdateCurrentTime={onUpdateCurrentTime}
                   playbackRate={playbackRate}
