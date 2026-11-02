@@ -47,6 +47,7 @@ const overlay = (props: {
   footagePath:
     props.footageStart === undefined ? null : "raw-footage/imported/shot.mp4",
   footageStart: props.footageStart ?? null,
+  chatSpin: null,
 });
 
 describe("groupOverlaysByClip", () => {

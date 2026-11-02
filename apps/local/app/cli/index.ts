@@ -155,10 +155,11 @@ WRITES
                                      needs a footage file transcribed first)
     chapter add/update/move/delete   author a Video's Chapters (timeline
                                      dividers that group its Clips)
-    overlay add/update/delete        place a Definition Card, Bullet Panel or
-                                     B-roll on top of the footage, anchored to
-                                     a Clip at an offset in seconds (a B-roll
-                                     is LOCAL-ONLY; 'delete' is a HARD delete
+    overlay add/update/delete        place a Definition Card, Bullet Panel,
+                                     B-roll or (Shorts only) Chat Card on top
+                                     of the footage, anchored to a Clip at an
+                                     offset in seconds (a B-roll is
+                                     LOCAL-ONLY; 'delete' is a HARD delete
                                      — no archive, no restore)
     clip-mockup
             add/update/move/delete   author a Video's Animatic: one still image

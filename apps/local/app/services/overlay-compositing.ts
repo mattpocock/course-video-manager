@@ -118,13 +118,22 @@ export const withRenderedContent = (
  * off at the end of the Video. An Overlay anchored past the end of the Video —
  * only reachable from data that no longer matches its Clip — is dropped rather
  * than composited into a span that does not exist.
+ *
+ * Every Kind is placed, a Chat Card included: this is the one placement both
+ * the export and a Short's render read.
  */
-export const placeOverlaysOnTimeline = (
-  clips: ReadonlyArray<{ overlays: ReadonlyArray<ExportOverlay> }>,
+export const placeOnTimeline = <
+  O extends { at: number; durationInSeconds: number },
+>(
+  clips: ReadonlyArray<{ overlays: ReadonlyArray<O> }>,
   clipDurations: ReadonlyArray<ExportClipDuration>
-): PlacedOverlay[] => {
+): Array<{ overlay: O; startInSeconds: number; endInSeconds: number }> => {
   const videoEndInSeconds = expectedExportDurationInSeconds(clipDurations);
-  const placed: PlacedOverlay[] = [];
+  const placed: Array<{
+    overlay: O;
+    startInSeconds: number;
+    endInSeconds: number;
+  }> = [];
   let clipStartInSeconds = 0;
 
   clips.forEach((clip, index) => {
@@ -136,20 +145,40 @@ export const placeOverlaysOnTimeline = (
         videoEndInSeconds
       );
       if (!(endInSeconds > startInSeconds)) continue;
-      placed.push({
-        content: overlayContent(overlay),
-        startInSeconds,
-        endInSeconds,
-        kind: overlay.kind,
-        disableEnterAnimation: overlay.disableEnterAnimation,
-        disableExitAnimation: overlay.disableExitAnimation,
-      });
+      placed.push({ overlay, startInSeconds, endInSeconds });
     }
     clipStartInSeconds += duration ? clipExportDurationInSeconds(duration) : 0;
   });
 
   return placed;
 };
+
+/**
+ * The Overlays the export composites, placed by {@link placeOnTimeline}. A
+ * Chat Card is not one of them: it is drawn only in a Short's render
+ * (`vertical-overlay-props.ts`).
+ */
+export const placeOverlaysOnTimeline = (
+  clips: ReadonlyArray<{ overlays: ReadonlyArray<ExportOverlay> }>,
+  clipDurations: ReadonlyArray<ExportClipDuration>
+): PlacedOverlay[] =>
+  placeOnTimeline(clips, clipDurations).flatMap(
+    ({ overlay, startInSeconds, endInSeconds }) => {
+      const content = overlayContent(overlay);
+      return content === null
+        ? []
+        : [
+            {
+              content,
+              startInSeconds,
+              endInSeconds,
+              kind: overlay.kind,
+              disableEnterAnimation: overlay.disableEnterAnimation,
+              disableExitAnimation: overlay.disableExitAnimation,
+            },
+          ];
+    }
+  );
 
 /**
  * What the Overlay Render Cache is asked to render for this Overlay.
@@ -163,8 +192,11 @@ export const placeOverlaysOnTimeline = (
  */
 const overlayContent = (
   overlay: ExportOverlay
-): OverlayContent | BRollFootage => {
+): OverlayContent | BRollFootage | null => {
   switch (resolveOverlayKind(overlay.kind)) {
+    case "chatCard":
+      // Shorts only: never composited by the export.
+      return null;
     case "bRoll":
       // `cvm overlay` never writes a B-roll without both. A row that somehow
       // lacks its path is looked for as "" and fails the export as Footage

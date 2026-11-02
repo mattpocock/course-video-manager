@@ -21,6 +21,7 @@ export const OVERLAY_KINDS = [
   "definitionCard",
   "bulletPanel",
   "bRoll",
+  "chatCard",
 ] as const;
 
 export type OverlayKind = (typeof OVERLAY_KINDS)[number];
@@ -56,6 +57,7 @@ const OVERLAY_KIND_LABELS: Record<OverlayKind, string> = {
   definitionCard: "Definition Card",
   bulletPanel: "Bullet Panel",
   bRoll: "B-roll",
+  chatCard: "Chat Card",
 };
 
 /**

@@ -7,13 +7,13 @@ import { ActionsDropdown } from "./actions-dropdown";
 import { useEditorVideoMenu } from "../editor-video-menu";
 import { MissingWordTimingBadge } from "./transcript-word-actions";
 import { PreloadableClipManager } from "../preloadable-clip";
-import type { ClipOverlay } from "../overlay-preview";
+import { shortOverlaysByClipId } from "../overlay-preview";
 import { getShowScrubSlider as getShowScrubSliderSelector } from "../video-editor-selectors";
 import { formatDuration } from "@/lib/format-duration";
 import { SendIcon, VideoOffIcon } from "lucide-react";
 import { useContextSelector } from "use-context-selector";
 import { VideoEditorContext } from "../video-editor-context";
-import { useState, useCallback, type ChangeEvent } from "react";
+import { useState, useCallback, useMemo, type ChangeEvent } from "react";
 import {
   ShortsPostingModal,
   type ShortsPostingMode,
@@ -86,6 +86,15 @@ export const PortraitStudioPanel = () => {
     (ctx) => ctx.allClipsHaveSilenceDetected
   );
   const videoId = useContextSelector(VideoEditorContext, (ctx) => ctx.videoId);
+  const overlaysByClipId = useContextSelector(
+    VideoEditorContext,
+    (ctx) => ctx.overlaysByClipId
+  );
+  // A Short draws only its Chat Cards, as its render does.
+  const chatCardsByClipId = useMemo(
+    () => shortOverlaysByClipId(overlaysByClipId),
+    [overlaysByClipId]
+  );
   const cvmRecorderState = useContextSelector(
     VideoEditorContext,
     (ctx) => ctx.cvmRecorder.state
@@ -145,11 +154,7 @@ export const PortraitStudioPanel = () => {
                 onUpdateCurrentTime={onUpdateCurrentTime}
                 playbackRate={playbackRate}
                 scrubSeekTime={scrubSeekTime}
-                // Definition Cards — the only Overlay content-kind this PR
-                // previews — are a landscape/course-video feature (see
-                // `OVERLAY_RENDER_FRAME` in `overlay-render-cache.ts`); the
-                // Shorts studio has no overlay preview of its own yet.
-                overlaysByClipId={NO_OVERLAYS}
+                overlaysByClipId={chatCardsByClipId}
                 footageNotFound={footageNotFound}
               />
             </div>
@@ -208,6 +213,3 @@ export const PortraitStudioPanel = () => {
     </div>
   );
 };
-
-/** A stable empty map — the Shorts studio has no overlay preview yet. */
-const NO_OVERLAYS = new Map<string, ClipOverlay[]>();

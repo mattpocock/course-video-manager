@@ -134,6 +134,46 @@ export const bulletPanelSchema = z.object({
 
 export type BulletPanel = z.infer<typeof bulletPanelSchema>;
 
+/** A Chat Card on one frame: how opaque, how far below its place, how far its reel has scrolled (in cells). */
+export const chatCardPoseSchema = z.object({
+  opacity: z.number(),
+  offsetY: z.number(),
+  scroll: z.number(),
+});
+
+export type ChatCardPose = z.infer<typeof chatCardPoseSchema>;
+
+/**
+ * Where a Short's Chat Card sits on the 1080x1920 frame: centred, its top
+ * `top` px down (inside the platforms' safe area, above the centred captions
+ * and the CTA), `width` px wide.
+ */
+export const CHAT_CARD_PLACEMENT = { top: 240, width: 960 } as const;
+
+/**
+ * One Chat Card in a Short: a Chat Highlight's author and text, opening with
+ * its Chat Spin, whose `cells` fly past before it lands on the pick.
+ *
+ * Its motion arrives frame by frame (`enter`, `exit`), worked out by the
+ * domain's own Chat Spin and Chat Highlight motion, which this package cannot
+ * import: every frame between the two is the landed card. Empty `enter` is a
+ * hard cut in, empty `exit` a hard cut out.
+ */
+export const chatCardSchema = z.object({
+  author: z.string(),
+  text: z.string(),
+  /** The spin's cells, in fly-past order, the pick NOT among them. */
+  cells: z.array(z.object({ author: z.string(), text: z.string() })),
+  startFrame: z.number().default(0),
+  durationInFrames: z.number(),
+  enter: z.array(chatCardPoseSchema).default([]),
+  exit: z.array(chatCardPoseSchema).default([]),
+  top: z.number().default(CHAT_CARD_PLACEMENT.top),
+  width: z.number().default(CHAT_CARD_PLACEMENT.width),
+});
+
+export type ChatCard = z.infer<typeof chatCardSchema>;
+
 export const overlayPropsSchema = z.object({
   /** Overlay width in px. Defaults to the vertical 9:16 frame. */
   width: z.number().default(1080),
@@ -159,6 +199,8 @@ export const overlayPropsSchema = z.object({
    * caller's props valid unchanged.
    */
   bulletPanels: z.array(bulletPanelSchema).default([]),
+  /** A Short's Chat Cards, beside its captions and CTA. Defaults to none. */
+  chatCards: z.array(chatCardSchema).default([]),
 });
 
 /** Parsed props (all defaults applied) — what the composition receives. */

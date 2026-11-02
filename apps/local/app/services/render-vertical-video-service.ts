@@ -19,6 +19,7 @@ import { makeFfmpegLogger } from "./ffmpeg-video-logger";
 import { VIDEO_FORMAT_DIMENSIONS } from "@/features/videos/video-format";
 import { overlayRendererBinPath } from "./overlay-renderer-bin";
 import { loadShortSubtitles } from "./short-subtitles";
+import { verticalOverlayProps } from "./vertical-overlay-props";
 import { removeBestEffort } from "@/services/remove-best-effort";
 import { formatFailureCause } from "./format-failure-cause";
 import { SidecarContext } from "./sidecar-context";
@@ -229,14 +230,18 @@ export class RenderVerticalVideoService extends Effect.Service<RenderVerticalVid
               .slice(0, 12);
             const overlayPath = path.join(overlayDir, `${overlayHash}.mov`);
 
-            const propsJson = JSON.stringify({
-              width: 1080,
-              height: 1920,
-              fps,
-              durationInFrames,
-              subtitles,
-              cta: { variant: "ai", durationInFrames: ctaDurationInFrames },
-            });
+            // The captions, the CTA, and the Short's Chat Cards (the only
+            // Overlays a Short draws), placed on the concat's own durations.
+            const propsJson = JSON.stringify(
+              verticalOverlayProps({
+                fps,
+                durationInFrames,
+                subtitles,
+                ctaDurationInFrames,
+                clips: video.clips,
+                clipDurations: renderClips,
+              })
+            );
 
             yield* renderOverlay(effectFs, propsJson, overlayPath);
 
