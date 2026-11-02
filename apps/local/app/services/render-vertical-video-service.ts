@@ -131,8 +131,10 @@ export class RenderVerticalVideoService extends Effect.Service<RenderVerticalVid
               Effect.gen(function* () {
                 // Its files found on a Storage Root, or "Footage not found
                 // (E: offline?)".
+                // Every Clip drawn in the Short layout: a stream's Landscape
+                // session too, never its own picture squashed.
                 const source = yield* resolveClipSourceFiles(
-                  clipSource(clip),
+                  clipSource(clip, { videoFormat: "short" }),
                   storageRoots
                 ).pipe(
                   Effect.mapError(
@@ -163,8 +165,9 @@ export class RenderVerticalVideoService extends Effect.Service<RenderVerticalVid
             );
             // The vertical renderer always produces a 9:16 short — the Remotion
             // caption overlay below is rendered at 1080x1920 to match.
-            // A CVM-recorder Short Clip's composite is drawn on the Short
-            // layout's own 1080x1920 canvas, so this scale stretches nothing.
+            // A CVM-recorder Clip's composite is drawn on the Short layout's
+            // own 1080x1920 canvas, and a single Footage file covers it
+            // centre-cropped, so nothing is stretched.
             const dimensions = VIDEO_FORMAT_DIMENSIONS.short;
             const concatExtras = { onLog: logCliOutput("concat") };
             // As the export does: a Video with any CVM-recorder Clip is

@@ -4,6 +4,7 @@ import { RemountCommand } from "@/components/remount-command";
 import type { FootageNotFound } from "@/services/clip-source-files.server";
 import type { ClipOnDatabase, FrontendId } from "./clip-state-reducer";
 import { cn } from "@/lib/utils";
+import type { VideoFormat } from "@/features/videos/video-format";
 import {
   clipCompositePicture,
   clipPlaybackClock,
@@ -40,6 +41,8 @@ export const PreloadableClip = (props: {
   state: RunningState;
   onUpdateCurrentTime: (time: number) => void;
   profile: string | undefined;
+  /** The Video's format: a CVM-recorder Clip's Scene Layer is drawn in it. */
+  videoFormat: VideoFormat;
   scrubSeekTime: number | undefined;
   /**
    * Every Overlay this Clip must draw — already selected upstream. Not the
@@ -70,7 +73,7 @@ export const PreloadableClip = (props: {
   // The `<video>` below is the playback clock: an OBS Clip's Footage, or a
   // CVM-recorder Clip's mic, which runs `clockOffset` behind the picture.
   // Every time this component keeps is the clock's own.
-  const source = clipSource(props.clip);
+  const source = clipSource(props.clip, { videoFormat: props.videoFormat });
   const clockOffset = clipPlaybackClock(source).offsetSeconds;
   const clockStart = props.clip.sourceStartTime - clockOffset;
   const preloadFrom = clockStart - PRELOAD_PLAY_AMOUNT;
@@ -326,6 +329,7 @@ export const PreloadableClipManager = (props: {
   state: RunningState;
   currentClipId: FrontendId | undefined;
   currentClipProfile: string | undefined;
+  videoFormat: VideoFormat;
   onClipFinished: () => void;
   onUpdateCurrentTime: (time: number) => void;
   scrubSeekTime: number | undefined;
@@ -377,6 +381,7 @@ export const PreloadableClipManager = (props: {
               hidden={!isCurrentlyPlaying}
               state={props.state}
               profile={props.currentClipProfile}
+              videoFormat={props.videoFormat}
               onUpdateCurrentTime={(time) => {
                 if (isCurrentlyPlaying) {
                   props.onUpdateCurrentTime(time);

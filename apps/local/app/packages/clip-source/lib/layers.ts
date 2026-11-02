@@ -1,3 +1,5 @@
+import type { VideoFormat } from "@cvm/core/features/videos/video-format";
+
 /**
  * A Clip's picture is its Layers, drawn bottom to top (ADR 0056). Overlays
  * and captions always draw above every Layer.
@@ -26,3 +28,14 @@ export const drawsScene = (layers: readonly Layer[]): boolean =>
  */
 export const isUntouched = (layers: readonly Layer[]): boolean =>
   layers.length === 1 && layers[0]!.kind === "scene";
+
+/**
+ * The Video Format a CVM-recorder Clip's Scene Layer is drawn in: the
+ * Video's. A Short draws every Clip in the Short layout, whatever format its
+ * Recording Session was filmed in. A Landscape Video keeps each session's own
+ * (a Short session's Clip on it is left as it is).
+ */
+export const sceneLayerFormat = (
+  sessionFormat: VideoFormat,
+  videoFormat: VideoFormat | undefined
+): VideoFormat => (videoFormat === "short" ? "short" : sessionFormat);

@@ -220,7 +220,11 @@ export const exportVideoToItsAddress = Effect.fn("exportVideoToItsAddress")(
       // Footage is on an unplugged drive still ships.
       const renderClips = yield* Effect.forEach(video.clips, (clip, index) =>
         Effect.gen(function* () {
-          const source = yield* resolveClipSourceFiles(clipSource(clip), roots);
+          // Its Scene Layer drawn in the Video's format, as it is hashed.
+          const source = yield* resolveClipSourceFiles(
+            clipSource(clip, { videoFormat: resolveVideoFormat(video.format) }),
+            roots
+          );
           const input = clipFfmpegInput(source);
           const asked = clipDurations[index]!;
           return {
