@@ -156,6 +156,11 @@ export type StorageOwnership = {
    * move asks about before it starts (a running export, a recording).
    */
   readonly videosByBucket: ReadonlyMap<string, ReadonlySet<string>>;
+  /**
+   * Root-relative Footage path → the Videos whose Clips or Recording Sessions
+   * use it: what the Imported Footage page names beside each file (#2537).
+   */
+  readonly videosByFootage: ReadonlyMap<string, ReadonlySet<string>>;
   /** Root-relative paths that are never deleted as Unused (`keptFootage`). */
   readonly keptFootage: ReadonlySet<string>;
 };
@@ -236,11 +241,16 @@ export const assignStorageBuckets = (
     set.add(videoId);
     videosByBucket.set(bucketId, set);
   };
+  const videosByFootage = new Map<string, Set<string>>();
   for (const use of input.footageUses) {
     if (use.videoId === null) continue;
     const relative = rootRelativePath(use.stored, roots);
-    const bucketId = relative === null ? undefined : footage.get(relative);
+    if (relative === null) continue;
+    const bucketId = footage.get(relative);
     if (bucketId !== undefined) addVideo(bucketId, use.videoId);
+    const users = videosByFootage.get(relative) ?? new Set<string>();
+    users.add(use.videoId);
+    videosByFootage.set(relative, users);
   }
   for (const video of input.videos) {
     for (const name of video.exportNames) {
@@ -280,6 +290,7 @@ export const assignStorageBuckets = (
     exports,
     recordingSessionFootage,
     videosByBucket,
+    videosByFootage,
     keptFootage: new Set(
       (input.keptFootage ?? [])
         .map((stored) => rootRelativePath(stored, roots))

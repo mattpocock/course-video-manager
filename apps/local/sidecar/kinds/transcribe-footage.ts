@@ -1,7 +1,7 @@
 import { FileSystem } from "@effect/platform";
 import { Data, Effect } from "effect";
 import {
-  computeFileContentHash,
+  hashFootage,
   sidecarPathFor,
   writeFootageTranscript,
 } from "@/services/footage-cache";
@@ -44,8 +44,10 @@ export const transcribeFootageJobKind = defineJobKind({
       }
 
       // Hashed first: the chunk cache is keyed by it, so a file replaced
-      // between two runs never reuses the old file's chunks.
-      const sourceHash = yield* computeFileContentHash(sourcePath);
+      // between two runs never reuses the old file's chunks. Its stamp lets a
+      // later read trust the hash without hashing again.
+      const { hash: sourceHash, stamp: sourceStamp } =
+        yield* hashFootage(sourcePath);
       const cache = footageChunkCache(sourcePath, sourceHash);
       yield* Effect.logInfo("transcribe-footage: started", {
         path: sourcePath,
@@ -66,6 +68,7 @@ export const transcribeFootageJobKind = defineJobKind({
       const sidecar = yield* writeFootageTranscript({
         sourcePath,
         sourceHash,
+        sourceStamp,
         transcript,
       });
       yield* cache.clear;
