@@ -19,14 +19,16 @@ import { ActionMenuContent } from "@/features/action-menu/action-menu";
 import type { ActionMenuGroups } from "@/features/action-menu/action-menu-model";
 import { STANDARD_ACTIONS } from "@/features/action-menu/standard-actions";
 import {
-  PLAY_PARAM,
-  TIME_PARAM,
-  onlyPlayerChanged,
   transcriptionStateOf,
-  withPlayer,
   type TranscriptionState,
   type importedFootageReducer,
 } from "@/features/imported-footage/imported-footage-reducer";
+import {
+  PLAY_PARAM,
+  TIME_PARAM,
+  onlyPlayerChanged,
+  withPlayer,
+} from "@/features/imported-footage/player-url";
 import { useImportedFootage } from "@/features/imported-footage/use-imported-footage";
 import {
   SEARCH_PARAM,

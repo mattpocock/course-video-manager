@@ -67,6 +67,11 @@ export const importFootageJobKind = defineJobKind({
           catch: asFootageImportError,
         })
       ),
-      Effect.ignore
+      Effect.catchAll((e) =>
+        Effect.logWarning("import-footage: partial not removed", {
+          destination: params.destination,
+          error: e.message,
+        })
+      )
     ),
 });

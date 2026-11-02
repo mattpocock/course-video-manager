@@ -15,7 +15,7 @@ import {
   removePartial,
   type Control,
 } from "./move-copy.server";
-import { CHUNK_BYTES, lstatOrNull } from "./move-io.server";
+import { CHUNK_BYTES, codeOf, lstatOrNull } from "./move-io.server";
 import type { StorageRoots } from "./storage-roots";
 
 /**
@@ -236,9 +236,13 @@ export const findImportedFootage = async (
   const found = new Map<string, ImportedFootageFile>();
   for (const root of roots) {
     const folder = path.join(root, IMPORTED_FOOTAGE_FOLDER);
+    // No folder yet (nothing imported to this root), or an Offline root.
     const entries = await nodeFs
       .readdir(folder, { recursive: true, withFileTypes: true })
-      .catch(() => []);
+      .catch((error: unknown) => {
+        if (codeOf(error) === "ENOENT") return [];
+        throw error;
+      });
     for (const entry of entries) {
       if (!entry.isFile() || !isFootageFileName(entry.name)) continue;
       const full = path.join(entry.parentPath, entry.name);

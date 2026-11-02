@@ -1,10 +1,9 @@
 import { Args, Command } from "@effect/cli";
 import { Effect } from "effect";
 import { searchImportedFootage } from "@/packages/storage/import";
-import { readStorageRootsSync } from "@/services/storage-roots";
 import { detail, emitNdjson, parseError } from "@/cli/helpers";
 import { CliOutput } from "@/cli/output";
-import { requireLocalFootage } from "./footage-jobs";
+import { footageStorageRoots, requireLocalFootage } from "./footage-jobs";
 import { SEARCH_HELP } from "./footage.help";
 
 /** `cvm footage search <query>`: the shared Imported Footage search, as NDJSON. */
@@ -17,10 +16,7 @@ export const searchCmd = Command.make(
       if (query.trim() === "") {
         return yield* parseError("search query must be non-empty", "footage");
       }
-      const roots = yield* Effect.try({
-        try: () => readStorageRootsSync(),
-        catch: (e) => (e instanceof Error ? e.message : String(e)),
-      }).pipe(Effect.catchAll((message) => parseError(message, "footage")));
+      const roots = yield* footageStorageRoots;
       const { hits, notTranscribed } = yield* searchImportedFootage(
         roots,
         query

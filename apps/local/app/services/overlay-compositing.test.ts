@@ -471,7 +471,7 @@ describe("buildOverlayCompositeFilterGraph — the camera Transform", () => {
 
 describe("buildOverlayCompositeArgs", () => {
   const card = {
-    overlayPath: "/cache/a.mov",
+    inputPath: "/cache/a.mov",
     footageStart: null,
     startInSeconds: 1,
     endInSeconds: 4,
@@ -483,7 +483,7 @@ describe("buildOverlayCompositeArgs", () => {
   it("feeds ffmpeg the video first and one input per card", () => {
     const args = buildOverlayCompositeArgs(
       "/in.mp4",
-      [card, { ...card, overlayPath: "/cache/b.mov" }],
+      [card, { ...card, inputPath: "/cache/b.mov" }],
       "/out.mp4"
     )!;
 
@@ -561,7 +561,7 @@ describe("a B-roll in the compositing pass", () => {
       {
         ...rendered,
         kind: "definitionCard",
-        overlayPath: "/cache/card.mov",
+        inputPath: "/cache/card.mov",
         footageStart: null,
         startInSeconds: 1,
         endInSeconds: 4,
@@ -569,7 +569,7 @@ describe("a B-roll in the compositing pass", () => {
       {
         ...rendered,
         kind: "bRoll",
-        overlayPath: "/d/raw-footage/imported/city.mp4",
+        inputPath: "/d/raw-footage/imported/city.mp4",
         footageStart: 12,
       },
     ],

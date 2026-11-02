@@ -152,7 +152,7 @@ describe.skipIf(!hasFfmpeg)(
         video,
         [
           {
-            ...{ ...window, kind: "bRoll", overlayPath: footage },
+            ...{ ...window, kind: "bRoll", inputPath: footage },
             ...{ footageStart: 0.21, disableEnterAnimation: false },
             disableExitAnimation: false,
           },

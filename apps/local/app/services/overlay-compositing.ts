@@ -71,11 +71,12 @@ export type OverlayCameraMove = {
  * the ffmpeg pass needs and nothing it does not — the content has already done
  * its job by naming the file.
  *
- * For a B-roll, `overlayPath` is its Imported Footage found on a Storage Root,
+ * `inputPath` is the ffmpeg input drawn over the span: the rendered `.mov`,
+ * or, for a B-roll, its Imported Footage found on a Storage Root,
  * and `footageStart` is where in that file its window starts; null otherwise.
  */
 export type RenderedOverlay = {
-  overlayPath: string;
+  inputPath: string;
   footageStart: number | null;
   startInSeconds: number;
   endInSeconds: number;
@@ -90,9 +91,9 @@ export type RenderedOverlay = {
  */
 export const withRenderedContent = (
   placed: PlacedOverlay,
-  overlayPath: string
+  inputPath: string
 ): RenderedOverlay => ({
-  overlayPath,
+  inputPath,
   footageStart:
     placed.content.kind === "bRoll" ? placed.content.footageStart : null,
   startInSeconds: placed.startInSeconds,
@@ -342,13 +343,13 @@ export const buildOverlayCompositeArgs = (
     // shows.
     ...overlays.flatMap((overlay) =>
       overlay.footageStart === null
-        ? ["-i", overlay.overlayPath]
+        ? ["-i", overlay.inputPath]
         : [
             "-noaccurate_seek",
             "-ss",
             formatSeconds(bRollFootageTime(overlay.footageStart, 0)),
             "-i",
-            overlay.overlayPath,
+            overlay.inputPath,
           ]
     ),
     "-filter_complex",

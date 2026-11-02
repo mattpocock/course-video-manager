@@ -157,6 +157,12 @@ export const readFootageTranscript = (
     // Can't confirm freshness against a source that is gone — treat as stale.
     if (!(yield* fsvc.exists(sourcePath))) return null;
 
+    // A shortcut, asked for on purpose: a file whose size and mtime match the
+    // stamp taken before it was hashed is trusted without hashing it again.
+    // The trade-off: a rewrite with the same size and the same mtime (`cp -p`,
+    // a restore from backup, or a change finer than 1 ms) is missed, and its
+    // old transcript is served as fresh. Imports never overwrite, so the risk
+    // is low; any change in size or mtime still falls through to the hash.
     const stamp = yield* stampOf(sourcePath);
     const unchanged =
       stamp !== null &&
