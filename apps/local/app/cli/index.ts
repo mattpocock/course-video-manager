@@ -4,6 +4,7 @@ import { versionCommand } from "./commands/version";
 import { sectionCommand } from "./commands/section";
 import { lessonCommand } from "./commands/lesson";
 import { videoCommand } from "./commands/video";
+import { shortCommand } from "./commands/short";
 import { clipCommand } from "./commands/clip";
 import { chapterCommand } from "./commands/chapter";
 import { clipMockupCommand } from "./commands/clip-mockup";
@@ -35,7 +36,7 @@ Read-mostly: most verbs are READS. A growing set of nouns has WRITE verbs —
 (add/update/move/delete), 'overlay' (add/update/delete), 'section'
 (create/rename/move/archive), 'lesson'
 (create/update/move/archive), 'video'
-(create/move/update/archive/unarchive), 'file' (add/delete), 'footage' (transcribe), 'pitch'
+(create/move/update/archive/unarchive), 'short' (create/render), 'file' (add/delete), 'footage' (transcribe), 'pitch'
 (create/update), 'deliverable' (create/update/archive), 'diagram' (create/snapshot add) and
 'course' (publish).
 Every other verb is read-only, and each verb's own --help is authoritative about
@@ -134,6 +135,7 @@ WHAT NEEDS A MACHINE
     cvm diagram …           a headless browser and the running app (draws the PNG)
     cvm course readiness    the finished videos directory (exportedness)
     cvm course publish      the same, plus ffmpeg
+    cvm short render        the Sidecar's ffmpeg and finished-videos/ (the vertical file)
   Anywhere else they are refused before doing any work — exit 7, _tag
   "LocalOnlyCommandError", with the reason in the message. That is a STOP, not
   a retry: no token, no pull and no repeat will make them work, and nothing is
@@ -151,6 +153,10 @@ WRITES
                                      priority); not editable in the UI
     beat    add/update/move/delete   author a Video's Beat plan
                                      (add --pitch <id> targets a pitch's video)
+    short   create                   cut a Standalone Short from ranges of a
+                                     Video, a Recording Session or a Footage
+                                     file (Clips point at the same Footage;
+                                     the source is untouched)
     clip    add/update/move/delete   cut/retime/reorder/archive a Clip ('add'
                                      needs a footage file transcribed first)
     chapter add/update/move/delete   author a Video's Chapters (timeline
@@ -190,6 +196,9 @@ WRITES
                                      'delete' is a HARD delete
     footage transcribe               cache a raw footage file's transcript on
                                      disk (LOCAL-ONLY; feeds 'clip add')
+    short render                     render a Short's vertical file into
+                                     finished-videos/ and print its path
+                                     (LOCAL-ONLY; a Sidecar Job)
     section
             create/rename/move/      create a section in a Version, rename it,
             archive                  reorder it, or soft-delete it ('archive'
@@ -242,7 +251,7 @@ WRITES
   (Dropbox) and reads publish-only config from the repo .env.
 
 NOUNS
-  course version section learning-goal lesson video clip clip-mockup
+  course version section learning-goal lesson video short clip clip-mockup
   clip-mockup-chapter clip-mockup-comment chapter overlay beat file footage pitch deliverable
   diagram
 
@@ -266,6 +275,7 @@ export const rootCommand = Command.make("cvm").pipe(
     sectionCommand,
     lessonCommand,
     videoCommand,
+    shortCommand,
     clipCommand,
     chapterCommand,
     clipMockupCommand,

@@ -4,6 +4,7 @@ import { RenderVerticalVideoService } from "@/services/render-vertical-video-ser
 import { defineJobKind } from "../job-kind";
 import { makeOrderedEvents } from "../ordered-events";
 import { UPLOAD_MANAGER_POLICIES } from "../retry-policy";
+import { RENDER_VERTICAL_EVENTS } from "@/features/jobs/render-vertical-job";
 
 /**
  * **Vertical Shorts render** (#8 in docs/plans/background-jobs-sidecar.md):
@@ -13,7 +14,8 @@ import { UPLOAD_MANAGER_POLICIES } from "../retry-policy";
  * it, and its failure lands in the Job's log as well as the Video's. Each
  * stage becomes a `stage` Job Event, which the Upload Manager draws as it drew
  * the stream's. 3 attempts, in the default lane — copied from the Upload
- * Manager (`retry-policy.ts`).
+ * Manager (`retry-policy.ts`). Its last Job Event, `rendered`, names the file
+ * it wrote, which `cvm short render` prints.
  */
 export const renderVerticalJobKind = defineJobKind({
   ...UPLOAD_MANAGER_POLICIES["render-vertical"],
@@ -30,7 +32,14 @@ export const renderVerticalJobKind = defineJobKind({
           videoId: params.videoId,
           onStageChange: (stage) => events.emit("stage", { stage }),
         })
-        .pipe(Effect.ensuring(events.flush));
+        .pipe(
+          Effect.tap((path) =>
+            Effect.sync(() =>
+              events.emit(RENDER_VERTICAL_EVENTS.rendered, { path })
+            )
+          ),
+          Effect.ensuring(events.flush)
+        );
       yield* Effect.logInfo("render-vertical: done", { outputPath });
     }),
 });

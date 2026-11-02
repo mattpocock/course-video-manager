@@ -17,6 +17,7 @@ import {
 import { and, asc, desc, eq, inArray, isNull, ne } from "drizzle-orm";
 import { Effect } from "effect";
 import { copyVideoImpl } from "./db-video-operations.copy.server.js";
+import { createShortOperationsUnwrapped } from "./db-short-create.server.js";
 import {
   createVideoWriteOps,
   videoWriteMethods,
@@ -662,6 +663,7 @@ const createVideoOperationsUnwrapped = (db: Database, deps: VideoOpsDeps) => {
     copyVideo,
     updateVideoLesson,
     ...createVideoWriteOps(db),
+    ...createShortOperationsUnwrapped(db),
     ...createVideoNavigationOps({ getCourseNavigationData }),
     getVideosForFewShotExamples,
   };
