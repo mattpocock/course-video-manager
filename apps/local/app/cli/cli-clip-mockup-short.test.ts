@@ -148,9 +148,10 @@ describe("cvm clip-mockup on a Short", () => {
       { width: 1080, height: 1920 },
     ]);
     const [camera, codeA] = capture;
-    // The Camera frame is CVM's own: no agent page, an advert's place.
+    // The Camera frame is CVM's own: no agent page, and no place for a call
+    // to action, as the finished Short draws none.
     expect(camera!.html).toContain('data-short-scene="camera"');
-    expect(camera!.html).toContain("advert");
+    expect(camera!.html).not.toContain("advert");
     // The Code frame draws the agent's page in the 1080x1080 screen square
     // the Short layout puts at the top, with the 1080x840 camera band below.
     expect(codeA!.html).toContain('data-short-scene="code"');

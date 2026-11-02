@@ -128,7 +128,7 @@ The **Video Format** of a horizontal, long-form video. The default.
 _Avoid_: Standard (the old value name)
 
 **Short**:
-The **Video Format** of a vertical, short-form video (the kind posted to YouTube Shorts, TikTok and similar). "Short" is the name to use everywhere. Like every Video it records with the CVM recorder (ADR 0051); its older OBS Clips still export. It is planned with an **Animatic** like a Landscape Video, opening with one Camera **Clip Mockup** and then Code ones (ADR 0052).
+The **Video Format** of a vertical, short-form video (the kind posted to YouTube Shorts, TikTok and similar). "Short" is the name to use everywhere. Like every Video it records with the CVM recorder (ADR 0051); its older OBS Clips still export. It is planned with an **Animatic** like a Landscape Video, opening with one Camera **Clip Mockup** and then Code ones (ADR 0052). Its render draws its captions and Chat Cards, and no call to action.
 _Avoid_: TikTok (reserved for the actual TikTok platform, and NOT the name for a Short)
 
 **Clip**:

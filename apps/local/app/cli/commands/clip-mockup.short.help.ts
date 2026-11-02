@@ -9,8 +9,7 @@ recorder films — so the picture always sits where the finished Short's does.
 You never draw the whole frame, and you cannot break the layout. Two scenes:
   { "say": "<line>", "scene": "camera" }
       The Camera moment: Matt to camera, the Short's hook. CVM draws it — a
-      head on a blank frame, with a faint box in the bottom half where the
-      finished Short puts its advert. It takes NO "html" or "image".
+      head on a blank frame. It takes NO "html" or "image".
   { "say": "<line>", "scene": "code", "html": "<page.html>" }   (or "image")
       A Code moment: your page fills the 1080x1080 SCREEN SQUARE at the top,
       and CVM draws the camera band (1080x840) below it. Write the page for a
