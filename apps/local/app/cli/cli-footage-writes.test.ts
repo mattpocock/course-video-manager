@@ -528,3 +528,34 @@ describe("footage import", () => {
     ).toBe(false);
   });
 });
+
+describe("footage search", () => {
+  it("finds a word per segment in fresh Imported Footage transcripts only, and names stale ones on STDERR", async () => {
+    await run(["footage", "import", footageFile("interview.mp4", "v1")]);
+    const outside = nodePath.join(roots[1], "raw-footage", "take.mp4");
+    nodeFs.mkdirSync(nodePath.dirname(outside), { recursive: true });
+    nodeFs.writeFileSync(outside, "not imported");
+    await run(["footage", "transcribe", outside]);
+
+    const r = await run(["footage", "search", "WORLD"]);
+    expect(ndjson(r.stdout)).toEqual([
+      {
+        path: "raw-footage/imported/interview.mp4",
+        start: 0,
+        end: 3,
+        text: "hello world again",
+      },
+    ]);
+    expect(r.stderr).toBe("");
+
+    const file = nodePath.join(roots[0], "raw-footage/imported/interview.mp4");
+    nodeFs.writeFileSync(file, "bytes changed since transcribed");
+    const stale = await run(["footage", "search", "world"]);
+    expect([stale.exitCode, stale.stdout]).toEqual([0, ""]);
+    expect(JSON.parse(stale.stderr)).toEqual({
+      notTranscribed: ["raw-footage/imported/interview.mp4"],
+    });
+
+    expect((await run(["footage", "search", "  "])).exitCode).toBe(3);
+  });
+});

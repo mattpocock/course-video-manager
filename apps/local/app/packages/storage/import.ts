@@ -6,7 +6,8 @@
 // (`copyIntoImportedFootage`): read-only on the source, written under a
 // partial name, renamed into place once size and checksum match, never
 // overwriting. `findImportedFootage` is the walk over every Storage Root's
-// `raw-footage/imported/` that the listing and the search share.
+// `raw-footage/imported/` that the listing and the search share;
+// `searchImportedFootage` is that search (the CLI's and the page's).
 export {
   FootageImportError,
   asFootageImportError,
@@ -16,3 +17,8 @@ export {
   removeImportPartial,
   type ImportedFootageFile,
 } from "./lib/import.server";
+export {
+  searchImportedFootage,
+  type ImportedFootageHit,
+  type ImportedFootageSearchResult,
+} from "./lib/search.server";
