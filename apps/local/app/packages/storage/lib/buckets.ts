@@ -112,7 +112,8 @@ export const ORPHANED_EXPORTS_BUCKET: StorageBucket = {
   name: "Exported Videos of no current Video",
 };
 const SHARED_FOOTAGE_ID = "shared-footage";
-const USED_IMPORTED_FOOTAGE_ID = "used-imported-footage";
+/** The Used Imported Footage bucket's id. */
+export const USED_IMPORTED_FOOTAGE_ID = "used-imported-footage";
 
 export const courseBucketId = (courseId: string) => `course:${courseId}`;
 

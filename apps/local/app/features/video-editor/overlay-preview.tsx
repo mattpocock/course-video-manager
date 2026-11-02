@@ -10,6 +10,7 @@ import { VIDEO_FORMAT_DIMENSIONS } from "@/features/videos/video-format";
 import type { BulletPanelBullet } from "@/features/videos/bullet-panel";
 import { resolveOverlayKind } from "@/features/videos/overlay-kind";
 import { overlayTransformCssStyleAt } from "@/features/videos/overlay-transform";
+import { bRollFootageTime } from "./b-roll-footage-time";
 
 /**
  * One Overlay as the editor needs it: exactly the columns
@@ -92,16 +93,16 @@ const overlayFrameAt = (overlay: ClipOverlay, currentTime: number) =>
   );
 
 /**
- * Where in its Footage a B-roll is at `currentTime`: its `from` plus the
- * Overlay's elapsed time, read on the same floored frame grid as
- * {@link overlayFrameAt}. The export trims the Footage from `from` and shifts
- * it onto the Overlay's start, so at any export frame it shows the latest
- * Footage frame at or before `from + elapsed` — this names that same instant.
- * A B-roll row with no `from` reads as 0, as `overlayContent` does.
+ * Where in its Footage a B-roll is at `currentTime`: {@link bRollFootageTime}
+ * of the Overlay's elapsed time, read on the same floored frame grid as
+ * {@link overlayFrameAt} — the rule the export reads too. A B-roll row with
+ * no `from` reads as 0, as `overlayContent` does.
  */
 export const bRollFootageTimeAt = (overlay: ClipOverlay, currentTime: number) =>
-  (overlay.footageStart ?? 0) +
-  overlayFrameAt(overlay, currentTime) / OVERLAY_RENDER_FPS;
+  bRollFootageTime(
+    overlay.footageStart ?? 0,
+    overlayFrameAt(overlay, currentTime) / OVERLAY_RENDER_FPS
+  );
 
 /**
  * The Overlay active at `currentTime`, or `undefined` if none is.

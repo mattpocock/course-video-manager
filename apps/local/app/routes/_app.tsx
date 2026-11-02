@@ -10,7 +10,7 @@ import { DrizzleService } from "@/services/drizzle-service.server";
 import { makeLoader } from "@/services/route-action.server";
 import { onlyRootFilterChanged } from "@/features/storage/root-filter";
 import { onlySearchChanged } from "@/features/list-search/list-search";
-import { onlyPlayerChanged } from "@/features/imported-footage/imported-footage-reducer";
+import { onlyPlayerChanged } from "@/features/imported-footage/player-url";
 import { offlineStorageRoots } from "@/services/storage-root-availability.server";
 import { getFootageStats } from "@cvm/core/services/db-footage-stats.server";
 import { Effect } from "effect";

@@ -17,6 +17,7 @@ import type { OverlayContent } from "./overlay-render-cache";
 import { resolveOverlayKind } from "@/features/videos/overlay-kind";
 import type { ExportOverlay } from "./export-hash";
 import { overlayTransformVideoFilter } from "@/features/videos/overlay-transform";
+import { bRollFootageTime } from "@/features/video-editor/b-roll-footage-time";
 import { VIDEO_FORMAT_DIMENSIONS } from "@/features/videos/video-format";
 import { BITEXACT_ARGS, LANDSCAPE_VIDEO_ENCODE_ARGS } from "./ffmpeg-run";
 
@@ -70,11 +71,12 @@ export type OverlayCameraMove = {
  * the ffmpeg pass needs and nothing it does not — the content has already done
  * its job by naming the file.
  *
- * For a B-roll, `overlayPath` is its Imported Footage found on a Storage Root,
+ * `inputPath` is the ffmpeg input drawn over the span: the rendered `.mov`,
+ * or, for a B-roll, its Imported Footage found on a Storage Root,
  * and `footageStart` is where in that file its window starts; null otherwise.
  */
 export type RenderedOverlay = {
-  overlayPath: string;
+  inputPath: string;
   footageStart: number | null;
   startInSeconds: number;
   endInSeconds: number;
@@ -89,9 +91,9 @@ export type RenderedOverlay = {
  */
 export const withRenderedContent = (
   placed: PlacedOverlay,
-  overlayPath: string
+  inputPath: string
 ): RenderedOverlay => ({
-  overlayPath,
+  inputPath,
   footageStart:
     placed.content.kind === "bRoll" ? placed.content.footageStart : null,
   startInSeconds: placed.startInSeconds,
@@ -241,8 +243,8 @@ const NORMALIZE_FILTER = `scale=${VIDEO_FORMAT_DIMENSIONS.landscape.width}:${VID
  *
  * A B-roll's input is its Imported Footage, already sought to its `from` by
  * {@link buildOverlayCompositeArgs}. Its node trims it to the window, shifts it
- * onto the window like a render, and scales it to the landscape frame, which
- * it then covers whole. It moves no camera.
+ * onto the window, and scales it to the landscape frame, which it then covers
+ * whole. It moves no camera.
  *
  * Returns `null` for no Overlays at all — the signal to skip the pass entirely,
  * which is what leaves a Video without Overlays byte-for-byte as it was.
@@ -259,9 +261,12 @@ export const buildOverlayCompositeFilterGraph = (
 
   const shifts = overlays.map((overlay, index) => {
     const shift = `setpts=PTS-STARTPTS+${formatSeconds(overlay.startInSeconds)}/TB`;
+    // A B-roll's input is timed from its `from` (0), with the frame before
+    // an off-grid `from` kept at a time below 0: shifted, not restarted, so
+    // that frame is the one on screen when the window opens.
     const node =
       overlay.kind === "bRoll"
-        ? `trim=duration=${formatSeconds(overlay.endInSeconds - overlay.startInSeconds)},${shift},${NORMALIZE_FILTER}`
+        ? `trim=end=${formatSeconds(overlay.endInSeconds - overlay.startInSeconds)},setpts=PTS+${formatSeconds(overlay.startInSeconds)}/TB,${NORMALIZE_FILTER}`
         : shift;
     return `[${index + 1}:v]${node}[ovl${index}]`;
   });
@@ -330,18 +335,21 @@ export const buildOverlayCompositeArgs = (
     "-hide_banner",
     "-i",
     videoPath,
-    // A B-roll's Footage is sought to its `from` and read for its window
-    // only, so a long file is never decoded from its start.
+    // A B-roll's Footage is sought to its `from`, so a long file is never
+    // decoded from its start, and its node's `trim` ends the read at the
+    // window's end (an input `-t` would cut the frames kept before `from`).
+    // Not an accurate seek: that drops every frame before `from`, so an
+    // off-grid `from` would open on the frame after the one the preview
+    // shows.
     ...overlays.flatMap((overlay) =>
       overlay.footageStart === null
-        ? ["-i", overlay.overlayPath]
+        ? ["-i", overlay.inputPath]
         : [
+            "-noaccurate_seek",
             "-ss",
-            formatSeconds(overlay.footageStart),
-            "-t",
-            formatSeconds(overlay.endInSeconds - overlay.startInSeconds),
+            formatSeconds(bRollFootageTime(overlay.footageStart, 0)),
             "-i",
-            overlay.overlayPath,
+            overlay.inputPath,
           ]
     ),
     "-filter_complex",

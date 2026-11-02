@@ -110,7 +110,7 @@ export type FakeCompositeRun = {
   videoId: string;
   videoPath: string;
   overlays: ReadonlyArray<{
-    overlayPath: string;
+    inputPath: string;
     startInSeconds: number;
     endInSeconds: number;
   }>;

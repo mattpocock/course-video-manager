@@ -1,6 +1,17 @@
 import { execFileSync, spawnSync } from "node:child_process";
+import nodeFs from "node:fs";
+import os from "node:os";
+import nodePath from "node:path";
+import { fromPartial } from "@total-typescript/shoehorn";
 import { describe, expect, it } from "vitest";
-import { buildOverlayCompositeFilterGraph } from "@/services/overlay-compositing";
+import {
+  buildOverlayCompositeArgs,
+  buildOverlayCompositeFilterGraph,
+} from "@/services/overlay-compositing";
+import {
+  bRollFootageTimeAt,
+  type ClipOverlay,
+} from "@/features/video-editor/overlay-preview";
 import {
   overlayTransform,
   overlayTransformProgressAt,
@@ -102,6 +113,74 @@ describe.skipIf(!hasFfmpeg)(
 
       expect(graph).toContain("trim=");
       expect(() => runGraph(graph!, 3)).not.toThrow();
+    });
+
+    /**
+     * A `from` off the Footage's frame grid: a `<video>` sought there shows
+     * the frame at or before it, so the export must too, or the two differ
+     * by a frame. Each 30 fps Footage frame has a grey of its own; the
+     * export's 60 fps frames are read back and matched to them.
+     */
+    it("shows a B-roll's Footage on the frames the preview shows, from an off-grid `from`", () => {
+      const dir = nodeFs.mkdtempSync(nodePath.join(os.tmpdir(), "cvm-broll-"));
+      const lavfi = (name: string, source: string) => {
+        const file = nodePath.join(dir, name);
+        execFileSync("ffmpeg", [
+          ...["-loglevel", "error", "-f", "lavfi", "-i", source],
+          ...["-c:v", "ffv1", file],
+        ]);
+        return file;
+      };
+      /** The grey at (8, 8) of each 32x18 frame `args` read. */
+      const greys = (args: string[]) => {
+        const raw = execFileSync("ffmpeg", [
+          ...["-loglevel", "error", ...args],
+          ...["-f", "rawvideo", "-pix_fmt", "gray", "-"],
+        ]);
+        return Array.from(
+          { length: raw.length / (32 * 18) },
+          (_, frame) => raw[frame * 32 * 18 + 8 * 32 + 8]
+        );
+      };
+      const footage = lavfi(
+        "footage.mkv",
+        "nullsrc=s=32x18:r=30:d=1,geq=lum='16+N*10':cb=128:cr=128,format=yuv420p"
+      );
+      const video = lavfi("video.mkv", "color=black:s=32x18:r=60:d=0.6");
+      const window = { startInSeconds: 0.2, endInSeconds: 0.4 };
+      const args = buildOverlayCompositeArgs(
+        video,
+        [
+          {
+            ...{ ...window, kind: "bRoll", inputPath: footage },
+            ...{ footageStart: 0.21, disableEnterAnimation: false },
+            disableExitAnimation: false,
+          },
+        ],
+        "unused"
+      )!;
+      const shown = greys([
+        ...args.slice(0, args.indexOf("-map")),
+        "-map",
+        "[outv]",
+      ]);
+      const footageGreys = greys(["-i", footage]);
+      const overlay = fromPartial<ClipOverlay>({
+        at: 0.2,
+        durationInSeconds: 0.2,
+        footageStart: 0.21,
+      });
+
+      // Each 60 fps export frame against the preview halfway through it.
+      for (let frame = 12; frame < 24; frame++) {
+        const footageFrame = Math.floor(
+          bRollFootageTimeAt(overlay, (frame + 0.5) / 60) * 30 + 1e-9
+        );
+        expect([frame, shown[frame]]).toEqual([
+          frame,
+          footageGreys[footageFrame],
+        ]);
+      }
     });
   }
 );

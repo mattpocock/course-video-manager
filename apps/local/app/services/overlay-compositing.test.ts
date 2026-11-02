@@ -471,7 +471,7 @@ describe("buildOverlayCompositeFilterGraph — the camera Transform", () => {
 
 describe("buildOverlayCompositeArgs", () => {
   const card = {
-    overlayPath: "/cache/a.mov",
+    inputPath: "/cache/a.mov",
     footageStart: null,
     startInSeconds: 1,
     endInSeconds: 4,
@@ -483,7 +483,7 @@ describe("buildOverlayCompositeArgs", () => {
   it("feeds ffmpeg the video first and one input per card", () => {
     const args = buildOverlayCompositeArgs(
       "/in.mp4",
-      [card, { ...card, overlayPath: "/cache/b.mov" }],
+      [card, { ...card, inputPath: "/cache/b.mov" }],
       "/out.mp4"
     )!;
 
@@ -561,7 +561,7 @@ describe("a B-roll in the compositing pass", () => {
       {
         ...rendered,
         kind: "definitionCard",
-        overlayPath: "/cache/card.mov",
+        inputPath: "/cache/card.mov",
         footageStart: null,
         startInSeconds: 1,
         endInSeconds: 4,
@@ -569,7 +569,7 @@ describe("a B-roll in the compositing pass", () => {
       {
         ...rendered,
         kind: "bRoll",
-        overlayPath: "/d/raw-footage/imported/city.mp4",
+        inputPath: "/d/raw-footage/imported/city.mp4",
         footageStart: 12,
       },
     ],
@@ -579,11 +579,10 @@ describe("a B-roll in the compositing pass", () => {
 
   it("reads its Footage from `from` for its window, in the same single pass", () => {
     const footageAt = args.indexOf("/d/raw-footage/imported/city.mp4");
-    expect(args.slice(footageAt - 5, footageAt + 1)).toEqual([
+    expect(args.slice(footageAt - 4, footageAt + 1)).toEqual([
+      "-noaccurate_seek",
       "-ss",
       "12.000",
-      "-t",
-      "3.000",
       "-i",
       "/d/raw-footage/imported/city.mp4",
     ]);
@@ -593,7 +592,7 @@ describe("a B-roll in the compositing pass", () => {
 
   it("trims it, scales it to the landscape frame and shifts it onto its window", () => {
     expect(graph).toContain(
-      "[2:v]trim=duration=3.000,setpts=PTS-STARTPTS+12.000/TB,scale=1920:1080[ovl1]"
+      "[2:v]trim=end=3.000,setpts=PTS+12.000/TB,scale=1920:1080[ovl1]"
     );
     expect(graph).toContain("enable='between(t,12.000,15.000)'");
   });

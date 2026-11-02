@@ -9,13 +9,11 @@ import {
   toRootRelative,
 } from "@/packages/storage";
 import {
+  FootageImportError,
   asFootageImportError,
   chooseImportDestination,
 } from "@/packages/storage/import";
-import {
-  readStorageRootsSync,
-  storageRootsConfig,
-} from "@/services/storage-roots";
+import { storageRootsConfig } from "@/services/storage-roots";
 import {
   enqueueFootageTranscription,
   findYoutubeFootage,
@@ -32,7 +30,11 @@ import { detail, emitObject, parseError } from "@/cli/helpers";
 import { CliOutput } from "@/cli/output";
 import { enqueueJob, JOB_KIND_SPECS } from "../../../sidecar/job-specs";
 import { waitForFootageTranscription } from "./footage-transcribe-wait";
-import { requireLocalFootage, withFootageJobs } from "./footage-jobs";
+import {
+  footageStorageRoots,
+  requireLocalFootage,
+  withFootageJobs,
+} from "./footage-jobs";
 import { IMPORT_HELP } from "./footage.help";
 
 /** The import Job was cut off and not put back. Running it again redoes it. */
@@ -46,11 +48,23 @@ const waitForImport = Effect.fn("waitForImport")(function* (jobId: string) {
   while (true) {
     const job = yield* ops.getJob(jobId);
     if (job?.status === "succeeded") return;
-    if (job === null || job === undefined || job.status === "failed") {
-      const error = job?.error as { tag?: string; message?: string } | null;
-      return yield* Effect.fail({
-        _tag: error?.tag ?? "FootageImportError",
-        message: error?.message ?? `the import Job ${jobId} is gone`,
+    if (job === null || job === undefined) {
+      return yield* new FootageImportError({
+        message: `the import Job ${jobId} is gone`,
+      });
+    }
+    if (job.status === "failed") {
+      // Both import kinds fail only with a FootageImportError: the Job keeps
+      // its message.
+      const error: unknown = job.error;
+      return yield* new FootageImportError({
+        message:
+          typeof error === "object" &&
+          error !== null &&
+          "message" in error &&
+          typeof error.message === "string"
+            ? error.message
+            : `the import Job ${jobId} failed`,
       });
     }
     if (job.status === "interrupted" || job.status === "cancelled") {
@@ -90,10 +104,7 @@ const probeOrRefuse = Effect.fn("probeOrRefuse")(function* (source: string) {
 
 /** Where the copy goes, root-relative too, and what is already done there. */
 const planImport = Effect.fn("planImport")(function* (source: string) {
-  const roots = yield* Effect.try({
-    try: () => readStorageRootsSync(),
-    catch: (e) => (e instanceof Error ? e.message : String(e)),
-  }).pipe(Effect.catchAll((message) => parseError(message, "footage")));
+  const roots = yield* footageStorageRoots;
   const { destination, existing } = yield* Effect.tryPromise({
     try: () =>
       chooseImportDestination(

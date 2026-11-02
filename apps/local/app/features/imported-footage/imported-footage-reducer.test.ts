@@ -7,9 +7,9 @@ import {
   importedFootageReducer,
   liveDownloads,
   liveTranscriptions,
-  onlyPlayerChanged,
   transcriptionStateOf,
 } from "./imported-footage-reducer";
+import { onlyPlayerChanged } from "./player-url";
 
 const INTERVIEW = "/mnt/d/raw-footage/imported/interview.mp4";
 const NEW_IMPORT = "/mnt/d/raw-footage/imported/broll.mp4";

@@ -12,6 +12,8 @@ import { JobOperationsService } from "@cvm/core/services/db-job-operations.serve
 import { runSidecar } from "../../sidecar/sidecar";
 import { transcribeFootageJobKind } from "../../sidecar/kinds/transcribe-footage";
 import { importFootageJobKind } from "../../sidecar/kinds/import-footage";
+import { enqueueJob, JOB_KIND_SPECS } from "../../sidecar/job-specs";
+import { IMPORT_FOOTAGE_JOB_KIND } from "@/features/jobs/import-footage-job";
 import {
   FootageProbe,
   FootageUnreadableError,
@@ -526,6 +528,38 @@ describe("footage import", () => {
     expect(
       nodeFs.existsSync(`${imported("interview.mp4")}.cvm-import-partial`)
     ).toBe(false);
+  });
+
+  it("clears the partial of a run cut off between placing and unlinking it", async () => {
+    const source = footageFile("interview.mp4", "full bytes");
+    const destination = imported("interview.mp4");
+    const partial = `${destination}.cvm-import-partial`;
+    nodeFs.mkdirSync(nodePath.dirname(destination), { recursive: true });
+    nodeFs.writeFileSync(partial, "full bytes");
+    nodeFs.linkSync(partial, destination);
+
+    const job = Effect.gen(function* () {
+      const { id } = yield* enqueueJob({
+        id: null,
+        kind: IMPORT_FOOTAGE_JOB_KIND,
+        title: "Import",
+        params: { source, destination },
+        dependsOn: null,
+        subject: null,
+        attemptsSpent: 0,
+        registry: JOB_KIND_SPECS,
+      });
+      const ops = yield* JobOperationsService;
+      let now = yield* ops.getJob(id);
+      for (; now?.status === "queued" || now?.status === "running";) {
+        now = yield* Effect.zipRight(Effect.sleep(20), ops.getJob(id));
+      }
+      return now?.status;
+    });
+    expect(await Effect.runPromise(Effect.provide(job, jobsLayer))).toBe(
+      "succeeded"
+    );
+    expect(nodeFs.existsSync(partial)).toBe(false);
   });
 });
 

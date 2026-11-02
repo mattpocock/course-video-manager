@@ -15,7 +15,6 @@ import {
   asFootageImportError,
   findImportedFootage,
 } from "@/packages/storage/import";
-import { readStorageRootsSync } from "@/services/storage-roots";
 import { nudgeSidecar } from "@/services/sidecar-socket.server";
 import {
   readFootageTranscript,
@@ -36,7 +35,11 @@ import { FILE_NAMES } from "recorder-service/capture-args";
 import { footageOnDisk } from "./footage-on-disk";
 import { importCmd } from "./footage-import";
 import { searchCmd } from "./footage-search";
-import { requireLocalFootage, withFootageJobs } from "./footage-jobs";
+import {
+  footageStorageRoots,
+  requireLocalFootage,
+  withFootageJobs,
+} from "./footage-jobs";
 import { waitForFootageTranscription } from "./footage-transcribe-wait";
 import {
   HELP,
@@ -67,10 +70,7 @@ const pathArg = Args.text({ name: "path" });
 /** `footage list --imported`: the walk over every root's raw-footage/imported/. */
 const listImported = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem;
-  const roots = yield* Effect.try({
-    try: () => readStorageRootsSync(),
-    catch: (e) => (e instanceof Error ? e.message : String(e)),
-  }).pipe(Effect.catchAll((message) => parseError(message, "footage")));
+  const roots = yield* footageStorageRoots;
   const files = yield* Effect.tryPromise({
     try: () => findImportedFootage(roots),
     catch: asFootageImportError,

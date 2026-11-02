@@ -15,7 +15,7 @@ import {
   removePartial,
   type Control,
 } from "./move-copy.server";
-import { CHUNK_BYTES, lstatOrNull } from "./move-io.server";
+import { CHUNK_BYTES, codeOf, lstatOrNull } from "./move-io.server";
 import type { StorageRoots } from "./storage-roots";
 
 /**
@@ -153,6 +153,10 @@ export const copyIntoImportedFootage = async (opts: {
       message: `a different file is already at ${destination}; never overwritten. Run 'cvm footage import' again for the next free name.`,
     });
 
+  // A run cut off mid-copy left this; it is never resumed into, only redone.
+  // Cleared first: a run cut off after placing (the file's name linked, its
+  // partial not yet unlinked) re-runs into the "already there" answer below.
+  await removePartial(partial);
   const there = await lstatOrNull(destination);
   if (there !== null) {
     if (
@@ -166,8 +170,6 @@ export const copyIntoImportedFootage = async (opts: {
   }
 
   await nodeFs.mkdir(path.dirname(destination), { recursive: true });
-  // A run cut off mid-copy left this; it is never resumed into, only redone.
-  await removePartial(partial);
   try {
     const hash = createHash("sha256");
     await copyHashing(opts.source, partial, hash, control);
@@ -234,9 +236,13 @@ export const findImportedFootage = async (
   const found = new Map<string, ImportedFootageFile>();
   for (const root of roots) {
     const folder = path.join(root, IMPORTED_FOOTAGE_FOLDER);
+    // No folder yet (nothing imported to this root), or an Offline root.
     const entries = await nodeFs
       .readdir(folder, { recursive: true, withFileTypes: true })
-      .catch(() => []);
+      .catch((error: unknown) => {
+        if (codeOf(error) === "ENOENT") return [];
+        throw error;
+      });
     for (const entry of entries) {
       if (!entry.isFile() || !isFootageFileName(entry.name)) continue;
       const full = path.join(entry.parentPath, entry.name);

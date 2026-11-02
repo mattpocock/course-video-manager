@@ -47,19 +47,29 @@ export const findYoutubeFootage = (roots: StorageRoots, videoId: string) =>
 
 /**
  * Where a YouTube import came from (`<file>.youtube.json`), or null for a
- * file that was not downloaded from YouTube, or whose companion is unreadable.
+ * file that was not downloaded from YouTube. A companion that cannot be read
+ * is logged, and also null: the file is still Imported Footage.
  */
 export const readYoutubeSource = (absolute: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const text = yield* fs.readFileString(youtubeSourcePathFor(absolute));
+    const companion = youtubeSourcePathFor(absolute);
+    if (!(yield* fs.exists(companion))) return null;
+    const text = yield* fs.readFileString(companion);
     const json = yield* Effect.try(
       () => JSON.parse(text) as Partial<YoutubeSource>
     );
     return typeof json.url === "string" && typeof json.title === "string"
       ? { url: json.url, title: json.title }
       : null;
-  }).pipe(Effect.orElseSucceed(() => null));
+  }).pipe(
+    Effect.catchAll((error) =>
+      Effect.logWarning("readYoutubeSource: unreadable companion", {
+        path: absolute,
+        error: error.message,
+      }).pipe(Effect.as(null))
+    )
+  );
 
 /** A transcription of `absolute`, unless its transcript is fresh. */
 export const enqueueFootageTranscription = (absolute: string) =>

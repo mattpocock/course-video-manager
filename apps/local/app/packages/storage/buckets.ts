@@ -23,6 +23,7 @@ export {
   type StorageFileRole,
   type StorageOwnership,
   type StorageOwnershipInput,
+  USED_IMPORTED_FOOTAGE_ID,
 } from "./lib/buckets";
 export {
   windowsDriveOf,

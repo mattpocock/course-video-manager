@@ -4,7 +4,9 @@ import { GitWorktreeProbeLive } from "@cvm/core/git-worktree";
 import { JobOperationsService } from "@cvm/core/services/db-job-operations.server";
 import { DrizzleService } from "@/services/drizzle-service.server";
 import { loadRepoEnv } from "@/services/repo-env";
+import { readStorageRootsSync } from "@/services/storage-roots";
 import { NEEDS_FOOTAGE_ON_DISK, requireLocalMachine } from "@/cli/local-only";
+import { parseError } from "@/cli/helpers";
 
 /**
  * Footage is on the author's DISK, so every `cvm footage` verb is local-only.
@@ -15,6 +17,12 @@ export const requireLocalFootage = requireLocalMachine(
   "cvm footage",
   NEEDS_FOOTAGE_ON_DISK
 );
+
+/** The Storage Roots, or invalid input (exit 3) naming what is wrong. */
+export const footageStorageRoots = Effect.try({
+  try: () => readStorageRootsSync(),
+  catch: (e) => (e instanceof Error ? e.message : String(e)),
+}).pipe(Effect.catchAll((message) => parseError(message, "footage")));
 
 /**
  * What a `cvm footage` verb that enqueues Jobs runs inside: enough to write

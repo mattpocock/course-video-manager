@@ -4,7 +4,7 @@ import { Effect, Option } from "effect";
 import { notFound, parseError } from "@/cli/helpers";
 import { NEEDS_FOOTAGE_ON_DISK, requireLocalMachine } from "@/cli/local-only";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
-import { FootageProbe, probeWithFfprobe } from "@/services/footage-probe";
+import { probeFootage } from "@/services/footage-probe";
 import { isImportedFootage } from "@/packages/storage";
 import type { OverlayKind } from "@/features/videos/overlay-kind";
 import { resolveVideoFormat } from "@/features/videos/video-format";
@@ -99,11 +99,7 @@ export const requireFlagsForKind = (params: {
 /** How long the file is, by the probe a test can answer for. */
 const probeLength = (file: string) =>
   Effect.gen(function* () {
-    const prober = yield* Effect.serviceOption(FootageProbe);
-    const probe = yield* Option.match(prober, {
-      onSome: (p) => p.probe(file),
-      onNone: () => probeWithFfprobe(file),
-    }).pipe(
+    const probe = yield* probeFootage(file).pipe(
       Effect.catchTag("FootageUnreadableError", (e) =>
         refuse(`ffprobe can't read the B-roll's Footage ${file} (${e.message})`)
       )
