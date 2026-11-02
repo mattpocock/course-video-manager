@@ -217,9 +217,10 @@ thing worth having. Which CONTENT flag is required depends on '--kind'.
                        Overlay's own window, 'bRoll' or 'chatCard'.
   --title <text>       the heading — the term being defined, or the Bullet
                        Panel's own title. Required, except refused for a
-                       bRoll.
+                       bRoll or a chatCard.
   --description <text> the definition itself — the card's body. REQUIRED for a
-                       definitionCard, refused for a bulletPanel.
+                       definitionCard, refused for a bulletPanel or a
+                       chatCard.
   --bullets-json <path|->
                        the Bullet Panel's bullets, as a JSON file ('-' reads
                        STDIN). REQUIRED for a bulletPanel, refused for a
@@ -302,14 +303,17 @@ fields is an invalid-input error, exit 3). Only the flags you pass change.
                        command, or leave the duration alone. Nothing is
                        clamped.
   --kind <kind>        new content-kind: 'definitionCard', 'bulletPanel' or
-                       'bRoll'. Changing it must bring the NEW kind's content
-                       with it in the same command (a bRoll's --footage and
-                       --from; a --title when leaving bRoll), and the old
-                       kind's content is dropped.
+                       'bRoll' (never to or from 'chatCard': delete it and
+                       'add' instead). Changing it must bring the NEW kind's
+                       content with it in the same command (a bRoll's
+                       --footage and --from; a --title when leaving bRoll),
+                       and the old kind's content is dropped.
                        Changing TO a camera-moving kind is refused (exit 3) if
                        the Overlay's window lands on a zoomed Clip.
   --title <text>       new heading (the term, or the Bullet Panel's title).
   --description <text> new card body (the definition). definitionCard only.
+                       A chatCard takes neither --title nor --description:
+                       its content is copied from its Chat Highlight.
   --bullets-json <path|->
                        replace the Bullet Panel's bullets outright — there is
                        no per-bullet edit. bulletPanel only. Validated against

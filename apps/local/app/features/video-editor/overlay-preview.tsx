@@ -2,11 +2,9 @@ import { useEffect, useMemo, useRef } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
 import {
   BulletPanelPreview,
-  CHAT_CARD_PLACEMENT,
   ChatCardPreview,
   DefinitionCardPreview,
   type BulletPanel as BulletPanelInputProps,
-  type ChatCard as ChatCardInputProps,
   type DefinitionCard as DefinitionCardInputProps,
 } from "@cvm/overlay-renderer/preview";
 import { VIDEO_FORMAT_DIMENSIONS } from "@/features/videos/video-format";
@@ -15,7 +13,7 @@ import { resolveOverlayKind } from "@/features/videos/overlay-kind";
 import { overlayTransformCssStyleAt } from "@/features/videos/overlay-transform";
 import { bRollFootageTime } from "./b-roll-footage-time";
 import type { ChatSpinCell } from "@cvm/core/features/videos/chat-card";
-import { chatCardMotion } from "@cvm/core/features/videos/chat-highlight-motion";
+import { chatCardInputProps } from "./chat-card-input-props";
 
 /**
  * One Overlay as the editor needs it: exactly the columns
@@ -135,25 +133,37 @@ export const findActiveOverlay = (
   return undefined;
 };
 
-/**
- * The Overlays a Short draws, by Clip: its Chat Cards only, as its render
- * draws them (`vertical-overlay-props.ts`). Every other Kind stays undrawn
- * in a Short. A Clip with none is left out.
- */
-export const shortOverlaysByClipId = (
-  overlaysByClipId: ReadonlyMap<string, ClipOverlay[]>
+/** The Overlays `keep` keeps, by Clip; a Clip left with none is left out. */
+const filterOverlaysByClipId = (
+  overlaysByClipId: ReadonlyMap<string, ClipOverlay[]>,
+  keep: (overlay: ClipOverlay) => boolean
 ): Map<string, ClipOverlay[]> =>
   new Map(
     [...overlaysByClipId]
-      .map(
-        ([clipId, overlays]) =>
-          [
-            clipId,
-            overlays.filter((o) => resolveOverlayKind(o.kind) === "chatCard"),
-          ] as const
-      )
+      .map(([clipId, overlays]) => [clipId, overlays.filter(keep)] as const)
       .filter(([, overlays]) => overlays.length > 0)
   );
+
+const isChatCard = (overlay: ClipOverlay) =>
+  resolveOverlayKind(overlay.kind) === "chatCard";
+
+/**
+ * The Overlays a Short draws, by Clip: its Chat Cards only, as its render
+ * draws them (`vertical-overlay-props.ts`). Every other Kind stays undrawn
+ * in a Short.
+ */
+export const shortOverlaysByClipId = (
+  overlaysByClipId: ReadonlyMap<string, ClipOverlay[]>
+) => filterOverlaysByClipId(overlaysByClipId, isChatCard);
+
+/**
+ * The Overlays any other Video draws, by Clip: everything but its Chat Cards,
+ * which its export drops (`placeOverlaysOnTimeline`). A Chat Card is left
+ * behind only when a Short's format is changed after one was added.
+ */
+export const landscapeOverlaysByClipId = (
+  overlaysByClipId: ReadonlyMap<string, ClipOverlay[]>
+) => filterOverlaysByClipId(overlaysByClipId, (o) => !isChatCard(o));
 
 /**
  * The camera Transform in force over this Clip at `currentTime`, as CSS for
@@ -333,22 +343,11 @@ export const OverlayPreview = (props: {
           case "chatCard": {
             // A Short's Chat Card, on the Short's own 1080x1920 frame, with
             // the motion the Short's render gives it (`vertical-overlay-props`).
-            const cells = active.chatSpin ?? [];
-            const inputProps: ChatCardInputProps = {
-              author: active.title,
-              text: active.description,
-              cells,
+            const inputProps = chatCardInputProps(active, {
               startFrame: 0,
               durationInFrames,
-              ...chatCardMotion({
-                cellCount: cells.length + 1,
-                fps: OVERLAY_RENDER_FPS,
-                durationInFrames,
-                disableEnterAnimation: active.disableEnterAnimation,
-                disableExitAnimation: active.disableExitAnimation,
-              }),
-              ...CHAT_CARD_PLACEMENT,
-            };
+              fps: OVERLAY_RENDER_FPS,
+            });
             return (
               <Player
                 key={active.id}

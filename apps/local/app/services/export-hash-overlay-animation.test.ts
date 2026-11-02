@@ -120,9 +120,10 @@ describe("a Chat Card in the address", () => {
     );
   });
 
-  it("leaves a Video with only Definition Cards at the address it had", () => {
-    // The same pin as the B-roll's: Chat Cards re-address nothing else.
-    expect(withOverlays(card({ kind: "definitionCard" }))).toBe(
+  it("keys its spin only for a Chat Card, never another kind", () => {
+    // A stray chatSpin on a Definition Card must not re-address it: the
+    // payload gains its spin only when the kind is a Chat Card.
+    expect(withOverlays(card({ kind: "definitionCard", chatSpin: [] }))).toBe(
       "506d7e9fe1da53c7e56f0d1b398164fa"
     );
   });
