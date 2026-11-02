@@ -49,6 +49,9 @@ const EXIT_CODES: Record<string, number> = {
   // result, an absolute path, a secret) or matched several Agent Sessions.
   // Invalid input: `reasons` says what to fix.
   AgentSessionUploadRefusedError: 3,
+  // A Clip's Layers refused (a Source Crop outside the frame, a Placement
+  // with no area, a disallowed Landscape shape): invalid input.
+  ClipLayersRefusedError: 3,
   // Defensive: domain error tags that could leak through a command.
   UnknownDBServiceError: 4,
   // The deployed API rejected the token — unknown, expired or revoked; it

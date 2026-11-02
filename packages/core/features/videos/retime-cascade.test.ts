@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   clampOverlayAnchor,
   retimeShift,
+  shiftFootageLayer,
   shiftOverlayAnchors,
   shiftTranscriptWords,
 } from "./retime-cascade.js";
+import type { ClipLayerSpec, FootageLayerSpec } from "./clip-layer.js";
 
 // ===========================================================================
 // The retiming cascade, as plain arithmetic — no DB, no Effect.
@@ -177,5 +179,56 @@ describe("shiftOverlayAnchors", () => {
     expect(
       shiftOverlayAnchors(overlays, { delta: -1, newDuration: 8 })
     ).toEqual([{ id: "ov_mid", at: 4 }]);
+  });
+});
+
+describe("shiftFootageLayer", () => {
+  // 10s -> 20s recut to 12s -> 20s: delta -2, 8s long.
+  const trim = retimeShift(
+    { sourceStartTime: 10, sourceEndTime: 20 },
+    { sourceStartTime: 12, sourceEndTime: 20 }
+  );
+  const layer = (
+    span: { at: number; duration: number } | null,
+    start = 5
+  ): FootageLayerSpec => ({
+    kind: "footage",
+    source: { kind: "file", path: "raw-footage/imported/b.mp4", start },
+    sourceCrop: { x: 0, y: 0, w: 1, h: 1 },
+    placement: { x: 0, y: 0, w: 1920, h: 1080 },
+    volume: 0,
+    span,
+  });
+
+  it("moves a whole-Clip Layer's start on with the in-point", () => {
+    expect(shiftFootageLayer(layer(null), trim)).toEqual(layer(null, 7));
+  });
+
+  it("moves a span with the source", () => {
+    expect(shiftFootageLayer(layer({ at: 3, duration: 2 }), trim)).toEqual(
+      layer({ at: 1, duration: 2 })
+    );
+  });
+
+  it("cuts the head of a span the new in-point passes, its start moving on", () => {
+    expect(shiftFootageLayer(layer({ at: 1, duration: 4 }), trim)).toEqual(
+      layer({ at: 0, duration: 3 }, 6)
+    );
+  });
+
+  it("clamps a span the recut leaves no part of, never deleting it", () => {
+    expect(shiftFootageLayer(layer({ at: 0, duration: 1 }), trim)).toEqual(
+      layer({ at: 0, duration: 1 })
+    );
+  });
+
+  it("never moves a Scene Layer or the Clip's own session file", () => {
+    const camera: ClipLayerSpec = {
+      ...layer(null),
+      source: { kind: "session", file: "camera" },
+    };
+    expect(shiftFootageLayer(camera, trim)).toBe(camera);
+    const scene: ClipLayerSpec = { kind: "scene", volume: 1 };
+    expect(shiftFootageLayer(scene, trim)).toBe(scene);
   });
 });
