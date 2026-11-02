@@ -1,5 +1,4 @@
 import path from "node:path";
-import { inArray } from "drizzle-orm";
 import { Effect } from "effect";
 import { Download, MoreHorizontal, Search } from "lucide-react";
 import {
@@ -16,7 +15,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { videos } from "@cvm/core/db/schema";
 import { ActionMenuContent } from "@/features/action-menu/action-menu";
 import type { ActionMenuGroups } from "@/features/action-menu/action-menu-model";
 import { STANDARD_ACTIONS } from "@/features/action-menu/standard-actions";
@@ -37,7 +35,10 @@ import {
 } from "@/features/list-search/list-search";
 import { formatDuration } from "@/lib/format-duration";
 import { rootLabel } from "@/packages/storage";
-import { classifyStorageFile } from "@/packages/storage/buckets";
+import {
+  USED_IMPORTED_FOOTAGE_ID,
+  classifyStorageFile,
+} from "@/packages/storage/buckets";
 import {
   asFootageImportError,
   findImportedFootage,
@@ -45,6 +46,7 @@ import {
 } from "@/packages/storage/import";
 import { loadStorageOwnership } from "@/packages/storage/scan";
 import { DrizzleService } from "@/services/drizzle-service.server";
+import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { makeLoader } from "@/services/route-action.server";
 import { storageRootsConfig } from "@/services/storage-roots";
 import { readYoutubeSource } from "@/services/youtube-footage-import.server";
@@ -86,17 +88,10 @@ export const loader = makeLoader({
       const usersOf = (relative: string) => [
         ...(ownership.videosByFootage.get(relative) ?? []),
       ];
-      const videoIds = [...new Set(files.flatMap((f) => usersOf(f.path)))];
-      const titles = new Map(
-        videoIds.length === 0
-          ? []
-          : (yield* Effect.tryPromise(() =>
-              db
-                .select({ id: videos.id, title: videos.title })
-                .from(videos)
-                .where(inArray(videos.id, videoIds))
-            )).map((v) => [v.id, v.title] as const)
-      );
+      const videoOps = yield* VideoOperationsService;
+      const titles = yield* videoOps.getVideoTitlesByIds([
+        ...new Set(files.flatMap((f) => usersOf(f.path))),
+      ]);
       const sources = yield* Effect.forEach(
         files,
         (file) => readYoutubeSource(path.posix.join(file.location, file.path)),
@@ -117,7 +112,7 @@ export const loader = makeLoader({
           youtube: sources[i] ?? null,
           used:
             classifyStorageFile(ownership, file.path)?.bucketId ===
-            "used-imported-footage",
+            USED_IMPORTED_FOOTAGE_ID,
           videos: usersOf(file.path).map((id) => ({
             id,
             title: titles.get(id) ?? id,

@@ -579,11 +579,10 @@ describe("a B-roll in the compositing pass", () => {
 
   it("reads its Footage from `from` for its window, in the same single pass", () => {
     const footageAt = args.indexOf("/d/raw-footage/imported/city.mp4");
-    expect(args.slice(footageAt - 5, footageAt + 1)).toEqual([
+    expect(args.slice(footageAt - 4, footageAt + 1)).toEqual([
+      "-noaccurate_seek",
       "-ss",
       "12.000",
-      "-t",
-      "3.000",
       "-i",
       "/d/raw-footage/imported/city.mp4",
     ]);
@@ -593,7 +592,7 @@ describe("a B-roll in the compositing pass", () => {
 
   it("trims it, scales it to the landscape frame and shifts it onto its window", () => {
     expect(graph).toContain(
-      "[2:v]trim=duration=3.000,setpts=PTS-STARTPTS+12.000/TB,scale=1920:1080[ovl1]"
+      "[2:v]trim=end=3.000,setpts=PTS+12.000/TB,scale=1920:1080[ovl1]"
     );
     expect(graph).toContain("enable='between(t,12.000,15.000)'");
   });
