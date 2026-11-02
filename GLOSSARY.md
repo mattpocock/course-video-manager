@@ -144,7 +144,7 @@ A raw source video file (a camera capture, a screen recording) before it is cut 
 _Avoid_: Raw footage (informal prose ok), Source video
 
 **Imported Footage**:
-**Footage** CVM did not film, copied in by `cvm footage import`. It is always 16:9. Like all Footage it is not a record: it is Imported Footage because of where it is, anywhere under `raw-footage/imported/` on any **Storage Root**. It is never **Unused Footage**, so CVM never deletes it.
+**Footage** CVM did not film, copied in by `cvm footage import`, from a file or downloaded from a YouTube URL (named `<title> [<video id>].mp4`, its title and URL kept beside it; the same video id is never downloaded twice). It is always 16:9. Like all Footage it is not a record: it is Imported Footage because of where it is, anywhere under `raw-footage/imported/` on any **Storage Root**. It is never **Unused Footage**, so CVM never deletes it.
 _Avoid_: External footage, Uploaded footage, B-roll (that is one use of it)
 
 **Effect Clip**:

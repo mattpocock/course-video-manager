@@ -1,10 +1,11 @@
 import { Command } from "@effect/platform";
-import { Context, Data, Effect } from "effect";
+import { Context, Data, Effect, Option } from "effect";
 
 /**
  * What `cvm footage import` reads off a file before anything is copied: its
  * first video stream's size and sample aspect ratio, and its length. The
- * author waits on it for a moment, so it runs in the CLI, not as a Job.
+ * author waits on it for a moment, so it runs in the CLI, not as a Job. A
+ * YouTube import is probed by its Job instead, once it is downloaded.
  */
 export interface FootageProbeResult {
   /** `null`: the file has no video stream. */
@@ -87,4 +88,32 @@ export const probeWithFfprobe = (path: string) =>
         durationSeconds: Number.isFinite(duration) ? duration : 0,
       });
     })
+  );
+
+/** How far a display aspect ratio may be from 16:9 and still be 16:9. */
+const SIXTEEN_NINE_TOLERANCE = 0.01;
+
+/**
+ * Why a probed file is not 16:9 Imported Footage, naming what was found, or
+ * null. The display aspect ratio is width × sample aspect ratio ÷ height.
+ */
+export const notSixteenNine = (probe: FootageProbeResult): string | null => {
+  if (probe.video === null) return "it has no video stream";
+  const { width, height, sampleAspectRatio } = probe.video;
+  const [num, den] = (sampleAspectRatio ?? "1:1").split(":").map(Number);
+  const sar = num && den ? num / den : 1;
+  const ratio = (width * sar) / height;
+  if (Math.abs(ratio / (16 / 9) - 1) <= SIXTEEN_NINE_TOLERANCE) return null;
+  return `it is ${width}x${height}${sar === 1 ? "" : ` (sample aspect ratio ${sampleAspectRatio})`}, a display aspect ratio of ${ratio.toFixed(3)}:1, not 16:9 (1.778:1)`;
+};
+
+/** The probe a test provides ({@link FootageProbe}), else ffprobe. */
+export const probeFootage = (path: string) =>
+  Effect.serviceOption(FootageProbe).pipe(
+    Effect.flatMap(
+      Option.match({
+        onSome: (prober) => prober.probe(path),
+        onNone: () => probeWithFfprobe(path),
+      })
+    )
   );

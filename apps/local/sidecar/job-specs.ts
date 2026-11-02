@@ -14,6 +14,7 @@ import {
   CLIP_TRANSCRIPTION_POLICY,
   COURSE_DUPLICATE_POLICY,
   FOOTAGE_IMPORT_POLICY,
+  YOUTUBE_IMPORT_POLICY,
   FOOTAGE_TRANSCRIPTION_POLICY,
   IMAGE_UPLOAD_POLICY,
   POSTING_JOB_POLICY,
@@ -110,6 +111,12 @@ export const JOB_KIND_SPECS = {
       (live.params as { source?: unknown } | null)?.source ===
       (params as { source: string }).source,
     queuesBehind: () => true,
+  },
+  // The subject is the video id: the same video asked for again follows the
+  // live download rather than downloading it twice.
+  "import-youtube-footage": {
+    ...spec(YOUTUBE_IMPORT_POLICY, JOB_PARAMS["import-youtube-footage"]),
+    coveredBy: () => true,
   },
   // Upload pressed again (the tab closed before the first Job settled) waits
   // for the live Job for the same body, then reuses every URL it recorded

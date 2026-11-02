@@ -5,6 +5,7 @@ import type { jobsReducer } from "@/features/jobs/jobs-reducer";
 import {
   createInitialImportedFootageState,
   importedFootageReducer,
+  liveDownloads,
   liveTranscriptions,
   onlyPlayerChanged,
   transcriptionStateOf,
@@ -72,6 +73,94 @@ describe("importedFootageReducer", () => {
     observe("running");
     observe("running");
     expect(t.getEffects()).toEqual([{ type: "reload-footage" }]);
+  });
+
+  it("starts one YouTube import per URL pasted, empties the box once it starts, shows its download's progress and reloads when it ends", () => {
+    const t = opened();
+    const URL_ = "https://youtu.be/aB3_dEf-9Hi";
+    const download = (
+      status: jobsReducer.JobStatus,
+      percent: number | null
+    ): jobsReducer.JobView =>
+      fromPartial({
+        id: "d1",
+        kind: "import-youtube-footage",
+        subjectId: "aB3_dEf-9Hi",
+        status,
+        stage: "downloading",
+        percent,
+      });
+
+    t.send({ type: "youtube-url-submitted", url: "  " })
+      .send({ type: "youtube-url-submitted", url: ` ${URL_} ` })
+      .send({ type: "youtube-url-submitted", url: URL_ });
+    expect(t.getState().startingUrl).toBe(URL_);
+    t.send({
+      type: "youtube-import-started",
+      videoId: "aB3_dEf-9Hi",
+      jobId: "d1",
+      path: null,
+    });
+    expect(t.getState()).toMatchObject({
+      startingUrl: null,
+      urlBoxGeneration: 1,
+    });
+
+    t.send({
+      type: "downloads-observed",
+      live: liveDownloads([download("running", 40)]),
+    });
+    expect(t.getState().downloads).toEqual({
+      d1: { videoId: "aB3_dEf-9Hi", stage: "downloading", percent: 40 },
+    });
+    t.send({
+      type: "downloads-observed",
+      live: liveDownloads([download("succeeded", 100)]),
+    });
+
+    expect(t.getEffects()).toEqual([
+      { type: "start-youtube-import", url: URL_ },
+      { type: "reload-footage" },
+    ]);
+  });
+
+  it("says a video already imported is there, and why a URL was refused, keeping what was typed", () => {
+    const t = opened();
+    t.send({
+      type: "youtube-url-submitted",
+      url: "https://youtu.be/aB3_dEf-9Hi",
+    })
+      .send({
+        type: "youtube-import-started",
+        videoId: "aB3_dEf-9Hi",
+        jobId: null,
+        path: "raw-footage/imported/Talk [aB3_dEf-9Hi].mp4",
+      })
+      .send({ type: "youtube-url-submitted", url: "https://vimeo.com/1" })
+      .send({
+        type: "youtube-import-refused",
+        message: "not the URL of a YouTube video",
+      });
+
+    expect(t.getState()).toMatchObject({
+      startingUrl: null,
+      urlBoxGeneration: 1,
+    });
+    expect(t.getEffects()).toEqual([
+      { type: "start-youtube-import", url: "https://youtu.be/aB3_dEf-9Hi" },
+      {
+        type: "show-toast",
+        tone: "success",
+        message:
+          "Already imported: raw-footage/imported/Talk [aB3_dEf-9Hi].mp4",
+      },
+      { type: "start-youtube-import", url: "https://vimeo.com/1" },
+      {
+        type: "show-toast",
+        tone: "error",
+        message: "Could not import it: not the URL of a YouTube video",
+      },
+    ]);
   });
 
   it("copies the root-relative path and reveals a file, toasting only what the author needs to hear", () => {

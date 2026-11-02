@@ -12,13 +12,19 @@ import {
   asFootageImportError,
   chooseImportDestination,
 } from "@/packages/storage/import";
-import { readStorageRootsSync } from "@/services/storage-roots";
-import { readFootageTranscript } from "@/services/footage-cache";
 import {
-  FootageProbe,
-  probeWithFfprobe,
-  type FootageProbeResult,
-} from "@/services/footage-probe";
+  readStorageRootsSync,
+  storageRootsConfig,
+} from "@/services/storage-roots";
+import {
+  enqueueFootageTranscription,
+  findYoutubeFootage,
+  readYoutubeSource,
+  startYoutubeImport,
+} from "@/services/youtube-footage-import.server";
+import { isWebUrl } from "@/features/imported-footage/youtube-footage";
+import { readFootageTranscript } from "@/services/footage-cache";
+import { notSixteenNine, probeFootage } from "@/services/footage-probe";
 import { nudgeSidecar } from "@/services/sidecar-socket.server";
 import { IMPORT_FOOTAGE_JOB_KIND } from "@/features/jobs/import-footage-job";
 import { TRANSCRIBE_FOOTAGE_JOB_KIND } from "@/features/jobs/transcribe-footage-job";
@@ -28,23 +34,6 @@ import { enqueueJob, JOB_KIND_SPECS } from "../../../sidecar/job-specs";
 import { waitForFootageTranscription } from "./footage-transcribe-wait";
 import { requireLocalFootage, withFootageJobs } from "./footage-jobs";
 import { IMPORT_HELP } from "./footage.help";
-
-/** How far a display aspect ratio may be from 16:9 and still be 16:9. */
-const SIXTEEN_NINE_TOLERANCE = 0.01;
-
-/**
- * Why a probed file is not 16:9 Imported Footage, naming what was found, or
- * null. The display aspect ratio is width × sample aspect ratio ÷ height.
- */
-export const notSixteenNine = (probe: FootageProbeResult): string | null => {
-  if (probe.video === null) return "it has no video stream";
-  const { width, height, sampleAspectRatio } = probe.video;
-  const [num, den] = (sampleAspectRatio ?? "1:1").split(":").map(Number);
-  const sar = num && den ? num / den : 1;
-  const ratio = (width * sar) / height;
-  if (Math.abs(ratio / (16 / 9) - 1) <= SIXTEEN_NINE_TOLERANCE) return null;
-  return `it is ${width}x${height}${sar === 1 ? "" : ` (sample aspect ratio ${sampleAspectRatio})`}, a display aspect ratio of ${ratio.toFixed(3)}:1, not 16:9 (1.778:1)`;
-};
 
 /** The import Job was cut off and not put back. Running it again redoes it. */
 export class FootageImportInterruptedError extends Data.TaggedError(
@@ -87,11 +76,7 @@ const probeOrRefuse = Effect.fn("probeOrRefuse")(function* (source: string) {
   if (!isFootageFileName(source)) {
     return yield* refuse(source, "it is not a video file");
   }
-  const prober = yield* Effect.serviceOption(FootageProbe);
-  const probe = yield* Option.match(prober, {
-    onSome: (p) => p.probe(source),
-    onNone: () => probeWithFfprobe(source),
-  }).pipe(
+  const probe = yield* probeFootage(source).pipe(
     Effect.catchTag("FootageUnreadableError", (e) =>
       refuse(source, `ffprobe can't read it (${e.message})`)
     )
@@ -196,10 +181,61 @@ const waitForImported = Effect.fn("waitForImported")(function* (
   };
 });
 
+/**
+ * `cvm footage import <youtube-url>`: the download is a Job (the 16:9 check
+ * is made there, after it), then the same transcription as a file's.
+ */
+const importYoutube = Effect.fn("importYoutube")(function* (
+  url: string,
+  noWait: boolean
+) {
+  const started = yield* startYoutubeImport(url).pipe(
+    Effect.catchTag("NotYoutubeVideoUrlError", (e) =>
+      parseError(e.message, "footage")
+    )
+  );
+  if (noWait) {
+    return yield* emitObject({
+      jobId: started.jobId,
+      transcribeJobId: started.transcribeJobId,
+      status: started.jobId || started.transcribeJobId ? "queued" : "imported",
+      path: started.path,
+    });
+  }
+  if (started.jobId) yield* waitForImport(started.jobId);
+  const roots = yield* storageRootsConfig;
+  const found = yield* findYoutubeFootage(roots, started.videoId);
+  if (found === null) {
+    return yield* new FootageImportInterruptedError({
+      jobId: started.jobId ?? "",
+      message: `the import of ${url} ended but no file for ${started.videoId} is under raw-footage/imported/: run 'cvm footage import' again`,
+    });
+  }
+  const destination = path.join(found.location, found.path);
+  // The Job queued the transcription: this finds it (or a fresh transcript).
+  const transcribeJob = yield* enqueueFootageTranscription(destination);
+  const imported = yield* waitForImported(
+    { importJobId: null, transcribeJobId: transcribeJob?.id ?? null },
+    destination
+  );
+  const video = yield* probeOrRefuse(destination);
+  const source = yield* readYoutubeSource(destination);
+  yield* emitObject({
+    path: found.path,
+    size: imported.size,
+    width: video.width,
+    height: video.height,
+    durationSeconds: video.durationSeconds,
+    transcript: imported.transcript,
+    title: source?.title ?? null,
+    url: source?.url ?? null,
+  });
+});
+
 export const importCmd = Command.make(
   "import",
   {
-    file: Args.text({ name: "file" }),
+    file: Args.text({ name: "file-or-youtube-url" }),
     noWait: Options.boolean("no-wait").pipe(
       Options.withDescription(
         "queue the import and its transcription, print their ids, and return"
@@ -209,6 +245,9 @@ export const importCmd = Command.make(
   ({ file, noWait }) =>
     Effect.gen(function* () {
       yield* requireLocalFootage;
+      if (isWebUrl(file)) {
+        return yield* withFootageJobs(importYoutube(file, noWait));
+      }
       const source = path.resolve(file);
       // Probed before anything is copied or queued.
       const video = yield* probeOrRefuse(source);
