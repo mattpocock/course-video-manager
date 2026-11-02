@@ -120,3 +120,16 @@ export const chatRows = (state: State): ChatRow[] =>
     highlighted: state.highlight.showing?.messageId === message.id,
     pending: state.highlight.pending?.messageId === message.id,
   }));
+
+/**
+ * The message the Live Stream picture shows, for the Streaming tab's own
+ * picture (#2558); null while none shows.
+ */
+export const highlightOnPicture = (
+  state: State
+): { author: string; text: string } | null => {
+  const showing = state.highlight.showing;
+  if (!showing) return null;
+  const message = state.chat.messages.find((m) => m.id === showing.messageId);
+  return message ? { author: message.author, text: message.text } : null;
+};

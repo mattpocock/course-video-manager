@@ -245,6 +245,19 @@ function useEditorVideoActions(): {
 }
 
 /**
+ * The Diagram Playground launcher on its own, for a layout with no Actions
+ * menu (the Streaming tab): it opens on the insertion point's Diagram.
+ */
+export function useDiagramPlaygroundLauncher(): () => void {
+  const items = useContextSelector(VideoEditorContext, (ctx) => ctx.items);
+  const insertionPoint = useContextSelector(
+    VideoEditorContext,
+    (ctx) => ctx.insertionPoint
+  );
+  return () => void openDiagramPlaygroundAt(items, insertionPoint);
+}
+
+/**
  * Opens the Diagram Playground on the Diagram the timeline shows at the
  * insertion point, or empty when there is none.
  */
