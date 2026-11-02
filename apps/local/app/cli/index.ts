@@ -14,6 +14,7 @@ import { beatCommand } from "./commands/beat";
 import { learningGoalCommand } from "./commands/learning-goal";
 import { fileCommand } from "./commands/file";
 import { footageCommand } from "./commands/footage";
+import { shortCommand } from "./commands/short";
 import { pitchCommand } from "./commands/pitch";
 import { deliverableCommand } from "./commands/deliverable";
 import { diagramCommand } from "./commands/diagram";
@@ -134,6 +135,7 @@ WHAT NEEDS A MACHINE
     cvm diagram …           a headless browser and the running app (draws the PNG)
     cvm course readiness    the finished videos directory (exportedness)
     cvm course publish      the same, plus ffmpeg
+    cvm short render        the Sidecar's ffmpeg and finished-videos/ (the vertical file)
   Anywhere else they are refused before doing any work — exit 7, _tag
   "LocalOnlyCommandError", with the reason in the message. That is a STOP, not
   a retry: no token, no pull and no repeat will make them work, and nothing is
@@ -190,6 +192,9 @@ WRITES
                                      'delete' is a HARD delete
     footage transcribe               cache a raw footage file's transcript on
                                      disk (LOCAL-ONLY; feeds 'clip add')
+    short render                     render a Short's vertical file into
+                                     finished-videos/ and print its path
+                                     (LOCAL-ONLY; a Sidecar Job)
     section
             create/rename/move/      create a section in a Version, rename it,
             archive                  reorder it, or soft-delete it ('archive'
@@ -244,7 +249,7 @@ WRITES
 NOUNS
   course version section learning-goal lesson video clip clip-mockup
   clip-mockup-chapter clip-mockup-comment chapter overlay beat file footage pitch deliverable
-  diagram
+  diagram short
 
 SEARCH
   search <query>   Case-insensitive substring search DOWN THE TREE across every
@@ -276,6 +281,7 @@ export const rootCommand = Command.make("cvm").pipe(
     learningGoalCommand,
     fileCommand,
     footageCommand,
+    shortCommand,
     pitchCommand,
     deliverableCommand,
     diagramCommand,

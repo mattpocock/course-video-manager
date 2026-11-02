@@ -133,6 +133,15 @@ describe("on a box that is not the author's", () => {
     }
   });
 
+  it("refuses cvm short render", async () => {
+    const result = await run(["short", "render", s.standaloneActiveId]);
+
+    expect(result.exitCode).toBe(7);
+    expect(failureOf(result)._tag).toBe("LocalOnlyCommandError");
+    expect(failureOf(result).command).toBe("cvm short render");
+    expect(result.stdout).toBe("");
+  });
+
   it("refuses cvm course readiness", async () => {
     const result = await run(["course", "readiness", await courseIdOf()]);
 
