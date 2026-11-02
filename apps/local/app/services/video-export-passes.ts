@@ -15,7 +15,8 @@ import type { PauseType } from "./video-processing-service";
 import { clipExportDurationInSeconds } from "./export-duration-check";
 import type { RenderedOverlay } from "./overlay-compositing";
 import { removeBestEffort } from "@/services/remove-best-effort";
-import type { ClipComposite } from "@/packages/clip-source";
+import type { ClipComposite, Layer } from "@/packages/clip-source";
+import { needsClipSegments } from "./clip-segment-args";
 
 /**
  * The ffmpeg passes that turn one Video's Clips into a finished file: the
@@ -50,6 +51,8 @@ export const makeVideoExportPasses = (deps: {
        * Pause included), or null for a Clip cut from one Footage file.
        */
       composite: ClipComposite | null;
+      /** Its Layers: an untouched Clip renders as it always did. */
+      layers: readonly Layer[];
     }[];
     onStageChange?: (
       stage: "concatenating-clips" | "normalizing-audio"
@@ -89,7 +92,7 @@ export const makeVideoExportPasses = (deps: {
       onLog: logCliOutput("concat"),
     };
     const dimensions = VIDEO_FORMAT_DIMENSIONS[opts.format];
-    const concatenatedPath = opts.clips.some((clip) => clip.composite)
+    const concatenatedPath = needsClipSegments(opts.clips)
       ? yield* ffmpegEncode.concatenateClipSegments(
           opts.clips.map((clip) => ({
             ...clip,
@@ -99,7 +102,7 @@ export const makeVideoExportPasses = (deps: {
           concatExtras
         )
       : yield* ffmpegEncode.createAndConcatenateVideoClipsSinglePass(
-          opts.clips.map(({ composite: _, ...clip }) => clip),
+          opts.clips.map(({ composite: _, layers: _l, ...clip }) => clip),
           dimensions,
           concatExtras
         );

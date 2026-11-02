@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { ClipLayerRow } from "@cvm/core/features/videos/clip-layer";
 import { computeExportHash, toExportClips } from "@/services/export-hash";
 
 /**
@@ -15,6 +16,7 @@ const OBS = {
   recordingSessionId: null,
   sceneOverride: null,
   recordingSession: null,
+  layers: [],
 };
 
 const obsRows = [
@@ -72,6 +74,7 @@ const sessionRow = (
   overlays: [],
   recordingSessionId: "session-1",
   sceneOverride: null,
+  layers: [],
   recordingSession: {
     id: "session-1",
     cameraFilePath: "/rec/s1/camera.mkv",
@@ -132,5 +135,70 @@ describe("a Short CVM-recorder Clip's Export Hash", () => {
       []
     );
     expect(short).not.toBe(landscape);
+  });
+});
+
+describe("a Clip's Layers in its Export Hash", () => {
+  const footage: ClipLayerRow = {
+    position: 1,
+    kind: "footage" as const,
+    footagePath: "raw-footage/imported/b.mp4",
+    footageStart: 2,
+    sessionFile: null,
+    cropX: 0,
+    cropY: 0,
+    cropW: 1,
+    cropH: 1,
+    placeX: 0,
+    placeY: 0,
+    placeW: 1920,
+    placeH: 1080,
+    volume: 0,
+    spanAt: null,
+    spanDuration: null,
+  };
+  const scene: ClipLayerRow = {
+    ...footage,
+    position: 0,
+    kind: "scene",
+    volume: 1,
+  };
+  const hashWith = (layers: ClipLayerRow[]) =>
+    computeExportHash(
+      toExportClips([{ ...sessionRow(150), layers }]),
+      "landscape",
+      []
+    );
+
+  it("leaves a lone full-volume Scene Layer where an untouched Clip is", () => {
+    expect(hashWith([scene])).toBe(hashWith([]));
+    expect(hashWith([scene])).toBe("040fe2894dcfead6bb03c0086f432b97");
+  });
+
+  it("moves with every field of every Layer", () => {
+    const base = hashWith([scene, footage]);
+    expect(base).not.toBe(hashWith([scene]));
+    const changes: Partial<ClipLayerRow>[] = [
+      { footagePath: "raw-footage/imported/c.mp4" },
+      { footageStart: 3 },
+      { footagePath: null, footageStart: null, sessionFile: "camera" },
+      { cropX: 0.1 },
+      { cropY: 0.1 },
+      { cropW: 0.5 },
+      { cropH: 0.5 },
+      { placeX: 10 },
+      { placeY: 10 },
+      { placeW: 960 },
+      { placeH: 540 },
+      { volume: 0.5 },
+      { spanAt: 1, spanDuration: 2 },
+      { spanAt: 1, spanDuration: 3 },
+    ];
+    const hashes = changes.map((change) =>
+      hashWith([scene, { ...footage, ...change }])
+    );
+    expect(new Set([base, ...hashes]).size).toBe(changes.length + 1);
+    expect(hashWith([{ ...scene, volume: 0.5 }, footage])).not.toBe(base);
+    expect(hashWith([{ ...footage, position: 0 }])).not.toBe(base);
   });
 });

@@ -1,4 +1,5 @@
 import { DrizzleService, type Database } from "./drizzle-service.server.js";
+import { clipLayersRelation } from "./clip-layers-relation.js";
 import {
   clips,
   chapters,
@@ -111,6 +112,7 @@ const createVersionOperations = (db: Database) => {
                     with: {
                       overlays: overlayExportRelation,
                       recordingSession: clipRecordingSessionRelation,
+                      layers: clipLayersRelation,
                       // What course.json's `sessionExtract` is built from.
                       agentSessionEntries: {
                         columns: { id: false, clipId: false },
@@ -214,6 +216,7 @@ const createVersionOperations = (db: Database) => {
                         with: {
                           overlays: overlayExportRelation,
                           recordingSession: clipRecordingSessionRelation,
+                          layers: clipLayersRelation,
                         },
                       },
                       chapters: {

@@ -1,8 +1,10 @@
 import {
   clipComposite,
   clipFfmpegInput,
+  clipLayers,
   clipSource,
 } from "@/packages/clip-source";
+import { needsClipSegments } from "./clip-segment-args";
 import { clipExportDurationInSeconds } from "./export-duration-check";
 import { Command, FileSystem } from "@effect/platform";
 import { NodeContext } from "@effect/platform-node";
@@ -158,6 +160,7 @@ export class RenderVerticalVideoService extends Effect.Service<RenderVerticalVid
                   composite: clipComposite(source, {
                     durationSeconds: duration,
                   }),
+                  layers: clipLayers(source),
                 };
               })
             );
@@ -169,7 +172,7 @@ export class RenderVerticalVideoService extends Effect.Service<RenderVerticalVid
             const concatExtras = { onLog: logCliOutput("concat") };
             // As the export does: a Video with any CVM-recorder Clip is
             // rendered Clip by Clip, each one's composite on its own.
-            const rawConcatenatedPath = renderClips.some((c) => c.composite)
+            const rawConcatenatedPath = needsClipSegments(renderClips)
               ? yield* ffmpegEncode.concatenateClipSegments(
                   renderClips.map((clip) => ({
                     ...clip,
@@ -180,7 +183,13 @@ export class RenderVerticalVideoService extends Effect.Service<RenderVerticalVid
                 )
               : yield* ffmpegEncode.createAndConcatenateVideoClipsSinglePass(
                   renderClips.map(
-                    ({ composite: _, id: _id, text: _text, ...clip }) => clip
+                    ({
+                      composite: _,
+                      layers: _layers,
+                      id: _id,
+                      text: _text,
+                      ...clip
+                    }) => clip
                   ),
                   dimensions,
                   concatExtras

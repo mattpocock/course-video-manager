@@ -6,7 +6,7 @@ import { NodeContext } from "@effect/platform-node";
 import { FileSystem } from "@effect/platform";
 import { ConfigProvider, Effect, Layer } from "effect";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { clipComposite, clipSource } from "@/packages/clip-source";
+import { clipComposite, clipLayers, clipSource } from "@/packages/clip-source";
 import { sceneFilterGraph } from "@/packages/scene-layout";
 import { DEFAULT_MIC_EQ } from "@cvm/core/features/videos/recorder";
 import { micEqFilters } from "@/packages/mic-eq";
@@ -158,6 +158,7 @@ const exportClip = (row: ReturnType<typeof sessionRow>) => {
     pauseType: "none" as const,
     zoomType: "none",
     composite: clipComposite(source),
+    layers: clipLayers(source),
   };
 };
 
@@ -413,6 +414,7 @@ describe.skipIf(!hasFfmpeg)(
         pauseType: "none" as const,
         zoomType: "none",
         composite: clipComposite(source),
+        layers: clipLayers(source),
       };
     };
     const clips = [

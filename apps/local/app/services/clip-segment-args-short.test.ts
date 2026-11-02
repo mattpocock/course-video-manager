@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { VIDEO_FORMAT_DIMENSIONS } from "@cvm/core/features/videos/video-format";
-import { clipComposite, clipSource } from "@/packages/clip-source";
+import { clipComposite, clipLayers, clipSource } from "@/packages/clip-source";
 import type { Scene } from "@/packages/scene-layout";
 import { clipSegmentArgs } from "./clip-segment-args";
 
@@ -42,6 +42,7 @@ const shortClip = (
     startTime: 0.5,
     duration: 1,
     composite: clipComposite(source),
+    layers: clipLayers(source),
   };
 };
 

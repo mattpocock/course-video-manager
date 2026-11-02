@@ -1,4 +1,11 @@
-import { compositeFiles, type ClipComposite } from "@/packages/clip-source";
+import {
+  compositeFiles,
+  footageLayers,
+  isUntouched,
+  type ClipComposite,
+  type FootageLayer,
+  type Layer,
+} from "@/packages/clip-source";
 import { sceneFilterGraph } from "@/packages/scene-layout";
 import { clipZoomCropFilter } from "@/features/videos/clip-zoom";
 import { micEqFilters } from "@/packages/mic-eq";
@@ -41,7 +48,19 @@ export type SegmentClip = {
   readonly zoomType?: string;
   /** The composite to draw, or null for a Clip cut from one Footage file. */
   readonly composite: ClipComposite | null;
+  /** Its Layers (`clipLayers`): an untouched Clip renders as it always did. */
+  readonly layers: readonly Layer[];
 };
+
+/**
+ * Whether the export must render these Clips one by one: a composite, or a
+ * Clip with Layers of its own. An OBS-only Video of untouched Clips takes the
+ * single pass, exactly as before.
+ */
+export const needsClipSegments = (
+  clips: readonly Pick<SegmentClip, "composite" | "layers">[]
+): boolean =>
+  clips.some((clip) => clip.composite !== null || !isUntouched(clip.layers));
 
 type Dimensions = { readonly width: number; readonly height: number };
 
@@ -106,6 +125,18 @@ export const clipSegmentArgs = (
     ...BITEXACT_ARGS,
     outputFile,
   ];
+
+  if (!isUntouched(clip.layers)) {
+    const layered = layeredSegment(clip, dims, duration);
+    return [
+      "-y",
+      "-hide_banner",
+      ...layered.inputs,
+      "-filter_complex",
+      layered.graph,
+      ...encode,
+    ];
+  }
 
   if (!composite) {
     return [
@@ -182,6 +213,189 @@ export const clipSegmentArgs = (
     ].join(";"),
     ...encode,
   ];
+};
+
+/**
+ * The ffmpeg inputs and audio filters of a composite's sound: the mic, read
+ * from `start - micOffset`, padded with silence where that is before the
+ * file starts, through the Mic EQ.
+ */
+const compositeMic = (composite: ClipComposite, duration: number) => {
+  const micStart = composite.start - composite.micOffsetSeconds;
+  const silenceMs = Math.max(0, Math.round(-micStart * 1000));
+  return {
+    args: [
+      "-ss",
+      String(Math.max(0, micStart)),
+      "-t",
+      String(duration),
+      "-i",
+      composite.mic,
+    ],
+    filters: [
+      "asetpts=PTS-STARTPTS",
+      ...(silenceMs > 0 ? [`adelay=${silenceMs}:all=1`] : []),
+      ...micEqFilters(composite.eq),
+    ],
+  };
+};
+
+const seconds = (n: number) => n.toFixed(3);
+
+/** The composite's segments, the last drawn on to the end of the last frame. */
+const segmentsToEnd = (composite: ClipComposite, duration: number) =>
+  composite.segments.map((segment, i, all) =>
+    i === all.length - 1
+      ? {
+          ...segment,
+          endSeconds: Math.max(segment.endSeconds, composite.start + duration),
+        }
+      : segment
+  );
+
+/**
+ * One Footage Layer's picture, from input `index`: sought (not accurately,
+ * so the frame at or before an off-grid start is kept below 0, as B-roll's
+ * export does) to its start, trimmed to its span, shifted onto it, cut to its
+ * Source Crop and scaled to its Placement's size.
+ */
+const footageLayerNode = (
+  layer: FootageLayer,
+  index: number,
+  length: number,
+  label: string
+) => {
+  const { x, y, w, h } = layer.sourceCrop;
+  const { w: pw, h: ph } = layer.placement;
+  return (
+    `[${index}:v]trim=end=${seconds(length)},` +
+    `setpts=PTS+${seconds(layer.span.at)}/TB,` +
+    `crop=w=iw*${w}:h=ih*${h}:x=iw*${x}:y=ih*${y},` +
+    `scale=${pw}:${ph},setsar=1[${label}]`
+  );
+};
+
+/**
+ * A Clip with Layers of its own, as one segment: its Scene Layer (or a black
+ * frame when it has none), each Footage Layer drawn over it bottom to top
+ * within its span, and its sound. The Clip's own sound (the mic, or its
+ * file's) plays at the Scene Layer's volume, at full with no Scene Layer; a
+ * Footage Layer above 0 volume mixes its file's sound in over its span.
+ */
+const layeredSegment = (
+  clip: SegmentClip,
+  dims: Dimensions,
+  duration: number
+): { inputs: string[]; graph: string } => {
+  const { composite } = clip;
+  const scene = clip.layers.find((layer) => layer.kind === "scene");
+  const inputs: string[] = [];
+  const graph: string[] = [];
+  let mainAudio: string;
+  let audioFilters: string[];
+  if (composite) {
+    const segments = segmentsToEnd(composite, duration);
+    const pictures = scene ? compositeFiles(composite, segments) : [];
+    for (const { file } of pictures) {
+      inputs.push(
+        "-ss",
+        String(composite.start),
+        "-t",
+        String(duration + 1),
+        "-i",
+        file
+      );
+    }
+    if (scene) {
+      graph.push(
+        sceneFilterGraph({
+          segments,
+          inputs: Object.fromEntries(
+            pictures.map(({ source }, i) => [source, `${i}:v`])
+          ),
+          inputStartSeconds: composite.start,
+          output: "composite",
+          format: composite.format,
+        }),
+        `[composite]${frameFilter(clip.zoomType, dims)}[base]`
+      );
+    }
+    const mic = compositeMic(composite, duration);
+    mainAudio = `[${pictures.length}:a]`;
+    audioFilters = mic.filters;
+    inputs.push(...mic.args);
+  } else {
+    inputs.push(
+      "-ss",
+      String(clip.startTime),
+      "-t",
+      String(duration),
+      "-i",
+      clip.inputVideo
+    );
+    if (scene) {
+      graph.push(
+        `[0:v]setpts=PTS-STARTPTS,fps=60,${frameFilter(clip.zoomType, dims)}[base]`
+      );
+    }
+    mainAudio = "[0:a]";
+    audioFilters = ["asetpts=PTS-STARTPTS"];
+  }
+  if (!scene) {
+    graph.push(
+      `color=c=black:s=${dims.width}x${dims.height}:r=${FPS}:d=${seconds(duration)},format=yuv420p,setsar=1[base]`
+    );
+  } else if (scene.volume !== 1) {
+    audioFilters.push(`volume=${scene.volume}`);
+  }
+
+  let picture = "[base]";
+  const mixed: string[] = [];
+  for (const [i, layer] of footageLayers(clip.layers).entries()) {
+    const { at } = layer.span;
+    const length = layer.span.duration ?? duration - at;
+    const index = inputs.filter((arg) => arg === "-i").length;
+    inputs.push(
+      "-noaccurate_seek",
+      "-ss",
+      seconds(layer.start),
+      "-i",
+      layer.file
+    );
+    graph.push(
+      footageLayerNode(layer, index, length, `fl${i}`),
+      `${picture}[fl${i}]overlay=x=${layer.placement.x}:y=${layer.placement.y}:eof_action=pass:repeatlast=0` +
+        `:enable='between(t,${seconds(at)},${seconds(at + length)})'[over${i}]`
+    );
+    picture = `[over${i}]`;
+    if (layer.volume > 0) {
+      inputs.push(
+        "-ss",
+        seconds(layer.start),
+        "-t",
+        seconds(length),
+        "-i",
+        layer.file
+      );
+      graph.push(
+        `[${index + 1}:a]asetpts=PTS-STARTPTS,volume=${layer.volume},` +
+          `adelay=${Math.round(at * 1000)}:all=1,aresample=48000[la${i}]`
+      );
+      mixed.push(`[la${i}]`);
+    }
+  }
+  graph.push(`${picture}format=yuv420p,setsar=1[outv]`);
+  if (mixed.length === 0) {
+    graph.push(
+      `${mainAudio}${[...audioFilters, audioTail(duration)].join(",")}[outa]`
+    );
+  } else {
+    graph.push(
+      `${mainAudio}${[...audioFilters, "aresample=48000"].join(",")}[main]`,
+      `[main]${mixed.join("")}amix=inputs=${mixed.length + 1}:duration=first:dropout_transition=0:normalize=0,${audioTail(duration)}[outa]`
+    );
+  }
+  return { inputs, graph: graph.join(";") };
 };
 
 /**

@@ -1,4 +1,5 @@
 import { DrizzleService, type Database } from "./drizzle-service.server.js";
+import { clipLayersRelation } from "./clip-layers-relation.js";
 import { clips, pitches, beats, videos } from "../db/schema.js";
 import { NotFoundError, UnknownDBServiceError } from "./db-service-errors.js";
 import { and, asc, desc, eq, gt, inArray } from "drizzle-orm";
@@ -155,6 +156,7 @@ const createPitchOperations = (db: Database) => {
                   with: {
                     overlays: overlayExportRelation,
                     recordingSession: clipRecordingSessionRelation,
+                    layers: clipLayersRelation,
                   },
                 },
               },
@@ -239,6 +241,7 @@ const createPitchOperations = (db: Database) => {
                 with: {
                   overlays: overlayExportRelation,
                   recordingSession: clipRecordingSessionRelation,
+                  layers: clipLayersRelation,
                 },
               },
               beats: {

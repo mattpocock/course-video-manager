@@ -10,10 +10,14 @@ import {
   type Scene,
   type SceneSegment,
 } from "@/packages/scene-layout";
+import type { ClipLayerRow } from "@cvm/core/features/videos/clip-layer";
 import {
+  footageLayers,
+  footageLayerTime,
   drawsScene,
   isUntouched,
-  UNTOUCHED_CLIP_LAYERS,
+  layersHashPayload,
+  resolveLayers,
   type Layer,
 } from "./layers";
 import { clampCrop, cropFilter, type ScreenCrop } from "./screen-crop";
@@ -67,6 +71,8 @@ export type ClipSourceColumns = {
   readonly recordingSessionId: string | null;
   readonly sceneOverride: Scene | null;
   readonly recordingSession: ClipRecordingSession | null;
+  /** Its stored Layers (none: one Scene Layer); `clipLayersRelation` in core. */
+  readonly layers: readonly ClipLayerRow[];
 };
 
 /**
@@ -78,7 +84,9 @@ export type ClipSourceRow = Pick<
   ClipSourceColumns,
   "videoFilename" | "sourceStartTime" | "sourceEndTime"
 > &
-  Partial<Pick<ClipSourceColumns, "recordingSessionId" | "sceneOverride">> & {
+  Partial<
+    Pick<ClipSourceColumns, "recordingSessionId" | "sceneOverride" | "layers">
+  > & {
     readonly recordingSession?: ShownRecordingSession | null;
   };
 
@@ -102,6 +110,7 @@ export type ClipSource =
       readonly footagePath: string;
       readonly start: number;
       readonly end: number;
+      readonly layers: readonly Layer[];
     }
   | {
       readonly kind: "recording-session";
@@ -123,6 +132,7 @@ export type ClipSource =
       readonly segments: readonly SceneSegment[];
       readonly start: number;
       readonly end: number;
+      readonly layers: readonly Layer[];
     };
 
 /**
@@ -200,6 +210,7 @@ export const clipSourceColumns = (
   sourceEndTime: row.sourceEndTime,
   recordingSessionId: row.recordingSessionId,
   sceneOverride: row.sceneOverride,
+  layers: row.layers,
   recordingSession: row.recordingSession && {
     id: row.recordingSession.id,
     cameraFilePath: row.recordingSession.cameraFilePath,
@@ -230,7 +241,14 @@ export const clipSource = (row: ClipSourceRow): ClipSource => {
   const end = row.sourceEndTime;
   const session = row.recordingSession;
   if (!session) {
-    return { kind: "footage", footagePath: row.videoFilename, start, end };
+    const layers = resolveLayers(row.layers, { start, session: null });
+    return {
+      kind: "footage",
+      footagePath: row.videoFilename,
+      start,
+      end,
+      layers,
+    };
   }
   const sceneEvents = session.sceneEvents.map((e) => ({
     scene: e.scene,
@@ -258,31 +276,29 @@ export const clipSource = (row: ClipSourceRow): ClipSource => {
     }),
     start,
     end,
+    layers: resolveLayers(row.layers, { start, session }),
   };
 };
 
 /**
  * The Clip's picture: its Layers, drawn bottom to top. Every reader of the
  * picture (the export, editor playback, stills and the Export Hash) asks the
- * functions below, which draw it from these. No Layers are stored yet, so it
- * is always one Scene Layer (ADR 0056).
+ * functions below, which draw it from these (ADR 0056).
  */
-export const clipLayers = (_source: ClipSource): readonly Layer[] =>
-  UNTOUCHED_CLIP_LAYERS;
+export const clipLayers = (source: ClipSource): readonly Layer[] =>
+  source.layers;
 
 /**
  * What the export composites for a CVM-recorder Clip from its start, for
  * `durationSeconds` of output (default: the Clip's own length; longer over a
  * long Pause), or null for an OBS Clip, whose single Footage file is cut as
- * it always was.
+ * it always was. Its mic is the Clip's sound even with no Scene Layer.
  */
 export const clipComposite = (
   source: ClipSource,
   opts?: { readonly durationSeconds: number }
 ): ClipComposite | null => {
-  if (source.kind === "footage" || !drawsScene(clipLayers(source))) {
-    return null;
-  }
+  if (source.kind === "footage") return null;
   return {
     format: source.format,
     start: source.start,
@@ -471,8 +487,12 @@ export const clipFrame = (
       : at === "last"
         ? tidy(source.end - LAST_FRAME_INSET_SECONDS)
         : at;
-  if (!drawsScene(clipLayers(source))) {
-    throw new Error("A Clip with no Scene Layer has no still yet");
+  const bottom = footageLayers(source.layers)[0];
+  if (!drawsScene(source.layers) && bottom) {
+    // No Scene Layer: its bottom Footage Layer's frame, uncropped.
+    const elapsed = time - source.start - bottom.span.at;
+    const at = tidy(footageLayerTime(bottom.start, elapsed));
+    return { kind: "footage", inputVideo: bottom.file, time: at };
   }
   if (source.kind === "footage") {
     return { kind: "footage", inputVideo: source.footagePath, time };
@@ -581,14 +601,13 @@ export const clipFfmpegInput = (source: ClipSource): ClipFfmpegInput => {
  * same export as the Landscape one; a Landscape Clip has no `vf`, so every
  * Landscape export keeps its hash.
  *
- * Only a Clip whose Layers are not an untouched Clip's (one Scene Layer) will
- * add its Layers, so no export made before Layers is re-addressed. Today
- * every Clip is untouched.
+ * Only a Clip whose Layers are not an untouched Clip's (one Scene Layer)
+ * adds them (`ly`, last), so no export made before Layers is re-addressed.
  */
 export const clipSourceHashFields = (
   source: ClipSource
 ):
-  | { f: string; s: number; e: number }
+  | { f: string; s: number; e: number; ly?: LayersHash }
   | {
       f: string;
       s: number;
@@ -600,12 +619,13 @@ export const clipSourceHashFields = (
       eq: [number, number, number];
       lv: number;
       vf?: VideoFormat;
+      ly?: LayersHash;
     } => {
-  if (!isUntouched(clipLayers(source))) {
-    throw new Error("Only an untouched Clip's Layers are hashed yet");
-  }
+  const ly = isUntouched(source.layers)
+    ? {}
+    : { ly: layersHashPayload(source.layers) };
   if (source.kind === "footage") {
-    return { f: source.footagePath, s: source.start, e: source.end };
+    return { f: source.footagePath, s: source.start, e: source.end, ...ly };
   }
   return {
     f: source.files.mic,
@@ -618,5 +638,8 @@ export const clipSourceHashFields = (
     eq: [source.micEq.lowDb, source.micEq.midDb, source.micEq.highDb],
     lv: LAYOUT_VERSIONS[source.format],
     ...(source.format === "landscape" ? {} : { vf: source.format }),
+    ...ly,
   };
 };
+
+type LayersHash = ReturnType<typeof layersHashPayload>;

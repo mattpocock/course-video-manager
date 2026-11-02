@@ -1,4 +1,5 @@
 import { DrizzleService, type Database } from "./drizzle-service.server.js";
+import { clipLayersRelation } from "./clip-layers-relation.js";
 import { CourseOperationsService } from "./db-course-operations.server.js";
 import {
   clips,
@@ -168,6 +169,7 @@ const createVideoOperationsUnwrapped = (db: Database, deps: VideoOpsDeps) => {
               with: {
                 overlays: overlayExportRelation,
                 recordingSession: clipRecordingSessionRelation,
+                layers: clipLayersRelation,
               },
             },
           },
@@ -199,6 +201,7 @@ const createVideoOperationsUnwrapped = (db: Database, deps: VideoOpsDeps) => {
               with: {
                 overlays: overlayExportRelation,
                 recordingSession: clipRecordingSessionRelation,
+                layers: clipLayersRelation,
               },
             },
           },
@@ -242,6 +245,7 @@ const createVideoOperationsUnwrapped = (db: Database, deps: VideoOpsDeps) => {
             with: {
               overlays: overlayExportRelation,
               recordingSession: clipRecordingSessionRelation,
+              layers: clipLayersRelation,
               diagramSnapshot: {
                 with: {
                   diagram: {

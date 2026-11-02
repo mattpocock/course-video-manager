@@ -16,8 +16,8 @@
 // Camera on a session that captured no screen).
 //
 // A Clip's picture is its Layers (ADR 0056): `clipLayers` lists them, bottom
-// to top, and every picture function here draws from them. Today that is
-// always one Scene Layer, so nothing draws, plays or hashes differently.
+// to top, and every picture function here draws from them. A Clip with none
+// stored is one Scene Layer, and draws, plays and hashes as it always did.
 export {
   clipComposite,
   compositeFiles,
@@ -43,5 +43,11 @@ export {
   type ClipSourceRow,
 } from "./lib/clip-source";
 export { mapClipFrameFiles, mapClipSourceFiles } from "./lib/map-files";
-export { type Layer, type SceneLayer } from "./lib/layers";
+export {
+  isUntouched,
+  footageLayers,
+  type FootageLayer,
+  type Layer,
+  type SceneLayer,
+} from "./lib/layers";
 export { clampCrop, type ScreenCrop } from "./lib/screen-crop";
