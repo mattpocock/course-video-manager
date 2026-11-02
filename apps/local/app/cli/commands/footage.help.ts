@@ -75,7 +75,8 @@ mic offset (default 150 ms). Each line carries:
 
 'transcribed' only reports that a sidecar is PRESENT; whether it is still fresh
 for the current bytes is checked by 'footage transcript' / 'footage transcribe',
-which re-hash the file.
+which re-hash the file unless its size and mtime are still those it was
+hashed at.
 
 --imported lists Imported Footage instead: every video file under
 raw-footage/imported/ (nested folders too) on every Storage Root, each once
@@ -203,7 +204,8 @@ phrase split across two segments is not found. An empty query is a ParseError
 (exit 3).
 
 Only a FRESH transcript is searched: one whose content hash still matches the
-file's bytes. A file never transcribed, still being transcribed, or changed
+file's bytes. While the file's size and mtime are those it was hashed at, the
+hash is trusted and the file is not read again. A file never transcribed, still being transcribed, or changed
 since is NOT TRANSCRIBED, never "no matches": after the hits, one JSON line on
 STDERR names them, { notTranscribed: [path, ...] } (absent when there are
 none). Transcribe one with 'footage transcribe <path>'.
