@@ -366,4 +366,6 @@ export const videoWriteMethods = [
   "updateVideoScript",
   "updateVideoDescription",
   "updateVideoFormat",
+  // `cvm short create`: the Short and every Clip it copies or cuts, at once.
+  "createShortFromRanges",
 ] as const;

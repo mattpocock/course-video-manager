@@ -201,6 +201,12 @@ const videoService = (client: RpcClient) =>
     linkVideoToPitch: rpcMethod((json) =>
       client.rpc.video.linkVideoToPitch.$post({ json })
     ),
+    getRecordingSessionForCut: rpcMethod((json) =>
+      client.rpc.video.getRecordingSessionForCut.$post({ json })
+    ),
+    createShortFromRanges: rpcMethod((json) =>
+      client.rpc.video.createShortFromRanges.$post({ json })
+    ),
     moveVideoToLesson: rpcMethod((json) =>
       client.rpc.video.moveVideoToLesson.$post({ json })
     ),

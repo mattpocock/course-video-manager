@@ -3,6 +3,7 @@ import { Effect } from "effect";
 import type { Database } from "./drizzle-service.server.js";
 import { copyVideoImpl } from "./db-video-operations.copy.server.js";
 import { createVideoFromSelectionImpl } from "./db-video-from-selection.server.js";
+import { createShortOperationsUnwrapped } from "./db-short-create.server.js";
 import {
   createTestDb,
   truncateAllTables,
@@ -196,6 +197,25 @@ const RUN_PATH: Partial<
       })
     );
     return copy.id;
+  },
+  shortCreate: async (sourceVideoId) => {
+    const clips = await testDb.query.clips.findMany({
+      where: (c, { and, eq }) =>
+        and(eq(c.videoId, sourceVideoId), eq(c.archived, false)),
+      orderBy: (c) => c.order,
+    });
+    const short = await Effect.runPromise(
+      createShortOperationsUnwrapped(db()).createShortFromRanges({
+        name: "Short",
+        parts: clips.map((c) => ({
+          kind: "copy" as const,
+          clipId: c.id,
+          sourceStartTime: c.sourceStartTime,
+          sourceEndTime: c.sourceEndTime,
+        })),
+      })
+    );
+    return short.id;
   },
 };
 
