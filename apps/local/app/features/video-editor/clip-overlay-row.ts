@@ -1,5 +1,6 @@
 import type { BulletPanelBullet } from "@/features/videos/bullet-panel";
 import type { ClipOverlay } from "./overlay-preview";
+import type { ChatSpinCell } from "@cvm/core/features/videos/chat-card";
 
 /**
  * One row as `OverlayOperationsService.listOverlaysByVideoId` returns it —
@@ -19,6 +20,7 @@ type OverlayRow = {
   description: string;
   footagePath: string | null;
   footageStart: number | null;
+  chatSpin: ChatSpinCell[] | null;
 };
 
 /**
@@ -29,7 +31,8 @@ type OverlayRow = {
  * kind-derived camera move reads: `bullets` is null on a Definition Card and
  * `description` is empty on a Bullet Panel, and the client narrows on `kind`
  * exactly as `overlayContent` does on the export side. A B-roll's Footage
- * and `from` cross too (null on the other kinds). Sending only one Kind's
+ * and `from` cross too (null on the other kinds), as do a Chat Card's spin
+ * cells. Sending only one Kind's
  * columns is what used to make the preview draw the wrong thing.
  *
  * A function of its own, in the feature folder rather than in the route, so
@@ -48,4 +51,5 @@ export const toClipOverlay = (row: OverlayRow): ClipOverlay => ({
   description: row.description,
   footagePath: row.footagePath,
   footageStart: row.footageStart,
+  chatSpin: row.chatSpin,
 });

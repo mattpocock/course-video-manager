@@ -98,6 +98,8 @@ const OVERLAY_TRANSFORMS: Record<OverlayKind, OverlayTransform | null> = {
   // A B-roll covers the whole frame, so there is nothing to move out from
   // under it.
   bRoll: null,
+  // A Chat Card sits in a Short's top band, over nothing that must move.
+  chatCard: null,
 };
 
 /**

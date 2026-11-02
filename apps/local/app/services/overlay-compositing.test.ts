@@ -30,6 +30,7 @@ const card = (overrides?: Partial<ExportOverlay>): ExportOverlay => ({
   bullets: null,
   footagePath: null,
   footageStart: null,
+  chatSpin: null,
   ...overrides,
 });
 
@@ -39,6 +40,22 @@ const clip = (
 ): ExportClipDuration => ({ duration, pauseType });
 
 describe("placeOverlaysOnTimeline", () => {
+  it("leaves a Chat Card out: it is drawn only in a Short's render", () => {
+    const placed = placeOverlaysOnTimeline(
+      [
+        {
+          overlays: [
+            card({ kind: "chatCard", chatSpin: [] }),
+            card({ at: 6, durationInSeconds: 2 }),
+          ],
+        },
+      ],
+      [clip(30)]
+    );
+
+    expect(placed.map((p) => p.startInSeconds)).toEqual([6]);
+  });
+
   it("places an Overlay on the first Clip at its own anchor", () => {
     const placed = placeOverlaysOnTimeline(
       [{ overlays: [card({ at: 3, durationInSeconds: 4 })] }],

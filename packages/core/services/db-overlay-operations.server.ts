@@ -1,5 +1,10 @@
 import { DrizzleService, type Database } from "./drizzle-service.server.js";
-import { clips, overlays } from "../db/schema.js";
+import {
+  chatHighlights,
+  clips,
+  overlays,
+  recordingSessions,
+} from "../db/schema.js";
 import { UnknownDBServiceError } from "./db-service-errors.js";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { Effect } from "effect";
@@ -10,6 +15,7 @@ import {
 import { transactionalizeWrites } from "./with-db-transaction.server.js";
 import type { OverlayKind } from "../features/videos/overlay-kind.js";
 import type { BulletPanelBullet } from "../features/videos/bullet-panel.js";
+import type { ChatSpinCell } from "../features/videos/chat-card.js";
 
 /**
  * Overlays — the visual layers composited on top of a Video's footage, each
@@ -33,7 +39,7 @@ import type { BulletPanelBullet } from "../features/videos/bullet-panel.js";
  * that Video's address would claim it has no Overlays and a Definition Card
  * edit — or a change of `kind`, of a Bullet Panel's bullets, of either
  * animation toggle, or of a B-roll's Footage or `from` — would publish stale
- * video. It lives here, next to the table's own
+ * video, or of a Chat Card's spin. It lives here, next to the table's own
  * operations, so the four queries that need it cannot drift apart.
  */
 export const overlayExportRelation = {
@@ -48,6 +54,7 @@ export const overlayExportRelation = {
     bullets: true,
     footagePath: true,
     footageStart: true,
+    chatSpin: true,
   },
 } as const;
 
@@ -71,6 +78,17 @@ const overlayColumns = {
   bullets: overlays.bullets,
   footagePath: overlays.footagePath,
   footageStart: overlays.footageStart,
+  chatSpin: overlays.chatSpin,
+};
+
+/** What a Chat Card copies from a Chat Highlight, and where it was. */
+const chatHighlightColumns = {
+  id: chatHighlights.id,
+  recordingSessionId: chatHighlights.recordingSessionId,
+  author: chatHighlights.author,
+  text: chatHighlights.text,
+  shownAtMs: chatHighlights.shownAtMs,
+  hiddenAtMs: chatHighlights.hiddenAtMs,
 };
 
 const createOverlayOperationsUnwrapped = (db: Database) => {
@@ -135,6 +153,8 @@ const createOverlayOperationsUnwrapped = (db: Database) => {
      * already checked against the file. Omitted for other kinds. */
     footagePath?: string | null;
     footageStart?: number | null;
+    /** A Chat Card's spin cells (`[]`: spin off). Omitted for other kinds. */
+    chatSpin?: ChatSpinCell[] | null;
   }) {
     yield* requireDraftVersionForClip(db, overlay.clipId);
     const [created] = yield* makeDbCall(() =>
@@ -167,6 +187,7 @@ const createOverlayOperationsUnwrapped = (db: Database) => {
       bullets?: BulletPanelBullet[] | null;
       footagePath?: string | null;
       footageStart?: number | null;
+      chatSpin?: ChatSpinCell[] | null;
     }
   ) {
     yield* requireDraftVersionForOverlay(db, overlayId);
@@ -200,9 +221,49 @@ const createOverlayOperationsUnwrapped = (db: Database) => {
     return deleted;
   });
 
+  /**
+   * A Recording Session's Chat Highlights, in shown order, with its T0 (the
+   * recorder's clock time of file time 0, stored as `startedAt`): what a Chat
+   * Card is copied from. Undefined for an unknown Recording Session.
+   */
+  const getRecordingSessionChatHighlights = Effect.fn(
+    "getRecordingSessionChatHighlights"
+  )(function* (recordingSessionId: string) {
+    const [session] = yield* makeDbCall(() =>
+      db
+        .select({ startedAt: recordingSessions.startedAt })
+        .from(recordingSessions)
+        .where(eq(recordingSessions.id, recordingSessionId))
+    );
+    if (!session) return undefined;
+    const highlights = yield* makeDbCall(() =>
+      db
+        .select(chatHighlightColumns)
+        .from(chatHighlights)
+        .where(eq(chatHighlights.recordingSessionId, recordingSessionId))
+        .orderBy(asc(chatHighlights.shownAtMs), asc(chatHighlights.id))
+    );
+    return { t0Ms: session.startedAt.getTime(), highlights };
+  });
+
+  /** One Chat Highlight by id, or undefined. */
+  const getChatHighlightById = Effect.fn("getChatHighlightById")(function* (
+    chatHighlightId: string
+  ) {
+    const [row] = yield* makeDbCall(() =>
+      db
+        .select(chatHighlightColumns)
+        .from(chatHighlights)
+        .where(eq(chatHighlights.id, chatHighlightId))
+    );
+    return row;
+  });
+
   return {
     listOverlaysByVideoId,
     getOverlaysByIds,
+    getRecordingSessionChatHighlights,
+    getChatHighlightById,
     createOverlay,
     updateOverlay,
     deleteOverlay,

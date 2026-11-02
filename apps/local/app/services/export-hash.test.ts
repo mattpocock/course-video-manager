@@ -218,6 +218,7 @@ describe("export-hash", () => {
       bullets: null,
       footagePath: null,
       footageStart: null,
+      chatSpin: null,
       ...overrides,
     });
 

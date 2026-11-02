@@ -11,6 +11,7 @@ import { loadFont } from "@remotion/google-fonts/FiraCode";
 import type { Cta, OverlayProps } from "../src/props";
 import { DefinitionCards } from "./DefinitionCard";
 import { BulletPanels } from "./BulletPanel";
+import { ChatCards } from "./ChatCard";
 
 // Load Fira Code so the overlay is self-contained and does not depend on a
 // system-installed font. This reproduces the `font-family: "Fira Code"` the
@@ -19,7 +20,7 @@ const { fontFamily } = loadFont();
 
 // Accepts the full render props (so Remotion's `calculateMetadata` sees
 // width/height/fps/durationInFrames) but only draws the content-kinds:
-// subtitles + CTA (vertical Shorts), Definition Cards and Bullet Panels
+// subtitles + CTA + Chat Cards (vertical Shorts), Definition Cards and Bullet Panels
 // (landscape course videos). Every content-kind is optional, so one
 // composition serves both pipelines.
 export const Overlay = ({
@@ -27,6 +28,7 @@ export const Overlay = ({
   cta,
   definitionCards,
   bulletPanels,
+  chatCards,
 }: OverlayProps) => {
   return (
     <AbsoluteFill style={{ fontFamily }}>
@@ -60,6 +62,7 @@ export const Overlay = ({
       )}
       <DefinitionCards cards={definitionCards} />
       <BulletPanels panels={bulletPanels} />
+      <ChatCards cards={chatCards} />
     </AbsoluteFill>
   );
 };

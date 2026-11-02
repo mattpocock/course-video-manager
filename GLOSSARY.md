@@ -341,7 +341,7 @@ A YouTube live event on Matt's channel (upcoming or active), picked before Go Li
 _Avoid_: Stream, Event, Destination (YouTube is the only one)
 
 **Chat Highlight**:
-A **Broadcast** chat message Matt showed on the **Live Stream** picture, StreamYard-style, by clicking it: clicking it again hides it, and clicking another replaces it, so at most one shows. It stores the author and text as shown, and when the card went on and off the picture, on the recorder's clock (the one T0 is on). It belongs to the **Streamed Recording Session**; one still showing when that ends is closed with its end. It is not an **Overlay**, and never changes an **Export Hash**. It may be turned into one later, on request.
+A **Broadcast** chat message Matt showed on the **Live Stream** picture, StreamYard-style, by clicking it: clicking it again hides it, and clicking another replaces it, so at most one shows. It stores the author and text as shown, and when the card went on and off the picture, on the recorder's clock (the one T0 is on). It belongs to the **Streamed Recording Session**; one still showing when that ends is closed with its end. It is not an **Overlay**, and never changes an **Export Hash**. It may be made into a **Chat Card** on request.
 _Avoid_: Pinned message (a YouTube feature), Overlay, Callout
 
 **Scene Override**:
@@ -405,7 +405,7 @@ A visual layer shown on top of a Video's footage: rendered, or for a **B-roll** 
 _Avoid_: Layer, Track, Effect
 
 **Overlay Kind**:
-Which content an **Overlay** carries: a **Definition Card** (the default), a **Bullet Panel** or a **B-roll**. It is part of the **Export Hash**, because it changes what is rendered. The Kind also decides the Overlay's **Transform**: the camera move comes from the Kind and is never written separately, so a Bullet Panel always gets its panel and its camera move together.
+Which content an **Overlay** carries: a **Definition Card** (the default), a **Bullet Panel**, a **B-roll** or a **Chat Card**. It is part of the **Export Hash**, because it changes what is rendered. The Kind also decides the Overlay's **Transform**: the camera move comes from the Kind and is never written separately, so a Bullet Panel always gets its panel and its camera move together.
 _Avoid_: Type, Variant, Overlay Type
 
 **Definition Card**:
@@ -423,6 +423,14 @@ _Avoid_: Item, Point, Row, Line
 **B-roll**:
 The third **Overlay Kind** (`bRoll`). It shows a stretch of an **Imported Footage** file's picture over the whole frame, starting `from` seconds into that file, while the Video's own sound plays on.
 _Avoid_: Cutaway, Picture-in-picture, Layer, Track
+
+**Chat Card**:
+The fourth **Overlay Kind** (`chatCard`), for a **Short** only: one **Chat Highlight** at the top of the Short, opening with its **Chat Spin**. It is made on request from a Chat Highlight, by default the one showing at its anchor point when its Clip is from a **Streamed Recording Session**. Its author, text and spin are COPIED onto the Overlay, with no link back, so it outlives its Recording Session and is copied with its Clip. It is drawn only in the Shorts editor and the Short's render; there is no Landscape one.
+_Avoid_: Chat Overlay, Comment Card, Chat Highlight (the stream's own card)
+
+**Chat Spin**:
+A **Chat Card**'s intro, about 1.2 s: the same Recording Session's other **Chat Highlights** fly past in a slot-machine reel and it lands on the pick. It uses up to 8 of them; with fewer than 2 there is no spin and the card simply eases in. It can be turned off. It is never shown on the **Live Stream**.
+_Avoid_: Slot machine, Reel, Spinner
 
 **Animation Toggles**:
 Two settings on an **Overlay**: no enter animation and no exit animation. Each turns one end of the Overlay into a hard cut. The change still happens at the same moment, so turning one off does not move any **Bullet**. They are on the Overlay, not on its content, because they control the content and the camera move TOGETHER, so the two can never get out of step. They are part of the **Export Hash**.
