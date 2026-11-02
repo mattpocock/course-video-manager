@@ -20,8 +20,6 @@ const overlay = (id: string, kind: string): ClipOverlay => ({
   title: "@fake_viewer_1",
   description: "A fake question?",
   bullets: null,
-  footagePath: null,
-  footageStart: null,
   chatSpin: kind === "chatCard" ? [] : null,
 });
 

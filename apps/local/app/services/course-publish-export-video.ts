@@ -24,7 +24,6 @@ import {
   locateExportedVideo,
 } from "./finished-videos.server";
 import { resolveClipSourceFiles } from "./clip-source-files.server";
-import { resolveStoragePath } from "@/packages/storage/server";
 import {
   ensureExportDigest,
   ensureExportDuration,
@@ -254,19 +253,6 @@ export const exportVideoToItsAddress = Effect.fn("exportVideoToItsAddress")(
         clipDurations
       );
 
-      // A B-roll's Imported Footage is an input of the compositing pass, so
-      // it is found now, like each Clip's: a file on no root fails the export
-      // with "Footage not found (E: offline?)" before anything is encoded.
-      const bRollFootage = yield* Effect.forEach(placedOverlays, (placed) =>
-        placed.content.kind === "bRoll"
-          ? resolveStoragePath(placed.content.footagePath, roots, "Footage")
-          : Effect.succeed(null)
-      ).pipe(
-        Effect.mapError(
-          (error) => new ExportError({ message: error.message, cause: error })
-        )
-      );
-
       if (shortExportPath !== null) {
         yield* removeQuietly(shortExportPath);
         yield* removeQuietly(sidecarPath(shortExportPath));
@@ -347,24 +333,19 @@ export const exportVideoToItsAddress = Effect.fn("exportVideoToItsAddress")(
           // the export never got past. It is named for Overlays and not for
           // Definition Cards because every Overlay Kind renders through it.
           stage = "render-overlays";
-          // A B-roll is not rendered: the pass reads its Footage directly.
           const renderedOverlays = yield* Effect.forEach(
             placedOverlays,
-            (placed, index) =>
-              placed.content.kind === "bRoll"
-                ? Effect.succeed(
-                    withRenderedContent(placed, bRollFootage[index]!)
+            (placed) =>
+              overlayRenderCache
+                .renderOverlay({
+                  courseId: namespace,
+                  content: placed.content,
+                })
+                .pipe(
+                  Effect.map((overlayPath) =>
+                    withRenderedContent(placed, overlayPath)
                   )
-                : overlayRenderCache
-                    .renderOverlay({
-                      courseId: namespace,
-                      content: placed.content,
-                    })
-                    .pipe(
-                      Effect.map((overlayPath) =>
-                        withRenderedContent(placed, overlayPath)
-                      )
-                    )
+                )
           );
 
           stage = "composite-overlays";

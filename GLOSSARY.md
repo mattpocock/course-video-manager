@@ -300,7 +300,7 @@ The **Storage Bucket** of **Footage** under `raw-footage/`, except **Imported Fo
 _Avoid_: Orphaned footage, Unreferenced footage, Dead footage
 
 **Used Imported Footage**:
-The **Storage Bucket** of **Imported Footage** that a **Clip** (live or archived) or a **B-roll** uses. Its transcript and Whisper pieces are counted with it. It is never counted in a **Course**'s bucket, so moving a Course does not carry it: it is moved on its own, as one, like **Shared Footage**, and it lists the Courses whose Videos use it, as Shared Footage does.
+The **Storage Bucket** of **Imported Footage** that a **Clip** (live or archived) or a **Footage Layer** uses. Its transcript and Whisper pieces are counted with it. It is never counted in a **Course**'s bucket, so moving a Course does not carry it: it is moved on its own, as one, like **Shared Footage**, and it lists the Courses whose Videos use it, as Shared Footage does.
 
 **Unused Imported Footage**:
 The **Storage Bucket** of **Imported Footage** that nothing uses, with its transcripts and Whisper pieces. It can be moved between **Storage Roots** as one, and CVM never deletes it, at any age: the page offers no delete, and a delete of it is refused.
@@ -407,8 +407,8 @@ The **Layer** that draws a **Clip**'s own source in its scene layout: an OBS or 
 _Avoid_: Base layer, Background, Scene (one of Camera, Code or No Face, which a Scene Layer draws)
 
 **Footage Layer**:
-A **Layer** that draws one **Footage** file: a **Source Crop** of it, scaled to its **Placement**, with a volume (muted by default) and a start time in that file. The file plays along with the Clip: the frame shown is the latest one at or before the start time plus the time elapsed in the Clip, the same in preview and export. It may name a file, or the camera or screen of the Clip's own **Recording Session**, which plays on the Clip's clock. It may cover only a span of the Clip. It replaces the **B-roll** Overlay Kind. Authored with `cvm clip layer`.
-_Avoid_: B-roll (the Overlay Kind it supersedes), Picture-in-picture, Inset
+A **Layer** that draws one **Footage** file: a **Source Crop** of it, scaled to its **Placement**, with a volume (muted by default) and a start time in that file. The file plays along with the Clip: the frame shown is the latest one at or before the start time plus the time elapsed in the Clip, the same in preview and export. It may name a file, or the camera or screen of the Clip's own **Recording Session**, which plays on the Clip's clock. It may cover only a span of the Clip. A B-roll is a full-frame, muted Footage Layer over part of a Clip (one per Clip it runs across); migration 0049 turned every B-roll Overlay into these. Authored with `cvm clip layer`.
+_Avoid_: B-roll (as a term: it was an Overlay Kind, now one use of a Footage Layer; fine in prose), Cutaway, Picture-in-picture, Inset
 
 **Source Crop**:
 The part of a **Footage Layer**'s file it draws: x, y, width and height as fractions (0 to 1) of the file's frame. The whole frame is 0, 0, 1, 1.
@@ -423,11 +423,11 @@ _Avoid_: Position, Rect, Frame (a single picture)
 **Overlay Template** and **Transition** are **not yet implemented**: they are a design in progress, the planned replacement for today's **Effect Clip** and **Clip Zoom**. Treat those two terms as proposed. **Transform** exists today in one narrow form only (see that entry).
 
 **Overlay**:
-A rendered graphic shown on top of a Video's picture, always drawn above every **Layer** of the **Clips** under it (and below the captions). Overlays are graphics only: footage drawn in a Clip's picture is a **Footage Layer**, not an Overlay (the **B-roll** Overlay Kind is superseded). It starts at a moment inside a specific **Clip**, so moving or trimming earlier Clips carries it along. Its length does not depend on that Clip: it can run on across later Clips, but never past the end of the Video. Different from a **Transition**, which replaces footage at a cut instead of sitting on top of it. It can carry a **Transform**, visible content, or both; its **Overlay Kind** names which content it carries and whether it has a Transform. Each Kind needs its own content. Its **Animation Toggles** control how it enters and leaves. At most one Overlay is visible at any moment in the whole Video: Overlays never overlap, and one that would is refused. Shortening an Overlay is refused if a **Bullet** would no longer fit. An Overlay cannot move to another Video. Deleting one is permanent, because nothing else refers to it. Recutting its Clip moves it with the Clip (see **Retiming Cascade**). Every copy of the Clip carries its Overlays.
+A rendered graphic shown on top of a Video's picture, always drawn above every **Layer** of the **Clips** under it (and below the captions). Overlays are graphics only: footage drawn in a Clip's picture is a **Footage Layer**, not an Overlay. It starts at a moment inside a specific **Clip**, so moving or trimming earlier Clips carries it along. Its length does not depend on that Clip: it can run on across later Clips, but never past the end of the Video. Different from a **Transition**, which replaces footage at a cut instead of sitting on top of it. It can carry a **Transform**, visible content, or both; its **Overlay Kind** names which content it carries and whether it has a Transform. Each Kind needs its own content. Its **Animation Toggles** control how it enters and leaves. At most one Overlay is visible at any moment in the whole Video: Overlays never overlap, and one that would is refused. Shortening an Overlay is refused if a **Bullet** would no longer fit. An Overlay cannot move to another Video. Deleting one is permanent, because nothing else refers to it. Recutting its Clip moves it with the Clip (see **Retiming Cascade**). Every copy of the Clip carries its Overlays.
 _Avoid_: Layer (a piece of a Clip's picture, under every Overlay), Track, Effect
 
 **Overlay Kind**:
-Which content an **Overlay** carries: a **Definition Card** (the default), a **Bullet Panel**, a **B-roll** (superseded by **Footage Layers**, to be removed) or a **Chat Card**. It is part of the **Export Hash**, because it changes what is rendered. The Kind also decides the Overlay's **Transform**: the camera move comes from the Kind and is never written separately, so a Bullet Panel always gets its panel and its camera move together.
+Which content an **Overlay** carries: a **Definition Card** (the default), a **Bullet Panel** or a **Chat Card**. Every Kind is a graphic: B-roll, once a Kind, is now **Footage Layers**. It is part of the **Export Hash**, because it changes what is rendered. The Kind also decides the Overlay's **Transform**: the camera move comes from the Kind and is never written separately, so a Bullet Panel always gets its panel and its camera move together.
 _Avoid_: Type, Variant, Overlay Type
 
 **Definition Card**:
@@ -442,12 +442,8 @@ _Avoid_: Bullet List, Side Panel, Callout, List Overlay
 One line of a **Bullet Panel**: an icon, its text, and the time it appears, measured from the Overlay's own start. The time is set for each Bullet so that it can appear exactly as its words are said. Bullets must appear in the order they are read, and no two at the same moment, because a staggered reveal is the point. Each Bullet must have time to appear fully before the panel starts to leave. Each Bullet appears on its own, except one that appears at the very start, which arrives with the panel. The panel leaves all at once.
 _Avoid_: Item, Point, Row, Line
 
-**B-roll**:
-**Superseded by Footage Layers** (ADR 0056): every B-roll becomes **Footage Layers** and the Kind is removed (#2576). The third **Overlay Kind** (`bRoll`). It shows a stretch of an **Imported Footage** file's picture over the whole frame, starting `from` seconds into that file, while the Video's own sound plays on.
-_Avoid_: Cutaway, Picture-in-picture, Layer (a B-roll becomes a **Footage Layer**), Track
-
 **Chat Card**:
-The fourth **Overlay Kind** (`chatCard`), for a **Short** only: one **Chat Highlight** at the top of the Short, opening with its **Chat Spin**. It is made on request from a Chat Highlight, by default the one showing at its anchor point when its Clip is from a **Streamed Recording Session**. Its author, text and spin are COPIED onto the Overlay, with no link back, so it outlives its Recording Session and is copied with its Clip. It is drawn only in the Shorts editor and the Short's render; there is no Landscape one.
+The third **Overlay Kind** (`chatCard`), for a **Short** only: one **Chat Highlight** at the top of the Short, opening with its **Chat Spin**. It is made on request from a Chat Highlight, by default the one showing at its anchor point when its Clip is from a **Streamed Recording Session**. Its author, text and spin are COPIED onto the Overlay, with no link back, so it outlives its Recording Session and is copied with its Clip. It is drawn only in the Shorts editor and the Short's render; there is no Landscape one.
 _Avoid_: Chat Overlay, Comment Card, Chat Highlight (the stream's own card)
 
 **Chat Spin**:

@@ -158,9 +158,9 @@ export const requireContentForKind = (params: {
   description: string | undefined;
   bulletsJson: string | undefined;
 }) => {
-  // A B-roll's content flags, and its refusal of these, are overlay.b-roll.ts's.
-  // So are a Chat Card's (overlay.chat-card.ts).
-  if (params.kind === "bRoll" || params.kind === "chatCard") return Effect.void;
+  // A Chat Card's content flags, and its refusal of these, are
+  // overlay.chat-card.ts's.
+  if (params.kind === "chatCard") return Effect.void;
   if (params.kind === "bulletPanel") {
     if (params.description !== undefined) {
       return parseError(

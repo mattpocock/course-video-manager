@@ -216,8 +216,6 @@ describe("export-hash", () => {
       title: "Hydration",
       description: "Attaching handlers to server-rendered HTML.",
       bullets: null,
-      footagePath: null,
-      footageStart: null,
       chatSpin: null,
       ...overrides,
     });

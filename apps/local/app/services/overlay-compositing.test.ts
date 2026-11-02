@@ -28,8 +28,6 @@ const card = (overrides?: Partial<ExportOverlay>): ExportOverlay => ({
   title: "Monomorphism",
   description: "A function that never collapses two inputs into one output.",
   bullets: null,
-  footagePath: null,
-  footageStart: null,
   chatSpin: null,
   ...overrides,
 });
@@ -489,7 +487,6 @@ describe("buildOverlayCompositeFilterGraph — the camera Transform", () => {
 describe("buildOverlayCompositeArgs", () => {
   const card = {
     inputPath: "/cache/a.mov",
-    footageStart: null,
     startInSeconds: 1,
     endInSeconds: 4,
     kind: "definitionCard",
@@ -534,94 +531,5 @@ describe("buildOverlayCompositeArgs", () => {
 
   it("has no command line at all for a video with no cards", () => {
     expect(buildOverlayCompositeArgs("/in.mp4", [], "/out.mp4")).toBeNull();
-  });
-});
-
-describe("a B-roll in the compositing pass", () => {
-  const bRoll = card({
-    at: 2,
-    durationInSeconds: 3,
-    kind: "bRoll",
-    title: "",
-    description: "",
-    footagePath: "raw-footage/imported/city.mp4",
-    footageStart: 12,
-  });
-
-  it("is placed like any Overlay, with its Footage instead of a render", () => {
-    const placed = placeOverlaysOnTimeline(
-      [{ overlays: [] }, { overlays: [bRoll] }],
-      [clip(10), clip(10)]
-    );
-
-    expect(placed[0]).toMatchObject({
-      startInSeconds: 12,
-      endInSeconds: 15,
-      kind: "bRoll",
-      content: {
-        kind: "bRoll",
-        footagePath: "raw-footage/imported/city.mp4",
-        footageStart: 12,
-      },
-    });
-  });
-
-  const rendered = {
-    startInSeconds: 12,
-    endInSeconds: 15,
-    disableEnterAnimation: false,
-    disableExitAnimation: false,
-  };
-  const args = buildOverlayCompositeArgs(
-    "/in.mp4",
-    [
-      {
-        ...rendered,
-        kind: "definitionCard",
-        inputPath: "/cache/card.mov",
-        footageStart: null,
-        startInSeconds: 1,
-        endInSeconds: 4,
-      },
-      {
-        ...rendered,
-        kind: "bRoll",
-        inputPath: "/d/raw-footage/imported/city.mp4",
-        footageStart: 12,
-      },
-    ],
-    "/out.mp4"
-  )!;
-  const graph = args[args.indexOf("-filter_complex") + 1]!;
-
-  it("reads its Footage from `from` for its window, in the same single pass", () => {
-    const footageAt = args.indexOf("/d/raw-footage/imported/city.mp4");
-    expect(args.slice(footageAt - 4, footageAt + 1)).toEqual([
-      "-noaccurate_seek",
-      "-ss",
-      "12.000",
-      "-i",
-      "/d/raw-footage/imported/city.mp4",
-    ]);
-    expect(args.filter((arg) => arg === "-filter_complex")).toHaveLength(1);
-    expect(graph.match(/overlay=/g)).toHaveLength(2);
-  });
-
-  it("trims it, scales it to the landscape frame and shifts it onto its window", () => {
-    expect(graph).toContain(
-      "[2:v]trim=end=3.000,setpts=PTS+12.000/TB,scale=1920:1080[ovl1]"
-    );
-    expect(graph).toContain("enable='between(t,12.000,15.000)'");
-  });
-
-  it("keeps the Video's own sound, and none of the B-roll's", () => {
-    const maps = args.flatMap((arg, i) =>
-      arg === "-map" ? [args[i + 1]] : []
-    );
-    expect(maps).toEqual(["[outv]", "0:a"]);
-  });
-
-  it("moves no camera", () => {
-    expect(graph).not.toContain("crop");
   });
 });

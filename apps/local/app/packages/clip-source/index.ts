@@ -46,6 +46,7 @@ export { mapClipFrameFiles, mapClipSourceFiles } from "./lib/map-files";
 export {
   isUntouched,
   footageLayers,
+  footageLayerTime,
   type FootageLayer,
   type Layer,
   type SceneLayer,

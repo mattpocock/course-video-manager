@@ -15,8 +15,6 @@ const overlay = (overrides: Partial<ExportOverlay> = {}): ExportOverlay => ({
   title: "@fake_viewer_1",
   description: "A fake question?",
   bullets: null,
-  footagePath: null,
-  footageStart: null,
   chatSpin: [
     { author: "@fake_viewer_2", text: "Fake message two" },
     { author: "@fake_viewer_3", text: "Fake message three" },
