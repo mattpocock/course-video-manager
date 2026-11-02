@@ -1,4 +1,3 @@
-import { Effect } from "effect";
 import { DEFAULT_MIC_EQ, type MicEq } from "@cvm/core/features/videos/recorder";
 import type { VideoFormat } from "@cvm/core/features/videos/video-format";
 import {
@@ -11,6 +10,12 @@ import {
   type Scene,
   type SceneSegment,
 } from "@/packages/scene-layout";
+import {
+  drawsScene,
+  isUntouched,
+  UNTOUCHED_CLIP_LAYERS,
+  type Layer,
+} from "./layers";
 import { clampCrop, cropFilter, type ScreenCrop } from "./screen-crop";
 
 /**
@@ -257,6 +262,15 @@ export const clipSource = (row: ClipSourceRow): ClipSource => {
 };
 
 /**
+ * The Clip's picture: its Layers, drawn bottom to top. Every reader of the
+ * picture (the export, editor playback, stills and the Export Hash) asks the
+ * functions below, which draw it from these. No Layers are stored yet, so it
+ * is always one Scene Layer (ADR 0056).
+ */
+export const clipLayers = (_source: ClipSource): readonly Layer[] =>
+  UNTOUCHED_CLIP_LAYERS;
+
+/**
  * What the export composites for a CVM-recorder Clip from its start, for
  * `durationSeconds` of output (default: the Clip's own length; longer over a
  * long Pause), or null for an OBS Clip, whose single Footage file is cut as
@@ -266,7 +280,9 @@ export const clipComposite = (
   source: ClipSource,
   opts?: { readonly durationSeconds: number }
 ): ClipComposite | null => {
-  if (source.kind === "footage") return null;
+  if (source.kind === "footage" || !drawsScene(clipLayers(source))) {
+    return null;
+  }
   return {
     format: source.format,
     start: source.start,
@@ -390,7 +406,9 @@ export const clipCompositePicture = (
   readonly screen: string | null;
   readonly segments: readonly SceneSegment[];
 } | null => {
-  if (source.kind === "footage") return null;
+  if (source.kind === "footage" || !drawsScene(clipLayers(source))) {
+    return null;
+  }
   const opensScreen = compositeSources(source.format, source.segments).includes(
     "screen"
   );
@@ -453,6 +471,9 @@ export const clipFrame = (
       : at === "last"
         ? tidy(source.end - LAST_FRAME_INSET_SECONDS)
         : at;
+  if (!drawsScene(clipLayers(source))) {
+    throw new Error("A Clip with no Scene Layer has no still yet");
+  }
   if (source.kind === "footage") {
     return { kind: "footage", inputVideo: source.footagePath, time };
   }
@@ -559,6 +580,10 @@ export const clipFfmpegInput = (source: ClipSource): ClipFfmpegInput => {
  * its Video Format (`vf`) last, so a Short layout version never addresses the
  * same export as the Landscape one; a Landscape Clip has no `vf`, so every
  * Landscape export keeps its hash.
+ *
+ * Only a Clip whose Layers are not an untouched Clip's (one Scene Layer) will
+ * add its Layers, so no export made before Layers is re-addressed. Today
+ * every Clip is untouched.
  */
 export const clipSourceHashFields = (
   source: ClipSource
@@ -576,6 +601,9 @@ export const clipSourceHashFields = (
       lv: number;
       vf?: VideoFormat;
     } => {
+  if (!isUntouched(clipLayers(source))) {
+    throw new Error("Only an untouched Clip's Layers are hashed yet");
+  }
   if (source.kind === "footage") {
     return { f: source.footagePath, s: source.start, e: source.end };
   }
@@ -591,61 +619,4 @@ export const clipSourceHashFields = (
     lv: LAYOUT_VERSIONS[source.format],
     ...(source.format === "landscape" ? {} : { vf: source.format }),
   };
-};
-
-/**
- * The same Clip Source with every file it reads passed through `f`: its
- * Footage file, or its Recording Session's camera, screen and mic. For
- * turning stored (root-relative) paths into the files on disk before ffmpeg
- * opens them. Never hash the result: the Export Hash is taken from the
- * stored paths ({@link clipSourceHashFields}).
- */
-export const mapClipSourceFiles = <E, R>(
-  source: ClipSource,
-  f: (file: string) => Effect.Effect<string, E, R>
-): Effect.Effect<ClipSource, E, R> => {
-  if (source.kind === "footage") {
-    return Effect.map(f(source.footagePath), (footagePath) => ({
-      ...source,
-      footagePath,
-    }));
-  }
-  return Effect.map(
-    Effect.all({
-      camera: f(source.files.camera),
-      screen:
-        source.files.screen === null
-          ? Effect.succeed(null)
-          : f(source.files.screen),
-      mic: f(source.files.mic),
-    }),
-    (files) => ({ ...source, files })
-  );
-};
-
-/**
- * The same still with every file it reads passed through `f` (its Footage
- * file, its screen, or its screen and camera), as {@link mapClipSourceFiles}
- * does for a Clip Source.
- */
-export const mapClipFrameFiles = <E, R>(
-  frame: ClipFrame,
-  f: (file: string) => Effect.Effect<string, E, R>
-): Effect.Effect<ClipFrame, E, R> => {
-  if (frame.kind === "footage") {
-    return Effect.map(f(frame.inputVideo), (inputVideo) => ({
-      ...frame,
-      inputVideo,
-    }));
-  }
-  if (frame.kind === "screen") {
-    return Effect.map(f(frame.screen), (screen) => ({ ...frame, screen }));
-  }
-  return Effect.map(
-    Effect.all({
-      camera: f(frame.camera),
-      screen: frame.screen === null ? Effect.succeed(null) : f(frame.screen),
-    }),
-    ({ camera, screen }) => ({ ...frame, camera, screen })
-  );
 };

@@ -36,7 +36,7 @@ Read-mostly: most verbs are READS. A growing set of nouns has WRITE verbs —
 (add/update/move/delete), 'overlay' (add/update/delete), 'section'
 (create/rename/move/archive), 'lesson'
 (create/update/move/archive), 'video'
-(create/move/update/archive/unarchive), 'short' (create), 'file' (add/delete), 'footage' (transcribe), 'pitch'
+(create/move/update/archive/unarchive), 'short' (create/render), 'file' (add/delete), 'footage' (transcribe), 'pitch'
 (create/update), 'deliverable' (create/update/archive), 'diagram' (create/snapshot add) and
 'course' (publish).
 Every other verb is read-only, and each verb's own --help is authoritative about
@@ -135,6 +135,7 @@ WHAT NEEDS A MACHINE
     cvm diagram …           a headless browser and the running app (draws the PNG)
     cvm course readiness    the finished videos directory (exportedness)
     cvm course publish      the same, plus ffmpeg
+    cvm short render        the Sidecar's ffmpeg and finished-videos/ (the vertical file)
   Anywhere else they are refused before doing any work — exit 7, _tag
   "LocalOnlyCommandError", with the reason in the message. That is a STOP, not
   a retry: no token, no pull and no repeat will make them work, and nothing is
@@ -195,6 +196,9 @@ WRITES
                                      'delete' is a HARD delete
     footage transcribe               cache a raw footage file's transcript on
                                      disk (LOCAL-ONLY; feeds 'clip add')
+    short render                     render a Short's vertical file into
+                                     finished-videos/ and print its path
+                                     (LOCAL-ONLY; a Sidecar Job)
     section
             create/rename/move/      create a section in a Version, rename it,
             archive                  reorder it, or soft-delete it ('archive'
