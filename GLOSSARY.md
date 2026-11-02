@@ -420,7 +420,7 @@ _Avoid_: Bullet List, Side Panel, Callout, List Overlay
 One line of a **Bullet Panel**: an icon, its text, and the time it appears, measured from the Overlay's own start. The time is set for each Bullet so that it can appear exactly as its words are said. Bullets must appear in the order they are read, and no two at the same moment, because a staggered reveal is the point. Each Bullet must have time to appear fully before the panel starts to leave. Each Bullet appears on its own, except one that appears at the very start, which arrives with the panel. The panel leaves all at once.
 _Avoid_: Item, Point, Row, Line
 
-**B-roll** (being built under #2532):
+**B-roll**:
 The third **Overlay Kind** (`bRoll`). It shows a stretch of an **Imported Footage** file's picture over the whole frame, starting `from` seconds into that file, while the Video's own sound plays on.
 _Avoid_: Cutaway, Picture-in-picture, Layer, Track
 

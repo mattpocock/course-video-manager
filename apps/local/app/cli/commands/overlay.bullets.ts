@@ -158,6 +158,8 @@ export const requireContentForKind = (params: {
   description: string | undefined;
   bulletsJson: string | undefined;
 }) => {
+  // A B-roll's content flags, and its refusal of these, are overlay.b-roll.ts's.
+  if (params.kind === "bRoll") return Effect.void;
   if (params.kind === "bulletPanel") {
     if (params.description !== undefined) {
       return parseError(

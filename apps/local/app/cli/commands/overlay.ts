@@ -39,7 +39,13 @@ import {
   resolveBulletPanelPatch,
 } from "./overlay.bullets";
 import { requireNoClipZoomUnderTransform } from "./overlay.clip-zoom-guard";
-import { clipTimelineStarts } from "@/services/clip-timeline";
+import { requireNoOverlappingOverlay } from "./overlay.overlap-guard";
+import {
+  bRollOpts,
+  hasBRollFlags,
+  requireFlagsForKind,
+  resolveBRollColumns,
+} from "./overlay.b-roll";
 import {
   OVERLAY_HELP,
   LIST_HELP,
@@ -57,8 +63,9 @@ import {
  *   seconds, and carries its own `durationInSeconds` — independent of that
  *   Clip's length, so an Overlay may run on across the Clips that follow. Its
  *   `kind` says which content-kind it carries — `definitionCard` (the default,
- *   and what every Overlay written before the discriminator existed is) or
- *   `bulletPanel`. A Definition Card's content is a `title` (the term) and a
+ *   and what every Overlay written before the discriminator existed is),
+ *   `bulletPanel` or `bRoll` (Imported Footage's picture from `footageStart`
+ *   on, over the whole frame; see `overlay.b-roll.ts`). A Definition Card's content is a `title` (the term) and a
  *   `description` (the definition), written inline on the Overlay itself;
  *   there is no shared glossary entity. A Bullet Panel's content is a `title`
  *   (the panel's heading) and up to four `bullets`, each an icon, a line of
@@ -87,6 +94,7 @@ import {
  *   description       the Definition Card's body — the definition
  *   bullets           the Bullet Panel's bullets, or null for other kinds
  *   disableEnterAnimation / disableExitAnimation  hard-cut instead of easing
+ *   footagePath / footageStart  a B-roll's Footage and its `from`, else null
  *
  * VERBS:
  *   overlay list --video <id> [--clip <id>]  a Video's Overlays, timeline order
@@ -202,68 +210,6 @@ const requireSameVideo = (from: AnchorClip, to: AnchorClip) =>
         "overlay"
       );
 
-/**
- * At most ONE Overlay is ever visible at a given moment across the whole Video
- * (GLOSSARY.md, "Overlays and transitions") — no tracks, no layering.
- *
- * The comparison is on the VIDEO's timeline, not within one Clip: an Overlay's
- * duration is free to outrun its anchor Clip, so two Overlays on different
- * Clips can still be on screen together. Touching windows are fine — one
- * Overlay ending exactly where the next begins shows only ever one at a time.
- *
- * `exclude` is the Overlay being updated: it may of course overlap itself.
- */
-const requireNoOverlappingOverlay = (params: {
-  videoId: string;
-  clipId: string;
-  at: number;
-  durationInSeconds: number;
-  exclude?: string;
-}) =>
-  Effect.gen(function* () {
-    const videoOps = yield* VideoOperationsService;
-    const video = yield* videoOps
-      .getVideoWithClipsById(params.videoId)
-      .pipe(
-        Effect.catchTag("NotFoundError", () =>
-          notFound("video", params.videoId)
-        )
-      );
-
-    const starts = clipTimelineStarts(video.clips);
-    const anchorStart = starts.get(params.clipId);
-    // An anchor that is not on this Video's timeline at all is somebody else's
-    // refusal to make — requireActiveClip/requireSameVideo already made it.
-    if (anchorStart === undefined) return;
-
-    const startInSeconds = anchorStart + params.at;
-    const endInSeconds = startInSeconds + params.durationInSeconds;
-
-    const overlayOps = yield* OverlayOperationsService;
-    const siblings = yield* overlayOps.listOverlaysByVideoId(
-      params.videoId,
-      null
-    );
-
-    for (const sibling of siblings) {
-      if (sibling.id === params.exclude) continue;
-      const siblingClipStart = starts.get(sibling.clipId);
-      if (siblingClipStart === undefined) continue;
-      const siblingStart = siblingClipStart + sibling.at;
-      const siblingEnd = siblingStart + sibling.durationInSeconds;
-      if (startInSeconds < siblingEnd && siblingStart < endInSeconds) {
-        return yield* parseError(
-          `this Overlay would be on screen from ${startInSeconds}s to ` +
-            `${endInSeconds}s on the Video's timeline, where Overlay ` +
-            `${sibling.id} is already showing (${siblingStart}s to ` +
-            `${siblingEnd}s). At most one Overlay is visible at a time — ` +
-            `move or shorten one of them, or delete ${sibling.id}.`,
-          "overlay"
-        );
-      }
-    }
-  });
-
 // ---------------------------------------------------------------------------
 // Verbs
 // ---------------------------------------------------------------------------
@@ -326,8 +272,9 @@ const addCmd = Command.make(
     title: titleAddOpt,
     description: descriptionAddOpt,
     ...bulletPanelOpts,
+    ...bRollOpts,
   },
-  ({ clip, at, duration, kind, title, description, ...flags }) =>
+  ({ clip, at, duration, kind, title, description, footage, from, ...flags }) =>
     Effect.gen(function* () {
       yield* requireNonNegativeAt(at);
       yield* requirePositiveDuration(duration);
@@ -335,8 +282,17 @@ const addCmd = Command.make(
       // Resolved before the anchor is looked up: a content mistake is a typo
       // in the command, and saying so needs no database round trip.
       const desc = Option.getOrUndefined(description);
+      const willBeKind = Option.getOrUndefined(kind) ?? DEFAULT_OVERLAY_KIND;
+      yield* requireFlagsForKind({
+        kind: willBeKind,
+        needsTitle: true,
+        title: Option.getOrUndefined(title),
+        description: desc,
+        bulletPanel: flags,
+        bRoll: { footage, from },
+      });
       const panel = yield* resolveBulletPanelPatch({
-        kind: Option.getOrUndefined(kind) ?? DEFAULT_OVERLAY_KIND,
+        kind: willBeKind,
         needsContent: true,
         durationInSeconds: duration,
         description: desc,
@@ -358,6 +314,13 @@ const addCmd = Command.make(
         durationInSeconds: duration,
         kind: Option.getOrUndefined(kind),
       });
+      const bRoll = yield* resolveBRollColumns({
+        kind: willBeKind,
+        videoId: anchor.videoId,
+        durationInSeconds: duration,
+        current: null,
+        flags: { footage, from },
+      });
 
       const overlayOps = yield* OverlayOperationsService;
       const created = yield* overlayOps.createOverlay({
@@ -365,13 +328,15 @@ const addCmd = Command.make(
         at,
         durationInSeconds: duration,
         kind: Option.getOrUndefined(kind),
-        title,
+        // A B-roll has no title, but the column is NOT NULL.
+        title: Option.getOrElse(title, () => ""),
         // A Bullet Panel has no `description`, but the column is NOT NULL —
         // it stores the empty string rather than the caller inventing one.
         description: desc ?? "",
         bullets: panel.bullets ?? null,
         disableEnterAnimation: panel.disableEnterAnimation ?? false,
         disableExitAnimation: panel.disableExitAnimation ?? false,
+        ...bRoll,
       });
       yield* emitObject(created);
     })
@@ -388,8 +353,20 @@ const updateCmd = Command.make(
     title: titleUpdateOpt,
     description: descriptionUpdateOpt,
     ...bulletPanelOpts,
+    ...bRollOpts,
   },
-  ({ id, clip, at, duration, kind, title, description, ...flags }) =>
+  ({
+    id,
+    clip,
+    at,
+    duration,
+    kind,
+    title,
+    description,
+    footage,
+    from,
+    ...flags
+  }) =>
     Effect.gen(function* () {
       const newClipId = Option.getOrUndefined(clip);
       const newAt = Option.getOrUndefined(at);
@@ -404,12 +381,14 @@ const updateCmd = Command.make(
         newKind === undefined &&
         newTitle === undefined &&
         newDescription === undefined &&
-        !hasBulletPanelFlags(flags)
+        !hasBulletPanelFlags(flags) &&
+        !hasBRollFlags({ footage, from })
       ) {
         return yield* parseError(
           "update needs at least one of --clip / --at / --duration / " +
             "--kind / --title / --description / --bullets-json / " +
-            "--disable-enter-animation / --disable-exit-animation",
+            "--disable-enter-animation / --disable-exit-animation / " +
+            "--footage / --from",
           "overlay"
         );
       }
@@ -426,6 +405,15 @@ const updateCmd = Command.make(
       // What the Overlay's window will BE, which is what a bullet's reveal
       // time has to fit inside — not what it is now.
       const nextDuration = newDuration ?? overlay.durationInSeconds;
+      yield* requireFlagsForKind({
+        kind: willBeKind,
+        // A B-roll has no title, so one that stops being a B-roll needs one.
+        needsTitle: wasKind === "bRoll" && willBeKind !== "bRoll",
+        title: newTitle,
+        description: newDescription,
+        bulletPanel: flags,
+        bRoll: { footage, from },
+      });
       const panel = yield* resolveBulletPanelPatch({
         kind: willBeKind,
         needsContent: willBeKind !== wasKind,
@@ -505,6 +493,16 @@ const updateCmd = Command.make(
         });
       }
 
+      const bRoll = yield* resolveBRollColumns({
+        kind: willBeKind,
+        videoId: anchor.videoId,
+        durationInSeconds: nextDuration,
+        current: wasKind === "bRoll" ? overlay : null,
+        flags: { footage, from },
+      });
+      // Turning into a B-roll leaves no other kind's content behind.
+      const enteringBRoll = willBeKind === "bRoll" && wasKind !== "bRoll";
+
       const overlayOps = yield* OverlayOperationsService;
       // Bullets left on a row that is no longer a Bullet Panel would be
       // content nothing renders and the Export Hash still sees, so leaving the
@@ -531,6 +529,16 @@ const updateCmd = Command.make(
         ...(panel.disableExitAnimation === undefined
           ? {}
           : { disableExitAnimation: panel.disableExitAnimation }),
+        ...(enteringBRoll
+          ? {
+              title: "",
+              description: "",
+              bullets: null,
+              disableEnterAnimation: false,
+              disableExitAnimation: false,
+            }
+          : {}),
+        ...bRoll,
       });
       if (!updated) {
         return yield* notFound("overlay", id);

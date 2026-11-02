@@ -908,8 +908,8 @@ export const overlays = createTable(
     /** How long the Overlay stays on screen, seconds. Not bounded by the Clip. */
     durationInSeconds: doublePrecision("duration_in_seconds").notNull(),
     /**
-     * Which content-kind this Overlay carries — "definitionCard" or
-     * "bulletPanel". Read through `resolveOverlayKind`, never raw.
+     * Which content-kind this Overlay carries — "definitionCard",
+     * "bulletPanel" or "bRoll". Read through `resolveOverlayKind`, never raw.
      */
     kind: varchar("kind", { length: 255 }).notNull().default("definitionCard"),
     /**
@@ -932,6 +932,16 @@ export const overlays = createTable(
      * the time a row is written the array is already validated.
      */
     bullets: jsonb("bullets").$type<BulletPanelBullet[]>(),
+    /**
+     * A B-roll's Imported Footage, root-relative (ADR 0040) — null for every
+     * other content-kind.
+     */
+    footagePath: text("footage_path"),
+    /**
+     * A B-roll's "from": seconds into its Imported Footage where the picture
+     * starts — null for every other content-kind.
+     */
+    footageStart: doublePrecision("footage_start"),
   },
   (table) => [
     // "Every Overlay on this Video" resolves Clip-by-Clip, so this FK column is
