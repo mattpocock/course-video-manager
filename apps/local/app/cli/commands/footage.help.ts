@@ -5,8 +5,10 @@
  */
 export const HELP = `Footage — a raw recording on disk, before it is a Video.
 
-Footage is a source video FILE on the author's machine (an OBS capture, a screen
-recording) that has not been cut into Clips yet. Unlike every other noun in the
+Footage is a source video FILE on the author's machine that has not been cut
+into Clips yet: a CVM-recorder Recording Session's camera, screen and mic files,
+an older OBS recording, or Imported Footage (a file CVM did not film, copied in
+under raw-footage/imported/ on a Storage Root). Unlike every other noun in the
 domain model it has NO DATABASE ROW: its identity is its path RELATIVE TO A
 STORAGE ROOT ("raw-footage/take.mkv"; STORAGE_ROOTS lists the drives, first hit
 wins), so it is the same Footage whichever drive holds it, and
@@ -14,7 +16,10 @@ its transcript is cached in a SIDECAR file next to it
 ("<path>.transcript.json") — the same "the filesystem is the state" convention
 as a Video File. There is no 'RawFootage' table and no id; you always address
 footage by path: a root-relative path (looked up on each Storage Root in order),
-or an absolute one as 'footage list' prints it. Footage is never deleted.
+or an absolute one as 'footage list' prints it. CVM deletes Footage only from
+the Storage page: Unused Footage (7+ days old, no Clip uses it, after a
+confirmation) and a moved file's original that has an identical copy elsewhere.
+Imported Footage is never Unused Footage, so CVM never deletes it.
 
 The point of transcribing footage is to read what was said BEFORE editing, so an
 agent can decide where Clips and Chapters should fall. The loop is:
@@ -25,10 +30,10 @@ agent can decide where Clips and Chapters should fall. The loop is:
                                          # cut a Clip whose text is sliced from
                                          # that cached transcript (no re-Whisper)
 
-Transcription is whole-file and speaker-agnostic: mono 64kbps audio, Whisper
-'whisper-1' with segment + word timestamps, NO diarization. A file too large for
-Whisper's 25MB upload is split into ~27-minute chunks cut at detected silence
-(never mid-word) and merged back onto one timeline. The cache is keyed by a
+Transcription is whole-file and speaker-agnostic: mono 64kbps audio, Local
+Whisper ('large-v3-turbo', run by the Sidecar on this machine) with segment +
+word timestamps, NO diarization. A long file is split into ~27-minute chunks cut
+at detected silence (never mid-word) and merged back onto one timeline. The cache is keyed by a
 content hash of the source, so replacing/re-recording a file re-transcribes it
 rather than serving stale words. The transcription itself is a Job the Sidecar
 runs ('pnpm dev' / 'pnpm start' starts it), so it survives a restart.
@@ -72,10 +77,10 @@ Examples:
 
 export const TRANSCRIBE_HELP = `Transcribe a raw footage file and cache the transcript beside it.
 
-Extracts the file's audio (mono, 64kbps), transcribes it with Whisper
-('whisper-1', segment + word timestamps, no diarization), and writes a sidecar
-cache at "<path>.transcript.json". A file whose audio exceeds Whisper's 25MB
-upload cap is split into ~27-minute chunks, each cut at a detected silence point
+Extracts the file's audio (mono, 64kbps), transcribes it with Local Whisper
+('large-v3-turbo', run by the Sidecar; segment + word timestamps, no
+diarization), and writes a sidecar cache at "<path>.transcript.json". A long
+file is split into ~27-minute chunks, each cut at a detected silence point
 (never mid-word), transcribed independently, and merged back onto the file's own
 timeline.
 
@@ -94,7 +99,7 @@ A JOB THE SIDECAR RUNS
   Job instead of starting a second one.
   Each finished chunk is kept beside the file ("<path>.transcript.partial/")
   until the transcript is written, so a Sidecar restart mid-run resumes rather
-  than re-sending finished chunks to Whisper. A run cut off for good (its Sidecar
+  than transcribing finished chunks again. A run cut off for good (its Sidecar
   died) ends FootageTranscriptionInterruptedError (exit 4): run the command again
   and it resumes from those chunks.
 
