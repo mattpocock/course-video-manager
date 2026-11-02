@@ -162,7 +162,7 @@ export class RenderVerticalVideoService extends Effect.Service<RenderVerticalVid
               })
             );
             // The vertical renderer always produces a 9:16 short — the Remotion
-            // subtitle/CTA overlay below is rendered at 1080x1920 to match.
+            // caption overlay below is rendered at 1080x1920 to match.
             // A CVM-recorder Short Clip's composite is drawn on the Short
             // layout's own 1080x1920 canvas, so this scale stretches nothing.
             const dimensions = VIDEO_FORMAT_DIMENSIONS.short;
@@ -206,19 +206,6 @@ export class RenderVerticalVideoService extends Effect.Service<RenderVerticalVid
               fps
             ).pipe(Effect.provideService(ClipOperationsService, clipOps));
 
-            // The call-to-action pill pops up at the very start and fades out over
-            // the length of the first clip, capped at 5 seconds so a long opening
-            // clip doesn't leave it on screen too long. This mirrors the original
-            // Total TypeScript renderer, which timed `ctaDurationInFrames` to the
-            // first clip. It is always the "ai" branded CTA.
-            const CTA_MAX_SECONDS = 5;
-            const firstClip = video.clips[0]!;
-            const firstClipDuration =
-              firstClip.sourceEndTime - firstClip.sourceStartTime;
-            const ctaDurationInFrames = Math.ceil(
-              Math.min(firstClipDuration, CTA_MAX_SECONDS) * fps
-            );
-
             // Step 3: Render Remotion overlay
             enterStage("rendering-overlay");
             const overlayDir = path.join(tmpdir(), "cvm-overlay-render");
@@ -230,14 +217,13 @@ export class RenderVerticalVideoService extends Effect.Service<RenderVerticalVid
               .slice(0, 12);
             const overlayPath = path.join(overlayDir, `${overlayHash}.mov`);
 
-            // The captions, the CTA, and the Short's Chat Cards (the only
+            // The captions and the Short's Chat Cards (the only
             // Overlays a Short draws), placed on the concat's own durations.
             const propsJson = JSON.stringify(
               verticalOverlayProps({
                 fps,
                 durationInFrames,
                 subtitles,
-                ctaDurationInFrames,
                 clips: video.clips,
                 clipDurations: renderClips,
               })

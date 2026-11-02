@@ -51,7 +51,7 @@ export const overlayRenderProps = (content: OverlayContent) => {
   // Both arrays are always present, and one of them is always empty. The
   // renderer's composition draws every content-kind it is given, so "which kind
   // is this" is expressed by which array has the entry — the same shape the
-  // vertical Shorts pipeline sends with `subtitles`/`cta`. Keeping the shape
+  // vertical Shorts pipeline sends with `subtitles`/`chatCards`. Keeping the shape
   // uniform is also what keeps every caller of this function off a union.
   return {
     width: OVERLAY_RENDER_FRAME.width,
