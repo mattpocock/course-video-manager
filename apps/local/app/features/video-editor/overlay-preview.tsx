@@ -2,8 +2,11 @@ import { useEffect, useMemo, useRef } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
 import {
   BulletPanelPreview,
+  CHAT_CARD_PLACEMENT,
+  ChatCardPreview,
   DefinitionCardPreview,
   type BulletPanel as BulletPanelInputProps,
+  type ChatCard as ChatCardInputProps,
   type DefinitionCard as DefinitionCardInputProps,
 } from "@cvm/overlay-renderer/preview";
 import { VIDEO_FORMAT_DIMENSIONS } from "@/features/videos/video-format";
@@ -11,6 +14,8 @@ import type { BulletPanelBullet } from "@/features/videos/bullet-panel";
 import { resolveOverlayKind } from "@/features/videos/overlay-kind";
 import { overlayTransformCssStyleAt } from "@/features/videos/overlay-transform";
 import { bRollFootageTime } from "./b-roll-footage-time";
+import type { ChatSpinCell } from "@cvm/core/features/videos/chat-card";
+import { chatCardMotion } from "@cvm/core/features/videos/chat-highlight-motion";
 
 /**
  * One Overlay as the editor needs it: exactly the columns
@@ -45,6 +50,8 @@ export type ClipOverlay = {
   footagePath: string | null;
   /** A B-roll's `from`: seconds into its Footage. `null` on every other kind. */
   footageStart: number | null;
+  /** A Chat Card's spin cells ([] = off). `null` on every other kind. */
+  chatSpin: ChatSpinCell[] | null;
 };
 
 /**
@@ -127,6 +134,26 @@ export const findActiveOverlay = (
   }
   return undefined;
 };
+
+/**
+ * The Overlays a Short draws, by Clip: its Chat Cards only, as its render
+ * draws them (`vertical-overlay-props.ts`). Every other Kind stays undrawn
+ * in a Short. A Clip with none is left out.
+ */
+export const shortOverlaysByClipId = (
+  overlaysByClipId: ReadonlyMap<string, ClipOverlay[]>
+): Map<string, ClipOverlay[]> =>
+  new Map(
+    [...overlaysByClipId]
+      .map(
+        ([clipId, overlays]) =>
+          [
+            clipId,
+            overlays.filter((o) => resolveOverlayKind(o.kind) === "chatCard"),
+          ] as const
+      )
+      .filter(([, overlays]) => overlays.length > 0)
+  );
 
 /**
  * The camera Transform in force over this Clip at `currentTime`, as CSS for
@@ -300,6 +327,37 @@ export const OverlayPreview = (props: {
                 component={DefinitionCardPreview}
                 inputProps={inputProps}
                 {...chrome}
+              />
+            );
+          }
+          case "chatCard": {
+            // A Short's Chat Card, on the Short's own 1080x1920 frame, with
+            // the motion the Short's render gives it (`vertical-overlay-props`).
+            const cells = active.chatSpin ?? [];
+            const inputProps: ChatCardInputProps = {
+              author: active.title,
+              text: active.description,
+              cells,
+              startFrame: 0,
+              durationInFrames,
+              ...chatCardMotion({
+                cellCount: cells.length + 1,
+                fps: OVERLAY_RENDER_FPS,
+                durationInFrames,
+                disableEnterAnimation: active.disableEnterAnimation,
+                disableExitAnimation: active.disableExitAnimation,
+              }),
+              ...CHAT_CARD_PLACEMENT,
+            };
+            return (
+              <Player
+                key={active.id}
+                ref={playerRef}
+                component={ChatCardPreview}
+                inputProps={inputProps}
+                {...chrome}
+                compositionWidth={VIDEO_FORMAT_DIMENSIONS.short.width}
+                compositionHeight={VIDEO_FORMAT_DIMENSIONS.short.height}
               />
             );
           }

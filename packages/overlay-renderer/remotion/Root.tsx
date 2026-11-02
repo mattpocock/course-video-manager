@@ -1,7 +1,11 @@
 import { Composition } from "remotion";
 import { Overlay } from "./Composition";
 import "./index.css";
-import { COMPOSITION_ID, type OverlayProps } from "../src/props";
+import {
+  CHAT_CARD_PLACEMENT,
+  COMPOSITION_ID,
+  type OverlayProps,
+} from "../src/props";
 
 // Sample props so Remotion Studio (`pnpm run studio`) has something to show. The
 // real render always supplies its own props via `inputProps`.
@@ -20,6 +24,19 @@ const shortsSampleProps: OverlayProps = {
   cta: { variant: "ai", durationInFrames: 120 },
   definitionCards: [],
   bulletPanels: [],
+  // A Chat Card that lands at once (no motion frames), with fake chat.
+  chatCards: [
+    {
+      author: "@fake_viewer_42",
+      text: "Do you write the tests before the types, or the types first?",
+      cells: [{ author: "@fake_viewer_7", text: "A fake message" }],
+      startFrame: 0,
+      durationInFrames: 180,
+      enter: [],
+      exit: [],
+      ...CHAT_CARD_PLACEMENT,
+    },
+  ],
 };
 
 /**
@@ -44,6 +61,7 @@ const definitionCardSampleProps: OverlayProps = {
     },
   ],
   bulletPanels: [],
+  chatCards: [],
 };
 
 /**
@@ -74,6 +92,7 @@ const bulletPanelSampleProps: OverlayProps = {
       disableExitAnimation: false,
     },
   ],
+  chatCards: [],
 };
 
 const metadata = async ({ props }: { props: OverlayProps }) => ({

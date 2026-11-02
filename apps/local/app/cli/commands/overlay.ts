@@ -47,6 +47,12 @@ import {
   resolveBRollColumns,
 } from "./overlay.b-roll";
 import {
+  chatCardOpts,
+  requireChatCardFlags,
+  requireChatCardUnchanged,
+  resolveChatCardColumns,
+} from "./overlay.chat-card";
+import {
   OVERLAY_HELP,
   LIST_HELP,
   GET_HELP,
@@ -95,6 +101,7 @@ import {
  *   bullets           the Bullet Panel's bullets, or null for other kinds
  *   disableEnterAnimation / disableExitAnimation  hard-cut instead of easing
  *   footagePath / footageStart  a B-roll's Footage and its `from`, else null
+ *   chatSpin          a Chat Card's spin cells ([] = off), else null
  *
  * VERBS:
  *   overlay list --video <id> [--clip <id>]  a Video's Overlays, timeline order
@@ -273,8 +280,21 @@ const addCmd = Command.make(
     description: descriptionAddOpt,
     ...bulletPanelOpts,
     ...bRollOpts,
+    ...chatCardOpts,
   },
-  ({ clip, at, duration, kind, title, description, footage, from, ...flags }) =>
+  ({
+    clip,
+    at,
+    duration,
+    kind,
+    title,
+    description,
+    footage,
+    from,
+    chatHighlight,
+    noChatSpin,
+    ...flags
+  }) =>
     Effect.gen(function* () {
       yield* requireNonNegativeAt(at);
       yield* requirePositiveDuration(duration);
@@ -283,9 +303,17 @@ const addCmd = Command.make(
       // in the command, and saying so needs no database round trip.
       const desc = Option.getOrUndefined(description);
       const willBeKind = Option.getOrUndefined(kind) ?? DEFAULT_OVERLAY_KIND;
+      yield* requireChatCardFlags({
+        kind: willBeKind,
+        title: Option.getOrUndefined(title),
+        description: desc,
+        bulletsJson: Option.getOrUndefined(flags.bulletsJson),
+        chatCard: { chatHighlight, noChatSpin },
+      });
       yield* requireFlagsForKind({
         kind: willBeKind,
-        needsTitle: true,
+        // A Chat Card's title is its Chat Highlight's author, copied.
+        needsTitle: willBeKind !== "chatCard",
         title: Option.getOrUndefined(title),
         description: desc,
         bulletPanel: flags,
@@ -321,6 +349,12 @@ const addCmd = Command.make(
         current: null,
         flags: { footage, from },
       });
+      const chatCard = yield* resolveChatCardColumns({
+        kind: willBeKind,
+        anchor,
+        at,
+        flags: { chatHighlight, noChatSpin },
+      });
 
       const overlayOps = yield* OverlayOperationsService;
       const created = yield* overlayOps.createOverlay({
@@ -337,6 +371,8 @@ const addCmd = Command.make(
         disableEnterAnimation: panel.disableEnterAnimation ?? false,
         disableExitAnimation: panel.disableExitAnimation ?? false,
         ...bRoll,
+        // A Chat Card's author and text, copied over title and description.
+        ...chatCard,
       });
       yield* emitObject(created);
     })
@@ -402,6 +438,14 @@ const updateCmd = Command.make(
       // lands, so a switch of kind and its new content go in together.
       const wasKind = resolveOverlayKind(overlay.kind);
       const willBeKind = newKind ?? wasKind;
+      yield* requireChatCardUnchanged({
+        wasKind,
+        willBeKind,
+        contentEdited:
+          newTitle !== undefined ||
+          newDescription !== undefined ||
+          Option.isSome(flags.bulletsJson),
+      });
       // What the Overlay's window will BE, which is what a bullet's reveal
       // time has to fit inside — not what it is now.
       const nextDuration = newDuration ?? overlay.durationInSeconds;

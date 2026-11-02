@@ -25,6 +25,7 @@ const card = (overrides: Partial<ExportOverlay> = {}): ExportOverlay => ({
   bullets: null,
   footagePath: null,
   footageStart: null,
+  chatSpin: null,
   ...overrides,
 });
 
@@ -91,5 +92,38 @@ describe("a B-roll in the address", () => {
         card({ kind: "definitionCard", footagePath: null, footageStart: null })
       )
     ).toBe("506d7e9fe1da53c7e56f0d1b398164fa");
+  });
+});
+
+describe("a Chat Card in the address", () => {
+  const chatCard = (overrides: Partial<ExportOverlay> = {}): ExportOverlay =>
+    card({
+      kind: "chatCard",
+      title: "@fake_viewer_1",
+      description: "A fake question?",
+      chatSpin: [
+        { author: "@fake_viewer_2", text: "Fake message two" },
+        { author: "@fake_viewer_3", text: "Fake message three" },
+      ],
+      ...overrides,
+    });
+
+  it("changes when its spin, author or text changes", () => {
+    expect(withOverlays(chatCard({ chatSpin: [] }))).not.toBe(
+      withOverlays(chatCard())
+    );
+    expect(withOverlays(chatCard({ title: "@fake_viewer_9" }))).not.toBe(
+      withOverlays(chatCard())
+    );
+    expect(withOverlays(chatCard({ description: "Another?" }))).not.toBe(
+      withOverlays(chatCard())
+    );
+  });
+
+  it("leaves a Video with only Definition Cards at the address it had", () => {
+    // The same pin as the B-roll's: Chat Cards re-address nothing else.
+    expect(withOverlays(card({ kind: "definitionCard" }))).toBe(
+      "506d7e9fe1da53c7e56f0d1b398164fa"
+    );
   });
 });

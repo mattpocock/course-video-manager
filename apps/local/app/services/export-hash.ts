@@ -25,6 +25,7 @@ import {
   type BulletPanelBullet,
 } from "@/features/videos/bullet-panel";
 import { toRootRelative } from "@/packages/storage";
+import type { ChatSpinCell } from "@cvm/core/features/videos/chat-card";
 
 /**
  * Bump this constant to force re-export of all videos (e.g., after changing
@@ -55,6 +56,8 @@ export type ExportOverlay = {
   footagePath: string | null;
   /** A B-roll's "from", seconds into its Footage; null for every other kind. */
   footageStart: number | null;
+  /** A Chat Card's spin cells ([] = off); null for every other kind. */
+  chatSpin: ChatSpinCell[] | null;
 };
 
 /**
@@ -103,6 +106,7 @@ export const toExportClips = (
         bullets: BulletPanelBullet[] | null;
         footagePath: string | null;
         footageStart: number | null;
+        chatSpin: ChatSpinCell[] | null;
       }>;
     }
   >
@@ -122,6 +126,7 @@ export const toExportClips = (
       bullets: o.bullets,
       footagePath: o.footagePath,
       footageStart: o.footageStart,
+      chatSpin: o.chatSpin,
     })),
   }));
 
@@ -175,6 +180,12 @@ const toOverlayPayload = (overlays: ExportOverlay[]) =>
       // no export written before B-roll existed, is re-addressed.
       ...(resolveOverlayKind(o.kind) === "bRoll"
         ? { fp: o.footagePath, fs: o.footageStart }
+        : {}),
+      // A Chat Card's author and text are already `t` and `x`; its spin's
+      // cells join them ONLY for a Chat Card, so no other Overlay's payload
+      // is re-addressed.
+      ...(resolveOverlayKind(o.kind) === "chatCard"
+        ? { cs: o.chatSpin ?? [] }
         : {}),
     }))
     .sort((left, right) =>
