@@ -15,12 +15,16 @@
  * Adding a third kind is a one-line edit to {@link OVERLAY_KINDS}, which then
  * makes every `Record<OverlayKind, …>` lookup keyed off it a compile error
  * until the new kind is answered for.
+ *
+ * Overlays are graphics only. B-roll was a Kind until migration 0049 turned
+ * every B-roll into Footage Layers (ADR 0056): footage over footage is part of
+ * a Clip's picture now (`cvm clip layer`), and a stray row of that Kind would read
+ * as the default.
  */
 
 export const OVERLAY_KINDS = [
   "definitionCard",
   "bulletPanel",
-  "bRoll",
   "chatCard",
 ] as const;
 
@@ -56,7 +60,6 @@ export const resolveOverlayKind = (
 const OVERLAY_KIND_LABELS: Record<OverlayKind, string> = {
   definitionCard: "Definition Card",
   bulletPanel: "Bullet Panel",
-  bRoll: "B-roll",
   chatCard: "Chat Card",
 };
 

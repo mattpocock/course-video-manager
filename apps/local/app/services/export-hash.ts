@@ -52,10 +52,6 @@ export type ExportOverlay = {
   description: string;
   /** A Bullet Panel's bullets; null for every other content-kind. */
   bullets: BulletPanelBullet[] | null;
-  /** A B-roll's Imported Footage, root-relative; null for every other kind. */
-  footagePath: string | null;
-  /** A B-roll's "from", seconds into its Footage; null for every other kind. */
-  footageStart: number | null;
   /** A Chat Card's spin cells ([] = off); null for every other kind. */
   chatSpin: ChatSpinCell[] | null;
 };
@@ -104,8 +100,6 @@ export const toExportClips = (
         title: string;
         description: string;
         bullets: BulletPanelBullet[] | null;
-        footagePath: string | null;
-        footageStart: number | null;
         chatSpin: ChatSpinCell[] | null;
       }>;
     }
@@ -124,8 +118,6 @@ export const toExportClips = (
       title: o.title,
       description: o.description,
       bullets: o.bullets,
-      footagePath: o.footagePath,
-      footageStart: o.footageStart,
       chatSpin: o.chatSpin,
     })),
   }));
@@ -174,12 +166,6 @@ const toOverlayPayload = (overlays: ExportOverlay[]) =>
       // content hash uses, so the two addresses cannot drift apart.
       ...(o.bullets && o.bullets.length > 0
         ? { b: bulletPanelHashPayload(o.bullets) }
-        : {}),
-      // A B-roll's picture is its Footage from `from` on, so both are in the
-      // address — and ONLY for a B-roll, so no other Overlay's payload, and
-      // no export written before B-roll existed, is re-addressed.
-      ...(resolveOverlayKind(o.kind) === "bRoll"
-        ? { fp: o.footagePath, fs: o.footageStart }
         : {}),
       // A Chat Card's author and text are already `t` and `x`; its spin's
       // cells join them ONLY for a Chat Card, so no other Overlay's payload

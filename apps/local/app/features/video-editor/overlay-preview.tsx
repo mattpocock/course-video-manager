@@ -11,7 +11,6 @@ import { VIDEO_FORMAT_DIMENSIONS } from "@/features/videos/video-format";
 import type { BulletPanelBullet } from "@/features/videos/bullet-panel";
 import { resolveOverlayKind } from "@/features/videos/overlay-kind";
 import { overlayTransformCssStyleAt } from "@/features/videos/overlay-transform";
-import { bRollFootageTime } from "./b-roll-footage-time";
 import type { ChatSpinCell } from "@cvm/core/features/videos/chat-card";
 import { chatCardInputProps } from "./chat-card-input-props";
 
@@ -44,10 +43,6 @@ export type ClipOverlay = {
   disableExitAnimation: boolean;
   title: string;
   description: string;
-  /** A B-roll's Imported Footage, root-relative. `null` on every other kind. */
-  footagePath: string | null;
-  /** A B-roll's `from`: seconds into its Footage. `null` on every other kind. */
-  footageStart: number | null;
   /** A Chat Card's spin cells ([] = off). `null` on every other kind. */
   chatSpin: ChatSpinCell[] | null;
 };
@@ -95,18 +90,6 @@ const overlayFrameAt = (overlay: ClipOverlay, currentTime: number) =>
       Math.ceil(overlay.durationInSeconds * OVERLAY_RENDER_FPS) - 1,
       Math.floor((currentTime - overlay.at) * OVERLAY_RENDER_FPS)
     )
-  );
-
-/**
- * Where in its Footage a B-roll is at `currentTime`: {@link bRollFootageTime}
- * of the Overlay's elapsed time, read on the same floored frame grid as
- * {@link overlayFrameAt} — the rule the export reads too. A B-roll row with
- * no `from` reads as 0, as `overlayContent` does.
- */
-export const bRollFootageTimeAt = (overlay: ClipOverlay, currentTime: number) =>
-  bRollFootageTime(
-    overlay.footageStart ?? 0,
-    overlayFrameAt(overlay, currentTime) / OVERLAY_RENDER_FPS
   );
 
 /**
@@ -360,11 +343,6 @@ export const OverlayPreview = (props: {
               />
             );
           }
-          case "bRoll":
-            // Drawn by `BRollPreview` instead: its `<video>` stays mounted
-            // across the whole Clip so the Footage is loaded and sought before
-            // the window opens, where this is mounted only once it has.
-            return null;
         }
       })()}
     </div>

@@ -965,7 +965,7 @@ export const overlays = createTable(
     durationInSeconds: doublePrecision("duration_in_seconds").notNull(),
     /**
      * Which content-kind this Overlay carries — "definitionCard",
-     * "bulletPanel", "bRoll" or "chatCard". Read through `resolveOverlayKind`, never raw.
+     * "bulletPanel" or "chatCard". Read through `resolveOverlayKind`, never raw.
      */
     kind: varchar("kind", { length: 255 }).notNull().default("definitionCard"),
     /**
@@ -988,16 +988,10 @@ export const overlays = createTable(
      * the time a row is written the array is already validated.
      */
     bullets: jsonb("bullets").$type<BulletPanelBullet[]>(),
-    /**
-     * A B-roll's Imported Footage, root-relative (ADR 0040) — null for every
-     * other content-kind.
-     */
-    footagePath: text("footage_path"),
-    /**
-     * A B-roll's "from": seconds into its Imported Footage where the picture
-     * starts — null for every other content-kind.
-     */
-    footageStart: doublePrecision("footage_start"),
+    // `footage_path` and `footage_start` held a B-roll's Footage until
+    // migration 0049 turned every B-roll into Footage Layers. Nothing reads
+    // or writes them; they are dropped in a follow-up migration (contract
+    // first: the deploy-migration skill).
     /**
      * A Chat Card's Chat Spin: the cells that fly past before it lands on its
      * own message (`title`, `description`), in fly-past order — `[]` when its

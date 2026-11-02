@@ -41,7 +41,12 @@ Recipe — a stream Clip on a Short: the screen's left square on top, the face b
   cvm clip layer list <clip>
   # the same layout on every other Clip of the Short:
   cvm clip list --video <short> | jq -r '.id' | xargs cvm clip update --layers-from <clip>
-  cvm clip frame <clip> --at 1                  # check the composed frame`;
+  cvm clip frame <clip> --at 1                  # check the composed frame
+
+Recipe — B-roll: Imported Footage over the whole frame for part of a Clip, muted, the
+Clip's own sound playing on (a B-roll that runs on into the next Clip is one Layer per Clip,
+each --from carried on by how far into the B-roll that Clip starts).
+  cvm clip layer add --footage raw-footage/imported/city.mp4 --from 12.5 --at 3 --duration 4 <clip>`;
 
 export const LAYER_LIST_HELP = `List a Clip's Layers, bottom (index 0) to top, as NDJSON.
 

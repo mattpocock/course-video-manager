@@ -67,7 +67,10 @@ export const footageLayers = (layers: readonly Layer[]): FootageLayer[] =>
 /**
  * The instant of its Footage a Footage Layer shows `elapsed` seconds into its
  * span: `start + elapsed`. On screen is the latest Footage frame AT OR
- * BEFORE that instant. B-roll's timing rule, which the export reads.
+ * BEFORE that instant. The one rule the export (`clipSegmentArgs`, which
+ * seeks without dropping the frame before an off-grid start) and the
+ * editor's preview (`FootageLayersPreview`) both read, so they show the same
+ * frame. B-roll's rule, carried over when B-roll became Footage Layers.
  */
 export const footageLayerTime = (start: number, elapsed: number): number =>
   start + elapsed;

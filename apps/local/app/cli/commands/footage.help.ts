@@ -183,7 +183,8 @@ already transcribed is not transcribed again.
 Echoes one JSON object once both Jobs are done: { path, size, width, height,
 durationSeconds, transcript: { words, segments } } (counts). 'path' is
 ROOT-RELATIVE ("raw-footage/imported/interview.mp4"): pass it straight to
-'cvm clip add --source' (a normal Clip, Clip Origin 'cli').
+'cvm clip add --source' (a normal Clip, Clip Origin 'cli'), or to
+'cvm clip layer add --footage' (a Footage Layer, such as a B-roll).
 
 --no-wait returns once the Jobs are queued: { jobId, transcribeJobId, status:
 "queued", path }. A Job id is null when there was nothing to do (the file was

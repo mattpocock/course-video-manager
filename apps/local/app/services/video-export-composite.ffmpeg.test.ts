@@ -1,19 +1,27 @@
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { NodeContext } from "@effect/platform-node";
-import { FileSystem } from "@effect/platform";
-import { ConfigProvider, Effect, Layer } from "effect";
+import { Effect, Layer } from "effect";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { clipComposite, clipLayers, clipSource } from "@/packages/clip-source";
 import { sceneFilterGraph } from "@/packages/scene-layout";
 import { DEFAULT_MIC_EQ } from "@cvm/core/features/videos/recorder";
 import { micEqFilters } from "@/packages/mic-eq";
-import { FFmpegCommandsService } from "./ffmpeg-commands";
 import { FFmpegEncodeService } from "./ffmpeg-encode-commands";
 import { SidecarContextTest } from "./sidecar-context";
-import { makeVideoExportPasses } from "./video-export-passes";
+import {
+  hasFfmpeg,
+  lavfi,
+  probe,
+  pixel,
+  exportClips,
+  sessionRow,
+  exportClip,
+  flashes,
+  beeps,
+} from "@/test-utils/video-export-ffmpeg";
 
 /**
  * The export pass over a Video of CVM-recorder Clips, with the real ffmpeg on
@@ -21,147 +29,6 @@ import { makeVideoExportPasses } from "./video-export-passes";
  * no device): a red 60 fps screen, a green 29.97 fps camera, a mono mic.
  * Skipped where there is no ffmpeg.
  */
-const hasFfmpeg = (() => {
-  try {
-    execFileSync("ffmpeg", ["-version"], { stdio: "ignore" });
-    return true;
-  } catch {
-    return false;
-  }
-})();
-
-const lavfi = (dir: string, name: string, source: string, codec: string[]) => {
-  const file = path.join(dir, name);
-  execFileSync("ffmpeg", [
-    "-v",
-    "error",
-    "-f",
-    "lavfi",
-    "-i",
-    source,
-    ...codec,
-    file,
-  ]);
-  return file;
-};
-
-const probe = (file: string) =>
-  JSON.parse(
-    execFileSync(
-      "ffprobe",
-      ["-v", "error", "-show_streams", "-show_format", "-of", "json", file],
-      {
-        encoding: "utf8",
-      }
-    )
-  ) as {
-    streams: Record<string, string | number>[];
-    format: { duration: string };
-  };
-
-/** The rgb of the pixel at (x, y) (even) of the frame at `t`. */
-const pixel = (file: string, t: number, x: number, y: number) => [
-  ...execFileSync("ffmpeg", [
-    "-v",
-    "error",
-    "-ss",
-    String(t),
-    "-i",
-    file,
-    "-frames:v",
-    "1",
-    "-vf",
-    `crop=2:2:${x}:${y},format=rgb24`,
-    "-f",
-    "rawvideo",
-    "-",
-  ]).subarray(0, 3),
-];
-
-/** Run the export pass over `clips`; the output file and every command run. */
-const exportClips = async (
-  dir: string,
-  clips: Parameters<
-    ReturnType<typeof makeVideoExportPasses>["exportVideoClips"]
-  >[0]["clips"]
-) => {
-  const commands: string[] = [];
-  const program = Effect.gen(function* () {
-    const passes = makeVideoExportPasses({
-      ffmpegEncode: yield* FFmpegEncodeService,
-      ffmpegCommands: yield* FFmpegCommandsService,
-      effectFs: yield* FileSystem.FileSystem,
-      videoEditorLogger: {
-        log: (_videoId, event) =>
-          Effect.sync(() => {
-            if (event.type === "cli-output") commands.push(event.command);
-          }),
-      } as Parameters<typeof makeVideoExportPasses>[0]["videoEditorLogger"],
-    });
-    return yield* passes.exportVideoClips({
-      videoId: "video-1",
-      format: "landscape",
-      clips,
-    });
-  });
-  const result = await Effect.runPromise(
-    program.pipe(
-      Effect.provide(
-        Layer.mergeAll(
-          FFmpegEncodeService.Default,
-          FFmpegCommandsService.Default,
-          NodeContext.layer,
-          SidecarContextTest
-        ).pipe(
-          Layer.provide(
-            Layer.setConfigProvider(
-              ConfigProvider.fromMap(new Map([["STORAGE_ROOTS", dir]]))
-            )
-          )
-        )
-      )
-    )
-  );
-  return { output: result.outputPath, commands };
-};
-
-const sessionRow = (
-  dir: string,
-  start: number,
-  end: number,
-  // Code until 1.5 s, then Camera.
-  sceneEvents = [{ fileTime: 1.5, scene: "Camera" as const }]
-) => ({
-  videoFilename: path.join(dir, "mic.mkv"),
-  sourceStartTime: start,
-  sourceEndTime: end,
-  recordingSessionId: "session-1",
-  sceneOverride: null,
-  recordingSession: {
-    id: "session-1",
-    screenFilePath: path.join(dir, "screen.mkv"),
-    cameraFilePath: path.join(dir, "camera.mkv"),
-    micFilePath: path.join(dir, "mic.mkv"),
-    micOffsetMs: 150,
-    format: "landscape" as const,
-    screenCaptured: true,
-    sceneEvents,
-  },
-});
-
-const exportClip = (row: ReturnType<typeof sessionRow>) => {
-  const source = clipSource(row);
-  return {
-    inputVideo: row.videoFilename,
-    startTime: row.sourceStartTime,
-    duration: row.sourceEndTime - row.sourceStartTime,
-    pauseType: "none" as const,
-    zoomType: "none",
-    composite: clipComposite(source),
-    layers: clipLayers(source),
-  };
-};
-
 describe.skipIf(!hasFfmpeg)("exporting a Video of CVM-recorder Clips", () => {
   const dir = path.join(
     os.tmpdir(),
@@ -248,51 +115,6 @@ describe.skipIf(!hasFfmpeg)("exporting a Video of CVM-recorder Clips", () => {
     expect(near(pixel(output, 1.2, 960, 540), [0, 255, 0])).toBe(true);
   });
 });
-
-/** The times of the frames whose centre is white. */
-const flashes = (file: string) =>
-  execFileSync(
-    "ffprobe",
-    [
-      "-v",
-      "error",
-      "-f",
-      "lavfi",
-      "-i",
-      `movie=${file},crop=4:4:958:538,signalstats`,
-      "-show_entries",
-      "frame=pts_time:frame_tags=lavfi.signalstats.YAVG",
-      "-of",
-      "csv=p=0",
-    ],
-    { encoding: "utf8" }
-  )
-    .trim()
-    .split("\n")
-    .map((line) => line.split(",").map(Number))
-    .filter(([, luma]) => luma! > 128)
-    .map(([t]) => t!);
-
-/** The times each beep starts: where silencedetect says a silence ends. */
-const beeps = (file: string) => {
-  const result = spawnSync(
-    "ffmpeg",
-    [
-      "-hide_banner",
-      "-i",
-      file,
-      "-af",
-      "silencedetect=n=-30dB:d=0.005",
-      "-f",
-      "null",
-      "-",
-    ],
-    { encoding: "utf8" }
-  );
-  return [...result.stderr.matchAll(/silence_end: ([\d.]+)/g)].map((m) =>
-    Number(m[1])
-  );
-};
 
 /**
  * Clips of an odd length (1.8137 s, not a whole number of 60 fps frames),

@@ -38,8 +38,7 @@ import type { ChatSpinCell } from "../features/videos/chat-card.js";
  * Every query whose Clips end up in `computeExportHash` must include this, or
  * that Video's address would claim it has no Overlays and a Definition Card
  * edit — or a change of `kind`, of a Bullet Panel's bullets, of either
- * animation toggle, or of a B-roll's Footage or `from` — would publish stale
- * video, or of a Chat Card's spin. It lives here, next to the table's own
+ * animation toggle, or of a Chat Card's spin — would publish stale video. It lives here, next to the table's own
  * operations, so the four queries that need it cannot drift apart.
  */
 export const overlayExportRelation = {
@@ -52,8 +51,6 @@ export const overlayExportRelation = {
     title: true,
     description: true,
     bullets: true,
-    footagePath: true,
-    footageStart: true,
     chatSpin: true,
   },
 } as const;
@@ -76,8 +73,6 @@ const overlayColumns = {
   title: overlays.title,
   description: overlays.description,
   bullets: overlays.bullets,
-  footagePath: overlays.footagePath,
-  footageStart: overlays.footageStart,
   chatSpin: overlays.chatSpin,
 };
 
@@ -149,10 +144,6 @@ const createOverlayOperationsUnwrapped = (db: Database) => {
     description: string;
     /** The Bullet Panel's content — already validated. Omitted for other kinds. */
     bullets?: BulletPanelBullet[] | null;
-    /** A B-roll's Imported Footage (root-relative) and its "from", seconds —
-     * already checked against the file. Omitted for other kinds. */
-    footagePath?: string | null;
-    footageStart?: number | null;
     /** A Chat Card's spin cells (`[]`: spin off). Omitted for other kinds. */
     chatSpin?: ChatSpinCell[] | null;
   }) {
@@ -185,8 +176,6 @@ const createOverlayOperationsUnwrapped = (db: Database) => {
       title?: string;
       description?: string;
       bullets?: BulletPanelBullet[] | null;
-      footagePath?: string | null;
-      footageStart?: number | null;
       chatSpin?: ChatSpinCell[] | null;
     }
   ) {

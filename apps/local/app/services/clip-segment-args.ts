@@ -274,6 +274,9 @@ const compositeMic = (composite: ClipComposite, duration: number) => {
 
 const seconds = (n: number) => n.toFixed(3);
 
+/** Seconds fine enough to fall on the right side of a 60 fps frame. */
+const exactSeconds = (n: number) => n.toFixed(6);
+
 /** The composite's segments, the last drawn on to the end of the last frame. */
 const segmentsToEnd = (composite: ClipComposite, duration: number) =>
   composite.segments.map((segment, i, all) =>
@@ -287,9 +290,16 @@ const segmentsToEnd = (composite: ClipComposite, duration: number) =>
 
 /**
  * One Footage Layer's picture, from input `index`: sought (not accurately,
- * so the frame at or before an off-grid start is kept below 0, as B-roll's
- * export does) to its start, trimmed to its span, shifted onto it, cut to its
- * Source Crop and scaled to its Placement's size.
+ * so the frame at or before an off-grid start is kept below 0) to its start,
+ * shifted onto its span, cut to its Source Crop, scaled to its Placement's
+ * size, then put on the export's 60 fps grid and trimmed to its span.
+ *
+ * On the grid, each output frame holds the latest Footage frame at or before
+ * it (`round=up`: a frame due between two output frames first shows on the
+ * later one), the `footageLayerTime` rule the preview reads. The span is cut
+ * by `trim`, not by `overlay`'s `enable=`, which is judged against frames it
+ * has read ahead and so drops or adds a frame at the span's edges; with no
+ * Footage frame the `overlay` passes the picture below through.
  */
 const footageLayerNode = (
   layer: FootageLayer,
@@ -299,11 +309,12 @@ const footageLayerNode = (
 ) => {
   const { x, y, w, h } = layer.sourceCrop;
   const { w: pw, h: ph } = layer.placement;
+  const { at } = layer.span;
   return (
-    `[${index}:v]trim=end=${seconds(length)},` +
-    `setpts=PTS+${seconds(layer.span.at)}/TB,` +
+    `[${index}:v]setpts=PTS+${exactSeconds(at)}/TB,` +
     `crop=w=iw*${w}:h=ih*${h}:x=iw*${x}:y=ih*${y},` +
-    `scale=${pw}:${ph},setsar=1[${label}]`
+    `scale=${pw}:${ph},setsar=1,fps=${FPS}:round=up,` +
+    `trim=start=${exactSeconds(at)}:end=${exactSeconds(at + length)}[${label}]`
   );
 };
 
@@ -390,14 +401,13 @@ const layeredSegment = (
     inputs.push(
       "-noaccurate_seek",
       "-ss",
-      seconds(layer.start),
+      exactSeconds(layer.start),
       "-i",
       layer.file
     );
     graph.push(
       footageLayerNode(layer, index, length, `fl${i}`),
-      `${picture}[fl${i}]overlay=x=${layer.placement.x}:y=${layer.placement.y}:eof_action=pass:repeatlast=0` +
-        `:enable='between(t,${seconds(at)},${seconds(at + length)})'[over${i}]`
+      `${picture}[fl${i}]overlay=x=${layer.placement.x}:y=${layer.placement.y}:eof_action=pass:repeatlast=0[over${i}]`
     );
     picture = `[over${i}]`;
     if (layer.volume > 0) {

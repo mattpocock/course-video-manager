@@ -5,7 +5,7 @@ import type {
   FrontendId,
 } from "./clip-state-reducer";
 import { BEAT_DURATION } from "./constants";
-import { bRollFootageTimeAt, type ClipOverlay } from "./overlay-preview";
+import type { ClipOverlay } from "./overlay-preview";
 import {
   groupOverlaysByClip,
   toOverlaySpillClips,
@@ -29,7 +29,6 @@ const overlay = (props: {
   durationInSeconds: number;
   id?: string;
   kind?: string;
-  footageStart?: number;
 }): ClipOverlay => ({
   id: props.id ?? "overlay-1",
   clipId: props.clipId,
@@ -44,9 +43,6 @@ const overlay = (props: {
   disableExitAnimation: false,
   title: "A Definition Card",
   description: "What it means.",
-  footagePath:
-    props.footageStart === undefined ? null : "raw-footage/imported/shot.mp4",
-  footageStart: props.footageStart ?? null,
   chatSpin: null,
 });
 
@@ -120,26 +116,6 @@ describe("groupOverlaysByClip", () => {
     expect(byClip.get("a")).toEqual([expect.objectContaining({ at: 8 })]);
     // Where Clip "c" starts cannot be known, so the card is not guessed onto it.
     expect(byClip.get("c")).toBeUndefined();
-  });
-
-  it("seeks a spilled B-roll's Footage to from + elapsed, on the export's floored frame grid", () => {
-    const byClip = groupOverlaysByClip(
-      [clip("a", 10), clip("b", 10)],
-      [
-        overlay({
-          clipId: "a",
-          at: 8,
-          durationInSeconds: 6,
-          kind: "bRoll",
-          footageStart: 30,
-        }),
-      ]
-    );
-    const spilled = byClip.get("b")![0]!;
-
-    // 1.01s into Clip "b" is 3.01s into the B-roll: frame 180 of its window
-    // (floor of 180.6), the frame the export composites, so 3s past `from`.
-    expect(bRollFootageTimeAt(spilled, 1.01)).toBe(33);
   });
 
   it("drops an Overlay whose anchor Clip is not on the timeline", () => {
