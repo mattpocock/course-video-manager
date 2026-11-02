@@ -153,6 +153,10 @@ export const copyIntoImportedFootage = async (opts: {
       message: `a different file is already at ${destination}; never overwritten. Run 'cvm footage import' again for the next free name.`,
     });
 
+  // A run cut off mid-copy left this; it is never resumed into, only redone.
+  // Cleared first: a run cut off after placing (the file's name linked, its
+  // partial not yet unlinked) re-runs into the "already there" answer below.
+  await removePartial(partial);
   const there = await lstatOrNull(destination);
   if (there !== null) {
     if (
@@ -166,8 +170,6 @@ export const copyIntoImportedFootage = async (opts: {
   }
 
   await nodeFs.mkdir(path.dirname(destination), { recursive: true });
-  // A run cut off mid-copy left this; it is never resumed into, only redone.
-  await removePartial(partial);
   try {
     const hash = createHash("sha256");
     await copyHashing(opts.source, partial, hash, control);
