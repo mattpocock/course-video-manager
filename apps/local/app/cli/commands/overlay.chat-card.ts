@@ -84,8 +84,8 @@ export const requireChatCardFlags = (params: {
  * another kind, and never edits the content it copied.
  */
 export const requireChatCardUnchanged = (p: {
-  wasKind: string;
-  willBeKind: string;
+  wasKind: OverlayKind;
+  willBeKind: OverlayKind;
   contentEdited: boolean;
 }) => {
   const touchesChatCard =
@@ -105,6 +105,13 @@ export const requireChatCardUnchanged = (p: {
     : Effect.void;
 };
 
+/** The Clip a Chat Card is anchored to, as picking its Chat Highlight needs it. */
+type ChatCardAnchor = {
+  id: string;
+  recordingSessionId: string | null;
+  sourceStartTime: number;
+};
+
 /** Seconds as a refusal spells them. */
 const secs = (ms: number) => `${Number((ms / 1000).toFixed(1))}s`;
 
@@ -113,11 +120,7 @@ const secs = (ms: number) => `${Number((ms / 1000).toFixed(1))}s`;
  * else the one at the anchor point of its Streamed Recording Session.
  */
 const pickChatHighlight = (params: {
-  anchor: {
-    id: string;
-    recordingSessionId: string | null;
-    sourceStartTime: number;
-  };
+  anchor: ChatCardAnchor;
   at: number;
   chatHighlight: string | undefined;
 }) =>
@@ -173,12 +176,7 @@ const pickChatHighlight = (params: {
  */
 export const resolveChatCardColumns = (params: {
   kind: OverlayKind;
-  anchor: {
-    id: string;
-    videoId: string;
-    recordingSessionId: string | null;
-    sourceStartTime: number;
-  };
+  anchor: ChatCardAnchor & { videoId: string };
   at: number;
   flags: ChatCardFlags;
 }) =>

@@ -1,5 +1,4 @@
-import { CHAT_CARD_PLACEMENT } from "@cvm/overlay-renderer/props";
-import { chatCardMotion } from "@cvm/core/features/videos/chat-highlight-motion";
+import { chatCardInputProps } from "@/features/video-editor/chat-card-input-props";
 import { resolveOverlayKind } from "@/features/videos/overlay-kind";
 import type { ExportClipDuration } from "./export-duration-check";
 import type { ExportOverlay } from "./export-hash";
@@ -36,7 +35,7 @@ export const verticalOverlayProps = (p: {
 });
 
 /** A Short's Chat Cards, in frames on its timeline. */
-export const chatCardProps = (
+const chatCardProps = (
   clips: ReadonlyArray<{ overlays: ReadonlyArray<ExportOverlay> }>,
   clipDurations: ReadonlyArray<ExportClipDuration>,
   fps: number
@@ -49,20 +48,5 @@ export const chatCardProps = (
         1,
         Math.round(endInSeconds * fps) - startFrame
       );
-      const cells = overlay.chatSpin ?? [];
-      return {
-        author: overlay.title,
-        text: overlay.description,
-        cells,
-        startFrame,
-        durationInFrames,
-        ...chatCardMotion({
-          cellCount: cells.length + 1,
-          fps,
-          durationInFrames,
-          disableEnterAnimation: overlay.disableEnterAnimation,
-          disableExitAnimation: overlay.disableExitAnimation,
-        }),
-        ...CHAT_CARD_PLACEMENT,
-      };
+      return chatCardInputProps(overlay, { startFrame, durationInFrames, fps });
     });
