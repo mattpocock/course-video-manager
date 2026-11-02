@@ -35,6 +35,7 @@ const overlay = (overrides: Partial<ExportOverlay> = {}): ExportOverlay => ({
   bullets: null,
   footagePath: null,
   footageStart: null,
+  chatSpin: null,
   ...overrides,
 });
 

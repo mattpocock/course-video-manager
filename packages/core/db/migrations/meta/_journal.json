@@ -330,6 +330,13 @@
       "when": 1793625490019,
       "tag": "0046_overlay_b_roll",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1793652362284,
+      "tag": "0047_overlay_chat_spin",
+      "breakpoints": true
     }
   ]
 }

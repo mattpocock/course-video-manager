@@ -236,6 +236,12 @@ const overlayService = (client: RpcClient) =>
     getOverlaysByIds: rpcMethod((json) =>
       client.rpc.overlay.getOverlaysByIds.$post({ json })
     ),
+    getRecordingSessionChatHighlights: rpcMethod((json) =>
+      client.rpc.overlay.getRecordingSessionChatHighlights.$post({ json })
+    ),
+    getChatHighlightById: rpcMethod((json) =>
+      client.rpc.overlay.getChatHighlightById.$post({ json })
+    ),
     createOverlay: rpcMethod((json) =>
       client.rpc.overlay.createOverlay.$post({ json })
     ),
