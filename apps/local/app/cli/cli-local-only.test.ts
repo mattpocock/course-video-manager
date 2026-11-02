@@ -87,6 +87,8 @@ describe("on a box that is not the author's", () => {
     const invocations: ReadonlyArray<ReadonlyArray<string>> = [
       ["footage", "list"],
       ["footage", "list", "--dir", "/tmp/whatever"],
+      ["footage", "list", "--imported"],
+      ["footage", "import", "/tmp/whatever.mp4"],
       ["footage", "transcribe", "/tmp/whatever.mkv"],
       ["footage", "transcript", "/tmp/whatever.mkv"],
     ];

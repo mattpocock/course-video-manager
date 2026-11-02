@@ -1,21 +1,21 @@
 import { Args, Command, Options } from "@effect/cli";
 import { FileSystem } from "@effect/platform";
-import * as NodeContext from "@effect/platform-node/NodeContext";
 import {
   Config,
   ConfigProvider,
   Effect,
-  Layer,
   Logger,
   LogLevel,
   Option,
 } from "effect";
 import { homedir } from "node:os";
-import { footageOnDisk } from "./footage-on-disk";
 import path from "node:path";
-import { GitWorktreeProbeLive } from "@cvm/core/git-worktree";
-import { JobOperationsService } from "@cvm/core/services/db-job-operations.server";
-import { DrizzleService } from "@/services/drizzle-service.server";
+import { isFootageFileName } from "@/packages/storage";
+import {
+  asFootageImportError,
+  findImportedFootage,
+} from "@/packages/storage/import";
+import { readStorageRootsSync } from "@/services/storage-roots";
 import { nudgeSidecar } from "@/services/sidecar-socket.server";
 import {
   readFootageTranscript,
@@ -31,36 +31,18 @@ import {
 } from "@/cli/helpers";
 import { CliOutput } from "@/cli/output";
 import { loadRepoEnv } from "@/services/repo-env";
-import { NEEDS_FOOTAGE_ON_DISK, requireLocalMachine } from "@/cli/local-only";
 import { enqueueJob, JOB_KIND_SPECS } from "../../../sidecar/job-specs";
-import { waitForFootageTranscription } from "./footage-transcribe-wait";
 import { FILE_NAMES } from "recorder-service/capture-args";
+import { footageOnDisk } from "./footage-on-disk";
+import { importCmd } from "./footage-import";
+import { requireLocalFootage, withFootageJobs } from "./footage-jobs";
+import { waitForFootageTranscription } from "./footage-transcribe-wait";
 import {
   HELP,
   LIST_HELP,
   TRANSCRIBE_HELP,
   TRANSCRIPT_HELP,
 } from "./footage.help";
-
-// ---------------------------------------------------------------------------
-// Footage is on the author's DISK, so every verb here is local-only. Each
-// subcommand yields this first, before its argument is even looked at (see
-// local-only.ts) — a Remote Box has no raw footage and could never succeed.
-// ---------------------------------------------------------------------------
-
-const requireLocalFootage = requireLocalMachine(
-  "cvm footage",
-  NEEDS_FOOTAGE_ON_DISK
-);
-
-const VIDEO_EXTENSIONS = new Set([
-  ".mp4",
-  ".mkv",
-  ".mov",
-  ".webm",
-  ".avi",
-  ".m4v",
-]);
 
 const dirOption = Options.text("dir").pipe(
   Options.withDescription(
@@ -69,82 +51,108 @@ const dirOption = Options.text("dir").pipe(
   Options.optional
 );
 
+const importedOption = Options.boolean("imported").pipe(
+  Options.withDescription(
+    "List Imported Footage on every Storage Root instead (root-relative paths)."
+  )
+);
+
 const pathArg = Args.text({ name: "path" });
 
 // ---------------------------------------------------------------------------
 // footage list
 // ---------------------------------------------------------------------------
 
-const listCmd = Command.make("list", { dir: dirOption }, ({ dir }) =>
-  Effect.gen(function* () {
-    yield* requireLocalFootage;
-    const fs = yield* FileSystem.FileSystem;
+/** `footage list --imported`: the walk over every root's raw-footage/imported/. */
+const listImported = Effect.gen(function* () {
+  const fs = yield* FileSystem.FileSystem;
+  const roots = yield* Effect.try({
+    try: () => readStorageRootsSync(),
+    catch: (e) => (e instanceof Error ? e.message : String(e)),
+  }).pipe(Effect.catchAll((message) => parseError(message, "footage")));
+  const files = yield* Effect.tryPromise({
+    try: () => findImportedFootage(roots),
+    catch: asFootageImportError,
+  });
+  const rows = yield* Effect.forEach(files, (file) =>
+    fs.exists(sidecarPathFor(path.join(file.location, file.path))).pipe(
+      Effect.map((transcribed) => ({
+        path: file.path,
+        size: file.size,
+        transcribed,
+      }))
+    )
+  );
+  yield* emitNdjson(rows);
+});
 
-    // Load the repo .env so OBS_RECORDING_DIR (where old OBS Footage lives)
-    // resolves, then read it via Config.
-    yield* Effect.sync(() => loadRepoEnv());
-    const directory = yield* Option.match(dir, {
-      onSome: (d) => Effect.succeed(d),
-      onNone: () =>
-        Config.string("OBS_RECORDING_DIR").pipe(
-          Effect.orElseSucceed(() => path.join(homedir(), "Videos"))
-        ),
-    }).pipe(Effect.withConfigProvider(ConfigProvider.fromEnv()));
+const listCmd = Command.make(
+  "list",
+  { dir: dirOption, imported: importedOption },
+  ({ dir, imported }) =>
+    Effect.gen(function* () {
+      yield* requireLocalFootage;
+      if (imported) {
+        if (Option.isSome(dir)) {
+          return yield* parseError(
+            "pass --dir or --imported, not both",
+            "footage"
+          );
+        }
+        return yield* listImported;
+      }
+      const fs = yield* FileSystem.FileSystem;
 
-    const entries = yield* fs
-      .readDirectory(directory)
-      .pipe(
-        Effect.catchAll(() =>
-          parseError(`cannot read footage directory ${directory}`, "footage")
-        )
+      // Load the repo .env so OBS_RECORDING_DIR (where old OBS Footage lives)
+      // resolves, then read it via Config.
+      yield* Effect.sync(() => loadRepoEnv());
+      const directory = yield* Option.match(dir, {
+        onSome: (d) => Effect.succeed(d),
+        onNone: () =>
+          Config.string("OBS_RECORDING_DIR").pipe(
+            Effect.orElseSucceed(() => path.join(homedir(), "Videos"))
+          ),
+      }).pipe(Effect.withConfigProvider(ConfigProvider.fromEnv()));
+
+      const entries = yield* fs
+        .readDirectory(directory)
+        .pipe(
+          Effect.catchAll(() =>
+            parseError(`cannot read footage directory ${directory}`, "footage")
+          )
+        );
+
+      const files = entries.filter((name) => isFootageFileName(name));
+      // The CVM recorder writes each Recording Session into a folder of its own
+      // here; its mic file is the one a lost take is searched for in (a
+      // CVM-recorder Clip's Footage path is that same file).
+      const micFiles = yield* Effect.filter(
+        entries.map((name) => path.join(name, FILE_NAMES.mic)),
+        // Under a file rather than a folder, `exists` fails (ENOTDIR): not one.
+        (name) =>
+          fs
+            .exists(path.join(directory, name))
+            .pipe(Effect.orElseSucceed(() => false))
       );
 
-    const files = entries.filter((name) =>
-      VIDEO_EXTENSIONS.has(path.extname(name).toLowerCase())
-    );
-    // The CVM recorder writes each Recording Session into a folder of its own
-    // here; its mic file is the one a lost take is searched for in (a
-    // CVM-recorder Clip's Footage path is that same file).
-    const micFiles = yield* Effect.filter(
-      entries.map((name) => path.join(name, FILE_NAMES.mic)),
-      // Under a file rather than a folder, `exists` fails (ENOTDIR): not one.
-      (name) =>
-        fs
-          .exists(path.join(directory, name))
-          .pipe(Effect.orElseSucceed(() => false))
-    );
+      const rows = yield* Effect.forEach(
+        [...files, ...micFiles].sort(),
+        (name) =>
+          Effect.gen(function* () {
+            const full = path.join(directory, name);
+            const stat = yield* fs.stat(full);
+            const transcribed = yield* fs.exists(sidecarPathFor(full));
+            return { path: full, size: Number(stat.size), transcribed };
+          })
+      );
 
-    const rows = yield* Effect.forEach([...files, ...micFiles].sort(), (name) =>
-      Effect.gen(function* () {
-        const full = path.join(directory, name);
-        const stat = yield* fs.stat(full);
-        const transcribed = yield* fs.exists(sidecarPathFor(full));
-        return { path: full, size: Number(stat.size), transcribed };
-      })
-    );
-
-    yield* emitNdjson(rows);
-  })
+      yield* emitNdjson(rows);
+    })
 ).pipe(Command.withDescription(detail(LIST_HELP)));
 
 // ---------------------------------------------------------------------------
 // footage transcribe
 // ---------------------------------------------------------------------------
-
-/**
- * What `footage transcribe` runs inside: enough to write the Job row and follow
- * it. The work itself — ffmpeg and Whisper — is the Sidecar's
- * (`sidecar/kinds/transcribe-footage.ts`), so none of it is built here. Only reached when no JobOperationsService is provided already,
- * which is what lets a test hand it one on its own database.
- */
-const footageJobLayer = Layer.mergeAll(
-  JobOperationsService.Default,
-  NodeContext.layer
-).pipe(
-  Layer.provideMerge(
-    DrizzleService.Default.pipe(Layer.provide(GitWorktreeProbeLive))
-  )
-);
 
 const noWaitOption = Options.boolean("no-wait").pipe(
   Options.withDescription(
@@ -207,23 +215,7 @@ const transcribeCmd = Command.make(
         yield* emitObject({ ...summary });
       });
 
-      // A JobOperationsService already provided (a test's) is used as is;
-      // otherwise loadRepoEnv runs BEFORE footageJobLayer is built, because
-      // DrizzleService reads DATABASE_URL from process.env.
-      const provided = yield* Effect.serviceOption(JobOperationsService);
-      return yield* Option.match(provided, {
-        onSome: (ops) =>
-          run.pipe(Effect.provideService(JobOperationsService, ops)),
-        onNone: () =>
-          Effect.sync(() => loadRepoEnv()).pipe(
-            Effect.zipRight(
-              run.pipe(
-                Effect.provide(footageJobLayer),
-                Effect.withConfigProvider(ConfigProvider.fromEnv())
-              )
-            )
-          ),
-      });
+      return yield* withFootageJobs(run);
     })
 ).pipe(Command.withDescription(detail(TRANSCRIBE_HELP)));
 
@@ -254,5 +246,5 @@ const transcriptCmd = Command.make(
 
 export const footageCommand = Command.make("footage").pipe(
   Command.withDescription(detail(HELP)),
-  Command.withSubcommands([listCmd, transcribeCmd, transcriptCmd])
+  Command.withSubcommands([listCmd, importCmd, transcribeCmd, transcriptCmd])
 );
