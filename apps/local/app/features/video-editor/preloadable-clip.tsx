@@ -24,6 +24,7 @@ import {
   overlayTransformStyle,
   type ClipOverlay,
 } from "./overlay-preview";
+import { BRollPreview } from "./b-roll-preview";
 import { useStillsWaitForVideo } from "./components/queued-still";
 import { usePreloadableClipReducer } from "./hooks/use-preloadable-clip-reducer";
 
@@ -293,6 +294,17 @@ export const PreloadableClip = (props: {
           }
         />
       )}
+      {/* Over the Clip's picture, under any card. Mounted for a preloading
+          Clip too, so a B-roll's Footage is ready when the Clip comes up. */}
+      {props.footageNotFound === undefined &&
+        (!props.hidden || props.aggressivePreload) && (
+          <BRollPreview
+            overlays={props.overlays}
+            currentTime={overlayCurrentTime}
+            playing={isPlaying}
+            playbackRate={props.playbackRate}
+          />
+        )}
       {/* Only mounted for the Clip actually on screen — every other Clip in
           the manager is preloading off-screen (`hidden`), and there is no
           reason to run an extra `<Player>` per one of those. */}

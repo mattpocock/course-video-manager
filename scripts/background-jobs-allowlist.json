@@ -98,6 +98,11 @@
       "file": "apps/local/app/packages/clap-step/lib/ffmpeg.ts",
       "count": 1,
       "reason": "Interactive: the AV Calibration page's clap step (#2137) waits on each. A short read of the mic around the clap, one camera frame as a JPEG, or Play's 2 s clip (NVENC, or CPU libx264 with 2 threads when there is no usable GPU), while Matt lines up a clap."
+    },
+    {
+      "file": "apps/local/app/services/footage-probe.ts",
+      "count": 1,
+      "reason": "Interactive: `cvm footage import` runs one read-only ffprobe on the file the author names, and waits on it for a moment, to refuse a file that is not 16:9 before anything is copied or queued. The copy itself is the import-footage Job."
     }
   ],
   "network": [

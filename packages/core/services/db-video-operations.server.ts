@@ -295,6 +295,20 @@ const createVideoOperationsUnwrapped = (db: Database, deps: VideoOpsDeps) => {
     ) as Record<string, string | null>;
   });
 
+  /** Each Video's title, by id; ids with no Video are absent. */
+  const getVideoTitlesByIds = Effect.fn("getVideoTitlesByIds")(function* (
+    ids: readonly string[]
+  ) {
+    if (ids.length === 0) return new Map<string, string>();
+    const rows = yield* makeDbCall(() =>
+      db.query.videos.findMany({
+        where: inArray(videos.id, [...ids]),
+        columns: { id: true, title: true },
+      })
+    );
+    return new Map(rows.map((row) => [row.id, row.title] as const));
+  });
+
   const getVideoWithLessonById = Effect.fn("getVideoWithLessonById")(function* (
     id: string
   ) {
@@ -634,6 +648,7 @@ const createVideoOperationsUnwrapped = (db: Database, deps: VideoOpsDeps) => {
     getVideoWithLessonById,
     getNextVideoNeedingBody,
     getVideoScriptsByIds,
+    getVideoTitlesByIds,
     createVideo,
     createStandaloneVideo,
     hasOriginalFootagePathAlreadyBeenUsed,

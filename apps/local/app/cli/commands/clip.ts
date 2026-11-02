@@ -16,6 +16,7 @@ import {
   notFoundMany,
   parseError,
 } from "@/cli/helpers";
+import { footageOnDisk, footagePathToStore } from "./footage-on-disk";
 import { resolveBeforeItemId } from "./timeline-position";
 import {
   CLIP_ZOOM_TYPES,
@@ -241,8 +242,9 @@ const videoAddOpt = draftIdOption("video", "video").pipe(
 
 const sourceOpt = Options.text("source").pipe(
   Options.withDescription(
-    "Path to the source footage file the clip is cut from (required). Its " +
-      "cached transcript (from 'cvm footage transcribe') supplies the clip text."
+    "Footage the clip is cut from (required): a root-relative path, found on " +
+      "whichever Storage Root has it, or an absolute one. Stored root-relative. " +
+      "Its cached transcript (from 'cvm footage transcribe') supplies the clip text."
   )
 );
 
@@ -321,7 +323,10 @@ const addCmd = Command.make(
       // whose hash no longer matches (the footage was re-recorded/replaced) as
       // absent, so a STALE transcript is refused exactly like a missing one —
       // never silently sliced. Either way: tell the agent to transcribe first.
-      const sidecar = yield* readFootageTranscript(source);
+      // A root-relative --source is found on whichever Storage Root has it,
+      // as `footage transcribe` finds it, never against the current directory.
+      const onDisk = footageOnDisk(source);
+      const sidecar = yield* readFootageTranscript(onDisk);
       if (sidecar === null) {
         return yield* parseError(
           `no fresh cached transcript for ${source} — run ` +
@@ -344,7 +349,7 @@ const addCmd = Command.make(
       const clipOps = yield* ClipOperationsService;
       const clip = yield* clipOps.createClip({
         videoId: video,
-        videoFilename: source,
+        videoFilename: footagePathToStore(source, onDisk),
         sourceStartTime: start,
         sourceEndTime: end,
         text,

@@ -55,6 +55,8 @@ const NOT_ENTITY_MENUS: Record<string, string> = {
     "acts on a Storage Bucket (a count of files, not an entity with a page link)",
   "routes/_app.storage_.$bucketId.tsx":
     "acts on one file on disk in a Storage Bucket, not an entity",
+  "routes/_app.imported-footage.tsx":
+    "acts on one Imported Footage file on disk, which has no row and no page link",
 };
 
 const APP_ROOT = join(import.meta.dirname, "..", "..");

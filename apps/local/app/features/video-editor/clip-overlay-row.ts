@@ -17,6 +17,8 @@ type OverlayRow = {
   disableExitAnimation: boolean;
   title: string;
   description: string;
+  footagePath: string | null;
+  footageStart: number | null;
 };
 
 /**
@@ -26,7 +28,8 @@ type OverlayRow = {
  * `kind` that says which of them is the real one and the Animation Toggles the
  * kind-derived camera move reads: `bullets` is null on a Definition Card and
  * `description` is empty on a Bullet Panel, and the client narrows on `kind`
- * exactly as `overlayContent` does on the export side. Sending only one Kind's
+ * exactly as `overlayContent` does on the export side. A B-roll's Footage
+ * and `from` cross too (null on the other kinds). Sending only one Kind's
  * columns is what used to make the preview draw the wrong thing.
  *
  * A function of its own, in the feature folder rather than in the route, so
@@ -43,4 +46,6 @@ export const toClipOverlay = (row: OverlayRow): ClipOverlay => ({
   disableExitAnimation: row.disableExitAnimation,
   title: row.title,
   description: row.description,
+  footagePath: row.footagePath,
+  footageStart: row.footageStart,
 });

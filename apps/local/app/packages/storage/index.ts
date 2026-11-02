@@ -23,6 +23,17 @@ export {
   type StorageRoots,
 } from "./lib/storage-roots";
 
+// Imported Footage is any root-relative path under `raw-footage/imported/`:
+// the one rule that says so, and the only place that folder is spelled. A
+// copy in progress is `<file>.cvm-import-partial` (IMPORT_PARTIAL_SUFFIX).
+export {
+  FOOTAGE_EXTENSIONS,
+  IMPORTED_FOOTAGE_FOLDER,
+  IMPORT_PARTIAL_SUFFIX,
+  isFootageFileName,
+  isImportedFootage,
+} from "./lib/imported-footage";
+
 // A Storage Root that is Offline (an unplugged drive, a stale WSL mount
 // answering ENODEV) is an expected, typed failure, not a missing file. The
 // UI offers the command that remounts it (`remountCommandFor`).

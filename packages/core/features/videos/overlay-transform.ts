@@ -95,6 +95,9 @@ const OVERLAY_TRANSFORMS: Record<OverlayKind, OverlayTransform | null> = {
     from: CENTERED,
     to: { offsetX: BULLET_PANEL_OFFSET_X },
   },
+  // A B-roll covers the whole frame, so there is nothing to move out from
+  // under it.
+  bRoll: null,
 };
 
 /**

@@ -148,17 +148,28 @@ already filmed, so it never counts in the footage stats. Rejected (exit 3) if st
 ${MINIMUM_CLIP_LENGTH_SECONDS}s minimum clip length; an unknown --video is a
 not-found (exit 2).
 
---source is a path as 'cvm footage list' prints it. One under a Storage Root is
-read by its root-relative form, so the Clip keeps working after its Footage is
-moved to another drive.
+--source is Footage addressed the way 'cvm footage transcribe' addresses it: a
+ROOT-RELATIVE path ("raw-footage/take.mkv", "raw-footage/imported/interview.mp4")
+is looked up on each Storage Root in order, whatever directory you run from; an
+absolute path is read where it is. The Clip stores its 'videoFilename'
+ROOT-RELATIVE (an absolute path under a Storage Root is stored in its
+root-relative form), so moving the Footage to another drive changes no row and
+no Export Hash. A path under no Storage Root is stored as typed.
+
+Footage is anything the Recorder filmed, or Imported Footage (a file CVM did not
+film, copied in under raw-footage/imported/ by 'cvm footage import', which
+prints the root-relative path to pass here). A Clip cut from
+Imported Footage is an ordinary Clip with no Recording Session: its picture and
+sound replace the author's for that stretch, and its Clip Origin is 'cli' too.
 
 Immediate — no confirmation (agent-facing tool). Like every clip write it needs
 the owning CourseVersion to be a Draft (a non-Draft is refused).
 
 Examples:
-  cvm footage transcribe /mnt/d/raw-footage/take.mkv
-  cvm clip add --video vid_123 --source /mnt/d/raw-footage/take.mkv --start 12.4 --end 40.0
-  cvm clip add --video vid_123 --source /mnt/d/raw-footage/take.mkv --start 5 --end 9 --before clip_def`;
+  cvm footage transcribe raw-footage/take.mkv
+  cvm clip add --video vid_123 --source raw-footage/take.mkv --start 12.4 --end 40.0
+  cvm clip add --video vid_123 --source /mnt/d/raw-footage/take.mkv --start 5 --end 9 --before clip_def
+  cvm clip add --video vid_123 --source "$(cvm footage import ~/Downloads/interview.mp4 | jq -r .path)" --start 0 --end 30`;
 
 export const DELETE_HELP = `Archive (soft-delete) a Clip.
 

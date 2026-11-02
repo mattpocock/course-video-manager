@@ -381,6 +381,125 @@ describe.skipIf(!hasFfmpeg)("joining CVM-recorder Clips", () => {
 });
 
 /**
+ * Imported Footage (#2534) beside CVM-recorder Clips: a single 30 fps file
+ * with its own sound (a StreamYard export), cut as a plain Footage Clip
+ * between 60 fps Recording Session Clips. Its flash and beep are at the same
+ * instant, file time 2k+0.5; the export must keep them together and stay
+ * true CFR 60. Checked before the last ~3 s, as above.
+ */
+describe.skipIf(!hasFfmpeg)(
+  "a 30 fps Imported Footage Clip among CVM-recorder Clips",
+  () => {
+    const dir = path.join(
+      os.tmpdir(),
+      `import-join-${process.pid}-${Date.now()}`
+    );
+    const CLIP = 1.8137;
+    const FRAMES = 109;
+    const imported = (k: number) => {
+      const start = 2 * k + 0.2;
+      const source = clipSource({
+        videoFilename: path.join(dir, "interview.mp4"),
+        sourceStartTime: start,
+        sourceEndTime: start + CLIP,
+        recordingSessionId: null,
+        sceneOverride: null,
+        recordingSession: null,
+      });
+      return {
+        inputVideo: path.join(dir, "interview.mp4"),
+        startTime: start,
+        duration: CLIP,
+        pauseType: "none" as const,
+        zoomType: "none",
+        composite: clipComposite(source),
+      };
+    };
+    const clips = [
+      exportClip(sessionRow(dir, 0.2, 0.2 + CLIP, [])),
+      imported(1),
+      exportClip(sessionRow(dir, 4.2, 4.2 + CLIP, [])),
+      exportClip(sessionRow(dir, 6.2, 6.2 + CLIP, [])),
+    ];
+    let output: string;
+
+    beforeAll(async () => {
+      fs.mkdirSync(dir, { recursive: true });
+      const h264 = ["-c:v", "libx264", "-pix_fmt", "yuv420p"];
+      lavfi(
+        dir,
+        "screen.mkv",
+        "color=c=black:s=320x180:r=60:d=9,drawbox=c=white:t=fill:enable='between(mod(t\\,2)\\,0.499\\,0.509)'",
+        h264
+      );
+      lavfi(dir, "camera.mkv", "color=c=lime:s=384x216:r=30000/1001:d=9", h264);
+      lavfi(
+        dir,
+        "mic.mkv",
+        "aevalsrc='if(between(mod(t\\,2)\\,0.35\\,0.40)\\,0.5*sin(2*PI*1000*t)\\,0)+0.003*sin(2*PI*200*t)':s=48000:d=9",
+        ["-c:a", "pcm_s16le", "-ac", "1"]
+      );
+      // One file, picture and sound: 30 fps, a flash one frame long at 2k+0.5
+      // and a beep from the same instant.
+      execFileSync("ffmpeg", [
+        "-v",
+        "error",
+        "-f",
+        "lavfi",
+        "-i",
+        "color=c=black:s=320x180:r=30:d=9,drawbox=c=white:t=fill:enable='between(mod(t\\,2)\\,0.499\\,0.52)'",
+        "-f",
+        "lavfi",
+        "-i",
+        "aevalsrc='if(between(mod(t\\,2)\\,0.5\\,0.55)\\,0.5*sin(2*PI*1000*t)\\,0)+0.003*sin(2*PI*200*t)':s=48000:d=9",
+        ...h264,
+        "-c:a",
+        "pcm_s16le",
+        path.join(dir, "interview.mp4").replace(/mp4$/, "mkv"),
+      ]);
+      fs.renameSync(
+        path.join(dir, "interview.mkv"),
+        path.join(dir, "interview.mp4")
+      );
+      output = (await exportClips(dir, clips)).output;
+    }, 120_000);
+
+    afterAll(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+    it("is CFR 60 for every Clip's whole length, the 30 fps one too", () => {
+      const { streams, format } = probe(output);
+      const video = streams.find((s) => s.codec_type === "video")!;
+      expect(video).toMatchObject({
+        r_frame_rate: "60/1",
+        avg_frame_rate: "60/1",
+        nb_frames: String(clips.length * FRAMES),
+      });
+      expect(Number(format.duration)).toBeCloseTo(
+        (clips.length * FRAMES) / 60,
+        1
+      );
+    });
+
+    it("keeps the imported Clip's beep on its flash, and the next Clip's too", () => {
+      // A 30 fps frame is two 60 fps frames: each flash by its first frame.
+      const flashTimes = flashes(output).filter(
+        (t, i, all) => i === 0 || t - all[i - 1]! > 0.05
+      );
+      expect(flashTimes).toHaveLength(clips.length);
+      const beepTimes = beeps(output).slice(0, 3);
+      expect(beepTimes).toHaveLength(3);
+      flashTimes
+        .slice(0, 3)
+        .forEach((t, k) => expect(t).toBeCloseTo((k * FRAMES) / 60 + 0.3, 1));
+      // Within one 30 fps frame: the picture is sampled every 1/30 s there.
+      beepTimes.forEach((t, k) =>
+        expect(Math.abs(t - flashTimes[k]!)).toBeLessThan(1 / 30)
+      );
+    });
+  }
+);
+
+/**
  * A Video's Animatic, encoded through `FFmpegEncodeService.encodeAnimatic`:
  * two stills of different sizes, each held for its segment, each with its
  * voice from its onset and silence to the end of the segment.

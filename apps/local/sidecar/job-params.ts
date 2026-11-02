@@ -18,6 +18,13 @@ const FileAtParam = Schema.Struct({
   path: NonEmptyPath,
 });
 
+/** A Footage file, by its absolute path (Footage has no row). */
+const AbsoluteFootagePath = Schema.String.pipe(
+  Schema.filter((p) => p.startsWith("/"), {
+    message: () => "a footage path must be absolute",
+  })
+);
+
 /** A Storage Root: an absolute path. */
 const StorageRootParam = Schema.String.pipe(
   Schema.filter((p) => p.startsWith("/"), {
@@ -87,6 +94,24 @@ export const JOB_PARAMS = {
         message: () => "a footage path must be absolute",
       })
     ),
+  }),
+  /**
+   * One file copied in as Imported Footage: from where it is (only ever
+   * read) to the name `cvm footage import` chose under
+   * `raw-footage/imported/` on the first Storage Root.
+   */
+  "import-footage": Schema.Struct({
+    source: AbsoluteFootagePath,
+    destination: AbsoluteFootagePath,
+  }),
+  /**
+   * One YouTube video downloaded and copied in as Imported Footage
+   * (`cvm footage import <url>`, the Imported Footage page). `url` is the
+   * video's watch URL, rebuilt from its id.
+   */
+  "import-youtube-footage": Schema.Struct({
+    url: Schema.String.pipe(Schema.startsWith("https://")),
+    videoId: Schema.String.pipe(Schema.pattern(/^[A-Za-z0-9_-]{11}$/)),
   }),
   /** A Course copied under a new name; the route chose the new Course's id. */
   "duplicate-course": Schema.Struct({

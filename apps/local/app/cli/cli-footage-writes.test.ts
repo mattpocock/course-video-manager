@@ -11,6 +11,14 @@ import { DrizzleService } from "@/services/drizzle-service.server";
 import { JobOperationsService } from "@cvm/core/services/db-job-operations.server";
 import { runSidecar } from "../../sidecar/sidecar";
 import { transcribeFootageJobKind } from "../../sidecar/kinds/transcribe-footage";
+import { importFootageJobKind } from "../../sidecar/kinds/import-footage";
+import { enqueueJob, JOB_KIND_SPECS } from "../../sidecar/job-specs";
+import { IMPORT_FOOTAGE_JOB_KIND } from "@/features/jobs/import-footage-job";
+import {
+  FootageProbe,
+  FootageUnreadableError,
+  type FootageProbeResult,
+} from "@/services/footage-probe";
 import { buildProgram } from "@/cli/main";
 import { makeTestCliOutput } from "@/cli/output";
 import { LOCAL_MACHINE_ENV_KEY } from "./env";
@@ -18,6 +26,7 @@ import {
   buildWriteLayer,
   one,
   ndjson,
+  seedWrite,
   type RunResult,
 } from "./cli-write-test-harness";
 
@@ -71,6 +80,16 @@ let jobsLayer: Layer.Layer<JobOperationsService>;
 let stopSidecar: Deferred.Deferred<string>;
 let sidecarFiber: Fiber.RuntimeFiber<unknown, unknown>;
 let footageDir: string;
+/** The Storage Roots, in order: an import goes to the first. */
+let roots: [string, string];
+/** What the faked ffprobe answers, by file name; absent, it can't read it. */
+let probed: Record<string, FootageProbeResult> = {};
+const fakeProbe = Layer.succeed(FootageProbe, {
+  probe: (file) =>
+    probed[nodePath.basename(file)]
+      ? Effect.succeed(probed[nodePath.basename(file)]!)
+      : Effect.fail(new FootageUnreadableError({ message: "moov not found" })),
+});
 const originalLocalMachine = process.env[LOCAL_MACHINE_ENV_KEY];
 const originalObsDir = process.env.OBS_RECORDING_DIR;
 
@@ -81,7 +100,7 @@ beforeAll(async () => {
   jobsLayer = JobOperationsService.Default.pipe(
     Layer.provide(Layer.succeed(DrizzleService, testDb as never))
   );
-  const layer = Layer.merge(buildWriteLayer(testDb), jobsLayer);
+  const layer = Layer.mergeAll(buildWriteLayer(testDb), jobsLayer, fakeProbe);
   run = async (argv) => {
     const out = makeTestCliOutput();
     const exitCode = await Effect.runPromise(
@@ -104,7 +123,10 @@ beforeAll(async () => {
         gitSha: "abc1234",
         socket: nodePath.join(os.tmpdir(), "cvm-footage-test.sock"),
       },
-      registry: { "transcribe-footage": transcribeFootageJobKind },
+      registry: {
+        "transcribe-footage": transcribeFootageJobKind,
+        "import-footage": importFootageJobKind,
+      },
       timing: {
         leaseMs: 5_000,
         leaseRenewMs: 1_000,
@@ -144,6 +166,7 @@ afterAll(async () => {
   }
   if (originalObsDir === undefined) delete process.env.OBS_RECORDING_DIR;
   else process.env.OBS_RECORDING_DIR = originalObsDir;
+  delete process.env.STORAGE_ROOTS;
 });
 
 beforeEach(() => {
@@ -151,6 +174,20 @@ beforeEach(() => {
   footageDir = nodeFs.mkdtempSync(nodePath.join(os.tmpdir(), "cvm-footage-"));
   // footage list without --dir reads OBS_RECORDING_DIR.
   process.env.OBS_RECORDING_DIR = footageDir;
+  const base = nodeFs.mkdtempSync(nodePath.join(os.tmpdir(), "cvm-roots-"));
+  roots = [nodePath.join(base, "d"), nodePath.join(base, "e")];
+  for (const root of roots) nodeFs.mkdirSync(root);
+  process.env.STORAGE_ROOTS = roots.join(",");
+  probed = {
+    "interview.mp4": {
+      video: { width: 1920, height: 1080, sampleAspectRatio: "1:1" },
+      durationSeconds: 3,
+    },
+    "square.mp4": {
+      video: { width: 1440, height: 1080, sampleAspectRatio: "1:1" },
+      durationSeconds: 3,
+    },
+  };
 });
 
 /** Write a fake footage file with the given bytes, returning its path. */
@@ -364,5 +401,204 @@ describe("footage transcript", () => {
 
     const r = await run(["footage", "transcript", file]);
     expect(r.exitCode).toBe(2);
+  });
+});
+
+describe("footage import", () => {
+  const imported = (name: string) =>
+    nodePath.join(roots[0], "raw-footage", "imported", name);
+  const importOf = async (file: string, ...flags: string[]) => {
+    const r = await run(["footage", "import", ...flags, file]);
+    return { ...r, out: r.exitCode === 0 ? one<ImportResult>(r.stdout) : null };
+  };
+  const jobCount = () =>
+    Effect.runPromise(
+      Effect.flatMap(JobOperationsService, (ops) =>
+        ops.listRecentJobs({ finishedWithinMs: 3_600_000 })
+      ).pipe(Effect.provide(jobsLayer))
+    ).then((jobs) => jobs.length);
+
+  interface ImportResult {
+    path: string;
+    size: number;
+    width: number;
+    height: number;
+    durationSeconds: number;
+    transcript: { words: number; segments: number };
+  }
+
+  it("copies a 16:9 file into raw-footage/imported/ on the first Storage Root and transcribes it, leaving the source as it was", async () => {
+    const source = footageFile("interview.mp4", "streamyard bytes");
+    const r = await importOf(source);
+
+    expect(r.exitCode).toBe(0);
+    expect(r.out).toEqual({
+      path: "raw-footage/imported/interview.mp4",
+      size: "streamyard bytes".length,
+      width: 1920,
+      height: 1080,
+      durationSeconds: 3,
+      transcript: { words: 3, segments: 1 },
+    });
+    expect(nodeFs.readFileSync(source, "utf8")).toBe("streamyard bytes");
+    expect(nodeFs.readFileSync(imported("interview.mp4"), "utf8")).toBe(
+      "streamyard bytes"
+    );
+    expect(nodeFs.existsSync(sidecarOf(imported("interview.mp4")))).toBe(true);
+
+    const listed = ndjson(
+      (await run(["footage", "list", "--imported"])).stdout
+    );
+    expect(listed).toEqual([
+      { path: r.out!.path, size: r.out!.size, transcribed: true },
+    ]);
+
+    const s = await seedWrite(testDb);
+    const clip = one<{ videoFilename: string; origin: string }>(
+      (
+        await run([
+          "clip",
+          "add",
+          "--video",
+          s.standaloneActiveId,
+          "--source",
+          r.out!.path,
+          "--start",
+          "0",
+          "--end",
+          "2",
+        ])
+      ).stdout
+    );
+    expect(clip).toMatchObject({ videoFilename: r.out!.path, origin: "cli" });
+  });
+
+  it("refuses a 4:3 file or one ffprobe can't read (exit 3), copying nothing and queueing no Job", async () => {
+    const before = await jobCount();
+    for (const name of ["square.mp4", "broken.mp4"]) {
+      const r = await importOf(footageFile(name, "bytes"));
+      expect(r.exitCode).toBe(3);
+      expect(r.stdout).toBe("");
+    }
+    expect(
+      JSON.parse((await importOf(footageFile("square.mp4", "b"))).stderr)
+        .message
+    ).toContain("1440x1080");
+    expect(nodeFs.existsSync(nodePath.dirname(imported("x")))).toBe(false);
+    expect(await jobCount()).toBe(before);
+  });
+
+  it("gives back the same path for the same file, and a -2 name for different bytes under the same name", async () => {
+    const source = footageFile("interview.mp4", "first");
+    const first = await importOf(source);
+    const again = await importOf(source);
+    expect(again.out!.path).toBe(first.out!.path);
+
+    nodeFs.writeFileSync(source, "a different interview");
+    const other = await importOf(source);
+    expect(other.out!.path).toBe("raw-footage/imported/interview-2.mp4");
+    expect(nodeFs.readdirSync(nodePath.dirname(imported("x"))).sort()).toEqual([
+      "interview-2.mp4",
+      "interview-2.mp4.transcript.json",
+      "interview.mp4",
+      "interview.mp4.transcript.json",
+    ]);
+  });
+
+  it("never takes a cut-off copy's partial for the file, and --no-wait prints the queued Jobs", async () => {
+    nodeFs.mkdirSync(nodePath.dirname(imported("x")), { recursive: true });
+    nodeFs.writeFileSync(
+      `${imported("interview.mp4")}.cvm-import-partial`,
+      "f"
+    );
+    const source = footageFile("interview.mp4", "full bytes");
+
+    const r = await importOf(source, "--no-wait");
+    expect(r.out).toMatchObject({
+      status: "queued",
+      path: "raw-footage/imported/interview.mp4",
+      jobId: expect.any(String),
+      transcribeJobId: expect.any(String),
+    });
+    const done = await importOf(source);
+    expect(done.out!.path).toBe(r.out!.path);
+    expect(nodeFs.readFileSync(imported("interview.mp4"), "utf8")).toBe(
+      "full bytes"
+    );
+    expect(
+      nodeFs.existsSync(`${imported("interview.mp4")}.cvm-import-partial`)
+    ).toBe(false);
+  });
+
+  it("clears the partial of a run cut off between placing and unlinking it", async () => {
+    const source = footageFile("interview.mp4", "full bytes");
+    const destination = imported("interview.mp4");
+    const partial = `${destination}.cvm-import-partial`;
+    nodeFs.mkdirSync(nodePath.dirname(destination), { recursive: true });
+    nodeFs.writeFileSync(partial, "full bytes");
+    nodeFs.linkSync(partial, destination);
+
+    const job = Effect.gen(function* () {
+      const { id } = yield* enqueueJob({
+        id: null,
+        kind: IMPORT_FOOTAGE_JOB_KIND,
+        title: "Import",
+        params: { source, destination },
+        dependsOn: null,
+        subject: null,
+        attemptsSpent: 0,
+        registry: JOB_KIND_SPECS,
+      });
+      const ops = yield* JobOperationsService;
+      let now = yield* ops.getJob(id);
+      for (; now?.status === "queued" || now?.status === "running";) {
+        now = yield* Effect.zipRight(Effect.sleep(20), ops.getJob(id));
+      }
+      return now?.status;
+    });
+    expect(await Effect.runPromise(Effect.provide(job, jobsLayer))).toBe(
+      "succeeded"
+    );
+    expect(nodeFs.existsSync(partial)).toBe(false);
+  });
+});
+
+describe("footage search", () => {
+  it("finds a word per segment in fresh Imported Footage transcripts only, and names stale ones on STDERR", async () => {
+    await run(["footage", "import", footageFile("interview.mp4", "v1")]);
+    const outside = nodePath.join(roots[1], "raw-footage", "take.mp4");
+    nodeFs.mkdirSync(nodePath.dirname(outside), { recursive: true });
+    nodeFs.writeFileSync(outside, "not imported");
+    await run(["footage", "transcribe", outside]);
+
+    const r = await run(["footage", "search", "WORLD"]);
+    expect(ndjson(r.stdout)).toEqual([
+      {
+        path: "raw-footage/imported/interview.mp4",
+        start: 0,
+        end: 3,
+        text: "hello world again",
+      },
+    ]);
+    expect(r.stderr).toBe("");
+
+    // Fresh while the size and mtime it was hashed at still match: a search
+    // reads no file's bytes again, so it stays cheap on many-GB files.
+    const file = nodePath.join(roots[0], "raw-footage/imported/interview.mp4");
+    const { atime, mtime } = nodeFs.statSync(file);
+    nodeFs.writeFileSync(file, "v2");
+    nodeFs.utimesSync(file, atime, mtime);
+    expect(ndjson((await run(["footage", "search", "world"])).stdout)).toEqual(
+      ndjson(r.stdout)
+    );
+
+    nodeFs.writeFileSync(file, "bytes changed since transcribed");
+    const stale = await run(["footage", "search", "world"]);
+    expect([stale.exitCode, stale.stdout]).toEqual([0, ""]);
+    expect(JSON.parse(stale.stderr)).toEqual({
+      notTranscribed: ["raw-footage/imported/interview.mp4"],
+    });
+
+    expect((await run(["footage", "search", "  "])).exitCode).toBe(3);
   });
 });

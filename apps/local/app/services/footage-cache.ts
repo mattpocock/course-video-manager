@@ -1,4 +1,4 @@
-import { Effect, Stream } from "effect";
+import { Effect, Option, Stream } from "effect";
 import { FileSystem } from "@effect/platform";
 import type { PlatformError } from "@effect/platform/Error";
 import { createHash } from "node:crypto";
@@ -19,6 +19,13 @@ import type { FootageTranscript } from "./footage-chunking";
  * cache as absent (stale), so `footage transcribe` re-transcribes rather than
  * silently serving the old file's words, and `footage transcript` reports
  * not-found rather than a stale transcript.
+ *
+ * Hashing a many-GB file on every read is too slow for a search, so the
+ * sidecar also records the source's SIZE and MTIME at the moment it was
+ * hashed (`sourceStamp`). While both still match, the hash is trusted
+ * without reading the bytes again, the same trust a Storage move gives a
+ * copy it placed (#2179). A file whose stamp differs, or a sidecar with no
+ * stamp, is hashed in full as before.
  */
 
 const SIDECAR_SUFFIX = ".transcript.json";
@@ -30,11 +37,35 @@ export interface FootageSidecar {
   readonly sourcePath: string;
   /** SHA-256 of the source file's contents when it was transcribed. */
   readonly sourceHash: string;
+  /** The source's size and mtime when it was hashed; absent before #2537. */
+  readonly sourceStamp?: FootageStamp;
   /** When the transcript was produced (ISO 8601). */
   readonly transcribedAt: string;
   readonly words: FootageTranscript["words"];
   readonly segments: FootageTranscript["segments"];
 }
+
+/** A file's size and mtime (ms): what says it is unchanged since hashed. */
+export interface FootageStamp {
+  readonly size: number;
+  readonly mtimeMs: number;
+}
+
+/** The size and mtime of a file, or `null` if it has no mtime. */
+const stampOf = (
+  sourcePath: string
+): Effect.Effect<FootageStamp | null, PlatformError, FileSystem.FileSystem> =>
+  Effect.gen(function* () {
+    const fsvc = yield* FileSystem.FileSystem;
+    const info = yield* fsvc.stat(sourcePath);
+    return Option.match(info.mtime, {
+      onNone: () => null,
+      onSome: (mtime) => ({
+        size: Number(info.size),
+        mtimeMs: mtime.getTime(),
+      }),
+    });
+  });
 
 /** The sidecar cache path for a source footage path. */
 export const sidecarPathFor = (sourcePath: string): string =>
@@ -61,6 +92,24 @@ export const computeFileContentHash = (
         Stream.runForEach((chunk) => Effect.sync(() => hash.update(chunk)))
       );
     return hash.digest("hex");
+  });
+
+/**
+ * The file's content hash with the stamp it was taken at, for
+ * `writeFootageTranscript`. Stamped BEFORE the read: a file written to while
+ * it is hashed has a newer mtime than its stamp, so it is hashed again later.
+ */
+export const hashFootage = (
+  sourcePath: string
+): Effect.Effect<
+  { readonly hash: string; readonly stamp: FootageStamp | null },
+  PlatformError,
+  FileSystem.FileSystem
+> =>
+  Effect.gen(function* () {
+    const stamp = yield* stampOf(sourcePath);
+    const hash = yield* computeFileContentHash(sourcePath);
+    return { hash, stamp };
   });
 
 /**
@@ -108,6 +157,19 @@ export const readFootageTranscript = (
     // Can't confirm freshness against a source that is gone — treat as stale.
     if (!(yield* fsvc.exists(sourcePath))) return null;
 
+    // A shortcut, asked for on purpose: a file whose size and mtime match the
+    // stamp taken before it was hashed is trusted without hashing it again.
+    // The trade-off: a rewrite with the same size and the same mtime (`cp -p`,
+    // a restore from backup, or a change finer than 1 ms) is missed, and its
+    // old transcript is served as fresh. Imports never overwrite, so the risk
+    // is low; any change in size or mtime still falls through to the hash.
+    const stamp = yield* stampOf(sourcePath);
+    const unchanged =
+      stamp !== null &&
+      parsed.sourceStamp?.size === stamp.size &&
+      parsed.sourceStamp.mtimeMs === stamp.mtimeMs;
+    if (unchanged) return parsed;
+
     const hash = yield* computeFileContentHash(sourcePath);
     if (parsed.sourceHash !== hash) return null;
 
@@ -122,6 +184,8 @@ export const readFootageTranscript = (
 export const writeFootageTranscript = (opts: {
   readonly sourcePath: string;
   readonly sourceHash: string;
+  /** The stamp `hashFootage` took with `sourceHash`. */
+  readonly sourceStamp: FootageStamp | null;
   readonly transcript: FootageTranscript;
 }): Effect.Effect<FootageSidecar, PlatformError, FileSystem.FileSystem> =>
   Effect.gen(function* () {
@@ -130,6 +194,7 @@ export const writeFootageTranscript = (opts: {
       version: SIDECAR_VERSION,
       sourcePath: path.resolve(opts.sourcePath),
       sourceHash: opts.sourceHash,
+      ...(opts.sourceStamp !== null ? { sourceStamp: opts.sourceStamp } : {}),
       transcribedAt: new Date().toISOString(),
       words: opts.transcript.words,
       segments: opts.transcript.segments,

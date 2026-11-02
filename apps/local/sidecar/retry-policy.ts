@@ -225,6 +225,25 @@ export const STORAGE_MOVE_POLICY = {
 } as const satisfies RetryingJobPolicy;
 
 /**
+ * **Footage import** (`cvm footage import`, #2534): copies one file in as
+ * Imported Footage, checked by checksum. Copied from the Storage move, the
+ * copy it is: a lost run spends no attempt and is redone from its start, so a
+ * multi-gigabyte import outlasts a Sidecar restart.
+ */
+export const FOOTAGE_IMPORT_POLICY = STORAGE_MOVE_POLICY;
+
+/**
+ * **YouTube import** (#2545): one attempt, as a refusal (not 16:9, not
+ * found) would only be refused again; the author runs it again. A lost run
+ * (a Sidecar restart) spends no attempt and is redone from the start.
+ */
+export const YOUTUBE_IMPORT_POLICY = {
+  lane: "default",
+  maxAttempts: 1,
+  resumable: true,
+} as const satisfies RetryingJobPolicy;
+
+/**
  * **Storage delete** (#2110): "Delete originals", and every other delete on
  * the Storage page as it moves here. 1 attempt: a file it could not delete
  * (Windows holds it open) fails the Job with "N files still on D:, retry",

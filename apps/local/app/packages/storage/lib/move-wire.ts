@@ -20,8 +20,8 @@ export const STORAGE_MOVE_KIND_LABELS: Record<StorageMoveKind, string> = {
 
 /**
  * What of a bucket can be moved. A Course, Standalone Videos and Shorts move
- * their Footage or their Exported Videos; Shared Footage and Unused Footage
- * are Footage only; Clip Mockups move as themselves. The rest (the Overlay
+ * their Footage or their Exported Videos; Shared Footage, Unused Footage and
+ * Used and Unused Imported Footage are Footage only; Clip Mockups move as themselves. The rest (the Overlay
  * Render Cache, export scratch, Exported Videos of no current Video) are
  * deleted, not moved (ADR 0041).
  */
@@ -33,6 +33,8 @@ export const movableKindsOf = (bucket: StorageBucket): StorageMoveKind[] => {
       return ["footage", "exported-videos"];
     case "shared-footage":
     case "unused-footage":
+    case "used-imported-footage":
+    case "unused-imported-footage":
       return ["footage"];
     case "clip-mockups":
       return ["clip-mockups"];

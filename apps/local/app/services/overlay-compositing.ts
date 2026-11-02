@@ -17,22 +17,36 @@ import type { OverlayContent } from "./overlay-render-cache";
 import { resolveOverlayKind } from "@/features/videos/overlay-kind";
 import type { ExportOverlay } from "./export-hash";
 import { overlayTransformVideoFilter } from "@/features/videos/overlay-transform";
+import { bRollFootageTime } from "@/features/video-editor/b-roll-footage-time";
 import { VIDEO_FORMAT_DIMENSIONS } from "@/features/videos/video-format";
 import { BITEXACT_ARGS, LANDSCAPE_VIDEO_ENCODE_ARGS } from "./ffmpeg-run";
+
+/**
+ * A B-roll's picture: a stretch of Imported Footage (root-relative), from
+ * `footageStart` seconds into the file. It is never rendered — the compositing
+ * pass reads the Footage itself — so it has no Overlay Render Cache entry.
+ */
+export type BRollFootage = {
+  kind: "bRoll";
+  footagePath: string;
+  footageStart: number;
+  durationInSeconds: number;
+};
 
 /**
  * One Overlay placed on the Video's own timeline: the seconds at which it
  * appears and disappears in the finished export.
  *
  * `content` is what the Overlay Render Cache is asked for — a Definition Card
- * or a Bullet Panel, discriminated by the Overlay's own Kind. It carries the
+ * or a Bullet Panel, discriminated by the Overlay's own Kind — or, for a
+ * B-roll, the Footage the pass reads instead of a render. It carries the
  * Overlay's OWN `durationInSeconds`, not `endInSeconds - startInSeconds`: a
  * card truncated by the end of the Video is still rendered at full length, so
  * the same card at the end of one Video and the middle of another shares one
  * cached render.
  */
 export type PlacedOverlay = {
-  content: OverlayContent;
+  content: OverlayContent | BRollFootage;
   startInSeconds: number;
   /** Never past the end of the Video — a card that runs off the end is cut. */
   endInSeconds: number;
@@ -56,9 +70,14 @@ export type OverlayCameraMove = {
  * it occupies, and the `.mov` to composite over that span. This is everything
  * the ffmpeg pass needs and nothing it does not — the content has already done
  * its job by naming the file.
+ *
+ * `inputPath` is the ffmpeg input drawn over the span: the rendered `.mov`,
+ * or, for a B-roll, its Imported Footage found on a Storage Root,
+ * and `footageStart` is where in that file its window starts; null otherwise.
  */
 export type RenderedOverlay = {
-  overlayPath: string;
+  inputPath: string;
+  footageStart: number | null;
   startInSeconds: number;
   endInSeconds: number;
 } & OverlayCameraMove;
@@ -72,9 +91,11 @@ export type RenderedOverlay = {
  */
 export const withRenderedContent = (
   placed: PlacedOverlay,
-  overlayPath: string
+  inputPath: string
 ): RenderedOverlay => ({
-  overlayPath,
+  inputPath,
+  footageStart:
+    placed.content.kind === "bRoll" ? placed.content.footageStart : null,
   startInSeconds: placed.startInSeconds,
   endInSeconds: placed.endInSeconds,
   kind: placed.kind,
@@ -140,8 +161,20 @@ export const placeOverlaysOnTimeline = (
  * A Bullet Panel with no bullets at all is still a panel — its heading renders
  * — so the empty array is passed through rather than treated as absent.
  */
-const overlayContent = (overlay: ExportOverlay): OverlayContent => {
+const overlayContent = (
+  overlay: ExportOverlay
+): OverlayContent | BRollFootage => {
   switch (resolveOverlayKind(overlay.kind)) {
+    case "bRoll":
+      // `cvm overlay` never writes a B-roll without both. A row that somehow
+      // lacks its path is looked for as "" and fails the export as Footage
+      // not found, rather than compositing nothing.
+      return {
+        kind: "bRoll",
+        footagePath: overlay.footagePath ?? "",
+        footageStart: overlay.footageStart ?? 0,
+        durationInSeconds: overlay.durationInSeconds,
+      };
     case "bulletPanel":
       return {
         kind: "bulletPanel",
@@ -208,6 +241,11 @@ const NORMALIZE_FILTER = `scale=${VIDEO_FORMAT_DIMENSIONS.landscape.width}:${VID
  * An Overlay whose kind carries none — every Definition Card — adds no move at
  * all, so its graph is what it always was.
  *
+ * A B-roll's input is its Imported Footage, already sought to its `from` by
+ * {@link buildOverlayCompositeArgs}. Its node trims it to the window, shifts it
+ * onto the window, and scales it to the landscape frame, which it then covers
+ * whole. It moves no camera.
+ *
  * Returns `null` for no Overlays at all — the signal to skip the pass entirely,
  * which is what leaves a Video without Overlays byte-for-byte as it was.
  */
@@ -221,10 +259,17 @@ export const buildOverlayCompositeFilterGraph = (
 ): string | null => {
   if (overlays.length === 0) return null;
 
-  const shifts = overlays.map(
-    (overlay, index) =>
-      `[${index + 1}:v]setpts=PTS-STARTPTS+${formatSeconds(overlay.startInSeconds)}/TB[ovl${index}]`
-  );
+  const shifts = overlays.map((overlay, index) => {
+    const shift = `setpts=PTS-STARTPTS+${formatSeconds(overlay.startInSeconds)}/TB`;
+    // A B-roll's input is timed from its `from` (0), with the frame before
+    // an off-grid `from` kept at a time below 0: shifted, not restarted, so
+    // that frame is the one on screen when the window opens.
+    const node =
+      overlay.kind === "bRoll"
+        ? `trim=end=${formatSeconds(overlay.endInSeconds - overlay.startInSeconds)},setpts=PTS+${formatSeconds(overlay.startInSeconds)}/TB,${NORMALIZE_FILTER}`
+        : shift;
+    return `[${index + 1}:v]${node}[ovl${index}]`;
+  });
 
   let current = "[0:v]";
 
@@ -290,7 +335,23 @@ export const buildOverlayCompositeArgs = (
     "-hide_banner",
     "-i",
     videoPath,
-    ...overlays.flatMap((overlay) => ["-i", overlay.overlayPath]),
+    // A B-roll's Footage is sought to its `from`, so a long file is never
+    // decoded from its start, and its node's `trim` ends the read at the
+    // window's end (an input `-t` would cut the frames kept before `from`).
+    // Not an accurate seek: that drops every frame before `from`, so an
+    // off-grid `from` would open on the frame after the one the preview
+    // shows.
+    ...overlays.flatMap((overlay) =>
+      overlay.footageStart === null
+        ? ["-i", overlay.inputPath]
+        : [
+            "-noaccurate_seek",
+            "-ss",
+            formatSeconds(bRollFootageTime(overlay.footageStart, 0)),
+            "-i",
+            overlay.inputPath,
+          ]
+    ),
     "-filter_complex",
     filterGraph,
     "-map",

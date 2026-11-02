@@ -323,6 +323,13 @@
       "when": 1793395610323,
       "tag": "0045_chat_highlight",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1793625490019,
+      "tag": "0046_overlay_b_roll",
+      "breakpoints": true
     }
   ]
 }
