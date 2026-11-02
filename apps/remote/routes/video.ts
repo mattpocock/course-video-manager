@@ -42,6 +42,14 @@ export const videoRoutes = (runtime: RemoteRuntime) =>
       forward(runtime, VideoOperationsService, "createStandaloneVideo")
     )
     .post(
+      "/getRecordingSessionForCut",
+      forward(runtime, VideoOperationsService, "getRecordingSessionForCut")
+    )
+    .post(
+      "/createShortFromRanges",
+      forward(runtime, VideoOperationsService, "createShortFromRanges")
+    )
+    .post(
       "/linkVideoToPitch",
       forward(runtime, VideoOperationsService, "linkVideoToPitch")
     )

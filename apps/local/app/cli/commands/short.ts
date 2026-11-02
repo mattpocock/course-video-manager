@@ -14,6 +14,7 @@ import { enqueueJob, JOB_KIND_SPECS } from "../../../sidecar/job-specs";
 import { withFootageJobs } from "./footage-jobs";
 import { waitForShortRender } from "./short-render-wait";
 import { HELP, RENDER_HELP } from "./short.help";
+import { createCmd } from "./short-create";
 
 // ---------------------------------------------------------------------------
 // short render
@@ -86,5 +87,5 @@ const renderCmd = Command.make(
 
 export const shortCommand = Command.make("short").pipe(
   Command.withDescription(detail(HELP)),
-  Command.withSubcommands([renderCmd])
+  Command.withSubcommands([createCmd, renderCmd])
 );
