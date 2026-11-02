@@ -6,6 +6,7 @@ import {
   clipCompositePicture,
   clipFfmpegInput,
   clipFrame,
+  clipLayers,
   clipPlaybackClock,
   clipPlaybackUrl,
   clipSource,
@@ -84,6 +85,10 @@ describe("an OBS Clip's source", () => {
   it("has no composite", () => {
     expect(clipComposite(source)).toBeNull();
   });
+
+  it("is pictured by one Scene Layer", () => {
+    expect(clipLayers(source)).toEqual([{ kind: "scene" }]);
+  });
 });
 
 const SESSION_DIR = "/mnt/d/obs-recordings/2026-10-11T09-00-00 abcd1234";
@@ -142,6 +147,10 @@ describe("a CVM-recorder Clip's source", () => {
       start: 10,
       end: 14,
     });
+  });
+
+  it("is pictured by one Scene Layer", () => {
+    expect(clipLayers(source)).toEqual([{ kind: "scene" }]);
   });
 
   it("is exported as the composite of its Session's files, mic EQ applied", () => {
