@@ -101,7 +101,6 @@ import {
  *   description       the Definition Card's body — the definition
  *   bullets           the Bullet Panel's bullets, or null for other kinds
  *   disableEnterAnimation / disableExitAnimation  hard-cut instead of easing
- *   chatSpin          a Chat Card's spin cells ([] = off), else null
  *
  * VERBS:
  *   overlay list --video <id> [--clip <id>]  a Video's Overlays, timeline order
@@ -281,17 +280,7 @@ const addCmd = Command.make(
     ...bulletPanelOpts,
     ...chatCardOpts,
   },
-  ({
-    clip,
-    at,
-    duration,
-    kind,
-    title,
-    description,
-    chatHighlight,
-    noChatSpin,
-    ...flags
-  }) =>
+  ({ clip, at, duration, kind, title, description, chatHighlight, ...flags }) =>
     Effect.gen(function* () {
       yield* requireNonNegativeAt(at);
       yield* requirePositiveDuration(duration);
@@ -305,7 +294,7 @@ const addCmd = Command.make(
         title: Option.getOrUndefined(title),
         description: desc,
         bulletsJson: Option.getOrUndefined(flags.bulletsJson),
-        chatCard: { chatHighlight, noChatSpin },
+        chatCard: { chatHighlight },
       });
       // A Chat Card's title is its Chat Highlight's author, copied; a Call
       // to Action's has a default.
@@ -353,7 +342,7 @@ const addCmd = Command.make(
         kind: willBeKind,
         anchor,
         at,
-        flags: { chatHighlight, noChatSpin },
+        flags: { chatHighlight },
       });
 
       const overlayOps = yield* OverlayOperationsService;

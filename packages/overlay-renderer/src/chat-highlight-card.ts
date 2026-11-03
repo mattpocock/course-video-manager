@@ -76,6 +76,27 @@ export type ChatHighlightCard = z.infer<typeof chatHighlightCardSchema>;
 /** yuva420p halves the chroma planes, so the stream needs even dimensions. */
 const even = (n: number) => Math.ceil(n / 2) * 2;
 
+/** The card's own height on a 1920-wide frame, its message at its full lines. */
+const designCardHeight = (): number => {
+  const g = CHAT_HIGHLIGHT_GEOMETRY;
+  const lineHeight = (type: { fontSize: number; lineHeight: number }) =>
+    type.fontSize * type.lineHeight;
+  return (
+    g.padding * 2 +
+    lineHeight(CHAT_HIGHLIGHT_AUTHOR_TYPE) +
+    g.gap +
+    lineHeight(CHAT_HIGHLIGHT_MESSAGE_TYPE) * CHAT_HIGHLIGHT_MAX_LINES
+  );
+};
+
+/**
+ * The card's own height (no shadow margin) at a given frame width, with its
+ * message at its full {@link CHAT_HIGHLIGHT_MAX_LINES}: the most room it can
+ * take, whatever the message.
+ */
+export const chatHighlightCardHeight = (frameWidth: number): number =>
+  designCardHeight() * (frameWidth / DESIGN_WIDTH);
+
 /**
  * The still's canvas size at a given frame width: tall enough for the author
  * line plus a message at its full {@link CHAT_HIGHLIGHT_MAX_LINES}.
@@ -85,15 +106,8 @@ export const chatHighlightCanvasSize = (
 ): { width: number; height: number } => {
   const scale = frameWidth / DESIGN_WIDTH;
   const g = CHAT_HIGHLIGHT_GEOMETRY;
-  const lineHeight = (type: { fontSize: number; lineHeight: number }) =>
-    type.fontSize * type.lineHeight;
-  const cardHeight =
-    g.padding * 2 +
-    lineHeight(CHAT_HIGHLIGHT_AUTHOR_TYPE) +
-    g.gap +
-    lineHeight(CHAT_HIGHLIGHT_MESSAGE_TYPE) * CHAT_HIGHLIGHT_MAX_LINES;
   return {
     width: even((g.cardWidth + g.shadowMargin * 2) * scale),
-    height: even((cardHeight + g.shadowMargin * 2) * scale),
+    height: even((designCardHeight() + g.shadowMargin * 2) * scale),
   };
 };

@@ -9,7 +9,11 @@ import { ActionsDropdown } from "./actions-dropdown";
 import { useEditorVideoMenu } from "../editor-video-menu";
 import { MissingWordTimingBadge } from "./transcript-word-actions";
 import { PreloadableClipManager } from "../preloadable-clip";
-import { shortOverlaysByClipId } from "../overlay-preview";
+import {
+  shortOverlaysByClipId,
+  withChatCardFaceAreas,
+} from "../overlay-preview";
+import { clipFaceAreas, clipSource } from "@/packages/clip-source";
 import { getShowScrubSlider as getShowScrubSliderSelector } from "../video-editor-selectors";
 import { formatDuration } from "@/lib/format-duration";
 import { ListPlusIcon, VideoOffIcon } from "lucide-react";
@@ -93,10 +97,29 @@ export const PortraitStudioPanel = () => {
     VideoEditorContext,
     (ctx) => ctx.overlaysByClipId
   );
-  // A Short draws only its Chat Cards and Calls to Action, as its render does.
+  // A Short draws only its Chat Cards and Calls to Action, as its render does,
+  // each Chat Card clear of the face in every Clip under it (#2669).
   const shortOverlays = useMemo(
-    () => shortOverlaysByClipId(overlaysByClipId),
-    [overlaysByClipId]
+    () =>
+      withChatCardFaceAreas(
+        shortOverlaysByClipId(overlaysByClipId),
+        new Map(
+          clips.flatMap((clip) =>
+            clip.type === "on-database"
+              ? [
+                  [
+                    clip.databaseId,
+                    clipFaceAreas(
+                      clipSource(clip, { videoFormat }),
+                      clip.zoomType
+                    ),
+                  ] as const,
+                ]
+              : []
+          )
+        )
+      ),
+    [overlaysByClipId, clips, videoFormat]
   );
   const cvmRecorderState = useContextSelector(
     VideoEditorContext,

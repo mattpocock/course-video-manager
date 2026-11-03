@@ -329,7 +329,6 @@ describe("cvm short create from Video ranges", () => {
         ...chatCard,
         at: 4,
         durationInSeconds: 2,
-        chatSpin: [],
       },
       // Before the new range, and at its very end: neither is copied.
       { clipId: source, ...chatCard, at: 1, durationInSeconds: 2 },
@@ -351,7 +350,6 @@ describe("cvm short create from Video ranges", () => {
           title: o.title,
           description: o.description,
           disableEnterAnimation: o.disableEnterAnimation,
-          chatSpin: o.chatSpin,
         }))
         .sort((a, b) => a.at - b.at)
     ).toEqual([
@@ -360,7 +358,6 @@ describe("cvm short create from Video ranges", () => {
         at: 1,
         durationInSeconds: 2,
         disableEnterAnimation: false,
-        chatSpin: [],
       },
       {
         kind: "callToAction",
@@ -370,7 +367,6 @@ describe("cvm short create from Video ranges", () => {
         title: "Subscribe",
         description: "for more",
         disableEnterAnimation: true,
-        chatSpin: null,
       },
     ]);
     expect(await snapshot(first.id)).toEqual(before);

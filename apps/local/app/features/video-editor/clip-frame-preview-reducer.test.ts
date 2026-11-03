@@ -76,7 +76,6 @@ describe("clipFrameRequest", () => {
             disableExitAnimation: false,
             title: "example.com",
             description: "A fake subline",
-            chatSpin: null,
           },
         ],
       })
@@ -123,7 +122,6 @@ const card: ClipOverlay = {
   disableExitAnimation: false,
   title: "Term",
   description: "what it means",
-  chatSpin: null,
 };
 
 /** A 10 s Landscape Clip with Footage Layers only, under that card. */
