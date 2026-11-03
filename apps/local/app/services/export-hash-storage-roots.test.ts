@@ -28,7 +28,6 @@ const obs = (videoFilename: string, sourceStartTime = 1.5) => ({
       title: "Term",
       description: "Meaning",
       bullets: null,
-      chatSpin: null,
     },
   ],
 });

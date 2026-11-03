@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { parseOverlayProps } from "@cvm/overlay-renderer/props";
-import { CHAT_SPIN_MOTION } from "@cvm/core/features/videos/chat-highlight-motion";
 import type { ExportOverlay } from "./export-hash";
 import { verticalOverlayProps } from "./vertical-overlay-props";
 
@@ -15,10 +14,6 @@ const overlay = (overrides: Partial<ExportOverlay> = {}): ExportOverlay => ({
   title: "@fake_viewer_1",
   description: "A fake question?",
   bullets: null,
-  chatSpin: [
-    { author: "@fake_viewer_2", text: "Fake message two" },
-    { author: "@fake_viewer_3", text: "Fake message three" },
-  ],
   ...overrides,
 });
 
@@ -30,7 +25,7 @@ const props = (
     fps: 60,
     durationInFrames: 1200,
     subtitles: [],
-    clips: overlays.map((o) => ({ overlays: o })),
+    clips: overlays.map((o) => ({ overlays: o, faceAreas: [] })),
     clipDurations: overlays.map(() => ({ duration: 10, pauseType })),
   });
 
@@ -39,36 +34,34 @@ const callToAction = (overrides: Partial<ExportOverlay> = {}) =>
     kind: "callToAction",
     title: "example.com",
     description: "A fake subline",
-    chatSpin: null,
     ...overrides,
   });
 
 describe("a Short's render props", () => {
-  it("pass a Chat Card with its frames, placement and spin cells", () => {
+  it("pass a Chat Card with its frames, placement and motion", () => {
     const [card, ...rest] = props([[], [overlay()]]).chatCards;
 
     expect(rest).toEqual([]);
     expect(card).toMatchObject({
       author: "@fake_viewer_1",
       text: "A fake question?",
-      cells: overlay().chatSpin,
       // Its Clip starts 10s in, and it 2s into that.
       startFrame: 720,
       durationInFrames: 300,
       top: 240,
       width: 960,
     });
-    expect(card!.enter).toHaveLength((CHAT_SPIN_MOTION.ms * 60) / 1000);
-    expect(card!.enter.at(-1)!.scroll).toBeCloseTo(2, 2);
-    expect(card!.exit.length).toBeGreaterThan(0);
+    // A 200 ms fade in and a 150 ms fade out, at 60 fps.
+    expect(card!.enter).toHaveLength(12);
+    expect(card!.exit).toHaveLength(9);
     // The renderer accepts them as they are.
     expect(() => parseOverlayProps(props([[overlay()]]))).not.toThrow();
   });
 
   it("draw no other Overlay Kind", () => {
-    expect(
-      props([[overlay({ kind: "definitionCard", chatSpin: null })]]).chatCards
-    ).toEqual([]);
+    expect(props([[overlay({ kind: "definitionCard" })]]).chatCards).toEqual(
+      []
+    );
   });
 
   it("place a Call to Action anchored mid-Clip on its frames, words as written", () => {

@@ -1,10 +1,6 @@
 import { AbsoluteFill, Sequence, useCurrentFrame } from "remotion";
 import type { ChatCard, ChatCardPose } from "../src/props";
-import {
-  CHAT_HIGHLIGHT_GEOMETRY,
-  chatHighlightCanvasSize,
-} from "../src/chat-highlight-card";
-import { DESIGN_WIDTH } from "../src/definition-card-tokens";
+import { CHAT_HIGHLIGHT_GEOMETRY } from "../src/chat-highlight-card";
 import { loadFont } from "@remotion/google-fonts/DMSans";
 import { ChatHighlightPanel } from "./ChatHighlightPanel";
 
@@ -23,7 +19,7 @@ export const ChatCards = ({ cards }: { cards: ChatCard[] }) => (
         from={card.startFrame}
         durationInFrames={card.durationInFrames}
       >
-        <ChatCardReel card={card} />
+        <ChatCardFrame card={card} />
       </Sequence>
     ))}
   </>
@@ -34,55 +30,31 @@ const poseAt = (card: ChatCard, frame: number): ChatCardPose => {
   if (frame < card.enter.length) return card.enter[frame]!;
   const exitStart = card.durationInFrames - card.exit.length;
   if (frame >= exitStart) return card.exit[frame - exitStart]!;
-  return { opacity: 1, offsetY: 0, scroll: card.cells.length };
+  return { opacity: 1, offsetY: 0 };
 };
 
 /**
- * The Chat Spin's reel: the Chat Highlight card, one cell per message with the
- * pick last, scrolled past a one-cell window. Every cell is the card's full
- * height, so the reel moves by whole cards; once landed it is the settled card.
+ * One chat message, as the Chat Highlight card, centred with its top `top`
+ * px down, `offsetY` px lower while it fades in or out.
  */
-const ChatCardReel = ({ card }: { card: ChatCard }) => {
+const ChatCardFrame = ({ card }: { card: ChatCard }) => {
   const pose = poseAt(card, useCurrentFrame());
   const scale = card.width / CHAT_HIGHLIGHT_GEOMETRY.cardWidth;
-  const margin = CHAT_HIGHLIGHT_GEOMETRY.shadowMargin * scale;
-  const cellHeight = chatHighlightCanvasSize(DESIGN_WIDTH * scale).height;
-  const strip = [...card.cells, { author: card.author, text: card.text }];
-
   return (
     <AbsoluteFill style={{ fontFamily }}>
       <div
+        className="absolute left-0 right-0 flex justify-center"
         style={{
-          position: "absolute",
-          left: 0,
-          right: 0,
-          top: card.top - margin,
-          height: cellHeight,
-          overflow: "hidden",
-          // Cells fade as they cross the window's edges, as on a reel, rather
-          // than being cut by a hard line. Only the shadow margin fades.
-          maskImage: `linear-gradient(to bottom, transparent, black ${margin}px, black calc(100% - ${margin}px), transparent)`,
+          top: card.top,
           opacity: pose.opacity,
-          transform: `translateY(${pose.offsetY * scale}px)`,
+          transform: `translateY(${pose.offsetY}px)`,
         }}
       >
-        <div
-          style={{ transform: `translateY(${-pose.scroll * cellHeight}px)` }}
-        >
-          {strip.map((cell, index) => (
-            <div
-              key={index}
-              className="flex justify-center items-start"
-              style={{ height: cellHeight, paddingTop: margin }}
-            >
-              <ChatHighlightPanel
-                author={cell.author}
-                text={cell.text}
-                scale={scale}
-              />
-            </div>
-          ))}
-        </div>
+        <ChatHighlightPanel
+          author={card.author}
+          text={card.text}
+          scale={scale}
+        />
       </div>
     </AbsoluteFill>
   );

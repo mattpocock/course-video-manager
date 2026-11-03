@@ -7,7 +7,7 @@ import type { OverlayKind } from "@/features/videos/overlay-kind";
  * words, the rule that keeps it a Call to Action, and the columns it writes.
  * Its words are the Overlay's own `title` (the headline) and `description`
  * (the subline); its refusal of `--bullets-json` is `requireContentForKind`'s
- * and of the Chat Card flags `requireChatCardFlags`'.
+ * and of the Chat Card flag `requireChatCardFlags`'.
  *
  * Split out of overlay.ts so that module stays under the repo's per-file token
  * budget, as `overlay.chat-card.ts` holds the Chat Card's.

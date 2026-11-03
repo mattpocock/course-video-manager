@@ -23,7 +23,6 @@ const card = (overrides: Partial<ExportOverlay> = {}): ExportOverlay => ({
   title: "Hydration",
   description: "Attaching handlers to server-rendered HTML.",
   bullets: null,
-  chatSpin: null,
   ...overrides,
 });
 
@@ -78,30 +77,15 @@ describe("a Chat Card in the address", () => {
       kind: "chatCard",
       title: "@fake_viewer_1",
       description: "A fake question?",
-      chatSpin: [
-        { author: "@fake_viewer_2", text: "Fake message two" },
-        { author: "@fake_viewer_3", text: "Fake message three" },
-      ],
       ...overrides,
     });
 
-  it("changes when its spin, author or text changes", () => {
-    expect(withOverlays(chatCard({ chatSpin: [] }))).not.toBe(
-      withOverlays(chatCard())
-    );
+  it("changes when its author or text changes", () => {
     expect(withOverlays(chatCard({ title: "@fake_viewer_9" }))).not.toBe(
       withOverlays(chatCard())
     );
     expect(withOverlays(chatCard({ description: "Another?" }))).not.toBe(
       withOverlays(chatCard())
-    );
-  });
-
-  it("keys its spin only for a Chat Card, never another kind", () => {
-    // A stray chatSpin on a Definition Card must not re-address it: the
-    // payload gains its spin only when the kind is a Chat Card.
-    expect(withOverlays(card({ kind: "definitionCard", chatSpin: [] }))).toBe(
-      "506d7e9fe1da53c7e56f0d1b398164fa"
     );
   });
 });

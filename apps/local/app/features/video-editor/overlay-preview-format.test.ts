@@ -21,7 +21,6 @@ const overlay = (id: string, kind: string): ClipOverlay => ({
   title: "@fake_viewer_1",
   description: "A fake question?",
   bullets: null,
-  chatSpin: kind === "chatCard" ? [] : null,
 });
 
 const byClip = new Map([

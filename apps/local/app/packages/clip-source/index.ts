@@ -19,6 +19,9 @@
 // A Clip's picture is its Layers (ADR 0056): `clipLayers` lists them, bottom
 // to top, and every picture function here draws from them. A Clip with none
 // stored is one Scene Layer, and draws, plays and hashes as it always did.
+//
+// `clipFaceAreas` says where Matt's face can be in a Clip's picture, so a
+// Short's Chat Card is never drawn over it (#2669).
 export {
   clipComposite,
   clipCompositePicture,
@@ -51,5 +54,6 @@ export {
   type Layer,
   type SceneLayer,
 } from "./lib/layers";
+export { clipFaceAreas } from "./lib/face-areas";
 export { clampCrop, type ScreenCrop } from "./lib/screen-crop";
 export { EXPORT_FPS, exportFrameAt, exportFrameCount } from "./lib/frame-grid";

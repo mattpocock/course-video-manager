@@ -23,17 +23,17 @@ const shortsSampleProps: OverlayProps = {
   ],
   definitionCards: [],
   bulletPanels: [],
-  // A Chat Card that lands at once (no motion frames), with fake chat.
+  // A Chat Card that cuts in (no motion frames), with fake chat.
   chatCards: [
     {
       author: "@fake_viewer_42",
       text: "Do you write the tests before the types, or the types first?",
-      cells: [{ author: "@fake_viewer_7", text: "A fake message" }],
       startFrame: 0,
       durationInFrames: 180,
       enter: [],
       exit: [],
-      ...CHAT_CARD_PLACEMENT,
+      top: CHAT_CARD_PLACEMENT.slots.top,
+      width: CHAT_CARD_PLACEMENT.width,
     },
   ],
   callsToAction: [

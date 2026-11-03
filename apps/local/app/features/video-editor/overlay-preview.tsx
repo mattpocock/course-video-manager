@@ -16,7 +16,7 @@ import {
   resolveOverlayKind,
 } from "@/features/videos/overlay-kind";
 import { overlayTransformCssStyleAt } from "@/features/videos/overlay-transform";
-import type { ChatSpinCell } from "@cvm/core/features/videos/chat-card";
+import type { LayerRect } from "@cvm/core/features/videos/clip-layer";
 import { callToActionInputProps } from "./call-to-action-input-props";
 import { chatCardInputProps } from "./chat-card-input-props";
 
@@ -49,8 +49,12 @@ export type ClipOverlay = {
   disableExitAnimation: boolean;
   title: string;
   description: string;
-  /** A Chat Card's spin cells ([] = off). `null` on every other kind. */
-  chatSpin: ChatSpinCell[] | null;
+  /**
+   * On a Short's Chat Card only: where Matt's face can be in every Clip it is
+   * drawn over (`withChatCardFaceAreas`), so the preview puts it in the same
+   * slot as the render. Absent: no face anywhere under it.
+   */
+  faceAreas?: ReadonlyArray<LayerRect>;
 };
 
 /**
@@ -177,6 +181,38 @@ const isShortOnly = (overlay: ClipOverlay) =>
 export const shortOverlaysByClipId = (
   overlaysByClipId: ReadonlyMap<string, ClipOverlay[]>
 ) => filterOverlaysByClipId(overlaysByClipId, isShortOnly);
+
+/**
+ * A Short's Overlays by Clip, each Chat Card given the Face Areas of EVERY
+ * Clip it is drawn over (#2669), as the render gives it them
+ * (`vertical-overlay-props.ts`): the copy over each Clip gets them all, so
+ * the card sits in one slot from its first frame to its last.
+ */
+export const withChatCardFaceAreas = (
+  overlaysByClipId: ReadonlyMap<string, ClipOverlay[]>,
+  faceAreasByClipId: ReadonlyMap<string, ReadonlyArray<LayerRect>>
+): Map<string, ClipOverlay[]> => {
+  const under = new Map<string, LayerRect[]>();
+  for (const [clipId, overlays] of overlaysByClipId) {
+    for (const overlay of overlays) {
+      if (resolveOverlayKind(overlay.kind) !== "chatCard") continue;
+      under.set(overlay.id, [
+        ...(under.get(overlay.id) ?? []),
+        ...(faceAreasByClipId.get(clipId) ?? []),
+      ]);
+    }
+  }
+  return new Map(
+    [...overlaysByClipId].map(([clipId, overlays]) => [
+      clipId,
+      overlays.map((overlay) =>
+        under.has(overlay.id)
+          ? { ...overlay, faceAreas: under.get(overlay.id) }
+          : overlay
+      ),
+    ])
+  );
+};
 
 /**
  * The Overlays any other Video draws, by Clip: everything but its Chat Cards
@@ -373,12 +409,24 @@ const ActiveOverlayPlayer = (props: {
           }
           case "chatCard": {
             // A Short's Chat Card, on the Short's own 1080x1920 frame, with
-            // the motion the Short's render gives it (`vertical-overlay-props`).
-            const inputProps = chatCardInputProps(active, {
-              startFrame: 0,
-              durationInFrames,
-              fps: OVERLAY_RENDER_FPS,
-            });
+            // the motion and the slot the Short's render gives it
+            // (`vertical-overlay-props`).
+            const inputProps = chatCardInputProps(
+              active,
+              { startFrame: 0, durationInFrames, fps: OVERLAY_RENDER_FPS },
+              active.faceAreas ?? []
+            );
+            if (inputProps === null) {
+              // The render refuses this card: say so where it would be.
+              return (
+                <div
+                  className="absolute inset-x-0 bottom-0 m-2 rounded bg-destructive/90 p-2 text-center text-xs text-white"
+                  data-testid="chat-card-covers-face"
+                >
+                  This Chat Card would cover the face: the render refuses it.
+                </div>
+              );
+            }
             return (
               <Player
                 key={active.id}
