@@ -1,7 +1,10 @@
 /**
  * `pnpm db:migrate:prod`: back production up on PlanetScale, wait for the
- * backup, print its ID, then run `pnpm db:migrate`. The only way an agent
- * migrates production (the `deploy-migration` skill, #2653).
+ * backup, print its ID, then run `pnpm db:migrate`. The break-glass path:
+ * production is normally migrated by the `apps/remote` production build
+ * (`@cvm/core/db/migrate-on-deploy`, #2655), through the same
+ * `backupThenMigrate`. Matt runs this by hand, never while a production build
+ * is running (it does not take the build's advisory lock).
  *
  * Before the backup it checks everything the migrate itself would refuse —
  * a local target, a git worktree, anything but a clean `main` at
@@ -25,10 +28,10 @@ import {
   BackupFirstMigrateError,
   PLANETSCALE_API,
   backupThenMigrate,
-  type PlanetScaleTarget,
-} from "./planetscale-backup";
+  PRODUCTION_TARGET,
+} from "@cvm/core/db/planetscale-backup";
 import { scriptDatabaseUrl } from "./script-database-url";
-import target from "./planetscale-target.json" with { type: "json" };
+import { readServiceToken } from "./service-token-file";
 
 const REPO_ROOT = path.resolve(
   fileURLToPath(new URL("../../..", import.meta.url))
@@ -90,8 +93,8 @@ const stamp = new Date().toISOString().replace(/[-:]/g, "").slice(0, 15);
 try {
   const { backupId } = await backupThenMigrate({
     apiBase: PLANETSCALE_API,
-    tokenPath: TOKEN_PATH,
-    target: target satisfies PlanetScaleTarget,
+    authorization: readServiceToken(TOKEN_PATH),
+    target: PRODUCTION_TARGET,
     backupName: `pre-migrate-${latestTag()}-${stamp}z`.toLowerCase(),
     retentionDays: 30,
     pollIntervalMs: 10_000,

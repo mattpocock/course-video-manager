@@ -199,7 +199,7 @@
     {
       "file": "apps/local/app/features/jobs/use-jobs.ts",
       "count": 4,
-      "reason": "Browser: the Upload Manager's Retry, Cancel, Dismiss and stage history, each a call to the app's own route by the href job-wire.ts names (/api/jobs/\u2026). Not outbound."
+      "reason": "Browser: the Upload Manager's Retry, Cancel, Dismiss and stage history, each a call to the app's own route by the href job-wire.ts names (/api/jobs/…). Not outbound."
     },
     {
       "file": "apps/local/app/lib/post-confirmed.ts",
@@ -225,6 +225,11 @@
       "file": "apps/local/app/services/youtube-live-service.ts",
       "count": 3,
       "reason": "Quick, and watched: the YouTube Live service lists Matt's Broadcasts for the picker he is looking at (#2451), two small reads. It also reads the picked Broadcast's live chat for the app server's Broadcast chat (#2453), one streamList connection held open from the pick to End Stream: chat belongs to the live stream, is never stored, and is worth nothing once the stream is over, so it must not wait on a Job. At Go Live (#2456) it finds the YouTube stream whose ingest name is the Stream Key and binds the picked Broadcast to it if needed: one or two small calls while Matt waits on Go Live."
+    },
+    {
+      "file": "packages/core/db/planetscale-backup.ts",
+      "count": 1,
+      "reason": "Not app code: the PlanetScale backup before a production migrate (#2653, #2655). Only the apps/remote build step and the break-glass `pnpm db:migrate:prod` call it, and both must wait for the backup before they migrate, so it cannot be a Job."
     }
   ]
 }
