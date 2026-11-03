@@ -51,7 +51,7 @@ const EXIT_CODES: Record<string, number> = {
   // Invalid input: `reasons` says what to fix.
   AgentSessionUploadRefusedError: 3,
   // A Clip's Layers refused (a Source Crop outside the frame, a Placement
-  // with no area, a disallowed Landscape shape): invalid input.
+  // with no area, a Scene Layer off the bottom): invalid input.
   ClipLayersRefusedError: 3,
   // `cvm footage frame` / `cvm clip frame` asked for while the recorder
   // records: the Still Gate's "ask again after the Stop". Not a failure of

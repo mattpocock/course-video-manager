@@ -483,7 +483,7 @@ const ClipMenuContent = (props: {
                 clipId: clip.frontendId,
               }),
           },
-          canZoomClip(effectiveClipScene(clip)) && {
+          canZoomClip(effectiveClipScene(clip), onDatabase?.layers ?? []) && {
             label:
               onDatabase && onDatabase.zoomType !== "none"
                 ? "Remove Zoom"
