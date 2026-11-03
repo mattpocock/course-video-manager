@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { Clock, Effect } from "effect";
+import { Clock, Effect, type Layer } from "effect";
 import {
   createTestDb,
   truncateAllTables,
@@ -8,6 +8,12 @@ import {
 import * as schema from "@/db/schema";
 import { buildProgram } from "@/cli/main";
 import { makeTestCliOutput } from "@/cli/output";
+import {
+  addShortToPostingQueue,
+  loadPostingQueuePanel,
+  previewShortPost,
+  saveShortDescription,
+} from "@/features/video-posting/shorts-posting-queue.server";
 import { LOCAL_MACHINE_ENV_KEY } from "./env";
 import {
   buildWriteLayer,
@@ -29,10 +35,21 @@ const fixedClock: Clock.Clock = {
   ...Clock.make(),
   unsafeCurrentTimeMillis: () => NOW,
   currentTimeMillis: Effect.succeed(NOW),
+  // Effect.fn's spans read the nanos, which the spread above does not carry.
+  unsafeCurrentTimeNanos: () => BigInt(NOW) * 1_000_000n,
+  currentTimeNanos: Effect.succeed(BigInt(NOW) * 1_000_000n),
 };
 
 let testDb: TestDb;
 let run: (argv: ReadonlyArray<string>) => Promise<RunResult>;
+/** Runs what the Shorts page runs, on the same layer and clock as `run`. */
+let page: <A, E>(
+  effect: Effect.Effect<
+    A,
+    E,
+    Layer.Layer.Success<ReturnType<typeof buildWriteLayer>>
+  >
+) => Promise<A>;
 const previousMarker = process.env[LOCAL_MACHINE_ENV_KEY];
 
 beforeAll(async () => {
@@ -49,6 +66,10 @@ beforeAll(async () => {
     );
     return { stdout: out.stdout(), stderr: out.stderr(), exitCode };
   };
+  page = (effect) =>
+    Effect.runPromise(
+      effect.pipe(Effect.withClock(fixedClock), Effect.provide(layer))
+    );
 });
 
 afterAll(() => {
@@ -469,5 +490,106 @@ describe("cvm short unqueue", () => {
       { _tag: "LocalOnlyCommandError", command: "cvm short unqueue" }
     );
     expect((await entries()).every((e) => e.state === "queued")).toBe(true);
+  });
+});
+
+// ===========================================================================
+// The Shorts page (#2617): its modal and Queue panel go through the same core
+// functions as `cvm short post` and `cvm short queue`.
+// ===========================================================================
+
+describe("the Shorts page", () => {
+  it("the modal's Add to Posting Queue is `cvm short post`: same verdict, same entry", async () => {
+    const a = await short("Generics");
+
+    const preview = await page(previewShortPost(a));
+    const dryRun = await run(["short", "post", "--dry-run", a]);
+    expect(ndjson(dryRun.stdout)).toEqual([preview.verdict]);
+
+    const queued = await page(
+      addShortToPostingQueue({
+        videoId: a,
+        title: "Generics",
+        description: "About Generics",
+      })
+    );
+    expect(queued).toEqual(preview.verdict);
+    expect(await entries()).toEqual([
+      expect.objectContaining({
+        videoId: a,
+        state: "queued",
+        queuedAt: new Date(NOW),
+      }),
+    ]);
+    // No posting Job: the Sidecar's tick posts it at its slot.
+    expect(await testDb.select().from(schema.jobs)).toEqual([]);
+
+    // The CLI sees the entry the modal made, and refuses it again.
+    const again = await run(["short", "post", a]);
+    expect(again.exitCode).toBe(3);
+  });
+
+  it("the modal shows the CLI's refusal, and queues nothing", async () => {
+    const posted = await short("Old news");
+    await testDb.insert(schema.videoPosts).values([
+      { videoId: posted, platform: "youtube-shorts", postedAt: new Date() },
+      { videoId: posted, platform: "buffer", postedAt: new Date() },
+    ]);
+
+    const verdict = await page(
+      addShortToPostingQueue({
+        videoId: posted,
+        title: "Old news",
+        description: "About Old news",
+      })
+    );
+
+    expect(verdict).toMatchObject({
+      verdict: "refused",
+      reason: expect.stringContaining("already Posted"),
+      goesOutAt: null,
+    });
+    expect(await entries()).toEqual([]);
+  });
+
+  it("a description typed in the modal is saved on the Video, where --dry-run sees it", async () => {
+    const a = await short("Generics", { description: null });
+    const before = await run(["short", "post", "--dry-run", a]);
+    expect(ndjson(before.stdout)).toEqual([
+      expect.objectContaining({
+        reason: expect.stringContaining("no description"),
+      }),
+    ]);
+
+    await page(
+      saveShortDescription({ videoId: a, description: " Learn generics \n" })
+    );
+
+    expect((await page(previewShortPost(a))).description).toBe(
+      "Learn generics"
+    );
+    const after = await run(["short", "post", "--dry-run", a]);
+    expect(after.exitCode).toBe(0);
+    expect(ndjson(after.stdout)).toEqual([
+      expect.objectContaining({
+        verdict: "queued",
+        goesOutAt: "Tue 2026-11-03 13:00",
+      }),
+    ]);
+  });
+
+  it("the Queue panel shows what `cvm short queue` prints", async () => {
+    await queuedYesterday("Head");
+    const a = await short("Generics");
+    await run(["short", "post", a]);
+
+    const panel = await page(loadPostingQueuePanel());
+    const cli = await run(["short", "queue"]);
+
+    expect(panel.entries.map((e) => e.goesOutAt)).toEqual([
+      "Tue 2026-11-03 13:00",
+      "Wed 2026-11-04 13:00",
+    ]);
+    expect(panel).toEqual(one(cli.stdout));
   });
 });

@@ -130,7 +130,9 @@ the Sidecar's next check.
 Nothing is posted here: the Sidecar posts each Short at its Posting Slot. A
 Short is checked before it is queued; it needs a title of its own and a
 description (the Video's description, set with 'cvm video update --name …
---description …'), which become its YouTube title and description.
+--description …'), which become its YouTube title and description. The
+Shorts page's Add to Posting Queue does the same as this verb: its
+description field is the Video's description.
 
 REFUSED (exit 3, _tag "ShortPostRefusedError", 'refusals' names each Short and
 why). If ANY Short of the batch is refused, NONE is queued:
