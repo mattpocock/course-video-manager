@@ -23,8 +23,9 @@ export type Answer = { status: number; body: unknown };
 /**
  * A fake YouTube Data API: answers `liveBroadcasts` per `broadcastStatus`;
  * hands each `liveChat/messages/stream` connection to the next scripted
- * handler (holding it open when none is left), and each `liveChat/messages`
- * poll to the next scripted answer.
+ * handler (holding it open when none is left), each `liveChat/messages`
+ * poll to the next scripted answer, and each `videos` read to the next
+ * scripted answer (a 404 when none is left).
  */
 export const youtube: {
   url: string;
@@ -32,6 +33,7 @@ export const youtube: {
   answers: Record<string, Answer>;
   chatStreams: ((res: http.ServerResponse) => void)[];
   chatPolls: Answer[];
+  videos: Answer[];
   /** Every stream connection YouTube holds open, newest last. */
   openStreams: http.ServerResponse[];
 } = {
@@ -40,6 +42,7 @@ export const youtube: {
   answers: {},
   chatStreams: [],
   chatPolls: [],
+  videos: [],
   openStreams: [],
 };
 
@@ -85,7 +88,9 @@ export const useFakeYouTube = () => {
           ? youtube.answers[url.searchParams.get("broadcastStatus") ?? ""]
           : url.pathname === "/youtube/v3/liveChat/messages"
             ? youtube.chatPolls.shift()
-            : undefined;
+            : url.pathname === "/youtube/v3/videos"
+              ? youtube.videos.shift()
+              : undefined;
       res.writeHead(answer?.status ?? 404, {
         "Content-Type": "application/json",
       });
@@ -102,6 +107,7 @@ export const useFakeYouTube = () => {
     youtube.answers = {};
     youtube.chatStreams = [];
     youtube.chatPolls = [];
+    youtube.videos = [];
     for (const res of youtube.openStreams) res.destroy();
     youtube.openStreams = [];
   });

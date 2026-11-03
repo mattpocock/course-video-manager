@@ -10,6 +10,7 @@ const view: ChatView = {
   line: null,
   notices: [],
   waiting: false,
+  viewers: null,
   rows: [
     {
       id: "m1",
