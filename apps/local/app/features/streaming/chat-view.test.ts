@@ -4,7 +4,7 @@ import {
   createInitialLiveStreamState,
   liveStreamReducer,
 } from "./live-stream-reducer";
-import { chatView } from "./chat-view";
+import { chatView, popoutChatView } from "./chat-view";
 import { highlightOnPicture } from "./chat-highlight-reducer";
 
 const message = (id: string, text: string) => ({
@@ -126,15 +126,55 @@ describe("the chat view, on the Streaming tab and in its pop-out", () => {
       expect(chatView(t.getState(), null).line).toBeNull();
     });
 
-    it("says it is reconnecting once a reconnect outlasts the grace", () => {
+    it("says it is reconnecting quietly, with no error, once a reconnect outlasts the grace", () => {
       const t = live().send(reconnecting).send({
         type: "chat-reconnect-grace-ended",
         broadcastId: "b1",
         reconnect: 1,
       });
       expect(chatView(t.getState(), null).line).toEqual({
-        text: "Chat connection dropped, reconnecting: terminated",
-        warn: true,
+        text: "Reconnecting to chat…",
+        warn: false,
+      });
+    });
+
+    it("shows the pop-out no connection trouble, however long it lasts: the audience sees only chat", () => {
+      const troubles = [
+        { state: "reconnecting", message: "terminated" },
+        { state: "polling" },
+        { state: "refused", message: "YouTube answered 403: Forbidden" },
+        { state: "needs-reconnect", reason: "missing-live-access" },
+      ] as const;
+      for (const connection of troubles) {
+        const t = live()
+          .send({
+            type: "chat-connection-changed",
+            broadcastId: "b1",
+            connection,
+          })
+          .send({
+            type: "chat-reconnect-grace-ended",
+            broadcastId: "b1",
+            reconnect: 1,
+          });
+        const view = popoutChatView(t.getState(), null);
+        expect(view.line).toBeNull();
+        expect(view.rows.map((r) => r.id)).toEqual(["m1", "m2"]);
+      }
+    });
+
+    it("still tells the pop-out what isn't trouble: no Broadcast yet, connecting, a chat that ended", () => {
+      expect(popoutChatView(createInitialLiveStreamState(), null).line).toEqual(
+        { text: "Pick a Broadcast to see its live chat.", warn: false }
+      );
+      const t = live().send({
+        type: "chat-connection-changed",
+        broadcastId: "b1",
+        connection: { state: "over", reason: "ended" },
+      });
+      expect(popoutChatView(t.getState(), null).line).toEqual({
+        text: "This Broadcast's chat has ended.",
+        warn: false,
       });
     });
 

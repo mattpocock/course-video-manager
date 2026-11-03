@@ -25,8 +25,9 @@ export const broadcastChat = (): BroadcastChat => {
     // usual few-second polling interval it adds under a tenth to the polling,
     // and polling outlives the stream's return by a minute at most.
     maxStreamRetryMs: 60_000,
-    // YouTube holds a healthy stream connection open for minutes; one it
-    // closes within a minute is reopened after a growing pause.
+    // A stream connection that breaks within a minute of opening is reopened
+    // after a growing pause. One YouTube simply ends after sending chat is
+    // reopened at once (`broadcast-chat.ts`).
     steadyMs: 60_000,
     maxMessages: 500,
     // One line per change, into the dev log, so a run can tell polling from
