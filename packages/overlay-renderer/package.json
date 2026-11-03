@@ -29,6 +29,7 @@
   "dependencies": {
     "@cvm/lucide-icons": "workspace:*",
     "@fontsource-variable/dm-sans": "5.3.0",
+    "@fontsource/noto-color-emoji": "5.3.2",
     "@remotion/bundler": "4.0.347",
     "@remotion/cli": "4.0.347",
     "@remotion/google-fonts": "4.0.347",

@@ -8,16 +8,19 @@ import {
 import {
   ACCENT_BAR_WIDTH,
   COLORS,
+  FONT_FAMILY,
   RADIUS,
   SHADOW,
 } from "../src/definition-card-tokens";
+import { EMOJI_FONT_FAMILY } from "./offline-emoji";
 
 /**
  * The card itself, at `scale` (1 = its size on a 1920-wide frame): the panel
  * with its drop shadow, and nothing around it. The Live Stream's still and a
- * Short's Chat Card both draw this. It loads no font: each composition that
- * draws it sets DM Sans its own way (bundled for the card server, which must
- * render offline; Google Fonts for the Overlay root).
+ * Short's Chat Card both draw this. It loads DM Sans no way of its own: each
+ * composition that draws it loads it (bundled for the card server, which must
+ * render offline; Google Fonts for the Overlay root). Its emoji font is its
+ * own, bundled, and falls in after DM Sans (#2658).
  */
 export const ChatHighlightPanel = ({
   author,
@@ -29,6 +32,7 @@ export const ChatHighlightPanel = ({
   return (
     <div
       style={{
+        fontFamily: `"${FONT_FAMILY}", "${EMOJI_FONT_FAMILY}"`,
         filter: `drop-shadow(0 ${SHADOW.offsetY * scale}px ${
           SHADOW.blur * scale
         }px ${SHADOW.color})`,
