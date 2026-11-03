@@ -54,6 +54,9 @@ export type SlotScheduleEntry = {
   readonly endedAt: number | null;
 };
 
+/** How many Posting Slots a UK day has. */
+type SlotCount = 0 | 1 | 2 | 3;
+
 /** UK wall-clock slot times for a day of 1, 2 and 3 Posting Slots. */
 export type SlotPatterns = Readonly<Record<1 | 2 | 3, ReadonlyArray<string>>>;
 
@@ -149,33 +152,46 @@ const walk = ({ now, entries, patterns }: SlotScheduleInput) => {
   const claimsOn = (date: LondonDate) =>
     claimedOn(date) + (simulatedClaims.get(date) ?? 0);
 
-  /** The day's pattern before catch-up: never fewer than one a day. */
-  const baseCount = (date: LondonDate): 1 | 2 | 3 => {
-    if (isWeekend(date)) return 1;
+  /**
+   * The day's count before catch-up, from its queue length at 00:00: an
+   * empty queue gives 0, so a Short queued onto it waits for the next day.
+   */
+  const baseCount = (date: LondonDate): SlotCount => {
     const length = queueLengthAt(date);
+    if (length === 0) return 0;
+    if (isWeekend(date)) return 1;
     return length > THREE_A_DAY_ABOVE ? 3 : length > TWO_A_DAY_ABOVE ? 2 : 1;
   };
 
   /**
-   * Whether `date` had a Short to post: one in the queue at its first slot.
-   * A day whose queue stayed empty claimed nothing, but missed nothing.
+   * Whether `date` had a Short to post: it had a slot, and a Short was in
+   * the queue at its first one. A day whose queue emptied before then
+   * claimed nothing, but missed nothing.
    */
-  const hadAShortToPost = (date: LondonDate) =>
-    isHistory(date)
-      ? liveAt(londonInstant(date, patterns[baseCount(date)][0]!)) > 0
-      : queueLengthAt(date) > 0;
-
-  const slotCount = (date: LondonDate): 1 | 2 | 3 => {
+  const hadAShortToPost = (date: LondonDate) => {
     const base = baseCount(date);
-    if (isWeekend(date)) return base;
+    if (base === 0) return false;
+    return isHistory(date)
+      ? liveAt(londonInstant(date, patterns[base][0]!)) > 0
+      : true;
+  };
+
+  /** Catch-up adds one slot to a weekday with any (3 stays 3). */
+  const slotCount = (date: LondonDate): SlotCount => {
+    const base = baseCount(date);
+    if (base === 0 || isWeekend(date)) return base;
     const missed = lookbackDays(date).some(
       (day) => hadAShortToPost(day) && claimsOn(day) === 0
     );
     return missed ? (Math.min(base + 1, 3) as 2 | 3) : base;
   };
 
-  const slotsOn = (date: LondonDate): number[] =>
-    patterns[slotCount(date)].map((hhmm) => londonInstant(date, hhmm));
+  const slotsOn = (date: LondonDate): number[] => {
+    const count = slotCount(date);
+    return count === 0
+      ? []
+      : patterns[count].map((hhmm) => londonInstant(date, hhmm));
+  };
 
   /** Today's slots no entry has claimed yet, in time order. */
   const openSlotsToday = () => {
@@ -206,8 +222,9 @@ const walk = ({ now, entries, patterns }: SlotScheduleInput) => {
       if (remaining.length === 0) break;
       take(today, slot);
     }
-    // Every simulated day has at least one slot, and every queued Short was
-    // queued before it, so the walk ends within `queued.length` days.
+    // Every simulated day with a Short left has at least one slot, and every
+    // queued Short was queued before it, so the walk ends within
+    // `queued.length` days.
     for (let day = 1; remaining.length > 0 && day <= queued.length + 7; day++) {
       const date = addLondonDays(today, day);
       for (const slot of slotsOn(date)) {

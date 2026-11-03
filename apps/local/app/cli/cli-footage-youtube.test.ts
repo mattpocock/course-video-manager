@@ -118,7 +118,6 @@ beforeAll(async () => {
         recoverEveryMs: 1_000,
         lapseWaitMs: 200,
         postCheckTimeoutMs: 1_000,
-        postingQueueTickMs: 60_000,
       },
       stop: stopSidecar,
       serve: () => Effect.void,

@@ -11,6 +11,7 @@ import {
   exportedShort,
   fakeUrl,
   jobKinds,
+  jobsOf,
   queue,
   renders,
   runSidecarUntilSettled,
@@ -33,24 +34,24 @@ import {
 describe("the Posting Queue tick", () => {
   it("at 13:00 UK on a weekday posts the one queued Short once to YouTube (public, no notification) and once to Buffer (shareNow), and the entry ends Posted", async () => {
     const videoId = await exportedShort("Ship it");
-    const entryId = await queue(videoId, uk("08:00"), "a0");
+    await queue(videoId, uk("08:00", "2026-10-13"));
 
     await tickAt(uk("12:59"));
-    expect((await stateOf(entryId)).state).toBe("queued");
+    expect((await stateOf(videoId)).state).toBe("queued");
     expect(await jobKinds()).toEqual([]);
 
     await tickAt(uk("13:00"));
-    const claimed = await stateOf(entryId);
-    expect(claimed.state).toBe("posting");
-    expect(claimed.claimedSlot?.getTime()).toBe(uk("13:00"));
+    expect(await stateOf(videoId)).toMatchObject({
+      state: "posting",
+      slot: uk("13:00"),
+    });
     expect(await jobKinds()).toEqual(["buffer", "youtube-shorts"]);
 
     await runSidecarUntilSettled();
     await tickAt(uk("13:02"));
 
-    const posted = await stateOf(entryId);
-    expect(posted.state).toBe("posted");
-    expect(posted.endedAt).not.toBeNull();
+    expect((await stateOf(videoId)).state).toBe("posted");
+    expect(renders, "a fresh export is not rendered again").toBe(0);
 
     expect(youtubeInits()).toHaveLength(1);
     const init = youtubeInits()[0]!;
@@ -90,7 +91,7 @@ describe("the Posting Queue tick", () => {
 
   it("ticking again, a crash after the claim, and restarting the Sidecar never post either channel twice", async () => {
     const videoId = await exportedShort("Only once");
-    const entryId = await queue(videoId, uk("08:00"), "a0");
+    await queue(videoId, uk("08:00", "2026-10-13"));
 
     // The claim commits, then the Sidecar is gone before it runs a Job.
     await tickAt(uk("13:00"));
@@ -101,7 +102,7 @@ describe("the Posting Queue tick", () => {
     // It comes back: the claimed Jobs run once.
     await runSidecarUntilSettled();
     await tickAt(uk("13:06"));
-    expect((await stateOf(entryId)).state).toBe("posted");
+    expect((await stateOf(videoId)).state).toBe("posted");
 
     // Restarted again, and ticked again, later the same day.
     await runSidecarUntilSettled();
@@ -113,65 +114,56 @@ describe("the Posting Queue tick", () => {
     expect(bufferPosts()).toHaveLength(1);
   });
 
-  it("two slots due at once (CVM was off) give one claim per tick, and the second only once the first has settled", async () => {
-    // Both were in the queue all Wednesday and nothing was posted, so
-    // Thursday catches up: 09:00 and 18:00. CVM comes back at 19:00.
-    const first = await queue(await exportedShort("First"), uk("08:00"), "a0");
-    const second = await queue(
-      await exportedShort("Second"),
-      uk("08:01"),
-      "a1"
-    );
-    const thursday = (hhmm: string) => uk(hhmm, "2026-10-15");
+  it("a Short already Posted on YouTube, queued again, is posted only to TikTok, and ends Posted", async () => {
+    const videoId = await exportedShort("Half out");
+    await testDb.insert(schema.videoPosts).values({
+      videoId,
+      platform: "youtube-shorts",
+      remoteId: "yt-old",
+      postedAt: new Date(uk("13:00", "2026-10-01")),
+    });
+    await queue(videoId, uk("08:00", "2026-10-13"));
 
-    await tickAt(thursday("19:00"));
-    await tickAt(thursday("19:02"));
-    expect((await stateOf(first)).claimedSlot?.getTime()).toBe(
-      thursday("09:00")
-    );
-    expect((await stateOf(second)).state).toBe("queued");
-    expect(await jobKinds()).toHaveLength(2);
-
+    await tickAt(uk("13:00"));
+    expect(await jobKinds()).toEqual(["buffer"]);
     await runSidecarUntilSettled();
-    await tickAt(thursday("19:04"));
-    expect((await stateOf(first)).state).toBe("posted");
-    expect((await stateOf(second)).claimedSlot?.getTime()).toBe(
-      thursday("18:00")
-    );
+    await tickAt(uk("13:02"));
 
-    await runSidecarUntilSettled();
-    await tickAt(thursday("19:06"));
-    expect((await stateOf(second)).state).toBe("posted");
-    expect(youtubeInits()).toHaveLength(2);
-    expect(bufferPosts()).toHaveLength(2);
+    expect((await stateOf(videoId)).state).toBe("posted");
+    expect(youtubeInits()).toHaveLength(0);
+    expect(bufferPosts()).toHaveLength(1);
   });
 
   it("a queued Short with no export renders, then posts, at its slot: both posting Jobs wait on the render", async () => {
     const videoId = await exportedShort("Not rendered", "none");
-    const entryId = await queue(videoId, uk("08:00"), "a0");
+    await queue(videoId, uk("08:00", "2026-10-13"));
 
     await tickAt(uk("13:00"));
-    expect((await stateOf(entryId)).state).toBe("posting");
-    const jobs = await testDb.select().from(schema.jobs);
-    const renderJob = jobs.find((j) => j.kind === "render-vertical")!;
-    expect(renderJob.params).toEqual({ videoId });
-    expect(
-      jobs.filter((j) => j.kind !== "render-vertical").map((j) => j.dependsOn)
-    ).toEqual([renderJob.id, renderJob.id]);
+    expect((await stateOf(videoId)).state).toBe("posting");
+    const [renderJob] = await jobsOf("render-vertical");
+    expect(renderJob!.params).toEqual({ videoId });
+    const posts = [
+      ...(await jobsOf("youtube-shorts")),
+      ...(await jobsOf("buffer")),
+    ];
+    expect(posts.map((j) => j.dependsOn)).toEqual([
+      renderJob!.id,
+      renderJob!.id,
+    ]);
 
     await runSidecarUntilSettled();
     await tickAt(uk("13:02"));
-    expect((await stateOf(entryId)).state).toBe("posted");
+    expect((await stateOf(videoId)).state).toBe("posted");
     expect(renders).toBe(1);
     expect(youtubeInits()).toHaveLength(1);
     expect(bufferPosts()).toHaveLength(1);
   });
 
-  it("a Short edited after its render re-renders before posting; one rendered before the Short Export Hash re-renders once", async () => {
+  it("a Short edited after its render re-renders before posting; one rendered before the Short Export Hash re-renders too", async () => {
     const edited = await exportedShort("Edited");
     const legacy = await exportedShort("Legacy", "legacy");
-    await queue(edited, uk("08:00"), "a0");
-    const legacyEntry = await queue(legacy, uk("08:01"), "a1");
+    await queue(edited, uk("08:00", "2026-10-13"));
+    await queue(legacy, uk("08:01", "2026-10-13"));
     // A caption word change: only the vertical render draws it.
     await testDb
       .update(schema.clips)
@@ -187,28 +179,15 @@ describe("the Posting Queue tick", () => {
     ]);
     await runSidecarUntilSettled();
     await tickAt(uk("13:00", "2026-10-15"));
-    expect((await stateOf(legacyEntry)).state).toBe("posting");
+    expect((await stateOf(legacy)).state).toBe("posting");
     await runSidecarUntilSettled();
     expect(renders).toBe(2);
-
-    // Rendered now, so queued again it posts without a render.
-    await testDb
-      .update(schema.postingQueueEntries)
-      .set({ state: "removed" })
-      .where(eq(schema.postingQueueEntries.id, legacyEntry));
-    await queue(legacy, uk("14:00", "2026-10-15"), "a2");
-    await tickAt(uk("13:00", "2026-10-16"));
-    await runSidecarUntilSettled();
-    expect(renders).toBe(2);
-    expect(youtubeInits()).toHaveLength(3);
+    expect(youtubeInits()).toHaveLength(2);
   });
 
   it("only the main checkout's Sidecar claims: a linked worktree and a scratch clone never do", async () => {
-    const entryId = await queue(
-      await exportedShort("Main only"),
-      uk("08:00"),
-      "a0"
-    );
+    const videoId = await exportedShort("Main only");
+    await queue(videoId, uk("08:00", "2026-10-13"));
     const repos = fs.mkdtempSync(path.join(os.tmpdir(), "cvm-checkouts-"));
     const main = path.join(repos, "main");
     const git = (cwd: string, ...args: string[]) =>
@@ -237,11 +216,11 @@ describe("the Posting Queue tick", () => {
       );
       // A clone in the temp directory is an agent's (verify-cvm's) scratch.
       await tickAt(uk("13:00"), postingQueueTickIn(main));
-      expect((await stateOf(entryId)).state).toBe("queued");
+      expect((await stateOf(videoId)).state).toBe("queued");
       expect(await jobKinds()).toEqual([]);
 
       await tickAt(uk("13:00"), postingQueueTickIn(main, noScratch));
-      expect((await stateOf(entryId)).state).toBe("posting");
+      expect((await stateOf(videoId)).state).toBe("posting");
     } finally {
       fs.rmSync(repos, { recursive: true, force: true });
     }

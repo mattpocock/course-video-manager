@@ -113,8 +113,14 @@ export const runSidecar = <R>(opts: {
    * sidecar.
    */
   readonly afterRecovery?: Effect.Effect<void, unknown, R>;
-  /** The Posting Queue tick (`posting-queue-tick.ts`), every `postingQueueTickMs`. */
-  readonly postingQueueTick?: Effect.Effect<void, unknown, R>;
+  /**
+   * The Posting Queue tick (`posting-queue-tick.ts`) and how often it runs.
+   * Only `run-sidecar.ts` passes one: a Sidecar without it posts nothing.
+   */
+  readonly postingQueueTick?: {
+    readonly tick: Effect.Effect<void, unknown, R>;
+    readonly everyMs: number;
+  };
   /** Starts the socket once the lease is held; it is closed first on the way out. */
   readonly serve: (
     handle: SidecarHandle
@@ -550,7 +556,11 @@ export const runSidecar = <R>(opts: {
       );
       if (opts.postingQueueTick) {
         yield* Effect.forkScoped(
-          repeatTick(opts.postingQueueTick, timing.postingQueueTickMs, nudge)
+          repeatTick(
+            opts.postingQueueTick.tick,
+            opts.postingQueueTick.everyMs,
+            nudge
+          )
         );
       }
       const lanes = yield* Effect.forkScoped(

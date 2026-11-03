@@ -1,9 +1,10 @@
 /**
  * The posting Jobs a claimed Posting Slot enqueues (ADR 0057): one per
- * channel, of the existing posting kinds. `youtube-shorts` posts to YouTube
- * direct; `buffer` hands the Short to Buffer with "share now", Buffer being
- * TikTok's pipe only. Each carries the Posting Queue entry it posts, and
- * reads the Short's title and description from the Video when it runs.
+ * channel the Short is not Posted on yet, of the existing posting kinds.
+ * `youtube-shorts` posts to YouTube direct; `buffer` hands the Short to
+ * Buffer with "share now", Buffer being TikTok's pipe only. Each carries the
+ * Posting Queue entry it posts, and the title and description the claim
+ * read from the Video.
  */
 export const SHORT_POSTING_JOB_KINDS = ["youtube-shorts", "buffer"] as const;
 
@@ -25,10 +26,29 @@ export const SHORT_POSTING_JOB_POLICY = {
  */
 export const SHORT_POSTING_FAILURE_LIMIT = 3;
 
-/** A posting Job's params when the Posting Queue enqueued it. */
+/**
+ * A posting Job's params: the Posting Queue entry it posts, and the Short's
+ * words as they were when its slot was claimed. The post and its post check
+ * both use these, so renaming the Short after the claim can neither change
+ * what goes out nor hide a post that went out. A retry copies them.
+ * TikTok's caption is the title.
+ */
 export type QueuedShortPostParams = {
   readonly videoId: string;
   readonly postingQueueEntryId: string;
+  readonly title: string;
+  readonly description: string;
+};
+
+/** Whether a posting Job's stored params are `QueuedShortPostParams`. */
+export const isQueuedShortPostParams = (
+  params: unknown
+): params is QueuedShortPostParams => {
+  if (typeof params !== "object" || params === null) return false;
+  const p = params as Record<string, unknown>;
+  return ["videoId", "postingQueueEntryId", "title", "description"].every(
+    (key) => typeof p[key] === "string"
+  );
 };
 
 /**

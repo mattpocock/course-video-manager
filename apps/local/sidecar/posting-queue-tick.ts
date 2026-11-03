@@ -6,7 +6,7 @@ import { settlePostingFailures } from "./posting-queue-failures";
 
 /**
  * THE POSTING QUEUE TICK (ADR 0057): the Sidecar's own loop, every
- * `postingQueueTickMs`, that posts the head of the Posting Queue at its
+ * `POSTING_QUEUE_TICK_MS`, that posts the head of the Posting Queue at its
  * Posting Slot.
  *
  * Each tick reads the time from Effect's `Clock`, settles every channel
@@ -14,7 +14,8 @@ import { settlePostingFailures } from "./posting-queue-failures";
  * Job, Held, or Failed after 3), marks Posted every Posting or Held entry
  * both channels now have, then asks the Slot Schedule what is due. A
  * due slot is claimed in one transaction that also enqueues the `youtube-shorts`
- * and `buffer` posting Jobs; the lanes run them. The Slot Schedule makes no
+ * and `buffer` posting Jobs (for the channels it is not Posted on yet); the
+ * lanes run them. The Slot Schedule makes no
  * claim while another is still Posting, so missed slots go out one at a time.
  *
  * A Short whose vertical export is stale (no export, no Short Export Hash
@@ -22,6 +23,9 @@ import { settlePostingFailures } from "./posting-queue-failures";
  * enqueues a `render-vertical` Job, and both posting Jobs wait on it. A
  * render that fails for good counts as a failure on each channel waiting.
  */
+/** How often the Posting Queue tick looks for a due Posting Slot. */
+export const POSTING_QUEUE_TICK_MS = 120_000;
+
 export const postingQueueTick = Effect.gen(function* () {
   const now = yield* Clock.currentTimeMillis;
   const queue = yield* PostingQueueSidecarService;

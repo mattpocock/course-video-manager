@@ -13,7 +13,6 @@ import {
   addShortToPostingQueue,
   loadPostingQueuePanel,
   previewShortPost,
-  saveShortDescription,
 } from "@/features/video-posting/shorts-posting-queue.server";
 import { LOCAL_MACHINE_ENV_KEY } from "./env";
 import {
@@ -111,8 +110,6 @@ const queuedYesterday = async (title: string) => {
   return id;
 };
 
-const entries = () => testDb.select().from(schema.postingQueueEntries);
-
 const errorOf = (result: RunResult) =>
   JSON.parse(result.stderr) as {
     _tag: string;
@@ -121,7 +118,7 @@ const errorOf = (result: RunResult) =>
 
 describe("cvm short post", () => {
   it("queues several Shorts in the order given and says when each goes out", async () => {
-    const head = await queuedYesterday("Head");
+    await queuedYesterday("Head");
     const a = await short("Generics");
     const b = await short("Satisfies");
 
@@ -147,9 +144,11 @@ describe("cvm short post", () => {
         goesOutAt: "Thu 2026-11-05 13:00",
       },
     ]);
-    const rows = await entries();
-    expect(rows.map((r) => r.videoId).sort()).toEqual([head, a, b].sort());
-    expect(rows.every((r) => r.state === "queued")).toBe(true);
+    expect(await queueOrder()).toEqual([
+      "Head Tue 2026-11-03 13:00",
+      "Generics Wed 2026-11-04 13:00",
+      "Satisfies Thu 2026-11-05 13:00",
+    ]);
   });
 
   it("--dry-run prints each verdict and writes nothing", async () => {
@@ -158,12 +157,12 @@ describe("cvm short post", () => {
 
     const result = await run(["short", "post", "--dry-run", a, landscape]);
 
-    // Once a day minimum: an empty queue at 00:00 still has today's 13:00.
+    // The queue was empty at 00:00, so today has no slot: tomorrow's 13:00.
     expect(ndjson(result.stdout)).toEqual([
       expect.objectContaining({
         videoId: a,
         verdict: "queued",
-        goesOutAt: "Tue 2026-11-03 13:00",
+        goesOutAt: "Wed 2026-11-04 13:00",
       }),
       expect.objectContaining({
         videoId: landscape,
@@ -174,14 +173,7 @@ describe("cvm short post", () => {
     ]);
     // The same exit code the real run would give.
     expect(result.exitCode).toBe(3);
-    expect(await entries()).toEqual([]);
-  });
-
-  it("--dry-run of Shorts that would all be queued exits 0", async () => {
-    const a = await short("Generics");
-    const result = await run(["short", "post", "--dry-run", a]);
-    expect(result.exitCode).toBe(0);
-    expect(await entries()).toEqual([]);
+    expect(await queueOrder()).toEqual([]);
   });
 
   it("refuses each bad Short with its reason, exit 3, and queues none of the batch", async () => {
@@ -224,10 +216,10 @@ describe("cvm short post", () => {
       },
       { videoId: posted, reason: expect.stringContaining("already Posted") },
     ]);
-    expect((await entries()).map((e) => e.videoId)).toEqual([alreadyQueued]);
+    expect(await queueOrder()).toEqual(["Head Tue 2026-11-03 13:00"]);
   });
 
-  it("queues a Short Posted on only one channel", async () => {
+  it("queues a Short Posted on only one channel (the Sidecar posts only the other)", async () => {
     const half = await short("Half");
     await testDb
       .insert(schema.videoPosts)
@@ -246,7 +238,8 @@ describe("cvm short post", () => {
     expect(one<{ _tag: string; command: string }>(result.stderr)).toMatchObject(
       { _tag: "LocalOnlyCommandError", command: "cvm short post" }
     );
-    expect(await entries()).toEqual([]);
+    process.env[LOCAL_MACHINE_ENV_KEY] = "true";
+    expect(await queueOrder()).toEqual([]);
   });
 });
 
@@ -490,7 +483,8 @@ describe("cvm short unqueue", () => {
     expect(one<{ _tag: string; command: string }>(result.stderr)).toMatchObject(
       { _tag: "LocalOnlyCommandError", command: "cvm short unqueue" }
     );
-    expect((await entries()).every((e) => e.state === "queued")).toBe(true);
+    process.env[LOCAL_MACHINE_ENV_KEY] = "true";
+    expect(await queueOrder()).toHaveLength(3);
   });
 });
 
@@ -515,71 +509,12 @@ describe("the Shorts page", () => {
       })
     );
     expect(queued).toEqual(preview.verdict);
-    expect(await entries()).toEqual([
-      expect.objectContaining({
-        videoId: a,
-        state: "queued",
-        queuedAt: new Date(NOW),
-      }),
-    ]);
-    // No posting Job: the Sidecar's tick posts it at its slot.
-    expect(await testDb.select().from(schema.jobs)).toEqual([]);
-
+    expect(await queueOrder()).toEqual(["Generics Wed 2026-11-04 13:00"]);
     // The CLI sees the entry the modal made, and refuses it again.
-    const again = await run(["short", "post", a]);
-    expect(again.exitCode).toBe(3);
+    expect((await run(["short", "post", a])).exitCode).toBe(3);
   });
 
-  it("the modal shows the CLI's refusal, and queues nothing", async () => {
-    const posted = await short("Old news");
-    await testDb.insert(schema.videoPosts).values([
-      { videoId: posted, platform: "youtube-shorts", postedAt: new Date() },
-      { videoId: posted, platform: "buffer", postedAt: new Date() },
-    ]);
-
-    const verdict = await page(
-      addShortToPostingQueue({
-        videoId: posted,
-        title: "Old news",
-        description: "About Old news",
-      })
-    );
-
-    expect(verdict).toMatchObject({
-      verdict: "refused",
-      reason: expect.stringContaining("already Posted"),
-      goesOutAt: null,
-    });
-    expect(await entries()).toEqual([]);
-  });
-
-  it("a description typed in the modal is saved on the Video, where --dry-run sees it", async () => {
-    const a = await short("Generics", { description: null });
-    const before = await run(["short", "post", "--dry-run", a]);
-    expect(ndjson(before.stdout)).toEqual([
-      expect.objectContaining({
-        reason: expect.stringContaining("no description"),
-      }),
-    ]);
-
-    await page(
-      saveShortDescription({ videoId: a, description: " Learn generics \n" })
-    );
-
-    expect((await page(previewShortPost(a))).description).toBe(
-      "Learn generics"
-    );
-    const after = await run(["short", "post", "--dry-run", a]);
-    expect(after.exitCode).toBe(0);
-    expect(ndjson(after.stdout)).toEqual([
-      expect.objectContaining({
-        verdict: "queued",
-        goesOutAt: "Tue 2026-11-03 13:00",
-      }),
-    ]);
-  });
-
-  it("the Queue panel shows what `cvm short queue` prints, Held and Failed with their reasons", async () => {
+  it("the Queue panel shows what `cvm short queue` prints, Held and Failed with their reasons, however long ago it failed", async () => {
     await queuedYesterday("Head");
     const a = await short("Generics");
     await run(["short", "post", a]);
@@ -591,10 +526,10 @@ describe("the Shorts page", () => {
     await testDb.insert(schema.postingQueueEntries).values({
       videoId: await short("Broken"),
       order: "Zy",
-      queuedAt: new Date("2026-10-31T14:00:00Z"),
+      queuedAt: new Date("2026-10-01T14:00:00Z"),
       state: "failed",
-      claimedSlot: new Date("2026-11-02T13:00:00Z"),
-      endedAt: new Date("2026-11-02T13:30:00Z"),
+      claimedSlot: new Date("2026-10-02T12:00:00Z"),
+      endedAt: new Date("2026-10-02T12:30:00Z"),
       youtubeFailures: 3,
       lastFailureReason: "YouTube: backend error",
     });

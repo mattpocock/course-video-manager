@@ -75,7 +75,6 @@ const startSidecar = Effect.gen(function* () {
         recoverEveryMs: 1_000,
         lapseWaitMs: 200,
         postCheckTimeoutMs: 1_000,
-        postingQueueTickMs: 60_000,
       },
       stop,
       serve: (handle) =>

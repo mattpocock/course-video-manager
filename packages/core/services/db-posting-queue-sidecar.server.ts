@@ -1,7 +1,17 @@
-import { and, asc, desc, eq, gte, inArray, isNotNull, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  sql,
+} from "drizzle-orm";
 import { Data, Effect } from "effect";
 import { jobs, postingQueueEntries, videoPosts, videos } from "../db/schema.js";
 import {
+  isQueuedShortPostParams,
   SHORT_POSTING_JOB_KINDS,
   SHORT_POSTING_JOB_POLICY,
   SHORT_RENDER_JOB,
@@ -11,6 +21,7 @@ import {
 } from "../features/posting-queue/posting-jobs.js";
 import {
   CHANNEL_NAME,
+  ENDED_UNPOSTED,
   messageOf,
   decideChannelFailures,
   type ChannelFailure,
@@ -22,12 +33,12 @@ import {
   SLOT_PATTERNS,
 } from "../features/posting-queue/slot-schedule.js";
 import { createEnqueueJobOperations } from "./db-job-enqueue.server.js";
+import { requireDraftVersionForPostingQueueEntry } from "./draft-guard.server.js";
 import {
   selectScheduleRows,
   toScheduleEntry,
 } from "./db-posting-queue-operations.server.js";
-
-import { NotFoundError, UnknownDBServiceError } from "./db-service-errors.js";
+import { UnknownDBServiceError } from "./db-service-errors.js";
 import { DrizzleService, type Database } from "./drizzle-service.server.js";
 import { withDbTransaction } from "./with-db-transaction.server.js";
 
@@ -37,11 +48,12 @@ const makeDbCall = <T>(fn: () => Promise<T>) =>
     catch: (e) => new UnknownDBServiceError({ cause: e }),
   });
 
-/** A Posting Slot that is due, and the Short that takes it. */
+/** A Posting Slot that is due, the Short that takes it, and its words now. */
 export type DueClaim = {
   readonly entryId: string;
   readonly videoId: string;
   readonly title: string;
+  readonly description: string;
   /** Epoch ms. */
   readonly slot: number;
 };
@@ -49,19 +61,19 @@ export type DueClaim = {
 /**
  * A posting Job whose Short is not to be posted any more: it left the
  * Posting Queue (taken off, Failed, Posted), or this channel already went
- * out since the slot was claimed. It posts nothing.
+ * out. It posts nothing.
  */
 export class ShortNotToPostError extends Data.TaggedError(
   "ShortNotToPostError"
 )<{ readonly message: string }> {}
 
 /**
- * Mark a channel posted that its post check found: the newest unposted
- * Video Post since the claim, or a new one when the run wrote none.
+ * Mark a channel posted that its post check found: its newest unposted
+ * Video Post, or a new one when the run wrote none.
  */
 const recordPosted = (
   tx: Database,
-  input: { videoId: string; platform: string; claimedAt: Date; now: number }
+  input: { videoId: string; platform: string; now: number }
 ) =>
   Effect.gen(function* () {
     const [row] = yield* makeDbCall(() =>
@@ -72,7 +84,7 @@ const recordPosted = (
           and(
             eq(videoPosts.videoId, input.videoId),
             eq(videoPosts.platform, input.platform),
-            gte(videoPosts.createdAt, input.claimedAt)
+            isNull(videoPosts.postedAt)
           )
         )
         .orderBy(desc(videoPosts.createdAt))
@@ -93,6 +105,31 @@ const recordPosted = (
     );
   });
 
+/**
+ * The channels a Short is Posted on, each with when it last went out: those
+ * with a posted Video Post, ever. A channel that went out is never posted
+ * again (#2612), whichever entry or path posted it, so this reads no claim
+ * time and compares no clocks.
+ */
+const postedChannels = (handle: Database, videoId: string) =>
+  makeDbCall(() =>
+    handle
+      .select({ platform: videoPosts.platform, postedAt: videoPosts.postedAt })
+      .from(videoPosts)
+      .where(
+        and(eq(videoPosts.videoId, videoId), isNotNull(videoPosts.postedAt))
+      )
+  ).pipe(
+    Effect.map((rows) => {
+      const latest = new Map<string, number>();
+      for (const row of rows) {
+        const at = row.postedAt?.getTime() ?? 0;
+        latest.set(row.platform, Math.max(latest.get(row.platform) ?? 0, at));
+      }
+      return latest;
+    })
+  );
+
 /** Enqueue a fresh Job in `tx`; only a caller-chosen Job id can be taken. */
 const enqueueIn =
   (tx: Database) =>
@@ -111,30 +148,29 @@ const enqueueIn =
       );
 
 /**
- * Enqueue a Short's posting Jobs for `kinds`, each carrying its entry id,
- * after a `render-vertical` they all wait on when `render` (the export is
- * stale).
+ * Enqueue a Short's posting Jobs for `kinds`, each carrying its entry id and
+ * claimed words, after a `render-vertical` they all wait on when `render`
+ * (the export is stale).
  */
 const enqueueShortPosts = (
   tx: Database,
   input: {
-    videoId: string;
-    entryId: string;
-    title: string;
+    params: QueuedShortPostParams;
     kinds: ReadonlyArray<ShortPostingJobKind>;
     render: boolean;
   }
 ) =>
   Effect.gen(function* () {
     const enqueue = enqueueIn(tx);
-    const subject = { type: "video", id: input.videoId };
+    const { videoId, title } = input.params;
+    const subject = { type: "video", id: videoId };
     const render = input.render
       ? yield* enqueue({
           id: null,
           kind: SHORT_RENDER_JOB.kind,
-          title: input.title,
+          title,
           lane: SHORT_RENDER_JOB.lane,
-          params: { videoId: input.videoId } satisfies ShortRenderParams,
+          params: { videoId } satisfies ShortRenderParams,
           maxAttempts: SHORT_RENDER_JOB.maxAttempts,
           dependsOn: null,
           subject,
@@ -144,12 +180,9 @@ const enqueueShortPosts = (
       yield* enqueue({
         id: null,
         kind,
-        title: input.title,
+        title,
         lane: SHORT_POSTING_JOB_POLICY.lane,
-        params: {
-          videoId: input.videoId,
-          postingQueueEntryId: input.entryId,
-        } satisfies QueuedShortPostParams,
+        params: input.params,
         maxAttempts: SHORT_POSTING_JOB_POLICY.maxAttempts,
         dependsOn: render?.id ?? null,
         subject,
@@ -165,9 +198,9 @@ const enqueueShortPosts = (
  */
 export const createPostingQueueSidecarOperations = (db: Database) => {
   /**
-   * Mark Posted every Posting entry whose Short both channels have: a
-   * `youtube-shorts` and a `buffer` Video Post, each posted, written since
-   * the entry claimed its slot. It left the queue when the later one went out.
+   * Mark Posted every Posting or Held entry whose Short both channels have
+   * (a posted `youtube-shorts` and a posted `buffer` Video Post). It left
+   * the queue when the later one went out, and never before its claim.
    * A Held entry too: Matt's Job Retry may have posted its last channel.
    */
   const settlePosted = Effect.fn("settlePosted")(function* () {
@@ -180,38 +213,28 @@ export const createPostingQueueSidecarOperations = (db: Database) => {
     for (const entry of posting) {
       const claimedAt = entry.claimedAt;
       if (!claimedAt) continue;
-      const posts = yield* makeDbCall(() =>
-        db
-          .select({
-            platform: videoPosts.platform,
-            postedAt: videoPosts.postedAt,
-          })
-          .from(videoPosts)
-          .where(
-            and(
-              eq(videoPosts.videoId, entry.videoId),
-              isNotNull(videoPosts.postedAt),
-              gte(videoPosts.createdAt, claimedAt)
-            )
-          )
-      );
-      const postedOn = (platform: string) =>
-        posts
-          .filter((p) => p.platform === platform)
-          .map((p) => p.postedAt!.getTime());
-      const times = SHORT_POSTING_JOB_KINDS.map(postedOn);
-      if (times.some((t) => t.length === 0)) continue;
-      const endedAt = new Date(Math.max(...times.map((t) => Math.min(...t))));
-      yield* makeDbCall(() =>
-        db
-          .update(postingQueueEntries)
-          .set({ state: "posted", endedAt })
-          .where(
-            and(
-              eq(postingQueueEntries.id, entry.id),
-              inArray(postingQueueEntries.state, ["posting", "held"])
-            )
-          )
+      const posted = yield* postedChannels(db, entry.videoId);
+      const times = SHORT_POSTING_JOB_KINDS.flatMap((kind) => {
+        const at = posted.get(kind);
+        return at === undefined ? [] : [at];
+      });
+      if (times.length < SHORT_POSTING_JOB_KINDS.length) continue;
+      const endedAt = new Date(Math.max(claimedAt.getTime(), ...times));
+      yield* withDbTransaction(db, (tx) =>
+        Effect.gen(function* () {
+          yield* requireDraftVersionForPostingQueueEntry(tx, entry.id);
+          yield* makeDbCall(() =>
+            tx
+              .update(postingQueueEntries)
+              .set({ state: "posted", endedAt })
+              .where(
+                and(
+                  eq(postingQueueEntries.id, entry.id),
+                  inArray(postingQueueEntries.state, ["posting", "held"])
+                )
+              )
+          );
+        })
       );
     }
   });
@@ -235,17 +258,22 @@ export const createPostingQueueSidecarOperations = (db: Database) => {
     if (!claim) return null;
     const [video] = yield* makeDbCall(() =>
       db
-        .select({ title: videos.title })
+        .select({ title: videos.title, description: videos.description })
         .from(videos)
         .where(eq(videos.id, claim.videoId))
     );
-    return { ...claim, title: video?.title ?? "" } satisfies DueClaim;
+    return {
+      ...claim,
+      title: (video?.title ?? "").trim(),
+      description: (video?.description ?? "").trim(),
+    } satisfies DueClaim;
   });
 
   /**
    * Claim a due Posting Slot, in ONE transaction: the entry becomes Posting
-   * with its slot, and one posting Job per channel is enqueued, each
-   * carrying the entry id. A crash before the commit did nothing; after it,
+   * with its slot, and one posting Job is enqueued for each channel the
+   * Short is not Posted on yet, each carrying the entry id and the Short's
+   * words as `claim` read them. A crash before the commit did nothing; after it,
    * the slot is claimed and no tick claims it again. The Slot Schedule is
    * asked again inside the transaction, under a lock every tick takes, so a
    * claim that is no longer due (another tick took it) claims nothing.
@@ -275,6 +303,8 @@ export const createPostingQueueSidecarOperations = (db: Database) => {
         ) {
           return false;
         }
+        yield* requireDraftVersionForPostingQueueEntry(tx, input.claim.entryId);
+        const posted = yield* postedChannels(tx, input.claim.videoId);
         yield* makeDbCall(() =>
           tx
             .update(postingQueueEntries)
@@ -287,10 +317,13 @@ export const createPostingQueueSidecarOperations = (db: Database) => {
             .where(eq(postingQueueEntries.id, input.claim.entryId))
         );
         yield* enqueueShortPosts(tx, {
-          videoId: input.claim.videoId,
-          entryId: input.claim.entryId,
-          title: input.claim.title,
-          kinds: SHORT_POSTING_JOB_KINDS,
+          params: {
+            videoId: input.claim.videoId,
+            postingQueueEntryId: input.claim.entryId,
+            title: input.claim.title,
+            description: input.claim.description,
+          },
+          kinds: SHORT_POSTING_JOB_KINDS.filter((kind) => !posted.has(kind)),
           render: input.render,
         });
         return true;
@@ -316,46 +349,9 @@ export const createPostingQueueSidecarOperations = (db: Database) => {
     });
 
   /**
-   * The channels with a posted Video Post since the entry claimed its slot:
-   * since its claim, by the tick's clock and by the database's (its posting
-   * Jobs were written in the claim's transaction).
-   */
-  const postedChannels = (
-    handle: Database,
-    entry: { id: string; videoId: string; claimedAt: Date }
-  ) =>
-    Effect.gen(function* () {
-      const [first] = yield* makeDbCall(() =>
-        handle
-          .select({ createdAt: jobs.createdAt })
-          .from(jobs)
-          .where(sql`${jobs.params}->>'postingQueueEntryId' = ${entry.id}`)
-          .orderBy(asc(jobs.createdAt))
-          .limit(1)
-      );
-      const since =
-        first && first.createdAt > entry.claimedAt
-          ? first.createdAt
-          : entry.claimedAt;
-      const rows = yield* makeDbCall(() =>
-        handle
-          .select({ platform: videoPosts.platform })
-          .from(videoPosts)
-          .where(
-            and(
-              eq(videoPosts.videoId, entry.videoId),
-              isNotNull(videoPosts.postedAt),
-              gte(videoPosts.createdAt, since)
-            )
-          )
-      );
-      return new Set(rows.map((r) => r.platform));
-    });
-
-  /**
    * The channels of each Posting or Held entry whose latest posting Job
-   * ended failed or interrupted and that have not gone out since the claim
-   * (#2618): what the tick looks at. A Job that never ran because its
+   * ended without posting (failed, interrupted or cancelled) and that have
+   * not gone out (#2618): what the tick looks at. A Job that never ran because its
    * `render-vertical` failed for good carries the render's reason, and
    * needs no post check: nothing was posted.
    */
@@ -368,19 +364,14 @@ export const createPostingQueueSidecarOperations = (db: Database) => {
     );
     const out: EntryFailures[] = [];
     for (const entry of entries) {
-      const claimedAt = entry.claimedAt;
-      if (!claimedAt) continue;
+      if (!entry.claimedAt) continue;
       const latest = yield* latestPostingJobs(db, entry.id);
-      const posted = yield* postedChannels(db, {
-        id: entry.id,
-        videoId: entry.videoId,
-        claimedAt,
-      });
+      const posted = yield* postedChannels(db, entry.videoId);
       const failures: ChannelFailure[] = [];
       for (const kind of SHORT_POSTING_JOB_KINDS) {
         const job = latest.get(kind);
         if (!job || posted.has(kind)) continue;
-        if (job.status !== "failed" && job.status !== "interrupted") continue;
+        if (!ENDED_UNPOSTED.includes(job.status)) continue;
         const [render] = job.dependsOn
           ? yield* makeDbCall(() =>
               db
@@ -414,7 +405,7 @@ export const createPostingQueueSidecarOperations = (db: Database) => {
    *   entry Failed (its slot stays used); otherwise a NEW posting Job for
    *   that channel only, after a fresh `render-vertical` if `render`.
    * A channel whose latest Job is no longer the one checked, or that has a
-   * posted Video Post since the claim, is left alone: no Job is re-run and
+   * posted Video Post, is left alone: no Job is re-run and
    * no channel that went out is enqueued again.
    */
   const settleChannelFailures = Effect.fn("settleChannelFailures")(
@@ -445,24 +436,19 @@ export const createPostingQueueSidecarOperations = (db: Database) => {
           ) {
             return;
           }
-          const claimedAt = entry.claimedAt;
+          yield* requireDraftVersionForPostingQueueEntry(tx, entry.id);
           const latest = yield* latestPostingJobs(tx, entry.id);
-          const posted = yield* postedChannels(tx, {
-            id: entry.id,
-            videoId: entry.videoId,
-            claimedAt,
-          });
+          const posted = yield* postedChannels(tx, entry.videoId);
           const decided = decideChannelFailures({
             entry,
             outcomes: input.outcomes,
             latest,
-            posted,
+            posted: new Set(posted.keys()),
           });
           for (const kind of decided.posted) {
             yield* recordPosted(tx, {
               videoId: entry.videoId,
               platform: kind,
-              claimedAt,
               now: input.now,
             });
           }
@@ -480,10 +466,16 @@ export const createPostingQueueSidecarOperations = (db: Database) => {
               .where(eq(postingQueueEntries.id, entry.id))
           );
           if (failed || decided.retry.length === 0) return;
+          // A retry posts the words its slot was claimed with, never the
+          // Video's words now.
+          const params = decided.retry[0]!.params;
+          if (!isQueuedShortPostParams(params)) {
+            return yield* new UnknownDBServiceError({
+              cause: `A posting Job of entry ${entry.id} has no claimed words to retry with`,
+            });
+          }
           yield* enqueueShortPosts(tx, {
-            videoId: entry.videoId,
-            entryId: entry.id,
-            title: decided.retry[0]!.title,
+            params,
             kinds: decided.retry.map((r) => r.kind),
             render: input.render,
           });
@@ -493,41 +485,9 @@ export const createPostingQueueSidecarOperations = (db: Database) => {
   );
 
   /**
-   * What a posting Job the Posting Queue enqueued posts: the Short's title
-   * and description as the Video has them NOW, when the Job runs.
-   */
-  const shortToPost = Effect.fn("shortToPost")(function* (
-    params: QueuedShortPostParams
-  ) {
-    const [row] = yield* makeDbCall(() =>
-      db
-        .select({ title: videos.title, description: videos.description })
-        .from(postingQueueEntries)
-        .innerJoin(videos, eq(videos.id, postingQueueEntries.videoId))
-        .where(
-          and(
-            eq(postingQueueEntries.id, params.postingQueueEntryId),
-            eq(postingQueueEntries.videoId, params.videoId)
-          )
-        )
-    );
-    if (!row) {
-      return yield* new NotFoundError({
-        type: "posting-queue-entry",
-        params: { id: params.postingQueueEntryId },
-        message: `Posting Queue entry not found for this Short: ${params.postingQueueEntryId}`,
-      });
-    }
-    return {
-      title: row.title.trim(),
-      description: (row.description ?? "").trim(),
-    };
-  });
-
-  /**
    * Refuse a posting Job whose Short is not to be posted any more (#2618):
    * its entry left the Posting Queue (taken off, Failed or Posted), or
-   * `kind`'s channel already went out since the claim. So an old Job that
+   * `kind`'s channel already went out. So an old Job that
    * Matt retries never posts a Short he took off, or a channel twice.
    */
   const assertStillToPost = Effect.fn("assertStillToPost")(function* (
@@ -548,14 +508,10 @@ export const createPostingQueueSidecarOperations = (db: Database) => {
         message: `This Short is no longer being posted from the Posting Queue (it is ${entry?.state ?? "gone"}), so nothing was posted.`,
       });
     }
-    const posted = yield* postedChannels(db, {
-      id: entry.id,
-      videoId: entry.videoId,
-      claimedAt: entry.claimedAt,
-    });
+    const posted = yield* postedChannels(db, entry.videoId);
     if (posted.has(kind)) {
       return yield* new ShortNotToPostError({
-        message: `${CHANNEL_NAME[kind]} already has this Short since its Posting Slot, so nothing was posted.`,
+        message: `${CHANNEL_NAME[kind]} already has this Short, so nothing was posted.`,
       });
     }
   });
@@ -567,7 +523,6 @@ export const createPostingQueueSidecarOperations = (db: Database) => {
     channelFailures,
     settleChannelFailures,
     assertStillToPost,
-    shortToPost,
   };
 };
 

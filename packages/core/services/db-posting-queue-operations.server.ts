@@ -1,4 +1,4 @@
-import { and, asc, gt, inArray, isNotNull, isNull, or } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNotNull, isNull, or } from "drizzle-orm";
 import { Effect } from "effect";
 import { generateNKeysBetween } from "fractional-indexing";
 import { postingQueueEntries, videoPosts, videos } from "../db/schema.js";
@@ -18,7 +18,9 @@ import {
   UnknownDBServiceError,
 } from "./db-service-errors.js";
 import { createPostingQueueChanges } from "./db-posting-queue-changes.server.js";
+import { requireDraftVersionForVideo } from "./draft-guard.server.js";
 import { DrizzleService, type Database } from "./drizzle-service.server.js";
+import { withDbTransaction } from "./with-db-transaction.server.js";
 
 const makeDbCall = <T>(fn: () => Promise<T>) =>
   Effect.tryPromise({
@@ -248,14 +250,21 @@ export const createPostingQueueOperations = (db: Database) => {
     }
 
     if (newEntries.length > 0) {
-      yield* makeDbCall(() =>
-        db.insert(postingQueueEntries).values(
-          newEntries.map((e) => ({
-            ...e,
-            queuedAt: new Date(input.now),
-            state: "queued" as const,
-          }))
-        )
+      yield* withDbTransaction(db, (tx) =>
+        Effect.gen(function* () {
+          for (const e of newEntries) {
+            yield* requireDraftVersionForVideo(tx, e.videoId);
+          }
+          yield* makeDbCall(() =>
+            tx.insert(postingQueueEntries).values(
+              newEntries.map((e) => ({
+                ...e,
+                queuedAt: new Date(input.now),
+                state: "queued" as const,
+              }))
+            )
+          );
+        })
       );
     }
     return verdicts;
@@ -263,16 +272,25 @@ export const createPostingQueueOperations = (db: Database) => {
 
   /**
    * The Posting Queue as `cvm short queue` and the Queue panel show it: the
-   * live entries in order, each with when it goes out, then the Failed ones
-   * still within the schedule's history.
+   * live entries in order, each with when it goes out, then every Failed
+   * one, which stays until it is taken off (`cvm short unqueue`).
    */
   const listPostingQueue = Effect.fn("listPostingQueue")(function* (
     /** Epoch ms: the caller's clock. */
     now: number
   ) {
     const rows = yield* scheduleRows(now);
+    // The schedule reads only recent history; a Failed entry is listed
+    // however long ago it failed.
+    const failedRows = yield* makeDbCall(() =>
+      db
+        .select()
+        .from(postingQueueEntries)
+        .where(eq(postingQueueEntries.state, "failed"))
+        .orderBy(asc(postingQueueEntries.endedAt))
+    );
     const titles = yield* makeDbCall(() =>
-      rows.length === 0
+      rows.length + failedRows.length === 0
         ? Promise.resolve([])
         : db
             .select({ id: videos.id, title: videos.title })
@@ -280,7 +298,7 @@ export const createPostingQueueOperations = (db: Database) => {
             .where(
               inArray(
                 videos.id,
-                rows.map((r) => r.videoId)
+                [...rows, ...failedRows].map((r) => r.videoId)
               )
             )
     );
@@ -319,9 +337,9 @@ export const createPostingQueueOperations = (db: Database) => {
         p.slot
       )
     );
-    const failed = rows
-      .filter((r) => r.state === "failed")
-      .map((r) => row(r, r.claimedSlot?.getTime() ?? null));
+    const failed = failedRows.map((r) =>
+      row(r, r.claimedSlot?.getTime() ?? null)
+    );
 
     const listing: PostingQueueListing = {
       entries: [...inFlight, ...queued, ...failed],

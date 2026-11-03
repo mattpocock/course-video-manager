@@ -7,6 +7,7 @@ import {
   learningGoals,
   lessons,
   overlays,
+  postingQueueEntries,
   sections,
   videos,
 } from "../db/schema.js";
@@ -287,4 +288,22 @@ export const requireDraftVersionForOverlay = Effect.fn(
   );
   if (!overlay) return;
   yield* requireDraftVersionForClip(db, overlay.clipId);
+});
+
+/**
+ * Guard a write scoped to a Posting Queue entry (resolved through its Short).
+ * A Short is usually standalone, so this passes; one inside a Lesson is
+ * written only while its Version is a Draft.
+ */
+export const requireDraftVersionForPostingQueueEntry = Effect.fn(
+  "requireDraftVersionForPostingQueueEntry"
+)(function* (db: Database, entryId: string) {
+  const [entry] = yield* makeDbCall(() =>
+    db
+      .select({ videoId: postingQueueEntries.videoId })
+      .from(postingQueueEntries)
+      .where(eq(postingQueueEntries.id, entryId))
+  );
+  if (!entry) return;
+  yield* requireDraftVersionForVideo(db, entry.videoId);
 });

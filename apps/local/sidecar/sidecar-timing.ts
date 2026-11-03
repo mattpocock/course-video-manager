@@ -14,8 +14,6 @@ export interface SidecarTiming {
   readonly lapseWaitMs: number;
   /** How long one look for an interrupted post at its service may take. */
   readonly postCheckTimeoutMs: number;
-  /** How often the Posting Queue tick looks for a due Posting Slot. */
-  readonly postingQueueTickMs: number;
 }
 
 export const SIDECAR_TIMING: SidecarTiming = {
@@ -27,5 +25,4 @@ export const SIDECAR_TIMING: SidecarTiming = {
   recoverEveryMs: 15_000,
   lapseWaitMs: 20_000,
   postCheckTimeoutMs: 30_000,
-  postingQueueTickMs: 120_000,
 };
