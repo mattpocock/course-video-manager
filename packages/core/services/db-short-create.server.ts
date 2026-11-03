@@ -31,8 +31,8 @@ import type { Database } from "./drizzle-service.server.js";
  *
  * - A `copy` Part is a Clip of a Video, copied by `copyClipsOntoVideo` (Clip
  *   Origin `copy`, every Clip column and child row carried, the same Recording
- *   Session) — its Overlays only from a Short, and only those the Part's
- *   range holds — then recut to the Part's range through
+ *   Session) — its Overlays only from a Short, only those the Part's range
+ *   holds, each cut to end by the range's end — then recut to the Part's range through
  *   `retimeClip`, so its Transcript Words are shifted and trimmed by the same
  *   cascade as any recut. Which tables this path copies, and why it leaves the
  *   rest, is COPY_PATHS.shortCreate in version-copy-manifest.ts.
@@ -201,8 +201,19 @@ export const createShortOperationsUnwrapped = (db: Database) => {
         // carried into the Short's.
         const fromShort = resolveVideoFormat(from.format) === "short";
         const shift = retimeShift(source, part);
+        // Each ends by the end of its range, so a copy is never one `overlay
+        // add` would refuse: none runs past its Clip, across a jump cut, or
+        // into an Overlay of the next range.
         const overlays = fromShort
-          ? source.overlays.filter((o) => recutHoldsOverlay(o.at, shift))
+          ? source.overlays
+              .filter((o) => recutHoldsOverlay(o.at, shift))
+              .map((o) => ({
+                ...o,
+                durationInSeconds: Math.min(
+                  o.durationInSeconds,
+                  shift.newDuration - (o.at + shift.delta)
+                ),
+              }))
           : [];
         const layers = source.layers.map((row) =>
           layerRowInVideoFormat(row, resolveVideoFormat(from.format), "short")

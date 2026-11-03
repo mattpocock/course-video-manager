@@ -76,7 +76,8 @@ SOURCES AND RANGE SYNTAX:
       (trimmed with it), Scene Override, Clip Zoom and Layers; Chapters are
       left behind. A Landscape Video's Overlays are left behind too; from a
       Short, its Chat Cards and Calls to Action come along at the same moment
-      of footage, except any whose start falls outside the range. A Landscape Clip's Footage Layers (its B-roll)
+      of footage, except any whose start falls outside the range; each is cut
+      to end by its range's end, so none runs over a jump cut. A Landscape Clip's Footage Layers (its B-roll)
       move into the Short's frame by fractions, their Source Crop narrowed
       about its centre so nothing stretches. Clip Origin: copy.
   --recording-session <id>   --range <s>-<e>

@@ -302,7 +302,7 @@ describe("cvm short create from Video ranges", () => {
     expect(copy.clips.flatMap((c) => c.overlays)).toEqual([]);
   });
 
-  it("from a Short, keeps its Overlays at the same moment of footage, leaving out any outside the range", async () => {
+  it("from a Short, keeps its Overlays at the same moment of footage, ending by the range's end, leaving out any outside it", async () => {
     const stream = await seedStream();
     const [c0] = stream.clipIds;
     const { short: first, clips: firstClips } = await created(
@@ -365,7 +365,8 @@ describe("cvm short create from Video ranges", () => {
       {
         kind: "callToAction",
         at: 3,
-        durationInSeconds: 3,
+        // It ran to 9s of footage; the range ends at 8s.
+        durationInSeconds: 2,
         title: "Subscribe",
         description: "for more",
         disableEnterAnimation: true,
@@ -373,6 +374,53 @@ describe("cvm short create from Video ranges", () => {
       },
     ]);
     expect(await snapshot(first.id)).toEqual(before);
+  });
+
+  it("from a Short, cuts each Overlay at the end of its range, so two from adjacent ranges never collide", async () => {
+    const stream = await seedStream();
+    const [c0] = stream.clipIds;
+    const { short: first, clips: firstClips } = await created(
+      await create("--video", stream.videoId, "--range", `${c0}..${c0}`)
+    );
+    const source = firstClips[0]!.id;
+    await testDb.insert(schema.overlays).values([
+      // 2s-7s of footage: past the first range's end, and over the jump cut.
+      {
+        clipId: source,
+        kind: "callToAction",
+        at: 2,
+        durationInSeconds: 5,
+        title: "A",
+        description: "",
+      },
+      {
+        clipId: source,
+        kind: "callToAction",
+        at: 8,
+        durationInSeconds: 1,
+        title: "B",
+        description: "",
+      },
+    ]);
+
+    const { short } = await created(
+      await create(
+        "--video",
+        first.id,
+        "--range",
+        `${source}+0..${source}+4`,
+        "--range",
+        `${source}+8..${source}+10`
+      )
+    );
+
+    // On the Short's timeline: Part 1 is 0-4s, Part 2 is 4-6s.
+    const clips = (await snapshot(short.id)).clips;
+    expect(
+      clips.map((c) =>
+        c.overlays.map((o) => [o.title, o.at, o.durationInSeconds])
+      )
+    ).toEqual([[["A", 2, 2]], [["B", 0, 1]]]);
   });
 
   it("joins several ranges in the order given, the same Clip twice if asked", async () => {
