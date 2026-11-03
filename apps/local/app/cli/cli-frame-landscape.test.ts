@@ -45,8 +45,9 @@ setupFrameTests();
  * red stripe down its left edge (0-300 px once scaled to 1920): the first
  * untouched, the second under a Definition Card 0.2 s to 0.8 s into it, the
  * third under a Bullet Panel for all of it (its Transform slides the picture
- * right, easing in over 0.5 s), the last with its Scene Layer and a blue
- * Footage Layer in the bottom-left corner.
+ * right, easing in over 0.5 s), the fourth with its Scene Layer and a blue
+ * Footage Layer in the bottom-left corner, the last with that Footage Layer
+ * only (its Scene Layer removed), so the rest of its frame is black.
  */
 const seedLandscape = async () => {
   const base = join(ctx.root, "raw-footage/imported/striped.mp4");
@@ -98,6 +99,7 @@ const seedLandscape = async () => {
   const carded = await clip("a1", 1);
   const paneled = await clip("a2", 2);
   const layered = await clip("a3", 3);
+  const footageOnly = await clip("a4", 4);
   await ctx.testDb.insert(schema.overlays).values([
     {
       clipId: carded,
@@ -134,7 +136,13 @@ const seedLandscape = async () => {
       ])
     ).exitCode
   ).toBe(0);
-  return { videoId: video!.id, plain, carded, paneled, layered };
+  for (const args of [
+    ["add", "--footage", face, "--place", "0,780,480,270", footageOnly],
+    ["remove", footageOnly, "0"],
+  ]) {
+    expect((await ctx.run(["clip", "layer", ...args])).exitCode).toBe(0);
+  }
+  return { videoId: video!.id, plain, carded, paneled, layered, footageOnly };
 };
 
 /**
@@ -200,6 +208,7 @@ const exportLandscape = (videoId: string) => {
 
 const CYAN = [0, 255, 255];
 const SLIDE = [16, 16, 17];
+const BLACK = [0, 0, 0];
 /** Probe points: the card, the panel, the stripe, beside the stripe, the Footage Layer. */
 const DEF_CARD = [1500, 250] as const;
 const PANEL = [1800, 950] as const;
@@ -259,6 +268,12 @@ describe.skipIf(!hasFfmpeg)("cvm clip frame on a Landscape Video", () => {
     both(layered, 3.505, CORNER, BLUE);
     both(layered, 3.505, BESIDE, YELLOW);
     both(layered, 3.505, EDGE, RED);
+
+    // Footage Layers only: the blue corner on black, no scene under it.
+    const footageOnly = await frame(s.footageOnly, "0.5");
+    both(footageOnly, 4.505, CORNER, BLUE);
+    both(footageOnly, 4.505, BESIDE, BLACK);
+    both(footageOnly, 4.505, EDGE, BLACK);
   }, 180_000);
 
   it("is refused while the recorder records", async () => {
