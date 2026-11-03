@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { MessageSquareIcon, RadioIcon } from "lucide-react";
+import { EyeIcon, MessageSquareIcon, RadioIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ChatView } from "./chat-view";
 import {
@@ -164,6 +164,15 @@ export const StreamChatPresenter = (props: {
         <h1 className="text-[clamp(1rem,1.2vw,1.25rem)] font-semibold text-white/80">
           Live chat
         </h1>
+        {props.view?.viewers && (
+          <span
+            className="flex shrink-0 items-center gap-1.5 text-[clamp(0.75rem,1vw,1rem)] text-white/50 tabular-nums"
+            data-testid="concurrent-viewers"
+          >
+            <EyeIcon className="size-[1.1em]" />
+            {props.view.viewers}
+          </span>
+        )}
         <span className="ml-auto flex min-w-0 items-center gap-2 text-[clamp(0.75rem,1vw,1rem)] text-white/50">
           <span
             aria-hidden

@@ -30,6 +30,9 @@ export const broadcastChat = (): BroadcastChat => {
     // reopened at once (`broadcast-chat.ts`).
     steadyMs: 60_000,
     maxMessages: 500,
+    // Concurrent Viewers twice a minute: 1 quota unit a read, about 120 an
+    // hour, from the pick until End Stream or YouTube says it ended (#2659).
+    concurrentViewersEveryMs: 30_000,
     // One line per change, into the dev log, so a run can tell polling from
     // flapping (#2558).
     log: (entry) =>

@@ -344,6 +344,10 @@ _Avoid_: Start/Stop stream, Stop Stream, Go Offline
 A YouTube live event on Matt's channel (upcoming or active), picked before Go Live. The Live Stream is pushed to it, and its live chat is the chat shown. CVM lists Broadcasts, and at Go Live binds the picked one to the YouTube stream whose ingest name is the **Stream Key** if it isn't already, but never creates one or moves it between states: YouTube's auto-start and auto-stop start and end it, so one with either turned off is marked in the picker and Go Live refuses it.
 _Avoid_: Stream, Event, Destination (YouTube is the only one)
 
+**Concurrent Viewers**:
+How many people are watching a **Broadcast** right now, as YouTube counts them (`liveStreamingDetails.concurrentViewers`). The app server reads it every 30 s from the pick until **End Stream** or YouTube says the Broadcast ended, at 1 quota unit a read. The Streaming tab's chat and its pop-out show it as "N watching", and show nothing while YouTube gives no count (before live, or hidden by the channel). A read that fails keeps the last count, with no error shown (#2659).
+_Avoid_: Viewer count, Live viewers, Audience size
+
 **Chat Highlight**:
 A **Broadcast** chat message Matt showed on the **Live Stream** picture, StreamYard-style, by clicking it: clicking it again hides it, and clicking another replaces it, so at most one shows. It stores the author and text as shown, and when the card went on and off the picture, on the recorder's clock (the one T0 is on). It belongs to the **Streamed Recording Session**; one still showing when that ends is closed with its end. It is not an **Overlay**, and never changes an **Export Hash**. It may be made into a **Chat Card** on request.
 _Avoid_: Pinned message (a YouTube feature), Overlay, Callout

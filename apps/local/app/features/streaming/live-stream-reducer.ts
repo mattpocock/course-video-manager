@@ -63,6 +63,11 @@ export namespace liveStreamReducer {
      * whether it has outlasted the grace, so a blip is never shown.
      */
     chatReconnect: { reconnect: number; shown: boolean };
+    /**
+     * The picked Broadcast's **Concurrent Viewers**, as the app server last
+     * read them from YouTube; null while YouTube gives no count.
+     */
+    concurrentViewers: number | null;
     /** The Live Stream, as the recorder last said, and the Video it is open for. */
     stream: LiveStreamHeard;
     /** Go Live or End Stream was pressed and the app server has not answered. */
@@ -134,6 +139,7 @@ export const createInitialLiveStreamState = (): State => ({
   highlight: NO_CHAT_HIGHLIGHT,
   chat: { broadcastId: null, connection: { state: "idle" }, messages: [] },
   chatReconnect: { reconnect: 0, shown: false },
+  concurrentViewers: null,
 });
 
 /**
@@ -250,10 +256,20 @@ const chatHeard = (state: State, event: BroadcastChatEvent): State => {
       id === null || state.pickedBroadcast?.id === id
         ? state.pickedBroadcast
         : listedBroadcast(state, id);
-    return { ...state, chat: event.chat, pickedBroadcast };
+    // A new listener, pick or End Stream starts with no count: the app
+    // server sends the one it has next.
+    return {
+      ...state,
+      chat: event.chat,
+      pickedBroadcast,
+      concurrentViewers: null,
+    };
   }
   // A late word on a chat no longer picked.
   if (event.broadcastId !== state.chat.broadcastId) return state;
+  if (event.type === "concurrent-viewers-changed") {
+    return { ...state, concurrentViewers: event.concurrentViewers };
+  }
   if (event.type === "chat-connection-changed") {
     return { ...state, chat: { ...state.chat, connection: event.connection } };
   }
@@ -317,6 +333,7 @@ export const liveStreamReducer: EffectReducer<State, Action, Effect> = (
     case "chat-attached":
     case "chat-message-received":
     case "chat-connection-changed":
+    case "concurrent-viewers-changed":
       return followReconnect(state, chatHeard(state, action), exec);
     case "chat-reconnect-grace-ended":
       return action.broadcastId === state.chat.broadcastId &&

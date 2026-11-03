@@ -17,6 +17,11 @@ export const ChatView = z.object({
   notices: z.array(z.string()),
   /** The chat streams but nobody has written yet. */
   waiting: z.boolean(),
+  /**
+   * The Broadcast's **Concurrent Viewers**, in words ("1,234 watching"), or
+   * null while YouTube gives no count. The pop-out shows it too.
+   */
+  viewers: z.string().nullable(),
   rows: z.array(
     z.object({
       id: z.string(),
@@ -74,6 +79,11 @@ const connectionLine = (
   }
 };
 
+const viewersWords = (concurrentViewers: number | null) =>
+  concurrentViewers === null
+    ? null
+    : `${concurrentViewers.toLocaleString("en-GB")} watching`;
+
 /** What the pop-out says of the connection: never its trouble. */
 const POPOUT_LINES: ReadonlySet<ChatConnection["state"]> = new Set([
   "idle",
@@ -93,6 +103,7 @@ export const chatView = (
       (n): n is string => n !== null
     ),
     waiting: messages.length === 0 && connection.state === "streaming",
+    viewers: viewersWords(state.concurrentViewers),
     rows: chatRows(state).map(({ id, author, text, highlighted, pending }) => ({
       id,
       author,
