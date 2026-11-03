@@ -10,7 +10,7 @@ import {
 // Sample props so Remotion Studio (`pnpm run studio`) has something to show. The
 // real render always supplies its own props via `inputProps`.
 
-/** The vertical Shorts pipeline: subtitles + CTA. */
+/** The vertical Shorts pipeline: subtitles, a Chat Card and a Call to Action. */
 const shortsSampleProps: OverlayProps = {
   width: 1080,
   height: 1920,
@@ -21,7 +21,6 @@ const shortsSampleProps: OverlayProps = {
     { startFrame: 60, endFrame: 120, text: "that I think is mostly rubbish," },
     { startFrame: 120, endFrame: 180, text: "that AI can only be" },
   ],
-  cta: { variant: "ai", durationInFrames: 120 },
   definitionCards: [],
   bulletPanels: [],
   // A Chat Card that lands at once (no motion frames), with fake chat.
@@ -37,6 +36,16 @@ const shortsSampleProps: OverlayProps = {
       ...CHAT_CARD_PLACEMENT,
     },
   ],
+  callsToAction: [
+    {
+      title: "AIhero.dev",
+      description: "Go from Zero To AI Hero",
+      startFrame: 30,
+      durationInFrames: 120,
+      disableEnterAnimation: false,
+      disableExitAnimation: false,
+    },
+  ],
 };
 
 /**
@@ -50,7 +59,6 @@ const definitionCardSampleProps: OverlayProps = {
   fps: 60,
   durationInFrames: 180,
   subtitles: [],
-  cta: null,
   definitionCards: [
     {
       title: "Ubiquitous Language",
@@ -62,6 +70,7 @@ const definitionCardSampleProps: OverlayProps = {
   ],
   bulletPanels: [],
   chatCards: [],
+  callsToAction: [],
 };
 
 /**
@@ -75,7 +84,6 @@ const bulletPanelSampleProps: OverlayProps = {
   fps: 60,
   durationInFrames: 300,
   subtitles: [],
-  cta: null,
   definitionCards: [],
   bulletPanels: [
     {
@@ -93,6 +101,7 @@ const bulletPanelSampleProps: OverlayProps = {
     },
   ],
   chatCards: [],
+  callsToAction: [],
 };
 
 const metadata = async ({ props }: { props: OverlayProps }) => ({

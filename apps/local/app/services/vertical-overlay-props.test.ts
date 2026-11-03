@@ -59,15 +59,15 @@ describe("a Short's render props", () => {
     ).toEqual([]);
   });
 
-  it("draw no call to action: captions, and nothing else, for a Short with no Chat Card", () => {
+  it("send no Call to Action, and nothing but captions, for a Short with no Overlays", () => {
     expect(props([[]])).toEqual({
       width: 1080,
       height: 1920,
       fps: 60,
       durationInFrames: 1200,
       subtitles: [],
-      cta: null,
       chatCards: [],
+      callsToAction: [],
     });
   });
 });
