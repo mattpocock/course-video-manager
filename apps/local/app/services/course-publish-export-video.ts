@@ -1,9 +1,3 @@
-import {
-  clipComposite,
-  clipFfmpegInput,
-  clipLayers,
-  clipSource,
-} from "@/packages/clip-source";
 import path from "node:path";
 import { Cause, Effect } from "effect";
 import { FileSystem } from "@effect/platform";
@@ -23,14 +17,13 @@ import {
   assertUnderFinishedVideos,
   locateExportedVideo,
 } from "./finished-videos.server";
-import { resolveClipSourceFiles } from "./clip-source-files.server";
+import { exportRenderClips } from "./export-render-clips";
 import {
   ensureExportDigest,
   ensureExportDuration,
   sidecarPath,
 } from "./export-sha256-sidecar";
 import {
-  clipExportDurationInSeconds,
   expectedExportDurationInSeconds,
   isExportUnacceptablyShort,
   paddedClipDurationsInSeconds,
@@ -218,28 +211,11 @@ export const exportVideoToItsAddress = Effect.fn("exportVideoToItsAddress")(
       // fails the export with "Footage not found (E: offline?)". Looked up
       // only once a sound export has not been found above: an export whose
       // Footage is on an unplugged drive still ships.
-      const renderClips = yield* Effect.forEach(video.clips, (clip, index) =>
-        Effect.gen(function* () {
-          // Its Scene Layer drawn in the Video's format, as it is hashed.
-          const source = yield* resolveClipSourceFiles(
-            clipSource(clip, { videoFormat: resolveVideoFormat(video.format) }),
-            roots
-          );
-          const input = clipFfmpegInput(source);
-          const asked = clipDurations[index]!;
-          return {
-            ...input,
-            duration: asked.duration,
-            pauseType: asked.pauseType,
-            zoomType: clip.zoomType,
-            // Drawn over everything the Clip outputs, long Pause included.
-            composite: clipComposite(source, {
-              durationSeconds: clipExportDurationInSeconds(asked),
-            }),
-            layers: clipLayers(source),
-          };
-        })
-      ).pipe(
+      const renderClips = yield* exportRenderClips(video.clips, {
+        videoFormat: resolveVideoFormat(video.format),
+        storageRoots: roots,
+        clipDurations,
+      }).pipe(
         Effect.mapError(
           (error) => new ExportError({ message: error.message, cause: error })
         )

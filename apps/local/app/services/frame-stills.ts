@@ -11,7 +11,7 @@ import { assertUnderEffect } from "./assert-under";
 /**
  * The frames an agent asks for to choose a Source Crop and check its work:
  * `cvm footage frame` (a raw Footage frame) and `cvm clip frame` (a Clip's
- * composed frame, `short-clip-frame.ts`). Each decodes raw footage, so each
+ * composed frame, `clip-frame.ts`). Each decodes raw footage, so each
  * runs through the {@link StillGate}: refused while anything records. The
  * PNGs go to a temp directory, a new file each time.
  */

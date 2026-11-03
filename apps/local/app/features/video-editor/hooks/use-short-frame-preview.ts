@@ -39,7 +39,7 @@ export function useShortFramePreview(
   >(shortFramePreviewReducer, createInitialShortFramePreviewState(), {
     "draw-frame": (_state, { request }, dispatch) => {
       const { url } = request;
-      void fetch(`/clips/${request.clipId}/short-frame?${request.search}`)
+      void fetch(`/clips/${request.clipId}/frame?${request.search}`)
         .then(async (response) => {
           if (response.status === STILL_HELD) {
             dispatch({ type: "frame-held", url });

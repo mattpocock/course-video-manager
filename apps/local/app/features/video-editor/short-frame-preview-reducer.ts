@@ -10,8 +10,8 @@ import {
 /**
  * THE PORTRAIT STUDIO'S PREVIEW (#2580). Paused or scrubbing, a Short shows
  * the frame its post will show: drawn by the export's own code, the same as
- * `cvm clip frame` (`short-clip-frame.ts`, through
- * `/clips/:clipId/short-frame`). Playing, it shows the editor's playback,
+ * `cvm clip frame` (`clip-frame.ts`, through
+ * `/clips/:clipId/frame`). Playing, it shows the editor's playback,
  * which draws the Footage Layers itself (`footage-layers-preview.tsx`).
  *
  * A frame takes the server seconds (an ffmpeg decode and one Remotion
@@ -97,7 +97,7 @@ export const shortFrameRequest = (input: {
     clipId: clip.databaseId,
     at,
     search,
-    url: `/clips/${clip.databaseId}/short-frame?${search}`,
+    url: `/clips/${clip.databaseId}/frame?${search}`,
   };
 };
 

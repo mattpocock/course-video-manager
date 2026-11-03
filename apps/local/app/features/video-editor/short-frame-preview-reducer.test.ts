@@ -37,7 +37,7 @@ describe("shortFrameRequest", () => {
   it("asks for the frame showing at the scrub, in seconds into the Clip on the render's 60 fps", () => {
     const request = shortFrameRequest({ ...paused, scrubSeekTime: 102.509 });
     expect(request).toMatchObject({ clipId: "c1", at: 2.5 });
-    expect(request!.url).toMatch(/^\/clips\/c1\/short-frame\?at=2\.5&v=/);
+    expect(request!.url).toMatch(/^\/clips\/c1\/frame\?at=2\.5&v=/);
   });
 
   it("asks for where playback stopped when nothing was scrubbed", () => {
@@ -96,7 +96,7 @@ const request = (at: number): ShortFrameRequest => ({
   clipId: "c1",
   at,
   search: `at=${at}&v=x`,
-  url: `/clips/c1/short-frame?at=${at}&v=x`,
+  url: `/clips/c1/frame?at=${at}&v=x`,
 });
 
 const preview = () =>
@@ -183,7 +183,7 @@ describe("shortFramePreviewReducer", () => {
     const afterStop = {
       ...request(1),
       search: "at=1&v=y",
-      url: "/clips/c1/short-frame?at=1&v=y",
+      url: "/clips/c1/frame?at=1&v=y",
     };
     tester.send({ type: "frame-wanted", request: afterStop });
     expect(tester.getEffects()).toEqual([
