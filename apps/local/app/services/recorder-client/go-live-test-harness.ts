@@ -10,7 +10,10 @@ import { DrizzleService } from "@/services/drizzle-service.server";
 import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
 import type { CvmRecorderMessage } from "@/features/video-editor/cvm-recorder-wire";
 import type { StreamStatus } from "recorder-service/stream-protocol";
-import { CALIBRATION } from "recorder-service/test-utils/service-harness";
+import {
+  CALIBRATION,
+  testSleep,
+} from "recorder-service/test-utils/service-harness";
 import {
   fakeWindows,
   writesFile,
@@ -117,7 +120,11 @@ export const setupGoLiveTests = () => {
 
 export const broadcast = (
   id: string,
-  o: { enableAutoStart?: boolean; boundStreamId?: string } = {}
+  o: {
+    enableAutoStart?: boolean;
+    boundStreamId?: string;
+    latencyPreference?: "normal" | "low" | "ultraLow";
+  } = {}
 ) => ({
   id,
   snippet: { title: id, scheduledStartTime: "2026-10-31T18:00:00Z" },
@@ -126,6 +133,7 @@ export const broadcast = (
     enableAutoStop: true,
     // Bound to the Stream Key's stream unless a test says otherwise.
     boundStreamId: "boundStreamId" in o ? o.boundStreamId : KEYS_STREAM,
+    ...(o.latencyPreference && { latencyPreference: o.latencyPreference }),
   },
 });
 
@@ -205,7 +213,10 @@ export const ready = async (
 ) => {
   const windows = o.windows ?? fakeWindows();
   const stateDir = tmp();
+  /** The service's clock for End Stream's wait: a test may hold it. */
+  const endClock = testSleep();
   const { port, busy } = await startService(stateDir, windows, {
+    sleep: endClock.sleep,
     streamListenBoundMs: o.streamListenBoundMs,
     streamStallMs: o.streamStallMs,
     cardAnswerMs: o.cardAnswerMs,
@@ -286,6 +297,7 @@ export const ready = async (
     /** The service's busy check, which its idle stop asks (ADR 0053). */
     busy,
     goLive: goLiveWith,
+    endClock,
     /** End Stream as the app server presses it (its route's effect). */
     endStream: () => run(endStream(client, video.id)),
     streamStatuses,

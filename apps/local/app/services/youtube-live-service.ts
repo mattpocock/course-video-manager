@@ -4,6 +4,7 @@ import { youtubeApiUrl } from "@/services/youtube-upload-service";
 import type {
   Broadcast,
   BroadcastListAnswer,
+  LatencyPreference,
   ReconnectReason,
 } from "@/features/streaming/broadcast";
 import type {
@@ -61,8 +62,18 @@ type LiveBroadcastItem = {
     enableAutoStart?: boolean;
     enableAutoStop?: boolean;
     boundStreamId?: string;
+    latencyPreference?: string;
   };
 };
+
+const LATENCY_PREFERENCES: readonly LatencyPreference[] = [
+  "normal",
+  "low",
+  "ultraLow",
+];
+
+const toLatencyPreference = (value: string | undefined) =>
+  LATENCY_PREFERENCES.find((p) => p === value) ?? null;
 
 const toBroadcast = (item: LiveBroadcastItem): Broadcast => ({
   id: item.id,
@@ -72,6 +83,9 @@ const toBroadcast = (item: LiveBroadcastItem): Broadcast => ({
   enableAutoStop: item.contentDetails?.enableAutoStop ?? false,
   liveChatId: item.snippet?.liveChatId ?? null,
   boundStreamId: item.contentDetails?.boundStreamId ?? null,
+  latencyPreference: toLatencyPreference(
+    item.contentDetails?.latencyPreference
+  ),
 });
 
 /** One page (50) of the channel's Broadcasts in one `broadcastStatus`. */

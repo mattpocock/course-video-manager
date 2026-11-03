@@ -209,6 +209,7 @@ describe("Go Live and End Stream", () => {
         enableAutoStop: true,
         liveChatId: null,
         boundStreamId: null,
+        latencyPreference: null,
       }),
       GO_LIVE_REFUSALS.recording,
     ]);
@@ -320,6 +321,66 @@ describe("End Stream completes the Broadcast", () => {
     ]);
     expect(transitions()).toHaveLength(1);
   });
+
+  it.each([
+    ["Normal", "normal", 20_000],
+    ["Low", "low", 10_000],
+    ["Ultra-low", "ultraLow", 5_000],
+    ["unset", undefined, 20_000],
+  ] as const)(
+    "lets viewers catch up first (#2660): with %s latency (%s) it keeps streaming and recording for %d ms, saying it is ending, then stops the push and completes",
+    async (_, latencyPreference, waitMs) => {
+      const r = await ready();
+      youtube.broadcasts = [broadcast("office-hours", { latencyPreference })];
+      expect(Either.isRight(await r.goLive())).toBe(true);
+      await vi.waitFor(() =>
+        expect(r.heard.map((m) => m.type)).toContain("recording-started")
+      );
+      const streamProcess = r.windows.streams[0]!;
+      streamProcess.stdout("frame=60\nprogress=continue\n");
+      await vi.waitFor(() =>
+        expect(r.streamStatuses().at(-1)).toEqual({ kind: "live" })
+      );
+      streamProcess.onQuit = () => youtube.calls.push("(the push stopped)");
+      r.endClock.hold();
+
+      const ending = r.endStream();
+
+      await vi.waitFor(() =>
+        expect(r.streamStatuses().at(-1)).toEqual({ kind: "ending" })
+      );
+      expect(r.endClock.waits()).toEqual([waitMs]);
+      // Every page's Live indicator hears it is ending.
+      await vi.waitFor(() =>
+        expect(r.liveStreams.at(-1)?.status).toEqual({ kind: "ending" })
+      );
+      // Viewers are still behind: the push and the recording go on.
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      expect(streamProcess.written).not.toContain("q");
+      expect(streamProcess.running).toBe(true);
+      expect(r.heard.map((m) => m.type)).not.toContain("recording-stopped");
+      expect(transitions()).toHaveLength(0);
+      // A second press while ending neither waits again nor ends it sooner.
+      const again = r.client.endStream(r.video.id);
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      expect(r.endClock.waits()).toEqual([waitMs]);
+      expect(streamProcess.written).not.toContain("q");
+
+      r.endClock.release();
+
+      expect(Either.isRight(await ending)).toBe(true);
+      expect(await again).toEqual({ broadcastId: "office-hours" });
+      expect(streamProcess.written).toContain("q");
+      expect(youtube.calls.slice(-2)).toEqual([
+        "(the push stopped)",
+        expect.stringMatching(/liveBroadcasts\/transition\?.*complete/),
+      ]);
+      await vi.waitFor(() =>
+        expect(r.heard.map((m) => m.type)).toContain("recording-stopped")
+      );
+      expect(ended(r.streamStatuses())).toEqual(["End Stream."]);
+    }
+  );
 
   it("still ends the stream when YouTube refuses the transition: auto-stop ends the Broadcast", async () => {
     const r = await live();
@@ -504,6 +565,7 @@ describe("the Stream Key", () => {
         streamKey: Redacted.make(KEY),
         micOffsetMs: 0,
         micEq: { lowDb: 0, midDb: 0, highDb: 0 },
+        endWaitMs: 0,
         silenceLength: "short",
         folder: r.folder,
       })

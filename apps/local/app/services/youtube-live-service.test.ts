@@ -25,6 +25,7 @@ const broadcastItem = (o: {
   enableAutoStop?: boolean;
   liveChatId?: string;
   boundStreamId?: string;
+  latencyPreference?: string;
 }) => ({
   kind: "youtube#liveBroadcast",
   id: o.id,
@@ -37,6 +38,7 @@ const broadcastItem = (o: {
     enableAutoStart: o.enableAutoStart ?? true,
     enableAutoStop: o.enableAutoStop ?? true,
     boundStreamId: o.boundStreamId,
+    latencyPreference: o.latencyPreference,
   },
 });
 
@@ -66,7 +68,7 @@ const insufficientScope: Answer = {
 };
 
 describe("listBroadcasts", () => {
-  it("lists the channel's active and upcoming Broadcasts, active first, then by scheduled start", async () => {
+  it("lists the channel's active and upcoming Broadcasts, active first, then by scheduled start, with each one's latency setting", async () => {
     await storeGrant();
     youtube.answers.active = {
       status: 200,
@@ -78,6 +80,7 @@ describe("listBroadcasts", () => {
             scheduledStartTime: "2026-10-30T15:00:00Z",
             liveChatId: "chat-live-now",
             boundStreamId: "stream-1",
+            latencyPreference: "low",
           }),
         ],
       },
@@ -92,6 +95,7 @@ describe("listBroadcasts", () => {
             scheduledStartTime: "2026-11-02T18:00:00Z",
             enableAutoStart: false,
             liveChatId: "chat-later",
+            latencyPreference: "somethingNew",
           }),
           broadcastItem({
             id: "sooner",
@@ -99,6 +103,7 @@ describe("listBroadcasts", () => {
             scheduledStartTime: "2026-10-31T18:00:00Z",
             enableAutoStop: false,
             liveChatId: "chat-sooner",
+            latencyPreference: "ultraLow",
           }),
         ],
       },
@@ -117,6 +122,7 @@ describe("listBroadcasts", () => {
           enableAutoStop: true,
           liveChatId: "chat-live-now",
           boundStreamId: "stream-1",
+          latencyPreference: "low",
         },
         {
           id: "sooner",
@@ -126,6 +132,7 @@ describe("listBroadcasts", () => {
           enableAutoStop: false,
           liveChatId: "chat-sooner",
           boundStreamId: null,
+          latencyPreference: "ultraLow",
         },
         {
           id: "later",
@@ -135,6 +142,8 @@ describe("listBroadcasts", () => {
           enableAutoStop: true,
           liveChatId: "chat-later",
           boundStreamId: null,
+          // A setting CVM doesn't know is not said: End Stream waits the longest.
+          latencyPreference: null,
         },
       ],
     });

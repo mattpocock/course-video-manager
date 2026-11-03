@@ -194,6 +194,8 @@ export const createStreamSide = (o: {
 
   const set = (next: StreamStatus) => {
     if (status.kind === next.kind && next.kind !== "ended") return;
+    // Ending stays ending, whatever its process does, until it ends.
+    if (status.kind === "ending" && next.kind !== "ended") return;
     status = next;
     o.onStatus(next);
   };
@@ -438,6 +440,15 @@ export const createStreamSide = (o: {
     });
   };
 
+  /**
+   * End Stream was pressed: it says it is ending, and goes on pushing (and
+   * relaunching) until `end`.
+   */
+  const ending = () => {
+    if (status.kind !== "idle" && status.kind !== "ended")
+      set({ kind: "ending" });
+  };
+
   /** The service's scene changed: the running stream shows it at once. */
   const switchScene = (next: Scene) => {
     scene = next;
@@ -449,6 +460,7 @@ export const createStreamSide = (o: {
     lastGone,
     feedOverflowed,
     start,
+    ending,
     end,
     switchScene,
     status: () => status,

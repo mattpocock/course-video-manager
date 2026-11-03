@@ -13,7 +13,8 @@ import { RECORD_WHILE_METERING } from "./protocol";
  * Live; `starting` from Go Live until the stream process is up;
  * `connecting` until it pushes a picture; `live`; `reconnecting` while its
  * push is being retried or its process relaunched (it reconnects for ever,
- * until End Stream); `ended`, saying why (End Stream, the Recording
+ * until End Stream); `ending` from End Stream's press until its wait is
+ * over, still pushing and recording so viewers catch up (#2660); `ended`, saying why (End Stream, the Recording
  * Session ending on its own, Go Live failing), until the next Go Live. A
  * stream process that quits never ends it.
  * A Live Stream always runs with exactly one Recording Session: the
@@ -25,6 +26,7 @@ export type StreamStatus =
   | { kind: "connecting" }
   | { kind: "live" }
   | { kind: "reconnecting" }
+  | { kind: "ending" }
   | { kind: "ended"; reason: string };
 
 /**
@@ -136,6 +138,11 @@ export type StreamCommand =
       streamKey: string;
       micOffsetMs: number;
       micEq: MicEq;
+      /**
+       * How long End Stream keeps pushing and recording before it stops
+       * them: the Broadcast's viewer latency (#2660).
+       */
+      endWaitMs: number;
       record: {
         silenceLength: SilenceLength;
         folder: string;
@@ -143,7 +150,9 @@ export type StreamCommand =
       };
     }
   /**
-   * END STREAM: stops the push and the streamed Recording Session together,
-   * the last Take let go exactly as Stop lets it go (ADR 0048).
+   * END STREAM: the Live Stream says it is `ending` and goes on for Go
+   * Live's `endWaitMs`, then the push and the streamed Recording Session
+   * stop together, the last Take let go exactly as Stop lets it go (ADR
+   * 0048). A second one while ending is answered with the first.
    */
   | { type: "end-stream" };

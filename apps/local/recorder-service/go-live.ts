@@ -113,6 +113,8 @@ export type LiveStreamOptions = {
   cardStartMs: number;
   /** Windows wall-clock ms, the Recording Session's T0's clock. */
   now: () => number;
+  /** Waits this long: End Stream's wait (#2660). A test passes its own clock. */
+  sleep: (ms: number) => Promise<void>;
 };
 
 /** The Live Stream's settings on the rig: every caller but a test passes these. */
@@ -123,6 +125,8 @@ export const LIVE_STREAM_SETTINGS = {
   lastStreamQuitBoundMs: LAST_STREAM_QUIT_BOUND_MS,
   cardAnswerMs: CARD_ANSWER_MS,
   cardStartMs: CARD_START_MS,
+  sleep: (ms: number) =>
+    new Promise<void>((resolve) => setTimeout(resolve, ms)),
 } satisfies Partial<LiveStreamOptions>;
 
 export const createGoLive = (
@@ -156,6 +160,24 @@ export const createGoLive = (
   let streamed: RecordingSession | undefined;
   /** The Broadcast the Live Stream goes out on. */
   let broadcastId = "";
+  /** How long End Stream keeps it going, from Go Live (`endWaitMs`). */
+  let endWaitMs = 0;
+  /** End Stream pressed, its wait not yet over: the session it ends. */
+  let ending: { session: RecordingSession; broadcastId: string } | undefined;
+  /**
+   * End Stream's wait is over, or its Recording Session ended first: the
+   * push stops, and the app server hears once it has.
+   */
+  const finishEnding = (e: NonNullable<typeof ending>) => {
+    if (ending !== e) return;
+    ending = undefined;
+    void side.close(ENDED_BY_END_STREAM).then(() =>
+      o.onPushStopped({
+        type: "live-stream-stopped",
+        broadcastId: e.broadcastId,
+      })
+    );
+  };
   /** What Go Live arms the streamed writer with, until Record has begun. */
   let goingLive: TakeSettings | undefined;
   /** Its health, second by second, in the streamed Recording Session's folder. */
@@ -209,6 +231,7 @@ export const createGoLive = (
       healthLog = undefined;
       side.end(why);
       endHighlights();
+      if (ending?.session === session) finishEnding(ending);
     },
 
     /**
@@ -261,6 +284,7 @@ export const createGoLive = (
         await r.record({ type: "record", ...command.record }, ports);
         streamed = r.session();
         broadcastId = command.broadcastId;
+        endWaitMs = command.endWaitMs;
         if (streamed) {
           highlights.begin(streamed);
           healthLog = openStreamHealthLog(path.dirname(streamed.eventLog));
@@ -282,21 +306,36 @@ export const createGoLive = (
     },
 
     /**
-     * END STREAM: the push and the streamed Recording Session stop together.
+     * END STREAM (#2660): viewers watch behind live, so the Live Stream says
+     * it is `ending` and goes on, pushing the current scene and recording,
+     * for Go Live's `endWaitMs`. Then the push and the streamed Recording
+     * Session stop together, the push by `q` (killed only past its bound).
      * `onPushStopped` hears once the stream's process has gone, which
-     * nothing in the command queue waits for.
+     * nothing in the command queue waits for. A Recording Session that ends
+     * on its own during the wait ends the push at once. A second End Stream
+     * during the wait changes nothing, and is answered with the first.
      */
     endStream: (r: GoLiveRecorder) => {
       if (!streamed || r.session() !== streamed)
         throw new Refusal("There is no Live Stream to end.");
-      const broadcast = broadcastId;
-      r.stop(ENDED_BY_END_STREAM);
-      void side.close(ENDED_BY_END_STREAM).then(() =>
-        o.onPushStopped({
-          type: "live-stream-stopped",
-          broadcastId: broadcast,
-        })
-      );
+      // A second press waits on the first's end: it hears the same answer.
+      if (ending) return;
+      const thisEnd = { session: streamed, broadcastId };
+      ending = thisEnd;
+      side.ending();
+      void o.sleep(endWaitMs).then(() => {
+        if (ending !== thisEnd) return;
+        // Its stop ends the Live Stream (`sessionEnded`), and so the push.
+        try {
+          if (r.session() === thisEnd.session) r.stop(ENDED_BY_END_STREAM);
+        } catch (e) {
+          console.error(
+            `recorder: End Stream: the streamed Recording Session would not stop: ${e instanceof Error ? e.message : String(e)}`
+          );
+        }
+        // Whatever stopped it, the push stops now too.
+        finishEnding(thisEnd);
+      });
     },
 
     /**

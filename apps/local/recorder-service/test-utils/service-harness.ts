@@ -99,11 +99,41 @@ afterEach(() => {
   clock.ms = T0_MS;
 });
 
+/**
+ * A test clock for the service's waits (`LiveStreamOptions.sleep`): each wait
+ * asked for is noted, and passes at once unless the clock is held, when it
+ * passes only at `release`.
+ */
+export const testSleep = () => {
+  const waits: number[] = [];
+  let held = false;
+  let pending: (() => void)[] = [];
+  return {
+    sleep: (ms: number) => {
+      waits.push(ms);
+      if (!held) return Promise.resolve();
+      return new Promise<void>((resolve) => pending.push(resolve));
+    },
+    /** Every wait asked for, in ms. */
+    waits: () => [...waits],
+    /** From now, a wait passes only at `release`. */
+    hold: () => {
+      held = true;
+    },
+    /** Every wait under way passes now. */
+    release: () => {
+      for (const resolve of pending.splice(0)) resolve();
+      pending = [];
+    },
+  };
+};
+
 export const start = async (
   windows = fakeWindows(),
   stateDir = tmp(),
   o: {
     previewStallMs?: number;
+    sleep?: (ms: number) => Promise<void>;
     streamIngest?: string;
     streamListenBoundMs?: number;
     streamStallMs?: number;
@@ -128,6 +158,7 @@ export const start = async (
     streamStallMs: o.streamStallMs ?? LIVE_STREAM_SETTINGS.streamStallMs,
     cardAnswerMs: o.cardAnswerMs ?? LIVE_STREAM_SETTINGS.cardAnswerMs,
     cardStartMs: o.cardStartMs ?? LIVE_STREAM_SETTINGS.cardStartMs,
+    sleep: o.sleep ?? testSleep().sleep,
   });
   cleanups.unshift(() => service.close());
   return {
