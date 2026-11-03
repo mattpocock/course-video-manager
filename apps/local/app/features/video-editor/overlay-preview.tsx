@@ -2,9 +2,11 @@ import { useEffect, useMemo, useRef } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
 import {
   BulletPanelPreview,
+  CallToActionPreview,
   ChatCardPreview,
   DefinitionCardPreview,
   type BulletPanel as BulletPanelInputProps,
+  type CallToAction as CallToActionInputProps,
   type DefinitionCard as DefinitionCardInputProps,
 } from "@cvm/overlay-renderer/preview";
 import { VIDEO_FORMAT_DIMENSIONS } from "@/features/videos/video-format";
@@ -127,26 +129,30 @@ const filterOverlaysByClipId = (
       .filter(([, overlays]) => overlays.length > 0)
   );
 
-const isChatCard = (overlay: ClipOverlay) =>
-  resolveOverlayKind(overlay.kind) === "chatCard";
+/** A Kind only a Short's render draws: a Chat Card or a Call to Action. */
+const isShortOnly = (overlay: ClipOverlay) => {
+  const kind = resolveOverlayKind(overlay.kind);
+  return kind === "chatCard" || kind === "callToAction";
+};
 
 /**
- * The Overlays a Short draws, by Clip: its Chat Cards only, as its render
- * draws them (`vertical-overlay-props.ts`). Every other Kind stays undrawn
- * in a Short.
+ * The Overlays a Short draws, by Clip: its Chat Cards and Calls to Action
+ * only, as its render draws them (`vertical-overlay-props.ts`). Every other
+ * Kind stays undrawn in a Short.
  */
 export const shortOverlaysByClipId = (
   overlaysByClipId: ReadonlyMap<string, ClipOverlay[]>
-) => filterOverlaysByClipId(overlaysByClipId, isChatCard);
+) => filterOverlaysByClipId(overlaysByClipId, isShortOnly);
 
 /**
- * The Overlays any other Video draws, by Clip: everything but its Chat Cards,
- * which its export drops (`placeOverlaysOnTimeline`). A Chat Card is left
- * behind only when a Short's format is changed after one was added.
+ * The Overlays any other Video draws, by Clip: everything but its Chat Cards
+ * and Calls to Action, which its export drops (`placeOverlaysOnTimeline`).
+ * One is left behind only when a Short's format is changed after it was
+ * added.
  */
 export const landscapeOverlaysByClipId = (
   overlaysByClipId: ReadonlyMap<string, ClipOverlay[]>
-) => filterOverlaysByClipId(overlaysByClipId, (o) => !isChatCard(o));
+) => filterOverlaysByClipId(overlaysByClipId, (o) => !isShortOnly(o));
 
 /**
  * The camera Transform in force over this Clip at `currentTime`, as CSS for
@@ -336,6 +342,29 @@ export const OverlayPreview = (props: {
                 key={active.id}
                 ref={playerRef}
                 component={ChatCardPreview}
+                inputProps={inputProps}
+                {...chrome}
+                compositionWidth={VIDEO_FORMAT_DIMENSIONS.short.width}
+                compositionHeight={VIDEO_FORMAT_DIMENSIONS.short.height}
+              />
+            );
+          }
+          case "callToAction": {
+            // A Short's Call to Action, on the Short's own 1080x1920 frame, as
+            // the Short's render draws it (`vertical-overlay-props`).
+            const inputProps: CallToActionInputProps = {
+              title: active.title,
+              description: active.description,
+              startFrame: 0,
+              durationInFrames,
+              disableEnterAnimation: active.disableEnterAnimation,
+              disableExitAnimation: active.disableExitAnimation,
+            };
+            return (
+              <Player
+                key={active.id}
+                ref={playerRef}
+                component={CallToActionPreview}
                 inputProps={inputProps}
                 {...chrome}
                 compositionWidth={VIDEO_FORMAT_DIMENSIONS.short.width}

@@ -12,7 +12,7 @@
  * DEFAULT and a `resolve` coercion, so a raw column value — including the
  * `null`/absent one every Overlay written before this column existed has —
  * lands on the reading that renders what the footage already looked like.
- * Adding a third kind is a one-line edit to {@link OVERLAY_KINDS}, which then
+ * Adding a kind is a one-line edit to {@link OVERLAY_KINDS}, which then
  * makes every `Record<OverlayKind, …>` lookup keyed off it a compile error
  * until the new kind is answered for.
  *
@@ -26,6 +26,7 @@ export const OVERLAY_KINDS = [
   "definitionCard",
   "bulletPanel",
   "chatCard",
+  "callToAction",
 ] as const;
 
 export type OverlayKind = (typeof OVERLAY_KINDS)[number];
@@ -54,13 +55,14 @@ export const resolveOverlayKind = (
  * naming an Overlay's Kind to the author says "Bullet Panel" and never
  * `bulletPanel`.
  *
- * A `Record<OverlayKind, …>` keyed off {@link OVERLAY_KINDS}, so a third kind
+ * A `Record<OverlayKind, …>` keyed off {@link OVERLAY_KINDS}, so a new kind
  * is a compile error here until somebody says what to call it.
  */
 const OVERLAY_KIND_LABELS: Record<OverlayKind, string> = {
   definitionCard: "Definition Card",
   bulletPanel: "Bullet Panel",
   chatCard: "Chat Card",
+  callToAction: "Call to Action",
 };
 
 /**

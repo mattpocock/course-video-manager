@@ -1,6 +1,7 @@
 import type { EffectReducer } from "use-effect-reducer";
 import type { ClipLayerRow } from "@cvm/core/features/videos/clip-layer";
 import type { RunningState } from "./video-state-reducer";
+import type { ClipOverlay } from "./overlay-preview";
 import {
   EXPORT_FPS,
   exportFrameAt,
@@ -59,8 +60,9 @@ const digest = (value: unknown): string => {
  * The frame the preview should show, or null for none (playing, or no saved
  * Clip). Its time is the scrub's, else where playback stopped, on the
  * render's 60 fps grid and inside the Clip. Its URL names what the frame is
- * drawn from (the Clip's span, words and Layers) and the Stop it was asked
- * after, so a change to any is asked for afresh and nothing else is.
+ * drawn from (the Clip's span, words, Layers and the Overlays drawn over it)
+ * and the Stop it was asked after, so a change to any is asked for afresh and
+ * nothing else is.
  */
 export const shortFrameRequest = (input: {
   clip: ShortFrameClip | undefined;
@@ -68,6 +70,8 @@ export const shortFrameRequest = (input: {
   /** Seconds into the source, as the scrub slider gives them. */
   scrubSeekTime: number | undefined;
   currentTimeInClip: number;
+  /** The Overlays the Short draws over this Clip (`shortOverlaysByClipId`). */
+  overlays: readonly ClipOverlay[];
   /** Which Stop the stills were last asked for after (`stillRound`). */
   round: string;
 }): ShortFrameRequest | null => {
@@ -90,6 +94,7 @@ export const shortFrameRequest = (input: {
     clip.text,
     clip.sceneOverride ?? null,
     clip.layers ?? [],
+    input.overlays,
     input.round,
   ]);
   const search = `at=${at}&v=${version}`;

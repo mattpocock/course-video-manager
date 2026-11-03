@@ -128,7 +128,7 @@ The **Video Format** of a horizontal, long-form video. The default.
 _Avoid_: Standard (the old value name)
 
 **Short**:
-The **Video Format** of a vertical, short-form video (the kind posted to YouTube Shorts, TikTok and similar). "Short" is the name to use everywhere. Like every Video it records with the CVM recorder (ADR 0051); its older OBS Clips still export. It is planned with an **Animatic** like a Landscape Video, opening with one Camera **Clip Mockup** and then Code ones (ADR 0052). Its render draws its captions and Chat Cards, and no call to action.
+The **Video Format** of a vertical, short-form video (the kind posted to YouTube Shorts, TikTok and similar). "Short" is the name to use everywhere. Like every Video it records with the CVM recorder (ADR 0051); its older OBS Clips still export. It is planned with an **Animatic** like a Landscape Video, opening with one Camera **Clip Mockup** and then Code ones (ADR 0052). Its render draws its captions, its **Chat Cards** and its **Calls to Action**; `cvm clip frame` and the Portrait Studio preview draw the same.
 _Avoid_: TikTok (reserved for the actual TikTok platform, and NOT the name for a Short)
 
 **Clip**:
@@ -427,7 +427,7 @@ A rendered graphic shown on top of a Video's picture, always drawn above every *
 _Avoid_: Layer (a piece of a Clip's picture, under every Overlay), Track, Effect
 
 **Overlay Kind**:
-Which content an **Overlay** carries: a **Definition Card** (the default), a **Bullet Panel** or a **Chat Card**. Every Kind is a graphic: B-roll, once a Kind, is now **Footage Layers**. It is part of the **Export Hash**, because it changes what is rendered. The Kind also decides the Overlay's **Transform**: the camera move comes from the Kind and is never written separately, so a Bullet Panel always gets its panel and its camera move together.
+Which content an **Overlay** carries: a **Definition Card** (the default), a **Bullet Panel**, a **Chat Card** or a **Call to Action**. Every Kind is a graphic: B-roll, once a Kind, is now **Footage Layers**. It is part of the **Export Hash**, because it changes what is rendered. The Kind also decides the Overlay's **Transform**: the camera move comes from the Kind and is never written separately, so a Bullet Panel always gets its panel and its camera move together.
 _Avoid_: Type, Variant, Overlay Type
 
 **B-roll**:
@@ -449,6 +449,10 @@ _Avoid_: Item, Point, Row, Line
 **Chat Card**:
 The third **Overlay Kind** (`chatCard`), for a **Short** only: one **Chat Highlight** at the top of the Short, opening with its **Chat Spin**. It is made on request from a Chat Highlight, by default the one showing at its anchor point when its Clip is from a **Streamed Recording Session**. Its author, text and spin are COPIED onto the Overlay, with no link back, so it outlives its Recording Session and is copied with its Clip. It is drawn only in the Shorts editor and the Short's render; there is no Landscape one.
 _Avoid_: Chat Overlay, Comment Card, Chat Highlight (the stream's own card)
+
+**Call to Action**:
+The fourth **Overlay Kind** (`callToAction`), for a **Short** only: a branded card in the lower half of the frame, with a headline (the Overlay's title, e.g. a URL) and a subline (its description), drawn from text. With neither given it says the old AI Hero card's words, "AIhero.dev" and "Go from Zero To AI Hero"; with one given, the other is empty and the card draws that line alone. It fades in, drifts up and fades out, and follows the **Animation Toggles**. It moves no camera. A Short has none unless one is added. It cannot be turned into another Kind, or another Kind into one. There is no Landscape one.
+_Avoid_: CTA (as the term), Advert, Promo, Pill
 
 **Chat Spin**:
 A **Chat Card**'s intro, about 1.2 s: the same Recording Session's other **Chat Highlights** fly past in a slot-machine reel and it lands on the pick. Its cells are the **reel** (the word is allowed for them, and the code uses it). It uses up to 8 of them; with fewer than 2 there is no spin and the card simply eases in. It can be turned off. It is never shown on the **Live Stream**.

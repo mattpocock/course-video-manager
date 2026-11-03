@@ -4,16 +4,23 @@ import { useContextSelector } from "use-context-selector";
 import { VideoEditorContext } from "../video-editor-context";
 import { stillRound } from "../cvm-recorder-reducer";
 import { shortFrameRequest } from "../short-frame-preview-reducer";
+import type { ClipOverlay } from "../overlay-preview";
 import { useShortFramePreview } from "../hooks/use-short-frame-preview";
+
+const NO_OVERLAYS: readonly ClipOverlay[] = [];
 
 /**
  * Over the Portrait Studio's player: paused or scrubbing, the frame the
  * Short's post shows there, drawn by the export's own code (the same as
  * `cvm clip frame`). Playing, nothing: the player draws the Clip, its
- * Footage Layers and its Chat Cards. While a frame draws, or when it is
- * refused, a note says so over the player.
+ * Footage Layers, its Chat Cards and its Calls to Action. While a frame
+ * draws, or when it is refused, a note says so over the player. The frame is
+ * asked for afresh when an Overlay over its Clip changes.
  */
-export const ShortFramePreviewOverlay = () => {
+export const ShortFramePreviewOverlay = (props: {
+  /** The Overlays the Short draws, by Clip (`shortOverlaysByClipId`). */
+  overlaysByClipId: ReadonlyMap<string, ClipOverlay[]>;
+}) => {
   const currentClip = useContextSelector(
     VideoEditorContext,
     (ctx) => ctx.currentClip
@@ -35,6 +42,9 @@ export const ShortFramePreviewOverlay = () => {
   );
 
   const clip = currentClip?.type === "on-database" ? currentClip : undefined;
+  const overlays = clip
+    ? props.overlaysByClipId.get(clip.databaseId)
+    : undefined;
   const request = useMemo(
     () =>
       shortFrameRequest({
@@ -42,9 +52,10 @@ export const ShortFramePreviewOverlay = () => {
         runningState,
         scrubSeekTime,
         currentTimeInClip,
+        overlays: overlays ?? NO_OVERLAYS,
         round,
       }),
-    [clip, runningState, scrubSeekTime, currentTimeInClip, round]
+    [clip, runningState, scrubSeekTime, currentTimeInClip, overlays, round]
   );
   const preview = useShortFramePreview(request);
 

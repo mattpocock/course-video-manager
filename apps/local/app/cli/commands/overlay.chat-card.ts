@@ -105,6 +105,23 @@ export const requireChatCardUnchanged = (p: {
     : Effect.void;
 };
 
+/**
+ * The anchor's Video must be a Short: `what` (a Chat Card, a Call to Action)
+ * is drawn only in a Short's render, so authoring it anywhere else is refused.
+ */
+export const requireShort = (videoId: string, what: string) =>
+  Effect.gen(function* () {
+    const videoOps = yield* VideoOperationsService;
+    const video = yield* videoOps
+      .getVideoWithClipsById(videoId)
+      .pipe(Effect.catchTag("NotFoundError", () => notFound("video", videoId)));
+    if (resolveVideoFormat(video.format) !== "short") {
+      return yield* refuse(
+        `Video ${videoId} is not a Short, and ${what} is drawn only in a Short`
+      );
+    }
+  });
+
 /** The Clip a Chat Card is anchored to, as picking its Chat Highlight needs it. */
 type ChatCardAnchor = {
   id: string;
@@ -183,20 +200,7 @@ export const resolveChatCardColumns = (params: {
   Effect.gen(function* () {
     if (params.kind !== "chatCard") return { chatSpin: null };
 
-    const videoOps = yield* VideoOperationsService;
-    const video = yield* videoOps
-      .getVideoWithClipsById(params.anchor.videoId)
-      .pipe(
-        Effect.catchTag("NotFoundError", () =>
-          notFound("video", params.anchor.videoId)
-        )
-      );
-    if (resolveVideoFormat(video.format) !== "short") {
-      return yield* refuse(
-        `Video ${params.anchor.videoId} is not a Short, and a Chat Card is ` +
-          "drawn only in a Short"
-      );
-    }
+    yield* requireShort(params.anchor.videoId, "a Chat Card");
 
     const { pick, session } = yield* pickChatHighlight({
       anchor: params.anchor,
