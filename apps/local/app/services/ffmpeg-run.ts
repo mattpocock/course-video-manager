@@ -5,6 +5,7 @@ import { createFfmpegProgressParser } from "./ffmpeg-progress";
 import { appendBoundedTail, withStderrTail } from "./ffmpeg-log-capture";
 import { SidecarContext } from "./sidecar-context";
 import { FfmpegPermitsService } from "./ffmpeg-permits";
+import { GpuGate } from "./gpu-gate";
 import {
   FFmpegError,
   FfmpegInputCutShortError,
@@ -119,6 +120,13 @@ export {
  * CPU permit instead (`permit: "cpu-permit"`). It never opens NVENC and holds
  * one input, so it has no business keeping a concat out of a slot: with two
  * slots NVENC sat at 99% while a normalize held one of them idle.
+ *
+ * And every ffmpeg run of an encode-slot pass goes through the GPU gate
+ * (`gpu-gate.ts`, #2644): none starts while a Recording Session records (a
+ * Live Stream always does). A run already going when Record is pressed
+ * finishes; the next one (a retry, the CPU re-run, the Job's next pass) waits
+ * for the Stop. The wait is inside the slot: an encode that let go of it would
+ * only let in another that must wait for the same Stop.
  */
 export const runFfmpegWithProgress = Effect.fn("runFfmpegWithProgress")(
   function* (opts: {
@@ -139,6 +147,10 @@ export const runFfmpegWithProgress = Effect.fn("runFfmpegWithProgress")(
     // An encode is a Job's: only the Sidecar provides this.
     yield* SidecarContext;
     const { withEncodeSlot, cpuSemaphore } = yield* FfmpegPermitsService;
+    const gpu = yield* GpuGate;
+    // A stream-copy pass never touches the GPU, so only encodes wait.
+    const runPass = (args: readonly string[]) =>
+      opts.permit === "encode-slot" ? gpu.run(runOnce(args)) : runOnce(args);
     const withPermit =
       opts.permit === "encode-slot"
         ? withEncodeSlot(opts.errorPrefix)
@@ -155,7 +167,7 @@ export const runFfmpegWithProgress = Effect.fn("runFfmpegWithProgress")(
     // let in another encode that wants the same missing session.
     yield* withPermit(
       Effect.gen(function* () {
-        let first = yield* runOnce(opts.args);
+        let first = yield* runPass(opts.args);
         if (first.code === 0) return;
 
         const waits = yield* NvencSessionWaits;
@@ -171,7 +183,7 @@ export const runFfmpegWithProgress = Effect.fn("runFfmpegWithProgress")(
           );
           yield* Effect.sleep(wait);
           waited = Duration.sum(waited, wait);
-          first = yield* runOnce(opts.args);
+          first = yield* runPass(opts.args);
           if (first.code === 0) return;
         }
         if (
@@ -197,7 +209,7 @@ export const runFfmpegWithProgress = Effect.fn("runFfmpegWithProgress")(
           "ffmpeg: the GPU could not open (no usable NVENC/NVDEC); running this pass again on the CPU",
           { errorPrefix: opts.errorPrefix, exitCode: first.code }
         );
-        const fallback = yield* runOnce(fallbackArgs);
+        const fallback = yield* runPass(fallbackArgs);
         if (fallback.code !== 0) {
           return yield* toError(
             undefined,

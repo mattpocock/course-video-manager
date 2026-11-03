@@ -18,8 +18,15 @@ import { untilRecordingIs, type RecordingSignal } from "./still-gate";
  * the model. A Footage transcription is a run of chunks, so it yields at
  * its next chunk (~15 s at most) and resumes after the Stop.
  *
+ * The other GPU users wait at the same gate (#2644): every NVENC encode run
+ * (`runFfmpegWithProgress`'s encode-slot passes: a Video's export, a Batch
+ * export or Publish, an Animatic, a Short's render, the Posting Queue's
+ * just-in-time `render-vertical`), and each line Kokoro voices for a Clip
+ * Mockup (`resolveClipMockupSpeeches`). Each yields at its next run or line.
+ *
  * Unlike the Still Gate, nothing here fails: a Job has no browser connection
- * to hold, so it waits.
+ * to hold, so it waits. A gated Job is still running, so it is never a
+ * failure, nor a Posting Queue's posting failure; it carries on at the Stop.
  */
 export const makeGpuGate =
   (signal: RecordingSignal) =>
@@ -27,7 +34,7 @@ export const makeGpuGate =
     Effect.gen(function* () {
       if (signal.recording()) {
         yield* Effect.logInfo(
-          "GPU gate: a Recording Session is live; Whisper waits for the Stop"
+          "GPU gate: a Recording Session is live; this GPU work waits for the Stop"
         );
         yield* untilRecordingIs(signal, false);
         yield* Effect.logInfo("GPU gate: the Recording Session stopped");
@@ -35,7 +42,7 @@ export const makeGpuGate =
       return yield* work;
     });
 
-/** The gate a Whisper pass goes through. Only the Sidecar's layer provides it. */
+/** The gate GPU work (Whisper, NVENC, Kokoro) goes through. Only the Sidecar's layer provides it. */
 export class GpuGate extends Context.Tag("GpuGate")<
   GpuGate,
   {

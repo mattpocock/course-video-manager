@@ -11,6 +11,7 @@ import {
   FfmpegPermitsService,
 } from "./ffmpeg-permits";
 import { SidecarContextTest } from "./sidecar-context";
+import { idleGpuGate } from "@/test-utils/idle-gpu-gate";
 
 const readPermits = (env: Record<string, string>) =>
   Effect.runPromise(
@@ -109,7 +110,8 @@ describe("the audio normalize and the encode slots", () => {
               Layer.mergeAll(
                 FfmpegPermitsService.Default,
                 NodeContext.layer,
-                SidecarContextTest
+                SidecarContextTest,
+                idleGpuGate
               )
             ),
             Layer.provide(

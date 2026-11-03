@@ -1,8 +1,20 @@
-import { Deferred, Effect, Fiber, Ref, TestContext } from "effect";
+import { NodeContext } from "@effect/platform-node";
+import { Deferred, Effect, Fiber, Layer, Ref, TestContext } from "effect";
+import fs from "node:fs";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
+import os from "node:os";
+import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import {
+  ClipMockupSpeechService,
+  pcmToWav,
+} from "./clip-mockup-speech-service";
+import { FFmpegEncodeService } from "./ffmpeg-encode-commands";
 import { GpuGate, makeGpuGate, recorderGpuGateLayer } from "./gpu-gate";
+import { resolveClipMockupSpeeches } from "./resolve-clip-mockup-speech";
+import { SidecarContextTest } from "./sidecar-context";
+import { STORAGE_ROOTS_ENV_KEY } from "./storage-roots";
 import type { RecordingSignal } from "./still-gate";
 
 /** A recorder the test starts and stops. */
@@ -99,6 +111,130 @@ describe("the GPU gate", () => {
     const gate = makeGpuGate(fakeRecorder(false).signal);
     await expect(run(gate(Effect.fail("no GPU")))).rejects.toThrow("no GPU");
   });
+});
+
+/** A temp directory for one test, removed after it. */
+const withTempDir = async <A>(
+  prefix: string,
+  body: (dir: string) => Promise<A>
+) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+  try {
+    return await body(dir);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+};
+
+describe("the GPU gate holds every GPU user, not only Whisper (#2644)", () => {
+  it(
+    "holds an NVENC encode (an export, a Short, a render-vertical Job's) asked for during a Recording Session until the Stop, then runs it",
+    () =>
+      withTempDir("gpu-gate-encode-", async (dir) => {
+        // A stand-in `ffmpeg` that notes each run: no real encode, no GPU.
+        fs.writeFileSync(
+          path.join(dir, "ffmpeg"),
+          `#!/bin/sh\necho run >> "${dir}/runs.txt"\nexit 0\n`,
+          { mode: 0o755 }
+        );
+        const runs = () =>
+          fs.existsSync(path.join(dir, "runs.txt"))
+            ? fs
+                .readFileSync(path.join(dir, "runs.txt"), "utf8")
+                .trim()
+                .split("\n").length
+            : 0;
+        const originalPath = process.env.PATH;
+        process.env.PATH = `${dir}${path.delimiter}${originalPath ?? ""}`;
+        const recorder = fakeRecorder(true);
+        try {
+          await Effect.runPromise(
+            Effect.gen(function* () {
+              const ffmpeg = yield* FFmpegEncodeService;
+              const encode = yield* Effect.fork(
+                ffmpeg.compositeOverlay(
+                  "in.mp4",
+                  "subs.mov",
+                  path.join(dir, "short.mp4"),
+                  () => {}
+                )
+              );
+              yield* Effect.sleep("300 millis");
+              expect(runs()).toBe(0);
+
+              recorder.set(false);
+              yield* Fiber.join(encode);
+              expect(runs()).toBe(1);
+            }).pipe(
+              Effect.provide(
+                FFmpegEncodeService.Default.pipe(
+                  Layer.provideMerge(
+                    Layer.mergeAll(
+                      NodeContext.layer,
+                      SidecarContextTest,
+                      Layer.succeed(GpuGate, {
+                        run: makeGpuGate(recorder.signal),
+                      })
+                    )
+                  )
+                )
+              )
+            )
+          );
+        } finally {
+          process.env.PATH = originalPath;
+        }
+      }),
+    10_000
+  );
+
+  it("holds Kokoro: a Clip Mockup voice batch voices no line while recording, and yields between lines when Record is pressed", () =>
+    withTempDir("gpu-gate-kokoro-", async (store) => {
+      const original = process.env[STORAGE_ROOTS_ENV_KEY];
+      process.env[STORAGE_ROOTS_ENV_KEY] = store;
+      const recorder = fakeRecorder(false);
+      const spoken: string[] = [];
+      const wav = pcmToWav(Buffer.alloc(4800), 24000);
+      // Kokoro, faked at its seam: Record is pressed while it voices "one".
+      const speech = Layer.succeed(ClipMockupSpeechService, {
+        synthesizeLine: (line: string) =>
+          Effect.sync(() => {
+            spoken.push(line);
+            if (line === "one") recorder.set(true);
+            return { wav, durationSeconds: 0.1 };
+          }),
+      } as unknown as ClipMockupSpeechService);
+      try {
+        await Effect.runPromise(
+          Effect.gen(function* () {
+            const batch = yield* Effect.fork(
+              resolveClipMockupSpeeches([
+                { lineageId: "lineage-1", line: "one" },
+                { lineageId: "lineage-1", line: "two" },
+              ])
+            );
+            yield* Effect.sleep("100 millis");
+            expect(spoken).toEqual(["one"]);
+
+            recorder.set(false);
+            const { files } = yield* Fiber.join(batch);
+            expect(spoken).toEqual(["one", "two"]);
+            expect(files).toHaveLength(2);
+          }).pipe(
+            Effect.provide(
+              Layer.mergeAll(
+                speech,
+                NodeContext.layer,
+                Layer.succeed(GpuGate, { run: makeGpuGate(recorder.signal) })
+              )
+            )
+          )
+        );
+      } finally {
+        if (original === undefined) delete process.env[STORAGE_ROOTS_ENV_KEY];
+        else process.env[STORAGE_ROOTS_ENV_KEY] = original;
+      }
+    }));
 });
 
 // The Sidecar's gate reads the recorder service's `/health`, as `cvm`'s

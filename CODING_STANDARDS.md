@@ -197,7 +197,7 @@ Anything that runs mid-take must never take time from the capture (#2214,
 which lost 41 frames to a Whisper cold start and stills grabbed from the
 growing take), nor the GPU from a Live Stream (#2631):
 
-- GPU work waits for Stop. Each Local Whisper pass goes through the GPU gate
+- GPU work (Whisper, NVENC, Kokoro) goes through the GPU gate
   (`app/services/gpu-gate.ts`), held while recording. Read "is
   anything live" from the Still Gate's `RecordingSignal`, never your own.
   The recorder keeps Whisper loaded while open.

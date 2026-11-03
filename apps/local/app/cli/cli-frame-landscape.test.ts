@@ -33,6 +33,7 @@ import {
   YELLOW,
   MAGENTA,
 } from "@/test-utils/cli-frame-harness";
+import { idleGpuGate } from "@/test-utils/idle-gpu-gate";
 
 setupFrameTests();
 
@@ -190,7 +191,7 @@ const exportLandscape = (videoId: string) => {
             Layer.provide(
               Layer.mergeAll(
                 FFmpegCommandsService.Default,
-                FFmpegEncodeService.Default,
+                FFmpegEncodeService.Default.pipe(Layer.provide(idleGpuGate)),
                 logger,
                 NodeContext.layer
               )

@@ -24,6 +24,7 @@ import { enqueueJob } from "../job-kinds";
 import { makeJsonLogger } from "../json-logger";
 import { runSidecar, type SidecarTiming } from "../sidecar";
 import { clipMockupVoiceJobKind } from "./clip-mockup-voice";
+import { idleGpuGate } from "@/test-utils/idle-gpu-gate";
 
 // ===========================================================================
 // A `clip-mockup-voice` Job that ends for good, BY ANY ROUTE — its last
@@ -96,6 +97,7 @@ const layer = () => {
       } as unknown as ClipMockupSpeechService)
     ),
     Layer.merge(NodeContext.layer),
+    Layer.merge(idleGpuGate),
     Layer.merge(
       Logger.replace(
         Logger.defaultLogger,

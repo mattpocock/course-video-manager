@@ -10,6 +10,7 @@ import {
   wavDurationSeconds,
 } from "./clip-mockup-speech-service";
 import { speakLinesInDaemon } from "./clip-mockup-daemon/client";
+import { GpuGate } from "./gpu-gate";
 
 /**
  * The one place a Clip Mockup's line gets voiced — the content-addressed
@@ -109,9 +110,14 @@ const speakInDaemon = (misses: ReadonlyArray<LineToSpeak>) =>
  * in order — plus the WAVs that are new and still have to be written.
  *
  * Only the lines not already on disk are voiced, each of them once however
- * many times it appears. They go to the Clip Mockup daemon together, so a
- * batch of sixty lines pays for one model load at most, and for none when the
- * daemon is already warm.
+ * many times it appears. They go to the Clip Mockup daemon one line per
+ * request; the daemon stays warm between them, so a batch of sixty lines
+ * pays for one model load at most, and for none when it is already warm.
+ *
+ * Each line goes through the GPU gate (`gpu-gate.ts`, #2644): Kokoro is on
+ * the GPU, so no line is voiced while a Recording Session records (a Live
+ * Stream always does). A line being voiced when Record is pressed finishes;
+ * the rest of the batch waits for the Stop.
  *
  * The `Effect.serviceOption` branch is the test seam: a suite provides a
  * `Layer.succeed` ClipMockupSpeechService, and no daemon is started and no
@@ -130,11 +136,16 @@ export const resolveClipMockupSpeeches = (items: ReadonlyArray<LineToSpeak>) =>
 
     if (misses.length > 0) {
       const provided = yield* Effect.serviceOption(ClipMockupSpeechService);
-      const spoken = yield* Option.match(provided, {
-        onSome: (svc) =>
-          Effect.forEach(misses, (miss) => svc.synthesizeLine(miss.line)),
-        onNone: () => speakInDaemon(misses),
-      });
+      const gpu = yield* GpuGate;
+      const spoken = yield* Effect.forEach(misses, (miss) =>
+        gpu.run(
+          Option.match(provided, {
+            onSome: (svc) => svc.synthesizeLine(miss.line),
+            onNone: () =>
+              speakInDaemon([miss]).pipe(Effect.map(([one]) => one!)),
+          })
+        )
+      );
       for (const [i, miss] of misses.entries()) {
         const audioPath = speechFilename(miss.line);
         resolved.set(keyOf(miss), {

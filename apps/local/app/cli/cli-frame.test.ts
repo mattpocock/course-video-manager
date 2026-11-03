@@ -31,6 +31,7 @@ import {
   YELLOW,
   MAGENTA,
 } from "@/test-utils/cli-frame-harness";
+import { idleGpuGate } from "@/test-utils/idle-gpu-gate";
 
 // cvm footage frame and cvm clip frame on a Short. The harness
 // (`test-utils/cli-frame-harness.ts`): the real ffmpeg on lavfi fixtures, a fake
@@ -170,7 +171,7 @@ const renderShort = (videoId: string) => {
     VideoOperationsService.Default.pipe(Layer.provide(db)),
     ClipOperationsService.Default.pipe(Layer.provide(db)),
     FFmpegCommandsService.Default,
-    FFmpegEncodeService.Default,
+    FFmpegEncodeService.Default.pipe(Layer.provide(idleGpuGate)),
     Layer.succeed(VideoEditorLoggerService, {
       log: () => Effect.void,
     } as never),
