@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useContextSelector } from "use-context-selector";
-import { ExternalLinkIcon, MessageSquareIcon } from "lucide-react";
+import { ExternalLinkIcon, EyeIcon, MessageSquareIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { streamChatChannel } from "@/lib/stream-chat-protocol";
@@ -169,6 +169,15 @@ export const BroadcastChatView = (props: {
       <div className="flex items-center gap-2 shrink-0">
         <MessageSquareIcon className="size-4 text-muted-foreground" />
         <h2 className="text-sm font-medium">Live chat</h2>
+        {view.viewers && (
+          <span
+            className="ml-auto flex items-center gap-1 text-xs text-muted-foreground tabular-nums"
+            data-testid="concurrent-viewers"
+          >
+            <EyeIcon className="size-3.5" />
+            {view.viewers}
+          </span>
+        )}
       </div>
       {poppedOut ? (
         <div className="flex flex-col items-start gap-2 text-sm text-muted-foreground">

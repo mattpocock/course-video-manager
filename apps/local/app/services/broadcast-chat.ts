@@ -19,6 +19,7 @@ import type { LinkAuthOperationsService } from "@/services/db-link-auth-operatio
 import {
   listChatPage,
   openChatStream,
+  readConcurrentViewers,
   type ChatListAnswer,
   type ChatPage,
   type ChatStreamAnswer,
@@ -64,6 +65,12 @@ import {
  * Every change of connection is logged (`log`), with how many stream
  * connections this pick has opened, so a run's log tells polling from
  * flapping.
+ *
+ * Given `concurrentViewersEveryMs`, it also reads the Broadcast's
+ * **Concurrent Viewers** (`videos.list`, 1 quota unit) at the pick and that
+ * often after, until the same stop as the chat, or YouTube says the
+ * Broadcast ended (#2659). A read that fails keeps the count it had and says
+ * nothing: the pop-out, which Matt's audience sees, shows the count too.
  */
 
 /** One logged change of a pick's chat connection. */
@@ -117,11 +124,14 @@ export const createBroadcastChat = (o: {
   maxMessages: number;
   /** Hears every change of connection. */
   log?: (entry: ChatConnectionLog) => void;
+  /** How often to read the Concurrent Viewers; never read without it. */
+  concurrentViewersEveryMs?: number;
 }): BroadcastChat => {
   const listeners = new Set<(event: BroadcastChatEvent) => void>();
   let broadcastId: string | null = null;
   let connection: ChatConnection = { state: "idle" };
   let messages: ChatMessage[] = [];
+  let concurrentViewers: number | null = null;
   /** Done once the pick's reading must stop. */
   let stopReading: Deferred.Deferred<void> | null = null;
 
@@ -130,6 +140,28 @@ export const createBroadcastChat = (o: {
     for (const listener of listeners) listener(event);
   };
   const attach = () => emit({ type: "chat-attached", chat: snapshot() });
+
+  /** Reads the Concurrent Viewers every `everyMs` until YouTube says it ended. */
+  const watchViewers = (id: string, everyMs: number) =>
+    Effect.gen(function* () {
+      for (;;) {
+        const read = yield* Effect.either(readConcurrentViewers(id));
+        // A failed read keeps the last count.
+        if (read._tag === "Right") {
+          const next = read.right.ended ? null : read.right.concurrentViewers;
+          if (next !== concurrentViewers && broadcastId === id) {
+            concurrentViewers = next;
+            emit({
+              type: "concurrent-viewers-changed",
+              broadcastId: id,
+              concurrentViewers: next,
+            });
+          }
+          if (read.right.ended) return;
+        }
+        yield* Effect.sleep(Duration.millis(everyMs));
+      }
+    });
 
   const stop = () => {
     if (stopReading) Deferred.unsafeDone(stopReading, Exit.void);
@@ -333,6 +365,18 @@ export const createBroadcastChat = (o: {
         stop();
         broadcastId = pick.broadcastId;
         messages = [];
+        concurrentViewers = null;
+        const stopped = yield* Deferred.make<void>();
+        stopReading = stopped;
+        if (o.concurrentViewersEveryMs !== undefined) {
+          // Outlives the pick's request, like the chat; ends with it.
+          yield* Effect.forkDaemon(
+            Effect.raceFirst(
+              watchViewers(pick.broadcastId, o.concurrentViewersEveryMs),
+              Deferred.await(stopped)
+            )
+          );
+        }
         if (pick.liveChatId === null) {
           connection = { state: "over", reason: "no-chat" };
           attach();
@@ -340,8 +384,6 @@ export const createBroadcastChat = (o: {
         }
         connection = { state: "connecting" };
         attach();
-        const stopped = yield* Deferred.make<void>();
-        stopReading = stopped;
         // Outlives the pick's request: it reads until stopped.
         yield* Effect.forkDaemon(
           Effect.raceFirst(
@@ -355,11 +397,19 @@ export const createBroadcastChat = (o: {
       broadcastId = null;
       connection = { state: "idle" };
       messages = [];
+      concurrentViewers = null;
       attach();
     },
     subscribe: (listener) => {
       listeners.add(listener);
       listener({ type: "chat-attached", chat: snapshot() });
+      if (broadcastId !== null && concurrentViewers !== null) {
+        listener({
+          type: "concurrent-viewers-changed",
+          broadcastId,
+          concurrentViewers,
+        });
+      }
       return () => listeners.delete(listener);
     },
     snapshot,

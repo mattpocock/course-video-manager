@@ -67,6 +67,7 @@ describe("the chat view, on the Streaming tab and in its pop-out", () => {
       line: { text: "Pick a Broadcast to see its live chat.", warn: false },
       notices: ["The card's browser is not downloaded."],
       waiting: false,
+      viewers: null,
       rows: [],
     });
   });
@@ -228,5 +229,81 @@ describe("the chat view, on the Streaming tab and in its pop-out", () => {
       messageId: "m2",
     }).send({ type: "chat-highlight-hidden", highlightId: "h1" });
     expect(highlightOnPicture(t.getState())).toBeNull();
+  });
+  describe("Concurrent Viewers", () => {
+    it("shows how many are watching on the tab and in the pop-out, and nothing while YouTube gives no count", () => {
+      const t = live();
+      expect(chatView(t.getState(), null).viewers).toBeNull();
+      expect(popoutChatView(t.getState(), null).viewers).toBeNull();
+
+      t.send({
+        type: "concurrent-viewers-changed",
+        broadcastId: "b1",
+        concurrentViewers: 1234,
+      });
+      expect(chatView(t.getState(), null).viewers).toBe("1,234 watching");
+      expect(popoutChatView(t.getState(), null).viewers).toBe("1,234 watching");
+
+      t.send({
+        type: "concurrent-viewers-changed",
+        broadcastId: "b1",
+        concurrentViewers: null,
+      });
+      expect(popoutChatView(t.getState(), null).viewers).toBeNull();
+    });
+
+    it("keeps the count in the pop-out while the chat reconnects", () => {
+      const t = live()
+        .send({
+          type: "concurrent-viewers-changed",
+          broadcastId: "b1",
+          concurrentViewers: 1,
+        })
+        .send({
+          type: "chat-connection-changed",
+          broadcastId: "b1",
+          connection: { state: "reconnecting", message: "socket hang up" },
+        });
+      expect(popoutChatView(t.getState(), null).viewers).toBe("1 watching");
+    });
+
+    it("drops a late count from a Broadcast no longer picked, and forgets the count when another is picked or the stream ends", () => {
+      const t = live()
+        .send({
+          type: "concurrent-viewers-changed",
+          broadcastId: "b1",
+          concurrentViewers: 40,
+        })
+        .send({
+          type: "chat-attached",
+          chat: {
+            broadcastId: "b2",
+            connection: { state: "connecting" },
+            messages: [],
+          },
+        });
+      expect(chatView(t.getState(), null).viewers).toBeNull();
+
+      t.send({
+        type: "concurrent-viewers-changed",
+        broadcastId: "b1",
+        concurrentViewers: 41,
+      });
+      expect(chatView(t.getState(), null).viewers).toBeNull();
+
+      t.send({
+        type: "concurrent-viewers-changed",
+        broadcastId: "b2",
+        concurrentViewers: 7,
+      }).send({
+        type: "chat-attached",
+        chat: {
+          broadcastId: null,
+          connection: { state: "idle" },
+          messages: [],
+        },
+      });
+      expect(chatView(t.getState(), null).viewers).toBeNull();
+    });
   });
 });
