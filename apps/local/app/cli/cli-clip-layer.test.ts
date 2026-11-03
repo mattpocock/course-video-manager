@@ -266,6 +266,60 @@ describe("cvm clip layer", () => {
     });
   });
 
+  it("refuses a write over Layers another command changed since it read them (exit 8), losing neither", async () => {
+    const s = await seed("short");
+    // The other command lands between this one's read and its write.
+    let raced = false;
+    const racing = makeRun(
+      buildWriteLayer(testDb, {
+        beforeRequest: async (url) => {
+          if (raced || !url.endsWith("/setClipLayers")) return;
+          raced = true;
+          await run(["clip", "layer", "add", ...FACE_BAND, s.first]);
+        },
+      })
+    );
+
+    const lost = await racing([
+      "clip",
+      "layer",
+      "add",
+      ...SCREEN_SQUARE,
+      s.first,
+    ]);
+
+    expect(lost.exitCode).toBe(8);
+    expect(JSON.parse(lost.stderr)).toMatchObject({
+      _tag: "ClipLayersChangedError",
+      clipId: s.first,
+    });
+    const afterRace = [
+      { index: 0, kind: "scene", volume: 1 },
+      expect.objectContaining({
+        index: 1,
+        source: { kind: "session", file: "camera" },
+      }),
+    ];
+    expect(await layers(s.first)).toEqual(afterRace);
+
+    // Run again, it reads the other command's Layer and keeps it.
+    const retried = await run([
+      "clip",
+      "layer",
+      "add",
+      ...SCREEN_SQUARE,
+      s.first,
+    ]);
+    expect(retried.exitCode).toBe(0);
+    expect(ndjson(retried.stdout)).toEqual([
+      ...afterRace,
+      expect.objectContaining({
+        index: 2,
+        source: { kind: "session", file: "screen" },
+      }),
+    ]);
+  });
+
   describe("refuses with exit 3, writing nothing", () => {
     const refused = async (clipId: string, argv: string[]) => {
       const before = await layers(clipId);
