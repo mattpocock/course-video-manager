@@ -1,4 +1,5 @@
 import { describe, it, expect } from "@effect/vitest";
+import { Clock, Duration, Effect } from "effect";
 import { afterEach, vi } from "vitest";
 import type http from "node:http";
 import {
@@ -81,6 +82,56 @@ const chatRequests = () =>
   youtube.requests
     .filter((r) => r.path.startsWith("/youtube/v3/liveChat/"))
     .map((r) => new URL(r.path, "http://fake"));
+
+/**
+ * A clock the test moves by hand, so pauses are measured in its time, not
+ * the wall clock's. `whenAsleep` resolves once the chat waits on it.
+ */
+const handClock = () => {
+  let now = Date.now();
+  const sleepers: { at: number; wake: () => void }[] = [];
+  let asleep: (() => void) | null = null;
+  const clock: Clock.Clock = {
+    [Clock.ClockTypeId]: Clock.ClockTypeId,
+    unsafeCurrentTimeMillis: () => now,
+    currentTimeMillis: Effect.sync(() => now),
+    unsafeCurrentTimeNanos: () => BigInt(now) * 1_000_000n,
+    currentTimeNanos: Effect.sync(() => BigInt(now) * 1_000_000n),
+    sleep: (duration) =>
+      Effect.async<void>((resume) => {
+        const sleeper = {
+          at: now + Duration.toMillis(duration),
+          wake: () => resume(Effect.void),
+        };
+        sleepers.push(sleeper);
+        asleep?.();
+        return Effect.sync(() => {
+          sleepers.splice(sleepers.indexOf(sleeper), 1);
+        });
+      }),
+  };
+  return {
+    clock,
+    now: () => now,
+    /** Resolves once something sleeps on this clock. */
+    whenAsleep: () =>
+      sleepers.length > 0
+        ? Promise.resolve()
+        : new Promise<void>((resolve) => {
+            asleep = () => {
+              asleep = null;
+              resolve();
+            };
+          }),
+    /** Moves time on to the next sleeper's wake-up, and wakes it. */
+    wakeNext: () => {
+      sleepers.sort((a, b) => a.at - b.at);
+      const next = sleepers.shift()!;
+      now = Math.max(now, next.at);
+      next.wake();
+    },
+  };
+};
 
 /** The app server's chat, talking to the fake YouTube. */
 let chats: BroadcastChat[] = [];
@@ -461,54 +512,66 @@ describe("the Broadcast's live chat, owned by the app server", () => {
 
   it("while polling, asks for the stream connection again after a pause that doubles up to a cap, and stops polling the moment it's back", async () => {
     await storeGrant();
+    const time = handClock();
     const askedAt: number[] = [];
+    let first: http.ServerResponse | undefined;
     youtube.chatStreams.push((res) => {
+      first = res;
       sendPages(res, [
         chatPage({ messages: [fakeViewerMessage(1)], nextPageToken: "t1" }),
       ]);
-      setTimeout(() => res.destroy(), 20);
     });
     // Refused as it breaks down, then five more times, then back.
     for (let i = 0; i < 6; i++) {
       youtube.chatStreams.push((res) => {
-        askedAt.push(Date.now());
+        askedAt.push(time.now());
         refuseStream(res);
       });
     }
-    youtube.chatStreams.push((res) => {
-      askedAt.push(Date.now());
-      sendPages(res, [chatPage({ messages: [fakeViewerMessage(9)] })]);
+    let backNow = () => {};
+    const back = new Promise<"back">((resolve) => {
+      backNow = () => resolve("back");
     });
+    youtube.chatStreams.push((res) => {
+      askedAt.push(time.now());
+      sendPages(res, [chatPage({ messages: [fakeViewerMessage(9)] })]);
+      backNow();
+    });
+    // Every pause is a whole number of polls, so each ask lands on time.
     for (let i = 0; i < 200; i++) {
       youtube.chatPolls.push({
         status: 200,
-        body: chatPage({ messages: [], pollingIntervalMillis: 5 }),
+        body: chatPage({ messages: [], pollingIntervalMillis: 20 }),
       });
     }
     const chat = startChat();
-
-    await pick(chat, {
-      broadcastId: "office-hours",
-      liveChatId: "chat-office-hours",
+    // It breaks down mid-stream once its first message is heard.
+    chat.subscribe((e) => {
+      if (e.type === "chat-message-received" && e.messages[0]?.id === "msg-1")
+        first!.destroy();
     });
 
-    await vi.waitFor(
-      () => expect(chat.snapshot().messages).toEqual([shown(1), shown(9)]),
-      { timeout: 3000 }
+    await runWithFakeYouTube(
+      Effect.withClock(
+        chat.pick({
+          broadcastId: "office-hours",
+          liveChatId: "chat-office-hours",
+        }),
+        time.clock
+      )
     );
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    // Time moves only while the chat waits on it, until the stream is back.
+    while ((await Promise.race([back, time.whenAsleep()])) !== "back") {
+      time.wakeNext();
+    }
+
+    await vi.waitFor(() =>
+      expect(chat.snapshot().messages).toEqual([shown(1), shown(9)])
+    );
     expect(chat.snapshot().connection).toEqual({ state: "streaming" });
-    const pauses = askedAt.slice(1).map((at, i) => at - askedAt[i]!);
     // 20, 40, 80, then the cap of 100 (doubling on would give 160, 320).
-    expect(pauses.map((p, i) => p >= [20, 40, 80, 100, 100, 100][i]!)).toEqual([
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-    ]);
-    expect(pauses.slice(3).every((p) => p < 150)).toBe(true);
+    const pauses = askedAt.slice(1).map((at, i) => at - askedAt[i]!);
+    expect(pauses).toEqual([20, 40, 80, 100, 100, 100]);
     // Not one poll once the stream connection is back.
     const paths = chatRequests().map((r) => r.pathname);
     expect(paths.at(-1)).toBe("/youtube/v3/liveChat/messages/stream");
