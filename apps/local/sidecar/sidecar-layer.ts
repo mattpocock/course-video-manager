@@ -8,6 +8,7 @@ import { SidecarContextLive } from "@/services/sidecar-context";
 import { VideoExportService } from "@/services/video-export-service";
 import { WhisperTranscriptionService } from "@/services/whisper-transcription-service";
 import { ClipMockupVoiceOperationsService } from "@/services/db-clip-mockup-voice-operations.server";
+import { PostingQueueSidecarService } from "@/services/db-posting-queue-sidecar.server";
 import { LocalWhisperEngineLive } from "./local-whisper-engine";
 
 /**
@@ -35,7 +36,9 @@ export const sidecarLayer = Layer.mergeAll(
   RenderVerticalVideoService.Default,
   WhisperTranscriptionService.Default,
   // Records a Clip Mockup's voice once the `clip-mockup-voice` Job made it.
-  ClipMockupVoiceOperationsService.Default
+  ClipMockupVoiceOperationsService.Default,
+  // The Posting Queue tick, and the posting Jobs it enqueues.
+  PostingQueueSidecarService.Default
 ).pipe(
   Layer.provideMerge(encodeLayer),
   Layer.provideMerge(layerLive),
