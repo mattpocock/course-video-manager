@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from "node:util";
 import { asc, eq, inArray } from "drizzle-orm";
 import { Effect } from "effect";
 import { clipLayers, clips } from "../db/schema.js";
@@ -14,6 +15,7 @@ import {
   layerRowsFromSpecs,
 } from "./clip-layers-relation.js";
 import {
+  ClipLayersChangedError,
   ClipLayersRefusedError,
   NotFoundError,
   UnknownDBServiceError,
@@ -52,10 +54,18 @@ export const createClipLayerOperationsUnwrapped = (db: Database) => {
    * linked), judged against each Clip's Video Format and Recording Session.
    * Refused whole when any Clip cannot take them; each Clip's Version must
    * be a Draft.
+   *
+   * `expected` makes it a compare-and-set (#2598): the Layers the caller
+   * read and edited. The Clips' rows are locked `FOR UPDATE`, so a second
+   * writer waits for the first to commit, then sees its Layers; when any
+   * Clip's Layers are not `expected` any more it is refused whole
+   * (`ClipLayersChangedError`) rather than overwriting the other edit. Only
+   * race-safe inside a transaction: it runs under `transactionalizeWrites`.
    */
   const setClipLayers = Effect.fn("setClipLayers")(function* (
     clipIds: readonly string[],
-    layers: readonly ClipLayerSpec[]
+    layers: readonly ClipLayerSpec[],
+    expected?: readonly ClipLayerSpec[]
   ) {
     const found = yield* makeDbCall(() =>
       db.query.clips.findMany({
@@ -88,7 +98,31 @@ export const createClipLayerOperationsUnwrapped = (db: Database) => {
       }
     }
 
+    // The Draft guard's version-row lock first, then the Clip rows (sorted):
+    // after the guard, as every Clip write's UPDATE is, so none deadlock.
     yield* requireDraftVersionForClips(db, clipIds);
+    yield* makeDbCall(() =>
+      db
+        .select({ id: clips.id })
+        .from(clips)
+        .where(inArray(clips.id, [...clipIds]))
+        .orderBy(asc(clips.id))
+        .for("update")
+    );
+    if (expected !== undefined) {
+      for (const clipId of clipIds) {
+        const current = yield* listClipLayers(clipId);
+        if (!isDeepStrictEqual(current, [...expected])) {
+          return yield* new ClipLayersChangedError({
+            clipId,
+            message:
+              `Clip ${clipId}: its Layers changed since this command read them ` +
+              "(another edit landed first). Nothing was written; run the command " +
+              "again to edit the Layers as they are now.",
+          });
+        }
+      }
+    }
     yield* makeDbCall(() =>
       db.delete(clipLayers).where(inArray(clipLayers.clipId, [...clipIds]))
     );

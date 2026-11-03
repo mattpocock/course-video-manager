@@ -58,6 +58,7 @@ const ERROR_CONSTRUCTORS: Record<
   ClipNotZoomableError: DomainErrors.ClipNotZoomableError,
   ClipCarriesOverlaysError: DomainErrors.ClipCarriesOverlaysError,
   ClipLayersRefusedError: DomainErrors.ClipLayersRefusedError,
+  ClipLayersChangedError: DomainErrors.ClipLayersChangedError,
   AgentSessionUploadRefusedError: DomainErrors.AgentSessionUploadRefusedError,
 };
 

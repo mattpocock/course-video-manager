@@ -19,6 +19,7 @@ import { CliOutput } from "./output";
  *   AuthenticationError         -> 5
  *   SchemaVersionMismatchError  -> 6
  *   LocalOnlyCommandError       -> 7
+ *   ClipLayersChangedError      -> 8
  *   StorageRootOfflineError     -> 4 (any filesystem failure on an Offline root)
  *   (@effect/cli ValidationError, bad input) -> 3
  *   (defect / unknown tag / die)             -> 4 (rendered as DatabaseError)
@@ -78,6 +79,11 @@ const EXIT_CODES: Record<string, number> = {
   // because the only correct response is to STOP: no retry, no new token, no
   // pull will make `cvm file` work on a box with no Video Files directory.
   LocalOnlyCommandError: 7,
+  // A Clip's Layers changed between the command's read and its write: another
+  // command edited them at the same time. Its own code because the fix is
+  // neither "fix the input" nor "stop": run the same command again, and it
+  // works on the Layers as they are now. Nothing was written.
+  ClipLayersChangedError: 8,
   // An HTML page could not be turned into a Clip Mockup frame (the browser
   // would not launch, or the page would not render). Internal-failure class:
   // the input was a real, readable file, something on this machine broke. It

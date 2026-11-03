@@ -45,7 +45,8 @@ const HARNESS_TOKEN = generateApiToken();
  */
 const makeAppFetch = (
   db: TestDb,
-  ensureHarnessToken: boolean
+  ensureHarnessToken: boolean,
+  beforeRequest?: (url: string) => Promise<void>
 ): typeof globalThis.fetch => {
   const runtime = ManagedRuntime.make(
     domainServicesLayer.pipe(
@@ -73,6 +74,7 @@ const makeAppFetch = (
         .onConflictDoNothing()
         .catch(() => undefined);
     }
+    await beforeRequest?.(String(input));
     return app.fetch(new Request(input as string, init));
   }) as typeof globalThis.fetch;
 };
@@ -93,6 +95,12 @@ export interface RemoteHarnessOptions {
    * an API cut from the same commit, which is what production is.
    */
   readonly schemaVersion?: SchemaVersionClaim;
+  /**
+   * Awaited before each request reaches the API, with its URL. The
+   * concurrency tests use it to land another command's write between a
+   * command's read and its write, deterministically.
+   */
+  readonly beforeRequest?: (url: string) => Promise<void>;
 }
 
 /** Build the CLI's HTTP-backed services against `db`. */
@@ -103,6 +111,6 @@ export const buildRemoteLayer = (
   makeRemoteLayer({
     baseUrl: TEST_API_BASE_URL,
     token: options.token ?? HARNESS_TOKEN.secret,
-    fetch: makeAppFetch(db, options.token === undefined),
+    fetch: makeAppFetch(db, options.token === undefined, options.beforeRequest),
     schemaVersion: options.schemaVersion,
   });
