@@ -80,9 +80,9 @@
       "reason": "Sidecar only: the Overlay renderer (Remotion's bin.mjs). It asks for SidecarContext, and no module a route reaches may import it (apps/local/.dependency-cruiser.spawn.cjs)."
     },
     {
-      "file": "apps/local/app/services/render-vertical-video-service.ts",
+      "file": "apps/local/app/services/short-overlay-frame.ts",
       "count": 1,
-      "reason": "Sidecar only: the vertical Short's subtitle render. It asks for SidecarContext, and no module a route reaches may import it (apps/local/.dependency-cruiser.spawn.cjs)."
+      "reason": "Interactive: the Short overlay renderer's process boundary (Remotion's bin.mjs). The only call outside the Sidecar is one frame as a PNG, for the Portrait Studio's preview (`clips.$clipId.short-frame.ts`) or `cvm clip frame`, which someone waits on, as on a still, behind the Still Gate. The whole overlay for the render-vertical Job goes through it from short-overlay-renderer.ts, which asks for SidecarContext and no route may reach (apps/local/.dependency-cruiser.spawn.cjs)."
     },
     {
       "file": "apps/local/app/services/ffmpeg-commands.ts",

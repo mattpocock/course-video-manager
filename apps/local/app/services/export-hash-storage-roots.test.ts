@@ -15,6 +15,7 @@ const obs = (videoFilename: string, sourceStartTime = 1.5) => ({
   recordingSessionId: null,
   sceneOverride: null,
   recordingSession: null,
+  layers: [],
   pauseType: "long",
   zoomType: "none",
   overlays: [
@@ -27,8 +28,7 @@ const obs = (videoFilename: string, sourceStartTime = 1.5) => ({
       title: "Term",
       description: "Meaning",
       bullets: null,
-      footagePath: null,
-      footageStart: null,
+      chatSpin: null,
     },
   ],
 });

@@ -201,6 +201,12 @@ const videoService = (client: RpcClient) =>
     linkVideoToPitch: rpcMethod((json) =>
       client.rpc.video.linkVideoToPitch.$post({ json })
     ),
+    getRecordingSessionForCut: rpcMethod((json) =>
+      client.rpc.video.getRecordingSessionForCut.$post({ json })
+    ),
+    createShortFromRanges: rpcMethod((json) =>
+      client.rpc.video.createShortFromRanges.$post({ json })
+    ),
     moveVideoToLesson: rpcMethod((json) =>
       client.rpc.video.moveVideoToLesson.$post({ json })
     ),
@@ -235,6 +241,12 @@ const overlayService = (client: RpcClient) =>
     ),
     getOverlaysByIds: rpcMethod((json) =>
       client.rpc.overlay.getOverlaysByIds.$post({ json })
+    ),
+    getRecordingSessionChatHighlights: rpcMethod((json) =>
+      client.rpc.overlay.getRecordingSessionChatHighlights.$post({ json })
+    ),
+    getChatHighlightById: rpcMethod((json) =>
+      client.rpc.overlay.getChatHighlightById.$post({ json })
     ),
     createOverlay: rpcMethod((json) =>
       client.rpc.overlay.createOverlay.$post({ json })

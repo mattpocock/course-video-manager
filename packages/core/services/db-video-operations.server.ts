@@ -1,4 +1,5 @@
 import { DrizzleService, type Database } from "./drizzle-service.server.js";
+import { clipLayersRelation } from "./clip-layers-relation.js";
 import { CourseOperationsService } from "./db-course-operations.server.js";
 import {
   clips,
@@ -16,6 +17,7 @@ import {
 import { and, asc, desc, eq, inArray, isNull, ne } from "drizzle-orm";
 import { Effect } from "effect";
 import { copyVideoImpl } from "./db-video-operations.copy.server.js";
+import { createShortOperationsUnwrapped } from "./db-short-create.server.js";
 import {
   createVideoWriteOps,
   videoWriteMethods,
@@ -168,6 +170,7 @@ const createVideoOperationsUnwrapped = (db: Database, deps: VideoOpsDeps) => {
               with: {
                 overlays: overlayExportRelation,
                 recordingSession: clipRecordingSessionRelation,
+                layers: clipLayersRelation,
               },
             },
           },
@@ -199,6 +202,7 @@ const createVideoOperationsUnwrapped = (db: Database, deps: VideoOpsDeps) => {
               with: {
                 overlays: overlayExportRelation,
                 recordingSession: clipRecordingSessionRelation,
+                layers: clipLayersRelation,
               },
             },
           },
@@ -242,6 +246,7 @@ const createVideoOperationsUnwrapped = (db: Database, deps: VideoOpsDeps) => {
             with: {
               overlays: overlayExportRelation,
               recordingSession: clipRecordingSessionRelation,
+              layers: clipLayersRelation,
               diagramSnapshot: {
                 with: {
                   diagram: {
@@ -658,6 +663,7 @@ const createVideoOperationsUnwrapped = (db: Database, deps: VideoOpsDeps) => {
     copyVideo,
     updateVideoLesson,
     ...createVideoWriteOps(db),
+    ...createShortOperationsUnwrapped(db),
     ...createVideoNavigationOps({ getCourseNavigationData }),
     getVideosForFewShotExamples,
   };

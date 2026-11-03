@@ -33,8 +33,7 @@ const overlay = (overrides: Partial<ExportOverlay> = {}): ExportOverlay => ({
   title: "Hydration",
   description: "Attaching handlers to server-rendered HTML.",
   bullets: null,
-  footagePath: null,
-  footageStart: null,
+  chatSpin: null,
   ...overrides,
 });
 

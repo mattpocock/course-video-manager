@@ -41,11 +41,11 @@ import {
 import { requireNoClipZoomUnderTransform } from "./overlay.clip-zoom-guard";
 import { requireNoOverlappingOverlay } from "./overlay.overlap-guard";
 import {
-  bRollOpts,
-  hasBRollFlags,
-  requireFlagsForKind,
-  resolveBRollColumns,
-} from "./overlay.b-roll";
+  chatCardOpts,
+  requireChatCardFlags,
+  requireChatCardUnchanged,
+  resolveChatCardColumns,
+} from "./overlay.chat-card";
 import {
   OVERLAY_HELP,
   LIST_HELP,
@@ -64,8 +64,8 @@ import {
  *   Clip's length, so an Overlay may run on across the Clips that follow. Its
  *   `kind` says which content-kind it carries — `definitionCard` (the default,
  *   and what every Overlay written before the discriminator existed is),
- *   `bulletPanel` or `bRoll` (Imported Footage's picture from `footageStart`
- *   on, over the whole frame; see `overlay.b-roll.ts`). A Definition Card's content is a `title` (the term) and a
+ *   `bulletPanel` or `chatCard`. Overlays are graphics only: footage over
+ *   footage is a Footage Layer (`cvm clip layer`). A Definition Card's content is a `title` (the term) and a
  *   `description` (the definition), written inline on the Overlay itself;
  *   there is no shared glossary entity. A Bullet Panel's content is a `title`
  *   (the panel's heading) and up to four `bullets`, each an icon, a line of
@@ -94,7 +94,7 @@ import {
  *   description       the Definition Card's body — the definition
  *   bullets           the Bullet Panel's bullets, or null for other kinds
  *   disableEnterAnimation / disableExitAnimation  hard-cut instead of easing
- *   footagePath / footageStart  a B-roll's Footage and its `from`, else null
+ *   chatSpin          a Chat Card's spin cells ([] = off), else null
  *
  * VERBS:
  *   overlay list --video <id> [--clip <id>]  a Video's Overlays, timeline order
@@ -272,9 +272,19 @@ const addCmd = Command.make(
     title: titleAddOpt,
     description: descriptionAddOpt,
     ...bulletPanelOpts,
-    ...bRollOpts,
+    ...chatCardOpts,
   },
-  ({ clip, at, duration, kind, title, description, footage, from, ...flags }) =>
+  ({
+    clip,
+    at,
+    duration,
+    kind,
+    title,
+    description,
+    chatHighlight,
+    noChatSpin,
+    ...flags
+  }) =>
     Effect.gen(function* () {
       yield* requireNonNegativeAt(at);
       yield* requirePositiveDuration(duration);
@@ -283,14 +293,20 @@ const addCmd = Command.make(
       // in the command, and saying so needs no database round trip.
       const desc = Option.getOrUndefined(description);
       const willBeKind = Option.getOrUndefined(kind) ?? DEFAULT_OVERLAY_KIND;
-      yield* requireFlagsForKind({
+      yield* requireChatCardFlags({
         kind: willBeKind,
-        needsTitle: true,
         title: Option.getOrUndefined(title),
         description: desc,
-        bulletPanel: flags,
-        bRoll: { footage, from },
+        bulletsJson: Option.getOrUndefined(flags.bulletsJson),
+        chatCard: { chatHighlight, noChatSpin },
       });
+      // A Chat Card's title is its Chat Highlight's author, copied.
+      if (willBeKind !== "chatCard" && Option.isNone(title)) {
+        return yield* parseError(
+          `--title is required for a ${willBeKind} Overlay`,
+          "overlay"
+        );
+      }
       const panel = yield* resolveBulletPanelPatch({
         kind: willBeKind,
         needsContent: true,
@@ -314,12 +330,11 @@ const addCmd = Command.make(
         durationInSeconds: duration,
         kind: Option.getOrUndefined(kind),
       });
-      const bRoll = yield* resolveBRollColumns({
+      const chatCard = yield* resolveChatCardColumns({
         kind: willBeKind,
-        videoId: anchor.videoId,
-        durationInSeconds: duration,
-        current: null,
-        flags: { footage, from },
+        anchor,
+        at,
+        flags: { chatHighlight, noChatSpin },
       });
 
       const overlayOps = yield* OverlayOperationsService;
@@ -328,7 +343,7 @@ const addCmd = Command.make(
         at,
         durationInSeconds: duration,
         kind: Option.getOrUndefined(kind),
-        // A B-roll has no title, but the column is NOT NULL.
+        // A Chat Card's title is copied in below; the column is NOT NULL.
         title: Option.getOrElse(title, () => ""),
         // A Bullet Panel has no `description`, but the column is NOT NULL —
         // it stores the empty string rather than the caller inventing one.
@@ -336,7 +351,8 @@ const addCmd = Command.make(
         bullets: panel.bullets ?? null,
         disableEnterAnimation: panel.disableEnterAnimation ?? false,
         disableExitAnimation: panel.disableExitAnimation ?? false,
-        ...bRoll,
+        // A Chat Card's author and text, copied over title and description.
+        ...chatCard,
       });
       yield* emitObject(created);
     })
@@ -353,20 +369,8 @@ const updateCmd = Command.make(
     title: titleUpdateOpt,
     description: descriptionUpdateOpt,
     ...bulletPanelOpts,
-    ...bRollOpts,
   },
-  ({
-    id,
-    clip,
-    at,
-    duration,
-    kind,
-    title,
-    description,
-    footage,
-    from,
-    ...flags
-  }) =>
+  ({ id, clip, at, duration, kind, title, description, ...flags }) =>
     Effect.gen(function* () {
       const newClipId = Option.getOrUndefined(clip);
       const newAt = Option.getOrUndefined(at);
@@ -381,14 +385,12 @@ const updateCmd = Command.make(
         newKind === undefined &&
         newTitle === undefined &&
         newDescription === undefined &&
-        !hasBulletPanelFlags(flags) &&
-        !hasBRollFlags({ footage, from })
+        !hasBulletPanelFlags(flags)
       ) {
         return yield* parseError(
           "update needs at least one of --clip / --at / --duration / " +
             "--kind / --title / --description / --bullets-json / " +
-            "--disable-enter-animation / --disable-exit-animation / " +
-            "--footage / --from",
+            "--disable-enter-animation / --disable-exit-animation",
           "overlay"
         );
       }
@@ -402,18 +404,17 @@ const updateCmd = Command.make(
       // lands, so a switch of kind and its new content go in together.
       const wasKind = resolveOverlayKind(overlay.kind);
       const willBeKind = newKind ?? wasKind;
+      yield* requireChatCardUnchanged({
+        wasKind,
+        willBeKind,
+        contentEdited:
+          newTitle !== undefined ||
+          newDescription !== undefined ||
+          Option.isSome(flags.bulletsJson),
+      });
       // What the Overlay's window will BE, which is what a bullet's reveal
       // time has to fit inside — not what it is now.
       const nextDuration = newDuration ?? overlay.durationInSeconds;
-      yield* requireFlagsForKind({
-        kind: willBeKind,
-        // A B-roll has no title, so one that stops being a B-roll needs one.
-        needsTitle: wasKind === "bRoll" && willBeKind !== "bRoll",
-        title: newTitle,
-        description: newDescription,
-        bulletPanel: flags,
-        bRoll: { footage, from },
-      });
       const panel = yield* resolveBulletPanelPatch({
         kind: willBeKind,
         needsContent: willBeKind !== wasKind,
@@ -493,16 +494,6 @@ const updateCmd = Command.make(
         });
       }
 
-      const bRoll = yield* resolveBRollColumns({
-        kind: willBeKind,
-        videoId: anchor.videoId,
-        durationInSeconds: nextDuration,
-        current: wasKind === "bRoll" ? overlay : null,
-        flags: { footage, from },
-      });
-      // Turning into a B-roll leaves no other kind's content behind.
-      const enteringBRoll = willBeKind === "bRoll" && wasKind !== "bRoll";
-
       const overlayOps = yield* OverlayOperationsService;
       // Bullets left on a row that is no longer a Bullet Panel would be
       // content nothing renders and the Export Hash still sees, so leaving the
@@ -529,16 +520,6 @@ const updateCmd = Command.make(
         ...(panel.disableExitAnimation === undefined
           ? {}
           : { disableExitAnimation: panel.disableExitAnimation }),
-        ...(enteringBRoll
-          ? {
-              title: "",
-              description: "",
-              bullets: null,
-              disableEnterAnimation: false,
-              disableExitAnimation: false,
-            }
-          : {}),
-        ...bRoll,
       });
       if (!updated) {
         return yield* notFound("overlay", id);

@@ -15,16 +15,20 @@
  */
 import { BulletPanels } from "../remotion/BulletPanel";
 import { DefinitionCards } from "../remotion/DefinitionCard";
-import type { BulletPanel, DefinitionCard } from "./props";
+import { ChatCards } from "../remotion/ChatCard";
+import type { BulletPanel, ChatCard, DefinitionCard } from "./props";
 
 export { DefinitionCards } from "../remotion/DefinitionCard";
 export { BulletPanels } from "../remotion/BulletPanel";
+export { ChatCards } from "../remotion/ChatCard";
 export {
   definitionCardSchema,
   bulletPanelSchema,
   type DefinitionCard,
   type BulletPanel,
   type BulletPanelBullet,
+  type ChatCard,
+  CHAT_CARD_PLACEMENT,
 } from "./props";
 
 /**
@@ -44,4 +48,9 @@ export const DefinitionCardPreview = (props: DefinitionCard) => (
  */
 export const BulletPanelPreview = (props: BulletPanel) => (
   <BulletPanels panels={[props]} />
+);
+
+/** The same for a Short's Chat Card, drawn on the 1080x1920 frame. */
+export const ChatCardPreview = (props: ChatCard) => (
+  <ChatCards cards={[props]} />
 );

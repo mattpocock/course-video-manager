@@ -25,6 +25,7 @@ import {
   type BulletPanelBullet,
 } from "@/features/videos/bullet-panel";
 import { toRootRelative } from "@/packages/storage";
+import type { ChatSpinCell } from "@cvm/core/features/videos/chat-card";
 
 /**
  * Bump this constant to force re-export of all videos (e.g., after changing
@@ -51,10 +52,8 @@ export type ExportOverlay = {
   description: string;
   /** A Bullet Panel's bullets; null for every other content-kind. */
   bullets: BulletPanelBullet[] | null;
-  /** A B-roll's Imported Footage, root-relative; null for every other kind. */
-  footagePath: string | null;
-  /** A B-roll's "from", seconds into its Footage; null for every other kind. */
-  footageStart: number | null;
+  /** A Chat Card's spin cells ([] = off); null for every other kind. */
+  chatSpin: ChatSpinCell[] | null;
 };
 
 /**
@@ -101,8 +100,7 @@ export const toExportClips = (
         title: string;
         description: string;
         bullets: BulletPanelBullet[] | null;
-        footagePath: string | null;
-        footageStart: number | null;
+        chatSpin: ChatSpinCell[] | null;
       }>;
     }
   >
@@ -120,8 +118,7 @@ export const toExportClips = (
       title: o.title,
       description: o.description,
       bullets: o.bullets,
-      footagePath: o.footagePath,
-      footageStart: o.footageStart,
+      chatSpin: o.chatSpin,
     })),
   }));
 
@@ -170,11 +167,11 @@ const toOverlayPayload = (overlays: ExportOverlay[]) =>
       ...(o.bullets && o.bullets.length > 0
         ? { b: bulletPanelHashPayload(o.bullets) }
         : {}),
-      // A B-roll's picture is its Footage from `from` on, so both are in the
-      // address — and ONLY for a B-roll, so no other Overlay's payload, and
-      // no export written before B-roll existed, is re-addressed.
-      ...(resolveOverlayKind(o.kind) === "bRoll"
-        ? { fp: o.footagePath, fs: o.footageStart }
+      // A Chat Card's author and text are already `t` and `x`; its spin's
+      // cells join them ONLY for a Chat Card, so no other Overlay's payload
+      // is re-addressed.
+      ...(resolveOverlayKind(o.kind) === "chatCard"
+        ? { cs: o.chatSpin ?? [] }
         : {}),
     }))
     .sort((left, right) =>
@@ -233,7 +230,10 @@ const rootRelativeHashFields = <F extends { f: string }>(
  * its Recording Session, scene segments, Scene Override, mic offset, the
  * saved mic EQ (loaded with its Recording Session) and the layout version
  * join its entry (see
- * `clipSourceHashFields`). An OBS Clip's entry is untouched.
+ * `clipSourceHashFields`), drawn in the Video's format: a Landscape
+ * session's Clip on a Short is addressed by the Short layout's version. An
+ * OBS Clip's entry is untouched on a Landscape Video; on a Short it adds
+ * `cv`, since it now covers the frame instead of being stretched.
  *
  * The file a Clip's entry names (`f`) is its ROOT-RELATIVE path
  * (`raw-footage/x.mp4`), never the drive it is on: a legacy absolute path
@@ -249,20 +249,27 @@ export const computeExportHash = (
 ): string | null => {
   if (clips.length === 0) return null;
 
+  const videoFormat = resolveVideoFormat(format);
   const payload = {
     v: EXPORT_VERSION,
-    fmt: resolveVideoFormat(format),
-    clips: clips.map((c) => ({
-      ...rootRelativeHashFields(
-        clipSourceHashFields(clipSource(c)),
-        storageRoots
-      ),
-      ...(c.pauseType === LONG_PAUSE ? { p: LONG_PAUSE } : {}),
-      ...(resolveClipZoomType(c.zoomType) === DEFAULT_CLIP_ZOOM_TYPE
-        ? {}
-        : { z: resolveClipZoomType(c.zoomType) }),
-      ...(c.overlays.length === 0 ? {} : { o: toOverlayPayload(c.overlays) }),
-    })),
+    fmt: videoFormat,
+    clips: clips.map((c) => {
+      const source = clipSource(c, { videoFormat });
+      return {
+        ...rootRelativeHashFields(clipSourceHashFields(source), storageRoots),
+        // A single file on a Short covers the frame, centre-cropped (it was
+        // stretched before #2575): `cv` re-addresses it. Landscape, and every
+        // CVM-recorder Clip, is untouched.
+        ...(source.kind === "footage" && videoFormat === "short"
+          ? { cv: 1 }
+          : {}),
+        ...(c.pauseType === LONG_PAUSE ? { p: LONG_PAUSE } : {}),
+        ...(resolveClipZoomType(c.zoomType) === DEFAULT_CLIP_ZOOM_TYPE
+          ? {}
+          : { z: resolveClipZoomType(c.zoomType) }),
+        ...(c.overlays.length === 0 ? {} : { o: toOverlayPayload(c.overlays) }),
+      };
+    }),
   };
 
   return crypto

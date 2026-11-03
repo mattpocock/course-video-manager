@@ -26,6 +26,7 @@ export const OBS_CLIP = {
   recordingSessionId: null,
   sceneOverride: null,
   recordingSession: null,
+  layers: [],
 };
 
 /** Two clips, so a Video has an Export Hash and a non-zero timeline. */

@@ -55,7 +55,9 @@ Verbs:
                                          Imported Footage (per segment)
   transcribe <path> [--no-wait]          Transcribe a file, caching the result
   transcript <path>                      Read the cached transcript (never runs
-                                         Whisper; not-found if never transcribed)`;
+                                         Whisper; not-found if never transcribed)
+  frame      <path> --at <t>             A PNG of the raw frame at t, to choose
+                                         a Source Crop (held while recording)`;
 
 export const LIST_HELP = `List the video files in a directory as NDJSON (one compact object per line;
 an empty directory prints nothing, exit 0).
@@ -181,7 +183,8 @@ already transcribed is not transcribed again.
 Echoes one JSON object once both Jobs are done: { path, size, width, height,
 durationSeconds, transcript: { words, segments } } (counts). 'path' is
 ROOT-RELATIVE ("raw-footage/imported/interview.mp4"): pass it straight to
-'cvm clip add --source' (a normal Clip, Clip Origin 'cli').
+'cvm clip add --source' (a normal Clip, Clip Origin 'cli'), or to
+'cvm clip layer add --footage' (a Footage Layer, such as a B-roll).
 
 --no-wait returns once the Jobs are queued: { jobId, transcribeJobId, status:
 "queued", path }. A Job id is null when there was nothing to do (the file was
@@ -237,3 +240,26 @@ nothing, exit 0):
 Examples:
   cvm footage search "type inference"
   cvm footage search "generics" | jq -r '"\\(.path) \\(.start)"'`;
+
+export const FRAME_HELP = `A PNG of one raw frame of a Footage file, to choose a Source Crop by.
+
+  cvm footage frame --at <t> <path>
+
+<path> is a Footage path as every 'cvm footage' verb takes it: root-relative
+("raw-footage/imported/talk.mp4", looked up on each Storage Root) or absolute
+(a Recording Session's camera.mkv or screen.mkv, as 'clip list' prints them).
+<t> is seconds into the file; the frame is the one showing at t (the latest
+frame at or before it), at the file's own size, never scaled or cropped.
+
+Prints { path, source, at }: 'path' is a NEW PNG in the temp directory
+(cvm-frames/) each time. Read it, measure, and give 'clip layer add --crop' the
+fractions of this frame you want (x, y, w, h, each 0-1).
+
+THE STILL GATE. Decoding raw footage while the recorder records costs the live
+take its camera frames, so this is refused while any Recording Session records
+(or a stopped take is still closing its files): _tag "StillHeldError", exit 3,
+"No still while recording: ask again after the Stop". Wait for the Stop and run
+it again; never loop on it mid-take.
+
+Refused (exit 3): no such file, a file ffprobe cannot read, or a t outside
+the file (under 0, or at or past its end). Local-only (exit 7 elsewhere).`;

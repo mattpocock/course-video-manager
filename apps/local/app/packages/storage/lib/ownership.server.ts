@@ -1,8 +1,8 @@
 import { Data, Effect } from "effect";
 import {
   avCalibrations,
+  clipLayers,
   clips,
-  overlays,
   recordingSessions,
   videos as videosTable,
 } from "@cvm/core/db/schema";
@@ -26,7 +26,7 @@ export class StorageOwnershipLoadError extends Data.TaggedError(
  * What the database says owns each file: every Course, every Video (in any
  * Version, archived or not) with the names of its current Exported Video,
  * and every Footage path any Clip (archived ones too: they can come back), any
- * B-roll (on any Clip, for the same reason) or Recording Session uses.
+ * Footage Layer (on any Clip, for the same reason) or Recording Session uses.
  * Read-only.
  *
  * A Recording Session no Clip points at uses its files only while it is
@@ -49,7 +49,7 @@ export const loadStorageOwnership = (
         sessionRows,
         calibrationRows,
         originalRows,
-        bRollRows,
+        layerRows,
       ] = await Promise.all([
         db.query.courses.findMany({ columns: { id: true, name: true } }),
         listVideosForExportHash(db),
@@ -82,10 +82,10 @@ export const loadStorageOwnership = (
           .select({ original: videosTable.originalFootagePath })
           .from(videosTable),
         db
-          .select({ videoId: clips.videoId, stored: overlays.footagePath })
-          .from(overlays)
-          .innerJoin(clips, eq(overlays.clipId, clips.id))
-          .where(isNotNull(overlays.footagePath)),
+          .select({ videoId: clips.videoId, stored: clipLayers.footagePath })
+          .from(clipLayers)
+          .innerJoin(clips, eq(clipLayers.clipId, clips.id))
+          .where(isNotNull(clipLayers.footagePath)),
       ]);
 
       const footageUses: StorageOwnershipInput["footageUses"][number][] = [];
@@ -105,9 +105,9 @@ export const loadStorageOwnership = (
           });
         }
       }
-      for (const bRoll of bRollRows) {
-        if (bRoll.stored === null) continue;
-        footageUses.push({ stored: bRoll.stored, videoId: bRoll.videoId });
+      for (const layer of layerRows) {
+        if (layer.stored === null) continue;
+        footageUses.push({ stored: layer.stored, videoId: layer.videoId });
       }
       // A Recording Session no Clip points at still uses its files while it
       // is recording, and for 7 days after it started; then they are Unused.

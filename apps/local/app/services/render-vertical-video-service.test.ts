@@ -24,6 +24,7 @@ import {
   RenderVerticalVideoService,
 } from "./render-vertical-video-service";
 import { SidecarContextTest } from "./sidecar-context";
+import { ShortOverlayRendererService } from "./short-overlay-renderer";
 
 describe("RenderVerticalVideoService", () => {
   let testDb: TestDb;
@@ -86,7 +87,14 @@ describe("RenderVerticalVideoService", () => {
       )
     );
 
+    // The real overlay-renderer boundary, over the faked subprocess.
+    const overlayRendererLayer =
+      ShortOverlayRendererService.DefaultWithoutDependencies.pipe(
+        Layer.provide(Layer.mergeAll(NodeFileSystem.layer, fakeOverlayRenderer))
+      );
+
     const depsLayer = Layer.mergeAll(
+      overlayRendererLayer,
       VideoOperationsService.Default.pipe(Layer.provide(dbLayer)),
       ClipOperationsService.Default.pipe(Layer.provide(dbLayer)),
       fakeFfmpeg,
@@ -304,6 +312,8 @@ describe("RenderVerticalVideoService", () => {
       const depsLayer = Layer.mergeAll(
         VideoOperationsService.Default.pipe(Layer.provide(dbLayer)),
         ClipOperationsService.Default.pipe(Layer.provide(dbLayer)),
+        // Never reached: each fails at the concat, before the overlay.
+        ShortOverlayRendererService.Default,
         Layer.succeed(FFmpegCommandsService, {} as any),
         Layer.succeed(FFmpegEncodeService, {
           createAndConcatenateVideoClipsSinglePass: () =>
@@ -392,6 +402,8 @@ describe("RenderVerticalVideoService", () => {
       const depsLayer = Layer.mergeAll(
         VideoOperationsService.Default.pipe(Layer.provide(dbLayer)),
         ClipOperationsService.Default.pipe(Layer.provide(dbLayer)),
+        // Never reached: each fails at the concat, before the overlay.
+        ShortOverlayRendererService.Default,
         Layer.succeed(FFmpegCommandsService, {} as any),
         Layer.succeed(FFmpegEncodeService, {
           concatenateClipSegments: (clips: unknown) => {

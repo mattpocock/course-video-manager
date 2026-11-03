@@ -1,7 +1,11 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { bundle } from "@remotion/bundler";
-import { renderMedia, selectComposition } from "@remotion/renderer";
+import {
+  renderMedia,
+  renderStill,
+  selectComposition,
+} from "@remotion/renderer";
 import { enableTailwind } from "@remotion/tailwind-v4";
 import { OVERLAY_ENCODING } from "./overlay-encoding";
 import {
@@ -78,6 +82,39 @@ export const renderOverlay = async (
       : undefined,
   });
 
+  return {
+    outputLocation: options.outputLocation,
+    width: composition.width,
+    height: composition.height,
+    fps: composition.fps,
+    durationInFrames: composition.durationInFrames,
+  };
+};
+
+/**
+ * Render ONE frame of the same composition {@link renderOverlay} renders, as a
+ * transparent PNG: `cvm clip frame` composes it over the Clip's picture, so a
+ * checked frame is drawn by the very code the Short's export is.
+ */
+export const renderOverlayFrame = async (
+  input: OverlayProps | OverlayPropsInput,
+  options: { frame: number; outputLocation: string; serveUrl?: string }
+): Promise<RenderResult> => {
+  const props = overlayPropsSchema.parse(input);
+  const serveUrl = options.serveUrl ?? (await bundleOverlayRenderer());
+  const composition = await selectComposition({
+    serveUrl,
+    id: COMPOSITION_ID,
+    inputProps: props,
+  });
+  await renderStill({
+    composition,
+    serveUrl,
+    inputProps: props,
+    frame: options.frame,
+    imageFormat: "png",
+    output: options.outputLocation,
+  });
   return {
     outputLocation: options.outputLocation,
     width: composition.width,

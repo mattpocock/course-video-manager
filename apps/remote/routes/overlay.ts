@@ -22,6 +22,18 @@ export const overlayRoutes = (runtime: RemoteRuntime) =>
       forward(runtime, OverlayOperationsService, "getOverlaysByIds")
     )
     .post(
+      "/getRecordingSessionChatHighlights",
+      forward(
+        runtime,
+        OverlayOperationsService,
+        "getRecordingSessionChatHighlights"
+      )
+    )
+    .post(
+      "/getChatHighlightById",
+      forward(runtime, OverlayOperationsService, "getChatHighlightById")
+    )
+    .post(
       "/createOverlay",
       forward(runtime, OverlayOperationsService, "createOverlay")
     )

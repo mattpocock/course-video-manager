@@ -19,6 +19,7 @@ import { CliOutput } from "./output";
  *   AuthenticationError         -> 5
  *   SchemaVersionMismatchError  -> 6
  *   LocalOnlyCommandError       -> 7
+ *   ClipLayersChangedError      -> 8
  *   StorageRootOfflineError     -> 4 (any filesystem failure on an Offline root)
  *   (@effect/cli ValidationError, bad input) -> 3
  *   (defect / unknown tag / die)             -> 4 (rendered as DatabaseError)
@@ -49,6 +50,16 @@ const EXIT_CODES: Record<string, number> = {
   // result, an absolute path, a secret) or matched several Agent Sessions.
   // Invalid input: `reasons` says what to fix.
   AgentSessionUploadRefusedError: 3,
+  // A Clip's Layers refused (a Source Crop outside the frame, a Placement
+  // with no area, a disallowed Landscape shape): invalid input.
+  ClipLayersRefusedError: 3,
+  // `cvm footage frame` / `cvm clip frame` asked for while the recorder
+  // records: the Still Gate's "ask again after the Stop". Not a failure of
+  // this machine; the same command succeeds once the take stops.
+  StillHeldError: 3,
+  // A frame refused for its input: a t outside the Footage or the Clip, or a
+  // Video whose frame cannot be drawn yet.
+  FrameRefusedError: 3,
   // Defensive: domain error tags that could leak through a command.
   UnknownDBServiceError: 4,
   // The deployed API rejected the token — unknown, expired or revoked; it
@@ -68,6 +79,11 @@ const EXIT_CODES: Record<string, number> = {
   // because the only correct response is to STOP: no retry, no new token, no
   // pull will make `cvm file` work on a box with no Video Files directory.
   LocalOnlyCommandError: 7,
+  // A Clip's Layers changed between the command's read and its write: another
+  // command edited them at the same time. Its own code because the fix is
+  // neither "fix the input" nor "stop": run the same command again, and it
+  // works on the Layers as they are now. Nothing was written.
+  ClipLayersChangedError: 8,
   // An HTML page could not be turned into a Clip Mockup frame (the browser
   // would not launch, or the page would not render). Internal-failure class:
   // the input was a real, readable file, something on this machine broke. It

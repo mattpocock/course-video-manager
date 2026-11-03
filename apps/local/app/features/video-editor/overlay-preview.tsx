@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
 import {
   BulletPanelPreview,
+  ChatCardPreview,
   DefinitionCardPreview,
   type BulletPanel as BulletPanelInputProps,
   type DefinitionCard as DefinitionCardInputProps,
@@ -10,7 +11,8 @@ import { VIDEO_FORMAT_DIMENSIONS } from "@/features/videos/video-format";
 import type { BulletPanelBullet } from "@/features/videos/bullet-panel";
 import { resolveOverlayKind } from "@/features/videos/overlay-kind";
 import { overlayTransformCssStyleAt } from "@/features/videos/overlay-transform";
-import { bRollFootageTime } from "./b-roll-footage-time";
+import type { ChatSpinCell } from "@cvm/core/features/videos/chat-card";
+import { chatCardInputProps } from "./chat-card-input-props";
 
 /**
  * One Overlay as the editor needs it: exactly the columns
@@ -41,10 +43,8 @@ export type ClipOverlay = {
   disableExitAnimation: boolean;
   title: string;
   description: string;
-  /** A B-roll's Imported Footage, root-relative. `null` on every other kind. */
-  footagePath: string | null;
-  /** A B-roll's `from`: seconds into its Footage. `null` on every other kind. */
-  footageStart: number | null;
+  /** A Chat Card's spin cells ([] = off). `null` on every other kind. */
+  chatSpin: ChatSpinCell[] | null;
 };
 
 /**
@@ -93,18 +93,6 @@ const overlayFrameAt = (overlay: ClipOverlay, currentTime: number) =>
   );
 
 /**
- * Where in its Footage a B-roll is at `currentTime`: {@link bRollFootageTime}
- * of the Overlay's elapsed time, read on the same floored frame grid as
- * {@link overlayFrameAt} — the rule the export reads too. A B-roll row with
- * no `from` reads as 0, as `overlayContent` does.
- */
-export const bRollFootageTimeAt = (overlay: ClipOverlay, currentTime: number) =>
-  bRollFootageTime(
-    overlay.footageStart ?? 0,
-    overlayFrameAt(overlay, currentTime) / OVERLAY_RENDER_FPS
-  );
-
-/**
  * The Overlay active at `currentTime`, or `undefined` if none is.
  *
  * Searched from the end, so that where two Overlays overlap — one spilling off
@@ -127,6 +115,38 @@ export const findActiveOverlay = (
   }
   return undefined;
 };
+
+/** The Overlays `keep` keeps, by Clip; a Clip left with none is left out. */
+const filterOverlaysByClipId = (
+  overlaysByClipId: ReadonlyMap<string, ClipOverlay[]>,
+  keep: (overlay: ClipOverlay) => boolean
+): Map<string, ClipOverlay[]> =>
+  new Map(
+    [...overlaysByClipId]
+      .map(([clipId, overlays]) => [clipId, overlays.filter(keep)] as const)
+      .filter(([, overlays]) => overlays.length > 0)
+  );
+
+const isChatCard = (overlay: ClipOverlay) =>
+  resolveOverlayKind(overlay.kind) === "chatCard";
+
+/**
+ * The Overlays a Short draws, by Clip: its Chat Cards only, as its render
+ * draws them (`vertical-overlay-props.ts`). Every other Kind stays undrawn
+ * in a Short.
+ */
+export const shortOverlaysByClipId = (
+  overlaysByClipId: ReadonlyMap<string, ClipOverlay[]>
+) => filterOverlaysByClipId(overlaysByClipId, isChatCard);
+
+/**
+ * The Overlays any other Video draws, by Clip: everything but its Chat Cards,
+ * which its export drops (`placeOverlaysOnTimeline`). A Chat Card is left
+ * behind only when a Short's format is changed after one was added.
+ */
+export const landscapeOverlaysByClipId = (
+  overlaysByClipId: ReadonlyMap<string, ClipOverlay[]>
+) => filterOverlaysByClipId(overlaysByClipId, (o) => !isChatCard(o));
 
 /**
  * The camera Transform in force over this Clip at `currentTime`, as CSS for
@@ -303,11 +323,26 @@ export const OverlayPreview = (props: {
               />
             );
           }
-          case "bRoll":
-            // Drawn by `BRollPreview` instead: its `<video>` stays mounted
-            // across the whole Clip so the Footage is loaded and sought before
-            // the window opens, where this is mounted only once it has.
-            return null;
+          case "chatCard": {
+            // A Short's Chat Card, on the Short's own 1080x1920 frame, with
+            // the motion the Short's render gives it (`vertical-overlay-props`).
+            const inputProps = chatCardInputProps(active, {
+              startFrame: 0,
+              durationInFrames,
+              fps: OVERLAY_RENDER_FPS,
+            });
+            return (
+              <Player
+                key={active.id}
+                ref={playerRef}
+                component={ChatCardPreview}
+                inputProps={inputProps}
+                {...chrome}
+                compositionWidth={VIDEO_FORMAT_DIMENSIONS.short.width}
+                compositionHeight={VIDEO_FORMAT_DIMENSIONS.short.height}
+              />
+            );
+          }
         }
       })()}
     </div>

@@ -6,6 +6,7 @@ import { DrizzleService, type Database } from "./drizzle-service.server.js";
 import { makeDuplicateCourse } from "./db-course-duplicate.server.js";
 import { copyVideoImpl } from "./db-video-operations.copy.server.js";
 import { createVideoFromSelectionImpl } from "./db-video-from-selection.server.js";
+import { createShortOperationsUnwrapped } from "./db-short-create.server.js";
 import {
   createTestDb,
   truncateAllTables,
@@ -131,6 +132,9 @@ async function seedEveryTable() {
     title: "Term",
     description: "Definition",
   });
+  await testDb
+    .insert(schema.clipLayers)
+    .values({ clipId, position: 0, kind: "scene", volume: 0.5 });
   const [agentSession] = await testDb
     .insert(schema.agentSessions)
     .values({ sourceSessionId: "claude-session" })
@@ -232,6 +236,25 @@ const RUN_PATH: Record<
       })
     );
     return copy.id;
+  },
+  shortCreate: async ({ video }) => {
+    const clips = await testDb.query.clips.findMany({
+      where: (c, { and, eq }) =>
+        and(eq(c.videoId, video.id), eq(c.archived, false)),
+      orderBy: (c) => c.order,
+    });
+    const short = await Effect.runPromise(
+      createShortOperationsUnwrapped(db()).createShortFromRanges({
+        name: "Short",
+        parts: clips.map((c) => ({
+          kind: "copy" as const,
+          clipId: c.id,
+          sourceStartTime: c.sourceStartTime,
+          sourceEndTime: c.sourceEndTime,
+        })),
+      })
+    );
+    return short.id;
   },
 };
 

@@ -23,8 +23,7 @@ const card = (overrides: Partial<ExportOverlay> = {}): ExportOverlay => ({
   title: "Hydration",
   description: "Attaching handlers to server-rendered HTML.",
   bullets: null,
-  footagePath: null,
-  footageStart: null,
+  chatSpin: null,
   ...overrides,
 });
 
@@ -64,32 +63,45 @@ describe("an Overlay's animation toggles", () => {
   });
 });
 
-describe("a B-roll in the address", () => {
-  const bRoll = (overrides: Partial<ExportOverlay> = {}): ExportOverlay =>
+describe("a Definition Card in the address", () => {
+  it("is where it was before B-roll came and went", () => {
+    // Pinned before B-roll existed, and unchanged by its removal.
+    expect(withOverlays(card({ kind: "definitionCard" }))).toBe(
+      "506d7e9fe1da53c7e56f0d1b398164fa"
+    );
+  });
+});
+
+describe("a Chat Card in the address", () => {
+  const chatCard = (overrides: Partial<ExportOverlay> = {}): ExportOverlay =>
     card({
-      kind: "bRoll",
-      title: "",
-      description: "",
-      footagePath: "raw-footage/imported/city.mp4",
-      footageStart: 12,
+      kind: "chatCard",
+      title: "@fake_viewer_1",
+      description: "A fake question?",
+      chatSpin: [
+        { author: "@fake_viewer_2", text: "Fake message two" },
+        { author: "@fake_viewer_3", text: "Fake message three" },
+      ],
       ...overrides,
     });
 
-  it("changes when its Footage or its from changes", () => {
-    expect(
-      withOverlays(bRoll({ footagePath: "raw-footage/imported/park.mp4" }))
-    ).not.toBe(withOverlays(bRoll()));
-    expect(withOverlays(bRoll({ footageStart: 13 }))).not.toBe(
-      withOverlays(bRoll())
+  it("changes when its spin, author or text changes", () => {
+    expect(withOverlays(chatCard({ chatSpin: [] }))).not.toBe(
+      withOverlays(chatCard())
+    );
+    expect(withOverlays(chatCard({ title: "@fake_viewer_9" }))).not.toBe(
+      withOverlays(chatCard())
+    );
+    expect(withOverlays(chatCard({ description: "Another?" }))).not.toBe(
+      withOverlays(chatCard())
     );
   });
 
-  it("leaves a Video with only Definition Cards at the address it had", () => {
-    // Pinned before B-roll existed: the Definition Card payload is unchanged.
-    expect(
-      withOverlays(
-        card({ kind: "definitionCard", footagePath: null, footageStart: null })
-      )
-    ).toBe("506d7e9fe1da53c7e56f0d1b398164fa");
+  it("keys its spin only for a Chat Card, never another kind", () => {
+    // A stray chatSpin on a Definition Card must not re-address it: the
+    // payload gains its spin only when the kind is a Chat Card.
+    expect(withOverlays(card({ kind: "definitionCard", chatSpin: [] }))).toBe(
+      "506d7e9fe1da53c7e56f0d1b398164fa"
+    );
   });
 });

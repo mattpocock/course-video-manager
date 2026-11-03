@@ -41,6 +41,10 @@ further Clips it takes to fill its length, truncated at the Video's own end.
 CONTENT — the '--kind'. An Overlay carries one content-kind, and each kind has
 its own content flags. Passing the other kind's is refused, not ignored.
 
+Overlays are GRAPHICS ONLY, drawn above every one of the Clip's Layers. There
+is no B-roll Kind: footage over footage is a Footage Layer, part of the Clip's
+own picture ('cvm clip layer --help').
+
   definitionCard (the default, and what every Overlay authored before the flag
     existed is): '--title' plus '--description' — a small, branded on-screen
     card defining a term at the moment it is spoken.
@@ -48,14 +52,19 @@ its own content flags. Passing the other kind's is refused, not ignored.
     JSON file of at most 4 bullets, each an icon, a line of text and its own
     'revealAt'. The panel is drawn down the LEFT of frame — the side is fixed,
     not a choice — while the footage slides right to clear room for it.
-  bRoll: '--footage' plus '--from' — a stretch of an Imported Footage file's
-    picture over the WHOLE frame, from '--from' seconds into the file, while
-    the Video's own sound plays on (the file's sound is never heard). The file
-    must be under raw-footage/imported/ (import it with 'cvm footage import'),
-    and '--from' + '--duration' must be inside it. A B-roll has no title,
-    description, bullets or Animation Toggles: it always cuts in and out. It
-    is refused on a Short, and it is LOCAL-ONLY (exit 7 elsewhere), because
-    it reads the file.
+  chatCard: a Chat Card, SHORTS ONLY — one Chat Highlight (a chat message
+    shown on a Live Stream) at the top of the Short, opening with its Chat
+    Spin: the same Recording Session's other Chat Highlights fly past and it
+    lands on the pick. Its author and text are COPIED into title and
+    description, and the spin's cells into chatSpin, so it outlives the
+    stream. '--chat-highlight <id>' picks it; omitted, it is the one showing
+    at the anchor point of a Clip from a Streamed Recording Session, else the
+    last shown before it. '--no-chat-spin' turns the spin off (it eases in;
+    so does one with fewer than 2 other Chat Highlights). It takes no
+    --title, --description or bullets, is refused on any
+    Video but a Short, and is drawn only in the Shorts editor and the Short's
+    render, never on the Live Stream. 'update' cannot change its content or
+    turn anything into or out of one.
 
 'revealAt' is SECONDS AFTER THE OVERLAY'S OWN START, so an authoring agent
 derives it straight from the transcript as 'wordStartTime - overlayAt'. Bullets
@@ -84,7 +93,7 @@ footage underneath it MOVES. A 'bulletPanel' SLIDES the footage right — by
 exactly the panel's own width, so the shot ends up beside the panel rather than
 behind it — for the Overlay's window, then slides it back. There is no flag for
 the move and no keyframes to write: making it a 'bulletPanel' is what gets it.
-A 'definitionCard' or a 'bRoll' moves nothing.
+A 'definitionCard' or 'chatCard' moves nothing.
 
 The slide NEVER ZOOMS. The footage keeps the scale it was filmed at and only
 travels sideways; the frame it vacates is filled with the panel's own ground
@@ -112,16 +121,16 @@ title and description are gone with it.
 
 Output fields: id, clipId (the anchor Clip), at (Clip-relative seconds),
 durationInSeconds, kind, title, description, bullets, disableEnterAnimation,
-disableExitAnimation, footagePath (a B-roll's Imported Footage, root-relative;
-null for other kinds), footageStart (its 'from', seconds; null otherwise).
+disableExitAnimation, chatSpin (a Chat Card's spin cells, [] when off; null
+for other kinds).
 
 Verbs (flags come BEFORE the positional <id> — a flag after it exits 3):
   list   --video <id> [--clip <id>]   every Overlay on a Video, timeline order
   get    <id...>                      one or more Overlays by id (variadic)
   add    --clip <id> --at <s> --duration <s> [--kind <k>] --title <t>
          (--description <d> | --bullets-json <path|->)
-  add    --clip <id> --at <s> --duration <s> --kind bRoll --footage <path>
-         --from <s>
+  add    --clip <id> --at <s> --duration <s> --kind chatCard
+         [--chat-highlight <id>] [--no-chat-spin]
   update [flags] <id>                 re-anchor and/or edit in place
   delete <id>                         hard-delete (no archive, no restore)
 
@@ -131,8 +140,6 @@ Examples:
     --title "Hydration" --description "Attaching event handlers to server HTML."
   cvm overlay add --clip clip_9 --at 12 --duration 9 --kind bulletPanel \\
     --title "Three checks" --bullets-json ./bullets.json
-  cvm overlay add --clip clip_9 --at 3 --duration 4 --kind bRoll \\
-    --footage raw-footage/imported/city.mp4 --from 12.5
   cvm overlay update --at 6 ovl_456
   cvm overlay update --clip clip_10 --at 0 ovl_456
   cvm overlay delete ovl_456`;
@@ -150,8 +157,8 @@ listed — an archived Clip is off the timeline and so are its Overlays.
                  nothing (empty output, exit 0).
 
 Each line carries: id, clipId, at, durationInSeconds, kind, title,
-description, bullets, disableEnterAnimation, disableExitAnimation,
-footagePath, footageStart (both null unless it is a bRoll).
+description, bullets, disableEnterAnimation, disableExitAnimation, chatSpin
+(null unless it is a chatCard).
 
 An unknown --video id is a not-found (exit 2). Find a video id with
 'cvm video list'; find its clip ids with 'cvm clip list --video <id>'.
@@ -171,8 +178,8 @@ still emitted on STDOUT and the MISSING ids are reported on STDERR with exit 2,
 so a partly-stale list of ids still tells you everything it can.
 
 Fields: id, clipId, at, durationInSeconds, kind, title, description, bullets,
-disableEnterAnimation, disableExitAnimation, footagePath, footageStart (both
-null unless it is a bRoll).
+disableEnterAnimation, disableExitAnimation, chatSpin (null unless it is a
+chatCard).
 
 Examples:
   cvm overlay get ovl_456
@@ -197,12 +204,13 @@ thing worth having. Which CONTENT flag is required depends on '--kind'.
   --kind <kind>        which content-kind to carry: 'definitionCard' (the
                        default, applied when the flag is omitted),
                        'bulletPanel', which also moves the camera for the
-                       Overlay's own window, or 'bRoll'.
+                       Overlay's own window, or 'chatCard'.
   --title <text>       the heading — the term being defined, or the Bullet
                        Panel's own title. Required, except refused for a
-                       bRoll.
+                       chatCard.
   --description <text> the definition itself — the card's body. REQUIRED for a
-                       definitionCard, refused for a bulletPanel.
+                       definitionCard, refused for a bulletPanel or a
+                       chatCard.
   --bullets-json <path|->
                        the Bullet Panel's bullets, as a JSON file ('-' reads
                        STDIN). REQUIRED for a bulletPanel, refused for a
@@ -224,19 +232,17 @@ thing worth having. Which CONTENT flag is required depends on '--kind'.
                        hard-cut in/out instead of easing. Governs the panel
                        content and the camera move together. Default false.
                        With the enter animation off, bullets still appear at
-                       their own 'revealAt'. Refused for a bRoll.
-  --footage <path>     a bRoll's Imported Footage: a file under
-                       raw-footage/imported/ on a Storage Root, root-relative
-                       or absolute (stored root-relative). REQUIRED for a
-                       bRoll, refused for every other kind. Not Imported
-                       Footage, or not found, is refused (exit 3).
-  --from <seconds>     where in that file the picture starts. REQUIRED for a
-                       bRoll, refused otherwise. Must be >= 0, and --from +
-                       --duration must not run past the file's end (its length
-                       is probed), so a B-roll never shows a frozen frame.
+                       their own 'revealAt'.
 
-A bRoll is refused (exit 3) on a Short, and is local-only (exit 7 on any
-machine but the author's), because it reads the file.
+  --chat-highlight <id>
+                       a chatCard's Chat Highlight. Omitted: the one at the
+                       anchor point of a Streamed Recording Session's Clip;
+                       with none there, refused (exit 3) naming that
+                       session's Chat Highlights (id, time in, author). An
+                       unknown id is refused (exit 3). chatCard only.
+  --no-chat-spin       a chatCard with no Chat Spin. chatCard only.
+
+A chatCard is refused (exit 3) on any Video but a Short.
 
 Refused (exit 3) if the Overlay's window would overlap one already on this
 Video, of either kind and on any Clip — only one Overlay is ever on screen at a
@@ -251,8 +257,7 @@ Examples:
     --title "Hydration" --description "Attaching event handlers to server HTML."
   cvm overlay add --clip clip_9 --at 12 --duration 9 --kind bulletPanel \\
     --title "Three checks" --bullets-json ./bullets.json
-  cvm overlay add --clip clip_9 --at 3 --duration 4 --kind bRoll \\
-    --footage raw-footage/imported/city.mp4 --from 12.5`;
+  cvm overlay add --clip clip_9 --at 0 --duration 20 --kind chatCard`;
 
 export const UPDATE_HELP = `Patch a single Overlay by id. At least one flag is required (an update with no
 fields is an invalid-input error, exit 3). Only the flags you pass change.
@@ -274,15 +279,17 @@ fields is an invalid-input error, exit 3). Only the flags you pass change.
                        pass --bullets-json with new reveal times in the same
                        command, or leave the duration alone. Nothing is
                        clamped.
-  --kind <kind>        new content-kind: 'definitionCard', 'bulletPanel' or
-                       'bRoll'. Changing it must bring the NEW kind's content
-                       with it in the same command (a bRoll's --footage and
-                       --from; a --title when leaving bRoll), and the old
+  --kind <kind>        new content-kind: 'definitionCard' or 'bulletPanel'
+                       (never to or from 'chatCard': delete it and 'add'
+                       instead). Changing it must bring the NEW kind's
+                       content with it in the same command, and the old
                        kind's content is dropped.
                        Changing TO a camera-moving kind is refused (exit 3) if
                        the Overlay's window lands on a zoomed Clip.
   --title <text>       new heading (the term, or the Bullet Panel's title).
   --description <text> new card body (the definition). definitionCard only.
+                       A chatCard takes neither --title nor --description:
+                       its content is copied from its Chat Highlight.
   --bullets-json <path|->
                        replace the Bullet Panel's bullets outright — there is
                        no per-bullet edit. bulletPanel only. Validated against
@@ -293,11 +300,7 @@ fields is an invalid-input error, exit 3). Only the flags you pass change.
                        was, which is why the value is spelled out. Turning
                        --disable-exit-animation back to false shortens the room
                        a bullet has, so it is refused (exit 3) on the same terms
-                       --duration is. Refused for a bRoll.
-  --footage <path>     a bRoll's new Imported Footage. bRoll only.
-  --from <seconds>     a bRoll's new start in its Footage. bRoll only. Any
-                       update to a bRoll re-checks --from + --duration against
-                       the file, and is local-only (exit 7 elsewhere).
+                       --duration is.
 
 A move or a resize (--clip / --at / --duration) that would put this Overlay on
 screen at the same moment as another one on the Video is refused (exit 3);
@@ -312,8 +315,7 @@ Examples:
   cvm overlay update --at 6.5 ovl_456
   cvm overlay update --duration 8 --description "..." ovl_456
   cvm overlay update --clip clip_10 --at 0 ovl_456   # move to the next Clip
-  cvm overlay update --bullets-json ./bullets.json ovl_456
-  cvm overlay update --from 20 ovl_789               # a bRoll's better stretch`;
+  cvm overlay update --bullets-json ./bullets.json ovl_456`;
 
 export const DELETE_HELP = `Delete a single Overlay by id. This is a HARD delete: the row is removed, not
 archived. There is no restore verb and no --archived listing to find it in

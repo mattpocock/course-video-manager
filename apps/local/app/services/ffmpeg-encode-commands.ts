@@ -18,6 +18,7 @@ import { FfmpegPermitsService } from "./ffmpeg-permits";
 import { SidecarContext } from "./sidecar-context";
 import { buildClipConcatArgs, type ConcatClip } from "./clip-concat-args";
 import { makeConcatenateClipSegments } from "./ffmpeg-encode-segments";
+import { SHORT_OVERLAY_COMPOSITE_FILTER } from "./vertical-overlay-props";
 import { assertUnder } from "./assert-under";
 import {
   buildOverlayCompositeArgs,
@@ -197,7 +198,7 @@ export class FFmpegEncodeService extends Effect.Service<FFmpegEncodeService>()(
       });
 
       /**
-       * A Short's final pass: its subtitle/CTA overlay (a Remotion ProRes 4444
+       * A Short's final pass: its caption overlay (a Remotion ProRes 4444
        * render with alpha) burned into the concatenated video.
        *
        * The video decodes on NVDEC and encodes on NVENC
@@ -228,7 +229,7 @@ export class FFmpegEncodeService extends Effect.Service<FFmpegEncodeService>()(
           "-i",
           overlayPath,
           "-filter_complex",
-          "[0:v][1:v]overlay=0:0:format=auto[outv]",
+          SHORT_OVERLAY_COMPOSITE_FILTER,
           "-map",
           "[outv]",
           "-map",

@@ -47,6 +47,8 @@ export type CvmRecorderControls = {
   onWakeSpacedesk: () => void;
   onStop: () => void;
   onDismissAlert: () => void;
+  /** Hides the frames-lost alert until a Clip loses more frames. */
+  onDismissFramesLost: () => void;
   onRetryCamera: () => void;
   /** Set (or, with null, clear) a saved CVM-recorder Clip's Scene Override. */
   onSetSceneOverride: (clipId: FrontendId, sceneOverride: Scene | null) => void;
@@ -314,6 +316,7 @@ export const useCvmRecorder = (o: {
     onWakeSpacedesk: () => dispatch({ type: "press-wake-spacedesk" }),
     onStop: () => dispatch({ type: "press-stop" }),
     onDismissAlert: () => dispatch({ type: "dismiss-alert" }),
+    onDismissFramesLost: () => dispatch({ type: "dismiss-frames-lost-alert" }),
     onRetryCamera: () => dispatch({ type: "press-retry" }),
     onSetSceneOverride: (clipId, sceneOverride) =>
       o.clipDispatch({ type: "set-scene-override", clipId, sceneOverride }),

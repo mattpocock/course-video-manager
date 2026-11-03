@@ -10,6 +10,7 @@ import { VideoPlayerStatusStrip } from "./video-player-status-strip";
 import { LessonBodyWriterModal } from "@/features/lesson-writer/lesson-body-writer-modal";
 import { AutofillDescriptionModal } from "@/features/lesson-writer/autofill-description-modal";
 import { PreloadableClipManager } from "../preloadable-clip";
+import { landscapeOverlaysByClipId } from "../overlay-preview";
 import {
   getChapters as getChaptersSelector,
   getHasSections as getHasSectionsSelector,
@@ -43,9 +44,14 @@ export const VideoPlayerPanel = () => {
     (ctx) => ctx.clipsToAggressivelyPreload
   );
   const clips = useContextSelector(VideoEditorContext, (ctx) => ctx.clips);
-  const overlaysByClipId = useContextSelector(
+  const allOverlaysByClipId = useContextSelector(
     VideoEditorContext,
     (ctx) => ctx.overlaysByClipId
+  );
+  // Chat Cards are Shorts-only: this Video's export drops them, so does this.
+  const overlaysByClipId = useMemo(
+    () => landscapeOverlaysByClipId(allOverlaysByClipId),
+    [allOverlaysByClipId]
   );
   const footageNotFound = useContextSelector(
     VideoEditorContext,
@@ -66,6 +72,10 @@ export const VideoPlayerPanel = () => {
   const currentClipProfile = useContextSelector(
     VideoEditorContext,
     (ctx) => ctx.currentClipProfile
+  );
+  const videoFormat = useContextSelector(
+    VideoEditorContext,
+    (ctx) => ctx.videoFormat
   );
   const currentClip = useContextSelector(
     VideoEditorContext,
@@ -171,6 +181,7 @@ export const VideoPlayerPanel = () => {
                   state={runningState}
                   currentClipId={currentClipId}
                   currentClipProfile={currentClipProfile}
+                  videoFormat={videoFormat}
                   onClipFinished={onClipFinished}
                   onUpdateCurrentTime={onUpdateCurrentTime}
                   playbackRate={playbackRate}

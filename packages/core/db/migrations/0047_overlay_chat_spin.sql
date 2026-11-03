@@ -1,0 +1,1 @@
+ALTER TABLE "course-video-manager_overlay" ADD COLUMN "chat_spin" jsonb;

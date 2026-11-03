@@ -4,6 +4,7 @@ import type { BroadcastListAnswer } from "./broadcast";
 import {
   createInitialLiveStreamState,
   liveStreamReducer,
+  RECONNECT_GRACE_MS,
 } from "./live-stream-reducer";
 
 /** Where the Broadcast picker lists from (`routes/api.streaming.broadcasts.ts`). */
@@ -117,6 +118,18 @@ export function useLiveStreamReducer() {
         .catch((e: unknown) =>
           dispatch({ type: "chat-highlight-failed", message: messageOf(e) })
         );
+    },
+    "await-reconnect-grace": (_state, { broadcastId, reconnect }, dispatch) => {
+      const timer = setTimeout(
+        () =>
+          dispatch({
+            type: "chat-reconnect-grace-ended",
+            broadcastId,
+            reconnect,
+          }),
+        RECONNECT_GRACE_MS
+      );
+      return () => clearTimeout(timer);
     },
     "end-stream": (_state, effect, dispatch) => {
       fetch(`/api/videos/${effect.videoId}/recorder/end-stream`, postJson({}))

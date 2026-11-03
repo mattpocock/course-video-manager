@@ -3,17 +3,19 @@ import { cn } from "@/lib/utils";
 import { LivePreviewFrame } from "./live-preview-frame";
 import { CvmRecorderControls } from "./cvm-recorder-controls";
 import { getHasLivePreview } from "../live-preview";
+import { ShortClipLayersList } from "./short-clip-layers-list";
+import { ShortFramePreviewOverlay } from "./short-frame-preview-overlay";
 import { ActionsDropdown } from "./actions-dropdown";
 import { useEditorVideoMenu } from "../editor-video-menu";
 import { MissingWordTimingBadge } from "./transcript-word-actions";
 import { PreloadableClipManager } from "../preloadable-clip";
-import type { ClipOverlay } from "../overlay-preview";
+import { shortOverlaysByClipId } from "../overlay-preview";
 import { getShowScrubSlider as getShowScrubSliderSelector } from "../video-editor-selectors";
 import { formatDuration } from "@/lib/format-duration";
 import { SendIcon, VideoOffIcon } from "lucide-react";
 import { useContextSelector } from "use-context-selector";
 import { VideoEditorContext } from "../video-editor-context";
-import { useState, useCallback, type ChangeEvent } from "react";
+import { useState, useCallback, useMemo, type ChangeEvent } from "react";
 import {
   ShortsPostingModal,
   type ShortsPostingMode,
@@ -57,6 +59,10 @@ export const PortraitStudioPanel = () => {
     VideoEditorContext,
     (ctx) => ctx.currentClipProfile
   );
+  const videoFormat = useContextSelector(
+    VideoEditorContext,
+    (ctx) => ctx.videoFormat
+  );
   const currentClip = useContextSelector(
     VideoEditorContext,
     (ctx) => ctx.currentClip
@@ -86,6 +92,15 @@ export const PortraitStudioPanel = () => {
     (ctx) => ctx.allClipsHaveSilenceDetected
   );
   const videoId = useContextSelector(VideoEditorContext, (ctx) => ctx.videoId);
+  const overlaysByClipId = useContextSelector(
+    VideoEditorContext,
+    (ctx) => ctx.overlaysByClipId
+  );
+  // A Short draws only its Chat Cards, as its render does.
+  const chatCardsByClipId = useMemo(
+    () => shortOverlaysByClipId(overlaysByClipId),
+    [overlaysByClipId]
+  );
   const cvmRecorderState = useContextSelector(
     VideoEditorContext,
     (ctx) => ctx.cvmRecorder.state
@@ -115,63 +130,65 @@ export const PortraitStudioPanel = () => {
     <div className="lg:flex-1 relative order-1 lg:order-2 h-full min-h-0 flex flex-col">
       {/* 9:16, as tall as the panel allows: the live frame, the Clip player
           and the empty state all take the full height. */}
-      <div className="flex-1 min-h-0 flex items-center justify-center relative">
-        {!hasLivePreview && clips.length === 0 ? (
-          <div className="h-full aspect-[9/16] bg-card rounded-lg flex flex-col items-center justify-center gap-3">
-            <VideoOffIcon className="size-10 text-muted-foreground" />
-            <p className="text-muted-foreground text-sm text-center px-4">
-              No clips yet. This Short records with the CVM recorder.
-            </p>
-          </div>
-        ) : (
-          <div className="h-full w-full flex flex-col items-center max-h-full">
-            <LivePreviewFrame />
-            <div
-              className={cn(
-                "flex-1 min-h-0 aspect-[9/16]",
-                !showVideoPlayer && "hidden"
-              )}
-            >
-              <PreloadableClipManager
-                clipsToAggressivelyPreload={clipsToAggressivelyPreload}
-                clips={clips
-                  .filter((clip) => clipIdsPreloaded.has(clip.frontendId))
-                  .filter((clip) => clip.type === "on-database")}
-                finalClipId={clips[clips.length - 1]?.frontendId}
-                state={runningState}
-                currentClipId={currentClipId}
-                currentClipProfile={currentClipProfile}
-                onClipFinished={onClipFinished}
-                onUpdateCurrentTime={onUpdateCurrentTime}
-                playbackRate={playbackRate}
-                scrubSeekTime={scrubSeekTime}
-                // Definition Cards — the only Overlay content-kind this PR
-                // previews — are a landscape/course-video feature (see
-                // `OVERLAY_RENDER_FRAME` in `overlay-render-cache.ts`); the
-                // Shorts studio has no overlay preview of its own yet.
-                overlaysByClipId={NO_OVERLAYS}
-                footageNotFound={footageNotFound}
-              />
+      <div className="flex-1 min-h-0 flex gap-3">
+        <div className="flex-1 min-w-0 min-h-0 flex items-center justify-center relative">
+          {!hasLivePreview && clips.length === 0 ? (
+            <div className="h-full aspect-[9/16] bg-card rounded-lg flex flex-col items-center justify-center gap-3">
+              <VideoOffIcon className="size-10 text-muted-foreground" />
+              <p className="text-muted-foreground text-sm text-center px-4">
+                No clips yet. This Short records with the CVM recorder.
+              </p>
             </div>
+          ) : (
+            <div className="h-full w-full flex flex-col items-center max-h-full">
+              <LivePreviewFrame />
+              <div
+                className={cn(
+                  "flex-1 min-h-0 aspect-[9/16] relative",
+                  !showVideoPlayer && "hidden"
+                )}
+              >
+                <ShortFramePreviewOverlay />
+                <PreloadableClipManager
+                  clipsToAggressivelyPreload={clipsToAggressivelyPreload}
+                  clips={clips
+                    .filter((clip) => clipIdsPreloaded.has(clip.frontendId))
+                    .filter((clip) => clip.type === "on-database")}
+                  finalClipId={clips[clips.length - 1]?.frontendId}
+                  state={runningState}
+                  currentClipId={currentClipId}
+                  currentClipProfile={currentClipProfile}
+                  videoFormat={videoFormat}
+                  onClipFinished={onClipFinished}
+                  onUpdateCurrentTime={onUpdateCurrentTime}
+                  playbackRate={playbackRate}
+                  scrubSeekTime={scrubSeekTime}
+                  overlaysByClipId={chatCardsByClipId}
+                  footageNotFound={footageNotFound}
+                />
+              </div>
 
-            {showScrubSlider && currentClip?.type === "on-database" && (
-              <input
-                type="range"
-                className="scrub-slider mt-2 w-full max-w-xs shrink-0"
-                min={currentClip.sourceStartTime}
-                max={currentClip.sourceEndTime}
-                step={0.01}
-                value={scrubSeekTime ?? currentClip.sourceStartTime}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                  dispatch({
-                    type: "scrub-to-time",
-                    time: parseFloat(e.target.value),
-                  });
-                }}
-              />
-            )}
-          </div>
-        )}
+              {showScrubSlider && currentClip?.type === "on-database" && (
+                <input
+                  type="range"
+                  className="scrub-slider mt-2 w-full max-w-xs shrink-0"
+                  min={currentClip.sourceStartTime}
+                  max={currentClip.sourceEndTime}
+                  step={0.01}
+                  value={scrubSeekTime ?? currentClip.sourceStartTime}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                    dispatch({
+                      type: "scrub-to-time",
+                      time: parseFloat(e.target.value),
+                    });
+                  }}
+                />
+              )}
+            </div>
+          )}
+        </div>
+
+        {clips.length > 0 && <ShortClipLayersList />}
       </div>
 
       <div className="shrink-0">
@@ -208,6 +225,3 @@ export const PortraitStudioPanel = () => {
     </div>
   );
 };
-
-/** A stable empty map — the Shorts studio has no overlay preview yet. */
-const NO_OVERLAYS = new Map<string, ClipOverlay[]>();

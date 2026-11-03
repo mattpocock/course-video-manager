@@ -12,6 +12,14 @@ import { onlyRootFilterChanged } from "@/features/storage/root-filter";
 import { onlySearchChanged } from "@/features/list-search/list-search";
 import { onlyPlayerChanged } from "@/features/imported-footage/player-url";
 import { offlineStorageRoots } from "@/services/storage-root-availability.server";
+import {
+  createInitialOfflineRootsBannerState,
+  offlineRootsBannerReducer,
+  offlineRootsShown,
+} from "@/features/storage/offline-roots-banner-reducer";
+import { Button } from "@/components/ui/button";
+import { XIcon } from "lucide-react";
+import { useEffect, useReducer } from "react";
 import { getFootageStats } from "@cvm/core/services/db-footage-stats.server";
 import { Effect } from "effect";
 import {
@@ -81,24 +89,56 @@ export const shouldRevalidate: ShouldRevalidateFunction = ({
 
 /**
  * One line per Offline Storage Root, naming the drive and what to do, with
- * the command that remounts it ready to copy.
+ * the command that remounts it ready to copy. Its X hides it until the page
+ * reloads or another Storage Root goes offline (#2558).
  */
 function OfflineStorageRootsBanner() {
   const { offlineRoots } = useLoaderData<typeof loader>();
-  if (offlineRoots.length === 0) return null;
+  const [state, dispatch] = useReducer(
+    offlineRootsBannerReducer,
+    undefined,
+    createInitialOfflineRootsBannerState
+  );
+  const rootsKey = offlineRoots.map(({ root }) => root).join("\n");
+  // Bridges the layout loader's word on which Storage Roots are offline.
+  useEffect(() => {
+    dispatch({
+      type: "offline-roots-heard",
+      roots: rootsKey === "" ? [] : rootsKey.split("\n"),
+    });
+  }, [rootsKey]);
+  const shown = offlineRootsShown(state, offlineRoots);
+  if (shown.length === 0) return null;
   return (
     <div
       role="alert"
-      className="border-b border-amber-500/40 bg-amber-500/20 px-4 py-2 text-sm text-amber-600"
+      className="flex items-start gap-2 border-b border-amber-500/40 bg-amber-500/20 px-4 py-2 text-sm text-amber-600"
     >
-      {offlineRoots.map(({ root, message, remountCommand }) => (
-        <div key={root} className="space-y-1 py-0.5">
-          <p>{message}</p>
-          {remountCommand !== null && (
-            <RemountCommand command={remountCommand} />
-          )}
-        </div>
-      ))}
+      <div className="flex-1 min-w-0">
+        {shown.map(({ root, message, remountCommand }) => (
+          <div key={root} className="space-y-1 py-0.5">
+            <p>{message}</p>
+            {remountCommand !== null && (
+              <RemountCommand command={remountCommand} />
+            )}
+          </div>
+        ))}
+      </div>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="size-7 shrink-0 text-amber-600 hover:bg-amber-500/20"
+        aria-label="Dismiss the Offline Storage Roots warning"
+        onClick={() =>
+          dispatch({
+            type: "banner-dismissed",
+            roots: shown.map(({ root }) => root),
+          })
+        }
+      >
+        <XIcon className="size-4" />
+      </Button>
     </div>
   );
 }
