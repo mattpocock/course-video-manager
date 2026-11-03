@@ -33,6 +33,8 @@
     "storage:relocate": "tsx scripts/storage-relocate.ts",
     "gen:lucide-icons": "tsx scripts/generate-lucide-icons.ts",
     "db:clone-local": "./scripts/clone-db-to-local.sh",
+    "db:migrate:prod": "tsx scripts/migrate-production.ts",
+    "db:dump": "tsx scripts/nightly-dump.ts",
     "recorder-parity": "tsx scripts/recorder-parity.ts",
     "preview-latency": "tsx scripts/preview-latency.ts",
     "windows-guard": "tsx scripts/windows-guard.ts",

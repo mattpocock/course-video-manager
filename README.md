@@ -81,12 +81,14 @@ This registers the `0000` baseline migration as already-applied so the next `pnp
 
 ### Scripts
 
-| Script             | Description                                                   |
-| ------------------ | ------------------------------------------------------------- |
-| `pnpm db:generate` | Generate a new migration from schema changes                  |
-| `pnpm db:migrate`  | Apply pending migrations by hand (deploy no longer does this) |
-| `pnpm db:baseline` | Mark the `0000` baseline as applied (one-time setup)          |
-| `pnpm db:studio`   | Open Drizzle Studio                                           |
+| Script                 | Description                                                                                            |
+| ---------------------- | ------------------------------------------------------------------------------------------------------ |
+| `pnpm db:generate`     | Generate a new migration from schema changes                                                           |
+| `pnpm db:migrate`      | Apply pending migrations by hand (deploy no longer does this)                                          |
+| `pnpm db:migrate:prod` | Back production up on PlanetScale, wait, then migrate it: the only way production is migrated          |
+| `pnpm db:dump`         | Nightly `pg_dump` of production to `~/backups/cvm/` (keeps 14; `--cron-line` prints the crontab entry) |
+| `pnpm db:baseline`     | Mark the `0000` baseline as applied (one-time setup)                                                   |
+| `pnpm db:studio`       | Open Drizzle Studio                                                                                    |
 
 ## Zapier Webhook Setup (Buffer Integration)
 

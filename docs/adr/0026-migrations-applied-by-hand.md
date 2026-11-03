@@ -39,3 +39,7 @@ PR #1861 also added a merge-side gate: migration-only PRs enforced in CI, plus a
 `migrations.test.ts` checks that every column `schema.ts` declares is created by a migration, rather than that the two produce identical tables, because during a contract change the migrations are briefly ahead of the schema.
 
 `apps/local` runs against production too, so `pnpm dev` and `pnpm start` first run `apps/local/scripts/warn-pending-migrations.ts`, which warns (never blocks) when the database is behind the checkout's migrations.
+
+## Addendum: production is migrated only through a backup-first command
+
+Production migrations now go through `pnpm db:migrate:prod` (`apps/local/scripts/migrate-production.ts`, #2653), and agents may run it. It checks the same rules as the drizzle guard. It takes an on-demand PlanetScale backup through the API, with a token holding only `read_backups` and `write_backups`. It waits for the backup to reach `success` and prints its ID. Only then does it run `pnpm db:migrate`. There is no skip flag and no fallback: no backup, no migrate. A bare `pnpm db:migrate` against production is still refused by nothing but convention, so the `deploy-migration` skill forbids it. Off-platform, `pnpm db:dump` keeps 14 nightly `pg_dump`s in `~/backups/cvm/`.
