@@ -108,6 +108,32 @@ describe("cvm course publish --placeholders", () => {
     }
   );
 
+  it.each([
+    ["--name", ["--description", "d"]],
+    ["--description", ["--name", "v9.9.9"]],
+    ["the course id", ["--name", "v9.9.9", "--description", "d"]],
+  ])(
+    "still refuses a publish with no %s as the parser always did (#2621)",
+    async (_missing, flags) => {
+      const before = await versionRows();
+      const res = await run([
+        "course",
+        "publish",
+        ...(flags as string[]),
+        ...(_missing === "the course id" ? [] : [s.courseAId]),
+      ]);
+      // `publish` is now the parent of `publish discard`, so these are
+      // optional to the parser; the handler fails the same way it did.
+      expect(res.exitCode).toBe(3);
+      expect(JSON.parse(res.stderr)).toEqual({
+        _tag: "ParseError",
+        message: "invalid CLI input (MissingValue)",
+      });
+      expect(res.stdout).toBe("");
+      expect(await versionRows()).toEqual(before);
+    }
+  );
+
   it("accepts every band the readiness verb accepts", async () => {
     // Not a publish — that needs ffmpeg and Dropbox. What this proves is that
     // the four bands are refused by neither parser: the same spellings reach

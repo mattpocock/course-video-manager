@@ -1,6 +1,13 @@
-import { Command, Options } from "@effect/cli";
+import { Args, Command, HelpDoc, Options, ValidationError } from "@effect/cli";
 import { entityIdArg } from "../entity-id";
-import { ConfigProvider, Effect, Layer, Logger, LogLevel } from "effect";
+import {
+  ConfigProvider,
+  Effect,
+  Layer,
+  Logger,
+  LogLevel,
+  Option,
+} from "effect";
 import * as NodeContext from "@effect/platform-node/NodeContext";
 import { DrizzleService } from "@/services/drizzle-service.server";
 import { GitWorktreeProbeLive } from "@cvm/core/git-worktree";
@@ -18,6 +25,7 @@ import {
 } from "@/packages/course-json";
 import { enqueueJob, JOB_KIND_SPECS } from "../../../sidecar/job-specs";
 import { waitForPublishJob } from "./course-publish-wait";
+import { discardCmd } from "./course-publish-discard";
 
 /**
  * `cvm course publish <courseId> --name vX.Y.Z` — the ONE write verb that
@@ -285,129 +293,154 @@ EXAMPLES
 // publish
 // ---------------------------------------------------------------------------
 
-export const publishCmd = Command.make(
-  "publish",
-  {
-    courseId,
-    name: nameOpt,
-    description: descriptionOpt,
-    excludeTodo: excludeTodoOpt,
-    placeholders: placeholdersOpt,
-    wait: waitOpt,
-  },
-  ({ courseId, name, description, excludeTodo, placeholders, wait }) => {
-    const includeTodoLessons = !excludeTodo;
+const runPublish = ({
+  courseId,
+  name,
+  description,
+  excludeTodo,
+  placeholders,
+  wait,
+}: {
+  readonly courseId: string;
+  readonly name: string;
+  readonly description: string;
+  readonly excludeTodo: boolean;
+  readonly placeholders: (typeof PLACEHOLDER_FLOOR_BANDS)[number];
+  readonly wait: boolean;
+}) => {
+  const includeTodoLessons = !excludeTodo;
 
-    // MACHINE GATE FIRST, ahead of even the name check: the Publish is run by
-    // this machine's Sidecar, which renders with ffmpeg and mirrors the
-    // finished videos directory to Dropbox, so on a Remote Box a
-    // perfectly-formed name would not have helped. Refusing here also means no
-    // Job is ever queued.
-    const machine = requireLocalMachine(
-      "cvm course publish",
-      NEEDS_THE_SIDECAR
-    );
+  // MACHINE GATE FIRST, ahead of even the name check: the Publish is run by
+  // this machine's Sidecar, which renders with ffmpeg and mirrors the
+  // finished videos directory to Dropbox, so on a Remote Box a
+  // perfectly-formed name would not have helped. Refusing here also means no
+  // Job is ever queued.
+  const machine = requireLocalMachine("cvm course publish", NEEDS_THE_SIDECAR);
 
-    // Shape gate SECOND, outside the provided layer: a malformed name fails fast
-    // (exit 3) without building the layer or reading .env config.
-    if (!isValidPublishVersionName(name)) {
-      return machine.pipe(
-        Effect.zipRight(
-          parseError(
-            `--name must be a lowercase-'v' semver (e.g. v1.2.0), got "${name}"`,
-            "course"
-          )
-        )
-      );
-    }
-
-    const run = Effect.gen(function* () {
-      const courseOps = yield* CourseOperationsService;
-      const course = yield* courseOps
-        .getCourseById(courseId)
-        .pipe(
-          Effect.catchTag("NotFoundError", () => Effect.succeed(undefined))
-        );
-      if (course === undefined) {
-        return yield* notFound("course", courseId);
-      }
-
-      // Uniqueness gate: a Published Version already wearing this name would make
-      // two immutable releases collide on their tag.
-      const versionOps = yield* VersionOperationsService;
-      const versions = yield* versionOps.getCourseVersions(courseId);
-      if (versions.some((v) => v.name === name)) {
-        return yield* parseError(
-          `version name "${name}" is already used by a published version of this course`,
-          "course"
-        );
-      }
-
-      // The one way in (plan §3.7): the same `publish` Job the publish page
-      // enqueues, checked against the kind's own params schema.
-      const job = yield* enqueueJob({
-        id: null,
-        kind: "publish",
-        title: course.name,
-        params: {
-          courseId,
-          name,
-          description,
-          includeTodoLessons,
-          placeholders,
-        },
-        dependsOn: null,
-        subject: { type: "course", id: courseId },
-        attemptsSpent: 0,
-        registry: JOB_KIND_SPECS,
-      });
-      // Best effort, and silent: a sidecar that is down finds the Job when it
-      // starts, and the CLI's STDERR is its error contract.
-      yield* nudgeSidecar().pipe(Logger.withMinimumLogLevel(LogLevel.None));
-      const log = `.data/logs/jobs/${job.id}.jsonl`;
-
-      if (!wait) {
-        return yield* emitObject({
-          jobId: job.id,
-          status: "queued",
-          name,
-          description,
-          log,
-        });
-      }
-
-      const out = yield* CliOutput;
-      const result = yield* waitForPublishJob({
-        jobId: job.id,
-        pollMs: 1_000,
-        onProgress: (line) => out.stderr(JSON.stringify(line) + "\n"),
-      });
-      yield* emitObject({
-        jobId: job.id,
-        publishedVersionId: result.publishedVersionId,
-        newDraftVersionId: result.newDraftVersionId,
-        name,
-        description,
-        // WHAT THE RELEASE DID WITH EVERY LESSON. A headless run has no publish
-        // page to read the two cards off, so the three Lesson Publish Status
-        // counts ride out with the result: they are the only way an agent can
-        // see that `--placeholders p2` announced anything, or how many Lessons
-        // it left behind. Ask `cvm course readiness --placeholders <band>` for
-        // the Lessons themselves.
-        lessons: result.lessons,
-      });
-    });
-
-    // loadRepoEnv MUST run before publishLayer is built: DrizzleService reads
-    // DATABASE_URL from process.env.
+  // Shape gate SECOND, outside the provided layer: a malformed name fails fast
+  // (exit 3) without building the layer or reading .env config.
+  if (!isValidPublishVersionName(name)) {
     return machine.pipe(
-      Effect.zipRight(Effect.sync(() => loadRepoEnv())),
       Effect.zipRight(
-        run.pipe(
-          Effect.provide(publishLayer),
-          Effect.withConfigProvider(ConfigProvider.fromEnv())
+        parseError(
+          `--name must be a lowercase-'v' semver (e.g. v1.2.0), got "${name}"`,
+          "course"
         )
       )
     );
   }
-).pipe(Command.withDescription(detail(PUBLISH_HELP)));
+
+  const run = Effect.gen(function* () {
+    const courseOps = yield* CourseOperationsService;
+    const course = yield* courseOps
+      .getCourseById(courseId)
+      .pipe(Effect.catchTag("NotFoundError", () => Effect.succeed(undefined)));
+    if (course === undefined) {
+      return yield* notFound("course", courseId);
+    }
+
+    // Uniqueness gate: a Published Version already wearing this name would make
+    // two immutable releases collide on their tag.
+    const versionOps = yield* VersionOperationsService;
+    const versions = yield* versionOps.getCourseVersions(courseId);
+    if (versions.some((v) => v.name === name)) {
+      return yield* parseError(
+        `version name "${name}" is already used by a published version of this course`,
+        "course"
+      );
+    }
+
+    // The one way in (plan §3.7): the same `publish` Job the publish page
+    // enqueues, checked against the kind's own params schema.
+    const job = yield* enqueueJob({
+      id: null,
+      kind: "publish",
+      title: course.name,
+      params: {
+        courseId,
+        name,
+        description,
+        includeTodoLessons,
+        placeholders,
+      },
+      dependsOn: null,
+      subject: { type: "course", id: courseId },
+      attemptsSpent: 0,
+      registry: JOB_KIND_SPECS,
+    });
+    // Best effort, and silent: a sidecar that is down finds the Job when it
+    // starts, and the CLI's STDERR is its error contract.
+    yield* nudgeSidecar().pipe(Logger.withMinimumLogLevel(LogLevel.None));
+    const log = `.data/logs/jobs/${job.id}.jsonl`;
+
+    if (!wait) {
+      return yield* emitObject({
+        jobId: job.id,
+        status: "queued",
+        name,
+        description,
+        log,
+      });
+    }
+
+    const out = yield* CliOutput;
+    const result = yield* waitForPublishJob({
+      jobId: job.id,
+      pollMs: 1_000,
+      onProgress: (line) => out.stderr(JSON.stringify(line) + "\n"),
+    });
+    yield* emitObject({
+      jobId: job.id,
+      publishedVersionId: result.publishedVersionId,
+      newDraftVersionId: result.newDraftVersionId,
+      name,
+      description,
+      // WHAT THE RELEASE DID WITH EVERY LESSON. A headless run has no publish
+      // page to read the two cards off, so the three Lesson Publish Status
+      // counts ride out with the result: they are the only way an agent can
+      // see that `--placeholders p2` announced anything, or how many Lessons
+      // it left behind. Ask `cvm course readiness --placeholders <band>` for
+      // the Lessons themselves.
+      lessons: result.lessons,
+    });
+  });
+
+  // loadRepoEnv MUST run before publishLayer is built: DrizzleService reads
+  // DATABASE_URL from process.env.
+  return machine.pipe(
+    Effect.zipRight(Effect.sync(() => loadRepoEnv())),
+    Effect.zipRight(
+      run.pipe(
+        Effect.provide(publishLayer),
+        Effect.withConfigProvider(ConfigProvider.fromEnv())
+      )
+    )
+  );
+};
+
+/**
+ * `publish` is also the parent of `publish discard` (#2621). `@effect/cli`
+ * parses a parent's own options and args before it looks for a subcommand, so
+ * the ones a Publish needs are optional to the PARSER and required here: a
+ * missing one fails with the parser's own `MissingValue`, which renders as it
+ * always did (ParseError, exit 3), before the machine gate.
+ */
+export const publishCmd = Command.make(
+  "publish",
+  {
+    courseId: Args.optional(courseId),
+    name: Options.optional(nameOpt),
+    description: Options.optional(descriptionOpt),
+    excludeTodo: excludeTodoOpt,
+    placeholders: placeholdersOpt,
+    wait: waitOpt,
+  },
+  ({ courseId, name, description, ...flags }) =>
+    Option.all({ courseId, name, description }).pipe(
+      Effect.mapError(() => ValidationError.missingValue(HelpDoc.empty)),
+      Effect.flatMap((required) => runPublish({ ...flags, ...required }))
+    )
+).pipe(
+  Command.withDescription(detail(PUBLISH_HELP)),
+  Command.withSubcommands([discardCmd])
+);

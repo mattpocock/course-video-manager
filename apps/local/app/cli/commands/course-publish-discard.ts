@@ -69,7 +69,7 @@ OUTPUT
 EXAMPLES
   cvm course publish discard course_123`;
 
-const discardCmd = Command.make(
+export const discardCmd = Command.make(
   "discard",
   { courseId: entityIdArg("course", "courseId") },
   ({ courseId }) =>
@@ -86,22 +86,3 @@ const discardCmd = Command.make(
       )
     )
 ).pipe(Command.withDescription(detail(DISCARD_HELP)));
-
-/**
- * `cvm course publish discard …` is parsed by a command tree of its own.
- * `@effect/cli` parses a parent command's own options before a subcommand's,
- * so `publish`'s required `--name` and `--description` would be demanded of
- * `publish discard` too. `main.ts` routes these argv here instead.
- */
-export const isPublishDiscardArgv = (argv: ReadonlyArray<string>) =>
-  argv[0] === "course" && argv[1] === "publish" && argv[2] === "discard";
-
-export const publishDiscardCommand = Command.make("cvm").pipe(
-  Command.withSubcommands([
-    Command.make("course").pipe(
-      Command.withSubcommands([
-        Command.make("publish").pipe(Command.withSubcommands([discardCmd])),
-      ])
-    ),
-  ])
-);

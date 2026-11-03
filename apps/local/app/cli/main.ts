@@ -7,10 +7,6 @@ import { rootCommand } from "./index";
 import { cliRuntime, type CliServices } from "./layer";
 import { CliOutput } from "./output";
 import { renderToExitCode } from "./render";
-import {
-  isPublishDiscardArgv,
-  publishDiscardCommand,
-} from "./commands/course-publish-discard";
 
 /**
  * A Console implementation that routes @effect/cli's built-in writes through the
@@ -83,12 +79,6 @@ const cliRun = Command.run(rootCommand, {
   version: CLI_VERSION,
 });
 
-/** `cvm course publish discard`: its own tree (see `isPublishDiscardArgv`). */
-const publishDiscardRun = Command.run(publishDiscardCommand, {
-  name: CLI_NAME,
-  version: CLI_VERSION,
-});
-
 /**
  * Build the runnable program for `argv`, resolving to the process EXIT CODE.
  * Never fails, never calls process.exit. The CLI environment (FileSystem/Path/
@@ -110,11 +100,7 @@ export const buildProgram = (
   // `cvm`), so prepend two placeholder tokens to keep them intact.
   renderToExitCode(
     Effect.flatMap(CliOutput, (out) =>
-      (isPublishDiscardArgv(argv) ? publishDiscardRun : cliRun)([
-        "node",
-        CLI_NAME,
-        ...argv,
-      ]).pipe(
+      cliRun(["node", CLI_NAME, ...argv]).pipe(
         Effect.provide(CliConfig.layer({ showBuiltIns: false })),
         Effect.provide(NodeContext.layer),
         // Route @effect/cli's built-in Console writes through the CliOutput seam
