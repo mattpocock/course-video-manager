@@ -2,6 +2,7 @@ import { Cause, Console, Effect, Exit, type ManagedRuntime } from "effect";
 import { data } from "react-router";
 import { type LayerLive, runtimeLive } from "./layer.server";
 import { withRequestTally } from "./slow-request-log.server";
+import { schemaBehindMessageOf } from "./schema-behind.server";
 import { asStorageRootOffline } from "./storage-root-availability.server";
 
 type ErrorTags<E> = E extends { readonly _tag: infer T extends string }
@@ -49,6 +50,18 @@ const answerRootOffline = <E>(error: E): Effect.Effect<never, E> => {
     : Effect.die(data(offline.message, { status: 503 }));
 };
 
+/**
+ * A database behind this checkout (a pending migration) is the author's to
+ * fix with one command, not a bug: the route answers 503 with the command,
+ * where a bare 500 said only "Internal server error".
+ */
+const answerSchemaBehind = <E>(error: E): Effect.Effect<never, E> => {
+  const message = schemaBehindMessageOf(error);
+  return message === undefined
+    ? Effect.fail(error)
+    : Effect.die(data(message, { status: 503 }));
+};
+
 function buildErrorPipeline<A, E, R>(
   effect: Effect.Effect<A, E, R>,
   errorMap: Record<string, number>,
@@ -57,6 +70,7 @@ function buildErrorPipeline<A, E, R>(
   return effect.pipe(
     Effect.tapErrorCause(logUnlessRootOffline),
     Effect.catchAll(answerRootOffline),
+    Effect.catchAll(answerSchemaBehind),
     Effect.catchAll((error: NoInfer<E>) => {
       const tag =
         error != null &&
