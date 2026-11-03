@@ -112,6 +112,30 @@ describe("duplicateCourse — schema-drift guard", () => {
       // are stamped `copy` (asserted below), not carried.
       notCopied: ["id", "videoId", "origin"],
     },
+    // A Landscape Clip's Layers, a Footage Layer here: every column carries
+    // over, so the copy draws the same picture (#2604 story 11).
+    clipLayer: {
+      table: schema.clipLayers,
+      copied: [
+        "position",
+        "kind",
+        "footagePath",
+        "footageStart",
+        "sessionFile",
+        "cropX",
+        "cropY",
+        "cropW",
+        "cropH",
+        "placeX",
+        "placeY",
+        "placeW",
+        "placeH",
+        "volume",
+        "spanAt",
+        "spanDuration",
+      ],
+      notCopied: ["id", "clipId"],
+    },
     chapter: {
       table: schema.chapters,
       copied: ["name", "order"],
@@ -225,21 +249,43 @@ describe("duplicateCourse — schema-drift guard", () => {
         script: "video teleprompter script",
       })
       .returning();
-    await testDb.insert(schema.clips).values({
-      videoId: video!.id,
-      videoFilename: "coverage-clip.mp4",
-      sourceStartTime: 1.5,
-      sourceEndTime: 9.5,
-      order: "m",
-      text: "clip text",
-      transcribedAt: new Date("2026-01-01T00:00:00.000Z"),
-      transcriptionStatus: "failed",
-      scene: "scene-1",
-      profile: "profile-1",
-      pauseType: "intro",
-      diagramSnapshotId: snapshot!.id,
-      archived: true,
-      createdAt: new Date("2025-12-31T00:00:00.000Z"),
+    const [clip] = await testDb
+      .insert(schema.clips)
+      .values({
+        videoId: video!.id,
+        videoFilename: "coverage-clip.mp4",
+        sourceStartTime: 1.5,
+        sourceEndTime: 9.5,
+        order: "m",
+        text: "clip text",
+        transcribedAt: new Date("2026-01-01T00:00:00.000Z"),
+        transcriptionStatus: "failed",
+        scene: "scene-1",
+        profile: "profile-1",
+        pauseType: "intro",
+        diagramSnapshotId: snapshot!.id,
+        archived: true,
+        createdAt: new Date("2025-12-31T00:00:00.000Z"),
+      })
+      .returning();
+    await testDb.insert(schema.clipLayers).values({
+      clipId: clip!.id,
+      position: 0,
+      kind: "footage",
+      footagePath: "/footage/coverage-screen.mp4",
+      footageStart: 2.25,
+      sessionFile: "screen",
+      cropX: 0.1,
+      cropY: 0.2,
+      cropW: 0.5,
+      cropH: 0.6,
+      placeX: 40,
+      placeY: 60,
+      placeW: 960,
+      placeH: 540,
+      volume: 0.25,
+      spanAt: 1,
+      spanDuration: 3,
     });
     await testDb.insert(schema.chapters).values({
       videoId: video!.id,
@@ -304,7 +350,7 @@ describe("duplicateCourse — schema-drift guard", () => {
           with: {
             videos: {
               with: {
-                clips: true,
+                clips: { with: { layers: true } },
                 chapters: true,
                 beats: true,
                 clipMockups: true,
@@ -324,6 +370,7 @@ describe("duplicateCourse — schema-drift guard", () => {
       lesson: dupTree!.lessons[0]!,
       video: dupVideo,
       clip: dupVideo.clips[0]!,
+      clipLayer: dupVideo.clips[0]!.layers[0]!,
       chapter: dupVideo.chapters[0]!,
       beat: dupVideo.beats[0]!,
       clipMockup: dupVideo.clipMockups[0]!,
@@ -336,6 +383,7 @@ describe("duplicateCourse — schema-drift guard", () => {
       lesson: lesson!,
       video: video!,
       clip: await getOne(schema.clips, "videoId", video!.id),
+      clipLayer: await getOne(schema.clipLayers, "clipId", clip!.id),
       chapter: await getOne(schema.chapters, "videoId", video!.id),
       beat: await getOne(schema.beats, "videoId", video!.id),
       clipMockup: await getOne(schema.clipMockups, "videoId", video!.id),

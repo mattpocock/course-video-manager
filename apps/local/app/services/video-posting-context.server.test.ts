@@ -27,6 +27,7 @@ import {
   loadVideoPostingContext,
   loadWriterContext,
 } from "@/services/video-posting-context.server";
+import { clipFrame, clipSource } from "@/packages/clip-source";
 
 let testDb: TestDb;
 type TestServices =
@@ -442,6 +443,110 @@ describe("loadWriterContext", () => {
 
         expect(ctx.animaticLines).toEqual([]);
       }).pipe(Effect.provide(testLayer))
+    );
+  });
+
+  describe("indexedClips", () => {
+    // What Choose Screenshot captures from: `clipFrame(clipSource(clip), …)`
+    // on the Clip it is handed. Its recorded screen, whatever its Layers.
+    it.effect(
+      "give Choose Screenshot each Clip's recorded screen and face, whatever its Layers",
+      () =>
+        Effect.gen(function* () {
+          const video = yield* createStandaloneVideoWithClips("test-video", [
+            "untouched",
+            "footage only",
+            "several",
+          ]);
+          setupVideoDir(video.lineageId);
+
+          yield* Effect.promise(async () => {
+            const [session] = await testDb
+              .insert(schema.recordingSessions)
+              .values({
+                videoId: video.id,
+                cameraFilePath: "/rec/camera.mkv",
+                screenFilePath: "/rec/screen.mkv",
+                micFilePath: "/rec/mic.wav",
+                status: "stopped",
+              })
+              .returning();
+            await testDb.insert(schema.recordingSessionSceneEvents).values({
+              recordingSessionId: session!.id,
+              fileTime: 0,
+              scene: "Code",
+            });
+            const clips = await testDb
+              .update(schema.clips)
+              .set({ recordingSessionId: session!.id })
+              .returning();
+            const byText = (text: string) =>
+              clips.find((c) => c.text === text)!.id;
+            const footage = (clipId: string, position: number) => ({
+              clipId,
+              position,
+              kind: "footage" as const,
+              sessionFile: "camera" as const,
+              cropX: 0.25,
+              cropY: 0,
+              cropW: 0.5,
+              cropH: 1,
+              placeX: 0,
+              placeY: 0,
+              placeW: 960,
+              placeH: 1080,
+              volume: 0,
+            });
+            await testDb.insert(schema.clipLayers).values([
+              footage(byText("footage only"), 0),
+              {
+                clipId: byText("several"),
+                position: 0,
+                kind: "scene",
+                volume: 1,
+              },
+              footage(byText("several"), 1),
+              {
+                ...footage(byText("several"), 2),
+                sessionFile: null,
+                footagePath: "/footage/b-roll.mp4",
+                footageStart: 3,
+              },
+            ]);
+          });
+
+          const ctx = yield* loadWriterContext(video.id);
+          const frames = ctx.indexedClips.map((clip) => {
+            const source = clipSource(clip);
+            const at = clip.sourceStartTime + 1;
+            return {
+              noFace: clipFrame(source, at, { screenOnly: true }),
+              withFace: clipFrame(source, at),
+            };
+          });
+
+          expect(frames).toHaveLength(3);
+          expect(frames[0]!.noFace).toMatchObject({
+            kind: "screen",
+            screen: "/rec/screen.mkv",
+          });
+          expect(frames[0]!.withFace).toMatchObject({
+            kind: "composite",
+            screen: "/rec/screen.mkv",
+            camera: "/rec/camera.mkv",
+          });
+          expect(
+            frames.map(({ noFace, withFace }) => [
+              { ...noFace, time: 0 },
+              { ...withFace, time: 0 },
+            ])
+          ).toEqual(
+            frames.map(() => [
+              { ...frames[0]!.noFace, time: 0 },
+              { ...frames[0]!.withFace, time: 0 },
+            ])
+          );
+        }).pipe(Effect.provide(testLayer))
     );
   });
 });
