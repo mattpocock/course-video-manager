@@ -163,6 +163,8 @@ const layer = () =>
 
 const TIMING: SidecarTiming = {
   leaseMs: 2_000,
+  // A dead sidecar's Jobs are recovered this long after their lease ends.
+  outageToleranceMs: 1_000,
   leaseRenewMs: 500,
   jobLeaseMs: 2_000,
   jobHeartbeatMs: 500,

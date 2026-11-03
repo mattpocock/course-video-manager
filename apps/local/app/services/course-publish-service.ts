@@ -265,11 +265,12 @@ export class CoursePublishService extends Effect.Service<CoursePublishService>()
         });
 
         // THE HANDOFF QUEUE between two pools that must not share a budget:
-        // the export pool (GPU-bound, six-way concurrent) and the upload pool
-        // (network-bound, its own smaller limit). One latch per Video still to
-        // encode; a Video already exported has none and is ready immediately.
-        // The upload pool waits on a single Video's latch rather than on the
-        // export phase as a whole, which is what makes the two overlap.
+        // the export pool (six Videos in flight, two of them encoding at a
+        // time) and the upload pool (network-bound, its own limit). One latch
+        // per Video still to encode; a Video already exported has none and is
+        // ready immediately. The upload pool waits on a single Video's latch
+        // rather than on the export phase as a whole, which is what makes the
+        // two overlap.
         const exportLatches = new Map<
           string,
           Deferred.Deferred<void, ExportError>
