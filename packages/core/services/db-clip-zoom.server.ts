@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { Effect } from "effect";
 import type { Database } from "./drizzle-service.server.js";
-import { clips } from "../db/schema.js";
+import { clipLayers, clips } from "../db/schema.js";
 import {
   ClipNotZoomableError,
   UnknownDBServiceError,
@@ -19,7 +19,8 @@ import { effectiveClipScene } from "../features/videos/effective-scene.js";
  * A dedicated operation rather than another optional field on `updateClip`,
  * because the write carries a rule `updateClip` has no business knowing:
  * a zoom is legal only on a camera scene, judged on the Clip's effective
- * scene (its Scene Override, else its recorded scene). Enforcing it here means
+ * scene (its Scene Override, else its recorded scene), and only on a Clip
+ * whose Layers have a Scene Layer (the one Layer it zooms). Enforcing it here means
  * the CLI and any future caller inherit the rule instead of reimplementing it.
  */
 export const createSetClipZoom = <E>(
@@ -37,7 +38,15 @@ export const createSetClipZoom = <E>(
     const clip = yield* deps.getClipById(clipId);
 
     const scene = effectiveClipScene(clip);
-    const ineligibility = checkClipZoomEligibility(scene);
+    const layers = yield* Effect.tryPromise({
+      try: () =>
+        db.query.clipLayers.findMany({
+          where: eq(clipLayers.clipId, clipId),
+          columns: { kind: true },
+        }),
+      catch: (cause) => new UnknownDBServiceError({ cause }),
+    });
+    const ineligibility = checkClipZoomEligibility(scene, layers);
     if (ineligibility) {
       return yield* new ClipNotZoomableError({
         clipId,

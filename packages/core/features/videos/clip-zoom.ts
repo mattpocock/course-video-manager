@@ -1,3 +1,5 @@
+import { hasSceneLayer, type ClipLayerSpec } from "./clip-layer.js";
+
 /**
  * Clip Zoom — the single place the zoomed shot is decided.
  *
@@ -145,14 +147,22 @@ export const clipZoomCropFilter = (
  * whoever hit the wall: a `Code` clip is one you should not be zooming, while
  * a scene-less clip is one filmed before CVM recorded scenes at all (there are
  * ~4,500 of them) and no amount of retrying will make it eligible.
+ *
+ * A Clip Zoom zooms the Scene Layer only (#2604), so a Clip whose Layers have
+ * no Scene Layer (none stored is one Scene Layer) has nothing to zoom.
  */
 export type ClipZoomIneligibility =
+  | { readonly reason: "no-scene-layer" }
   | { readonly reason: "no-recorded-scene" }
   | { readonly reason: "not-a-camera-scene"; readonly scene: string };
 
 export const checkClipZoomEligibility = (
-  scene: string | null | undefined
+  scene: string | null | undefined,
+  layers: readonly { readonly kind: ClipLayerSpec["kind"] }[]
 ): ClipZoomIneligibility | null => {
+  if (!hasSceneLayer(layers)) {
+    return { reason: "no-scene-layer" };
+  }
   if (scene === null || scene === undefined || scene === "") {
     return { reason: "no-recorded-scene" };
   }
@@ -167,15 +177,19 @@ export const checkClipZoomEligibility = (
  * The service enforces the same rule, so a caller that never touches the UI
  * (the CLI, or the next one) inherits it rather than reimplementing it.
  */
-export const canZoomClip = (scene: string | null | undefined): boolean =>
-  checkClipZoomEligibility(scene) === null;
+export const canZoomClip = (
+  scene: string | null | undefined,
+  layers: readonly { readonly kind: ClipLayerSpec["kind"] }[]
+): boolean => checkClipZoomEligibility(scene, layers) === null;
 
 /** Human-facing text for a refusal, shared by every caller that has to say no. */
 export const clipZoomIneligibilityMessage = (
   ineligibility: ClipZoomIneligibility
 ): string =>
-  ineligibility.reason === "no-recorded-scene"
-    ? "clip has no recorded scene, so it cannot be zoomed"
-    : `clip zoom applies only to camera scenes ${JSON.stringify(
-        ZOOMABLE_SCENES
-      )} (this clip is ${JSON.stringify(ineligibility.scene)})`;
+  ineligibility.reason === "no-scene-layer"
+    ? "clip has no Scene Layer, and a Clip Zoom zooms only the Scene Layer: add one first ('clip layer add --scene')"
+    : ineligibility.reason === "no-recorded-scene"
+      ? "clip has no recorded scene, so it cannot be zoomed"
+      : `clip zoom applies only to camera scenes ${JSON.stringify(
+          ZOOMABLE_SCENES
+        )} (this clip is ${JSON.stringify(ineligibility.scene)})`;

@@ -136,15 +136,15 @@ describe("clip zoom", () => {
   describe("eligibility", () => {
     it("allows every camera scene", () => {
       for (const scene of ZOOMABLE_SCENES) {
-        expect(canZoomClip(scene)).toBe(true);
-        expect(checkClipZoomEligibility(scene)).toBeNull();
+        expect(canZoomClip(scene, [])).toBe(true);
+        expect(checkClipZoomEligibility(scene, [])).toBeNull();
       }
     });
 
     it("refuses a scene that is not a camera", () => {
       for (const scene of ["Code", "No Face", "TikTok Code", "white noise"]) {
-        expect(canZoomClip(scene)).toBe(false);
-        expect(checkClipZoomEligibility(scene)).toEqual({
+        expect(canZoomClip(scene, [])).toBe(false);
+        expect(checkClipZoomEligibility(scene, [])).toEqual({
           reason: "not-a-camera-scene",
           scene,
         });
@@ -155,8 +155,8 @@ describe("clip zoom", () => {
       // ~4,500 clips predate scene capture. They are ineligible, but for a
       // different reason than a Code clip is, and the message has to say which.
       for (const scene of [null, undefined, ""]) {
-        expect(canZoomClip(scene)).toBe(false);
-        expect(checkClipZoomEligibility(scene)).toEqual({
+        expect(canZoomClip(scene, [])).toBe(false);
+        expect(checkClipZoomEligibility(scene, [])).toEqual({
           reason: "no-recorded-scene",
         });
       }

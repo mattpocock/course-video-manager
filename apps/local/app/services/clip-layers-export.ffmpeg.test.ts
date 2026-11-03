@@ -262,6 +262,45 @@ describe.skipIf(!hasFfmpeg)("a Clip's Footage Layers in the export", () => {
     expect(near(pixel(out, 0.9, 300, 250), LIME)).toBe(true);
   });
 
+  it("draws a Landscape Clip with Footage Layers only on black, keeping the Clip's own sound", () => {
+    const out = render(
+      sessionClip([
+        footageRow(0, {
+          sessionFile: "screen",
+          cropX: 0,
+          cropY: 0,
+          cropW: 0.5,
+          cropH: 1,
+          placeX: 0,
+          placeY: 0,
+          placeW: 960,
+          placeH: 1080,
+        }),
+        footageRow(1, {
+          sessionFile: "camera",
+          cropX: 0,
+          cropY: 0,
+          cropW: 1,
+          cropH: 1,
+          placeX: 1280,
+          placeY: 720,
+          placeW: 640,
+          placeH: 360,
+        }),
+      ]),
+      "landscape"
+    );
+    expect(size(out)).toBe("1920,1080");
+    expect(near(pixel(out, 0.5, 480, 540), RED)).toBe(true);
+    expect(near(pixel(out, 0.5, 1600, 900), LIME)).toBe(true);
+    // Nothing is placed over the top right: the black base shows.
+    expect(near(pixel(out, 0.5, 1600, 200), [0, 0, 0])).toBe(true);
+    expect(maxVolume(out)).toBeCloseTo(
+      maxVolume(render(sessionClip([]), "landscape")),
+      0
+    );
+  });
+
   const withImported = (volume: number | undefined, mic: string) =>
     render(
       sessionClip(

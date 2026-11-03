@@ -186,16 +186,21 @@ const footageProblem = (
   return cropProblem(layer.sourceCrop) ?? placementProblem(layer.placement);
 };
 
+/** Whether `layers` draw the Clip's own scene: none stored is untouched. */
+export const hasSceneLayer = (
+  layers: readonly { readonly kind: ClipLayerSpec["kind"] }[]
+): boolean =>
+  layers.length === 0 || layers.some((layer) => layer.kind === "scene");
+
 /**
- * Why `layers` cannot be a Clip's, or null. On a Short any mix is allowed,
- * Footage Layers only included; on a Landscape Video only a Scene Layer at
- * the bottom with Footage Layers above it (until #2582). A Clip has at least
- * one Layer and at most one Scene Layer, and every volume is 0 to 1.
+ * Why `layers` cannot be a Clip's, or null. One rule on every Video Format
+ * (#2604): any mix of Layers, with at least one Layer, at most one Scene
+ * Layer, which is the bottom Layer, so the stored order is the order drawn.
+ * Every volume is 0 to 1.
  */
 export const clipLayersProblem = (
   layers: readonly ClipLayerSpec[],
   context: {
-    readonly format: VideoFormat;
     readonly session: { readonly screenCaptured: boolean } | null;
   }
 ): string | null => {
@@ -206,13 +211,12 @@ export const clipLayersProblem = (
   if (scenes > 1) {
     return "a Clip has at most one Scene Layer";
   }
-  if (
-    context.format === "landscape" &&
-    (scenes === 0 || layers[0]!.kind !== "scene")
-  ) {
+  const sceneAt = layers.findIndex((layer) => layer.kind === "scene");
+  if (sceneAt > 0) {
     return (
-      "on a Landscape Video a Clip's Layers are a Scene Layer at the bottom " +
-      "with Footage Layers above it; other shapes are Shorts only for now"
+      `the Scene Layer is Layer ${sceneAt}, but a Clip's Scene Layer must be ` +
+      "its bottom Layer (index 0), with Footage Layers above it: move it " +
+      `to the bottom first ('clip layer move --to 0 <clip> ${sceneAt}')`
     );
   }
   for (const [index, layer] of layers.entries()) {
@@ -232,7 +236,8 @@ export const clipLayersProblem = (
 
 /**
  * A stored Footage Layer moved from one Video format's frame into another's,
- * for a Clip copied across formats (`short create` from a Landscape Video).
+ * for a Clip copied across formats (`short create` from a Landscape Video)
+ * or a Video whose format changes (`updateVideoFormat`).
  * Its Placement carries over by fractions of the frame, like the Scene
  * Layer's camera crops. The box changes shape, so its Source Crop is narrowed
  * about its centre to the box's new aspect: the picture is cropped, never

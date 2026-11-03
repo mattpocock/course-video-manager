@@ -195,6 +195,15 @@ describe("a Clip's Layers in its Export Hash", () => {
     expect(hashWith([scene])).toBe("040fe2894dcfead6bb03c0086f432b97");
   });
 
+  it("keeps today's Landscape shape (a Scene Layer, Footage Layers above it) where it was, and gives Footage Layers only a new address", () => {
+    // Pinned before #2604 let a Landscape Clip drop its Scene Layer.
+    expect(hashWith([scene, footage])).toBe("e59028746a4c89d232dfa616327dae16");
+    const footageOnly = hashWith([{ ...footage, position: 0 }]);
+    expect(
+      new Set([footageOnly, hashWith([scene, footage]), hashWith([])]).size
+    ).toBe(3);
+  });
+
   it("moves with every field of every Layer", () => {
     const base = hashWith([scene, footage]);
     expect(base).not.toBe(hashWith([scene]));

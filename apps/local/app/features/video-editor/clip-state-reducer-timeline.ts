@@ -164,7 +164,7 @@ export const handleToggleZoomForClip = (
   if (
     !item ||
     item.type !== "on-database" ||
-    !canZoomClip(effectiveClipScene(item))
+    !canZoomClip(effectiveClipScene(item), item.layers ?? [])
   ) {
     return state;
   }

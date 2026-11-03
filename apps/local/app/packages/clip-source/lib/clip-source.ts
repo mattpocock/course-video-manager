@@ -7,12 +7,14 @@ import {
   type Scene,
   type SceneSegment,
 } from "@/packages/scene-layout";
-import type { ClipLayerRow } from "@cvm/core/features/videos/clip-layer";
+import {
+  hasSceneLayer,
+  type ClipLayerRow,
+} from "@cvm/core/features/videos/clip-layer";
 import { compositeFiles, compositeSources } from "./composite-files";
 import {
   footageLayers,
   footageLayerTime,
-  drawsScene,
   isUntouched,
   layersHashPayload,
   resolveLayers,
@@ -379,7 +381,7 @@ export const clipCompositePicture = (
   readonly screen: string | null;
   readonly segments: readonly SceneSegment[];
 } | null => {
-  if (source.kind === "footage" || !drawsScene(clipLayers(source))) {
+  if (source.kind === "footage" || !hasSceneLayer(clipLayers(source))) {
     return null;
   }
   const opensScreen = compositeSources(source.format, source.segments).includes(
@@ -445,7 +447,7 @@ export const clipFrame = (
         ? tidy(source.end - LAST_FRAME_INSET_SECONDS)
         : at;
   const bottom = footageLayers(source.layers)[0];
-  if (!drawsScene(source.layers) && bottom) {
+  if (!hasSceneLayer(source.layers) && bottom) {
     // No Scene Layer: its bottom Footage Layer's frame, uncropped.
     const elapsed = time - source.start - bottom.span.at;
     const at = tidy(footageLayerTime(bottom.start, elapsed));

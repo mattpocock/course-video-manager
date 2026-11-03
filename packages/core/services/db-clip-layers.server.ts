@@ -1,15 +1,16 @@
 import { isDeepStrictEqual } from "node:util";
-import { asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, ne } from "drizzle-orm";
 import { Effect } from "effect";
 import { clipLayers, clips } from "../db/schema.js";
+import { DEFAULT_CLIP_ZOOM_TYPE } from "../features/videos/clip-zoom.js";
 import {
   clipLayersProblem,
+  hasSceneLayer,
   isUntouchedLayerSpecs,
   layersOrUntouched,
   layerSpecsFromRows,
   type ClipLayerSpec,
 } from "../features/videos/clip-layer.js";
-import { resolveVideoFormat } from "../features/videos/video-format.js";
 import {
   clipLayersRelation,
   layerRowsFromSpecs,
@@ -51,7 +52,8 @@ export const createClipLayerOperationsUnwrapped = (db: Database) => {
 
   /**
    * Set every one of `clipIds`' Layers to `layers` (a copy each: nothing is
-   * linked), judged against each Clip's Video Format and Recording Session.
+   * linked), judged against each Clip's Recording Session. Layers with no
+   * Scene Layer drop the Clips' Clip Zoom.
    * Refused whole when any Clip cannot take them; each Clip's Version must
    * be a Draft.
    *
@@ -72,7 +74,6 @@ export const createClipLayerOperationsUnwrapped = (db: Database) => {
         where: inArray(clips.id, [...clipIds]),
         columns: { id: true },
         with: {
-          video: { columns: { format: true } },
           recordingSession: { columns: { screenCaptured: true } },
         },
       })
@@ -87,7 +88,6 @@ export const createClipLayerOperationsUnwrapped = (db: Database) => {
         });
       }
       const problem = clipLayersProblem(layers, {
-        format: resolveVideoFormat(clip.video.format),
         session: clip.recordingSession,
       });
       if (problem !== null) {
@@ -131,6 +131,21 @@ export const createClipLayerOperationsUnwrapped = (db: Database) => {
         layerRowsFromSpecs(clipId, layers)
       );
       yield* makeDbCall(() => db.insert(clipLayers).values(rows));
+    }
+    // A Clip Zoom zooms the Scene Layer only: Layers without one drop it in
+    // the same write, as a Scene Override that leaves a camera scene does.
+    if (!hasSceneLayer(layers)) {
+      yield* makeDbCall(() =>
+        db
+          .update(clips)
+          .set({ zoomType: DEFAULT_CLIP_ZOOM_TYPE })
+          .where(
+            and(
+              inArray(clips.id, [...clipIds]),
+              ne(clips.zoomType, DEFAULT_CLIP_ZOOM_TYPE)
+            )
+          )
+      );
     }
     return [...layers];
   });

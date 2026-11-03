@@ -21,8 +21,9 @@ Options:
 Props JSON shape (see src/props.ts):
   { width, height, fps, durationInFrames,
     subtitles: [{startFrame,endFrame,text}],
-    cta: {variant,durationInFrames}|null,
-    definitionCards: [{title,description,startFrame,durationInFrames}] }
+    definitionCards: [{title,description,startFrame,durationInFrames}],
+    callsToAction: [{title,description,startFrame,durationInFrames,
+                     disableEnterAnimation,disableExitAnimation}] }
 
 Everything but durationInFrames is optional.`;
 
