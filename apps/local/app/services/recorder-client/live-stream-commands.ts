@@ -12,7 +12,13 @@ import {
   GO_LIVE_REFUSALS,
   type StreamStatus,
 } from "recorder-service/stream-protocol";
+import { END_STREAM_WAIT_MS } from "@/features/streaming/broadcast";
 import { NOT_RUNNING, RecorderRefusedError } from "./recorder-command";
+
+/** End Stream's longest wait: its command may take that much longer. */
+const LONGEST_END_STREAM_WAIT_MS = Math.max(
+  ...Object.values(END_STREAM_WAIT_MS)
+);
 
 /** The Live Stream's status, and the Video the recorder is open for. */
 export type RecorderLiveStream = { videoId: string; status: StreamStatus };
@@ -39,7 +45,8 @@ export const liveStreamCommands = (o: {
   /** Sends a command and waits for the message that says it was done. */
   command: (
     sent: RecorderCommand,
-    done: (message: RecorderMessage) => boolean
+    done: (message: RecorderMessage) => boolean,
+    extraMs?: number
   ) => Promise<void>;
   /** What a Record goes by (ADR 0038). */
   calibration: () => Promise<LastPassedCalibration | null>;
@@ -97,6 +104,8 @@ export const liveStreamCommands = (o: {
       streamKey: Redacted.Redacted<string>;
       micOffsetMs: number;
       micEq: MicEq;
+      /** How long End Stream keeps pushing before it stops (`endStreamWaitMs`). */
+      endWaitMs: number;
       silenceLength: SilenceLength;
       /** The folder (WSL path) the Recording Session's folder goes in. */
       folder: string;
@@ -115,6 +124,7 @@ export const liveStreamCommands = (o: {
         streamKey: Redacted.value(request.streamKey),
         micOffsetMs: request.micOffsetMs,
         micEq: request.micEq,
+        endWaitMs: request.endWaitMs,
         record: {
           silenceLength: request.silenceLength,
           folder: request.folder,
@@ -168,19 +178,25 @@ export const liveStreamCommands = (o: {
   },
 
   /**
-   * END STREAM: the push and the streamed Recording Session stop together.
-   * Answers once the push has stopped, with the Broadcast it went out on.
+   * END STREAM: the push and the streamed Recording Session stop together,
+   * after End Stream's wait (`endStreamWaitMs`), while the Live Stream says
+   * it is ending. Answers once the push has stopped, with the Broadcast it
+   * went out on.
    */
   async endStream(videoId: string): Promise<{ broadcastId: string }> {
     const { state } = o.recorder();
     if (state.kind !== "recording" || state.videoId !== videoId)
       throw new RecorderRefusedError("This Video is not live.");
     let broadcastId = "";
-    await o.command({ type: "end-stream" }, (m) => {
-      if (m.type !== "live-stream-stopped") return false;
-      broadcastId = m.broadcastId;
-      return true;
-    });
+    await o.command(
+      { type: "end-stream" },
+      (m) => {
+        if (m.type !== "live-stream-stopped") return false;
+        broadcastId = m.broadcastId;
+        return true;
+      },
+      LONGEST_END_STREAM_WAIT_MS
+    );
     return { broadcastId };
   },
 });

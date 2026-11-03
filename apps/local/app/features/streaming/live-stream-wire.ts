@@ -16,6 +16,7 @@ const StreamStatusSchema = Schema.Union(
   Schema.Struct({ kind: Schema.Literal("connecting") }),
   Schema.Struct({ kind: Schema.Literal("live") }),
   Schema.Struct({ kind: Schema.Literal("reconnecting") }),
+  Schema.Struct({ kind: Schema.Literal("ending") }),
   Schema.Struct({ kind: Schema.Literal("ended"), reason: Schema.String })
 ) satisfies Schema.Schema<StreamStatus, StreamStatus>;
 

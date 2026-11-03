@@ -19,6 +19,7 @@ const STATE_WORDS: Record<StreamStatus["kind"], string> = {
   connecting: "Connecting",
   live: "Live",
   reconnecting: "Reconnecting",
+  ending: "Ending",
   ended: "",
 };
 

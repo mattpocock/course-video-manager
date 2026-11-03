@@ -22,6 +22,7 @@ const broadcast = (
   enableAutoStop: true,
   liveChatId: `chat-${id}`,
   boundStreamId: null,
+  latencyPreference: null,
   ...overrides,
 });
 
@@ -461,6 +462,25 @@ describe("Go Live and End Stream on the Live Stream surface", () => {
       status: "The Live Stream ended: End Stream.",
       refusal: null,
     });
+  });
+
+  it("says Ending… while End Stream lets viewers catch up, on a reloaded tab too, and offers no second press (#2660)", () => {
+    // A tab reloaded during End Stream's wait: no press of its own is out.
+    const tester = picked().send({
+      type: "live-stream-heard",
+      stream: { videoId: VIDEO, status: { kind: "ending" } },
+    });
+
+    expect(goLiveControl(tester.getState(), VIDEO)).toEqual({
+      press: "end-stream",
+      busy: true,
+      status: "Ending… viewers are catching up, then the Broadcast ends.",
+      refusal: null,
+    });
+    tester.send({ type: "end-stream-pressed", videoId: VIDEO });
+    expect(tester.getEffects().filter((e) => e.type === "end-stream")).toEqual(
+      []
+    );
   });
 
   it("says why the Live Stream ended on its own, and offers Go Live again", () => {

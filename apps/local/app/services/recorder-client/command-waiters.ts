@@ -34,7 +34,9 @@ export const commandWaiters = (o: {
     /** Sends a command and waits until the recorder has carried it out. */
     command: (
       sent: RecorderCommand,
-      done: (message: RecorderMessage) => boolean
+      done: (message: RecorderMessage) => boolean,
+      /** Longer than `timeoutMs` by this: a command the service carries out over a wait. */
+      extraMs = 0
     ) =>
       new Promise<void>((resolve, reject) => {
         if (!o.connected()) {
@@ -48,7 +50,7 @@ export const commandWaiters = (o: {
               `The recorder service did not answer ${sent.type}.`
             )
           );
-        }, o.timeoutMs);
+        }, o.timeoutMs + extraMs);
         const waiter: Waiter = {
           command: sent.type,
           done,

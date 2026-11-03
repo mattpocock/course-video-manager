@@ -129,6 +129,8 @@ const goLive = async (ctx: Ctx) => {
     streamKey: SCORECARD_STREAM_KEY,
     micOffsetMs: 0,
     micEq: DEFAULT_MIC_EQ,
+    // No viewers behind the scorecard's sink: End Stream stops at once.
+    endWaitMs: 0,
     record: {
       silenceLength: "short",
       folder: ctx.footageDir,

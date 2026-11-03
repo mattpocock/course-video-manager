@@ -381,7 +381,12 @@ const goLiveReducer = (
     case "end-stream-failed":
       return { ...state, pending: null, refusal: action.message };
     case "end-stream-pressed":
-      if (state.pending || !isLiveOn(state, action.videoId)) return state;
+      if (
+        state.pending ||
+        !isLiveOn(state, action.videoId) ||
+        state.stream?.status.kind === "ending"
+      )
+        return state;
       exec({ type: "end-stream", videoId: action.videoId });
       return { ...state, pending: "ending", refusal: null };
   }
@@ -404,6 +409,7 @@ const STATUS_WORDS: Record<StreamStatus["kind"], string | null> = {
   connecting: "Connecting to YouTube…",
   live: "Live",
   reconnecting: "Reconnecting to YouTube…",
+  ending: "Ending… viewers are catching up, then the Broadcast ends.",
   ended: null,
 };
 
@@ -411,7 +417,8 @@ export const goLiveControl = (state: State, videoId: string): GoLiveControl => {
   const status = state.stream?.videoId === videoId ? state.stream.status : null;
   return {
     press: isLiveOn(state, videoId) ? "end-stream" : "go-live",
-    busy: state.pending !== null,
+    // End Stream's wait (#2660) is a press already out, wherever it came from.
+    busy: state.pending !== null || status?.kind === "ending",
     status:
       status?.kind === "ended"
         ? `The Live Stream ended: ${status.reason}`
