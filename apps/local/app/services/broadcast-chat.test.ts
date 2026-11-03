@@ -255,47 +255,37 @@ describe("the Broadcast's live chat, owned by the app server", () => {
 
   it("reopens at once each time YouTube ends an answer after pages, so chat is never held back by a pause", async () => {
     await storeGrant();
-    const endedAt: number[] = [];
-    let page = 0;
-    // A healthy chat: YouTube answers each connection with a page, then
-    // ends the answer, over and over.
-    const answer = (res: http.ServerResponse) => {
-      page += 1;
-      sendPages(res, [
-        chatPage({
-          messages: [fakeViewerMessage(page)],
-          nextPageToken: `t${page}`,
-        }),
-      ]);
-      setTimeout(() => {
-        endedAt.push(Date.now());
-        res.end("]");
-      }, 5);
-      if (page < 6) youtube.chatStreams.push(answer);
-    };
-    youtube.chatStreams.push(answer);
-    const heardAt: number[] = [];
-    // Pauses this long would hold each message back hundreds of ms.
+    // A healthy chat: YouTube answers each connection with a page and ends
+    // the answer, five times; the sixth connection it holds open.
+    for (let page = 1; page <= 6; page++) {
+      youtube.chatStreams.push((res) => {
+        sendPages(res, [
+          chatPage({
+            messages: [fakeViewerMessage(page)],
+            nextPageToken: `t${page}`,
+          }),
+        ]);
+        if (page < 6) res.end("]");
+      });
+    }
+    // Every pause is a minute: one pause before a reopen and the chat
+    // stalls far past the wait below, so hearing all six proves none.
     const chat = startChat({
-      reconnectMs: 200,
-      maxReconnectMs: 1_000,
-      steadyMs: 10_000,
+      reconnectMs: 60_000,
+      maxReconnectMs: 60_000,
+      steadyMs: 60_000,
     });
-    chat.subscribe((e) => {
-      if (e.type === "chat-message-received") heardAt.push(Date.now());
-    });
+    const heard = listen(chat);
 
     await pick(chat, {
       broadcastId: "office-hours",
       liveChatId: "chat-office-hours",
     });
 
-    await vi.waitFor(() => expect(heardAt).toHaveLength(6), {
-      timeout: 3000,
-    });
-    // From YouTube ending one answer to the next message heard.
-    const latencies = heardAt.slice(1).map((at, i) => at - endedAt[i]!);
-    expect(latencies.every((ms) => ms < 100)).toBe(true);
+    await vi.waitFor(
+      () => expect(messagesHeard(heard)).toEqual([1, 2, 3, 4, 5, 6].map(shown)),
+      { timeout: 5_000 }
+    );
     expect(chatRequests().map((r) => r.searchParams.get("pageToken"))).toEqual([
       null,
       "t1",
@@ -304,6 +294,7 @@ describe("the Broadcast's live chat, owned by the app server", () => {
       "t4",
       "t5",
     ]);
+    expect(chat.snapshot().connection).toEqual({ state: "streaming" });
   });
 
   it("reopens a stream YouTube keeps ending with no chat after a growing pause, and logs each open with the opens so far", async () => {
