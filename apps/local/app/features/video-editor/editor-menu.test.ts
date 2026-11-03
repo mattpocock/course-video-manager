@@ -47,8 +47,6 @@ const everyAction: Required<VideoMenuActions> = {
   renderVerticalShort: run,
   retranscribeAllClips: run,
   postShort: run,
-  postToYouTube: run,
-  postToTikTok: run,
   copyTranscript: run,
   copyYouTubeChapters: run,
   copyLogPath: run,
