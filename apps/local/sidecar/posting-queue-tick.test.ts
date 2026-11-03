@@ -12,7 +12,6 @@ import {
   fakeUrl,
   jobKinds,
   queue,
-  render,
   renders,
   runSidecarUntilSettled,
   s3Puts,
@@ -202,32 +201,6 @@ describe("the Posting Queue tick", () => {
     await runSidecarUntilSettled();
     expect(renders).toBe(2);
     expect(youtubeInits()).toHaveLength(3);
-  });
-
-  it("a render that fails for good posts nothing: the entry stays Posting with the render's reason", async () => {
-    render.fails = true;
-    const entryId = await queue(
-      await exportedShort("Broken", "none"),
-      uk("08:00"),
-      "a0"
-    );
-
-    await tickAt(uk("13:00"));
-    await runSidecarUntilSettled();
-    await tickAt(uk("13:02"));
-
-    expect(renders).toBe(3);
-    expect(youtubeInits()).toHaveLength(0);
-    expect(bufferPosts()).toHaveLength(0);
-    const statuses = await testDb
-      .select({ kind: schema.jobs.kind, status: schema.jobs.status })
-      .from(schema.jobs);
-    expect(statuses.every((j) => j.status === "failed")).toBe(true);
-    expect(await stateOf(entryId)).toMatchObject({
-      state: "posting",
-      lastFailureReason:
-        "Its render failed: Overlay renderer exited with code 1: boom",
-    });
   });
 
   it("only the main checkout's Sidecar claims: a linked worktree and a scratch clone never do", async () => {

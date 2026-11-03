@@ -71,6 +71,19 @@ let server: http.Server;
 export let fakeUrl = "";
 let youtubeIds = 0;
 
+/**
+ * How the fakes misbehave. `bufferRefuses`: Buffer answers `createPost`
+ * with a `MutationError`, so it makes no post. `youtubeUploadFails`:
+ * this many YouTube uploads answer 500 before one succeeds. `youtubeUploads`:
+ * what the channel's uploads playlist lists, which the read-only post check
+ * reads.
+ */
+export const fakes = {
+  bufferRefuses: false,
+  youtubeUploadFails: 0,
+  youtubeUploads: [] as { title: string; videoId: string }[],
+};
+
 export const youtubeInits = () =>
   seen.filter(
     (r) => r.method === "POST" && r.path.startsWith("/upload/youtube/v3/videos")
@@ -82,7 +95,11 @@ export const bufferPosts = () =>
 export const s3Puts = () =>
   seen.filter((r) => r.path.startsWith("/cvm-bucket/"));
 
-const answer = (req: http.IncomingMessage, res: http.ServerResponse) => {
+const answer = (
+  req: http.IncomingMessage,
+  body: string,
+  res: http.ServerResponse
+) => {
   const url = new URL(req.url ?? "/", "http://fake");
   const json = (status: number, body: unknown, headers = {}) => {
     res.writeHead(status, { "Content-Type": "application/json", ...headers });
@@ -95,10 +112,33 @@ const answer = (req: http.IncomingMessage, res: http.ServerResponse) => {
     return json(200, {}, { Location: `${fakeUrl}/upload-session` });
   }
   if (url.pathname === "/upload-session") {
+    if (fakes.youtubeUploadFails > 0) {
+      fakes.youtubeUploadFails -= 1;
+      return json(500, { error: "backend error" });
+    }
     youtubeIds += 1;
     return json(200, { id: `yt-${youtubeIds}` });
   }
+  if (url.pathname === "/youtube/v3/channels") {
+    return json(200, {
+      items: [{ contentDetails: { relatedPlaylists: { uploads: "UU1" } } }],
+    });
+  }
+  if (url.pathname === "/youtube/v3/playlistItems") {
+    return json(200, {
+      items: fakes.youtubeUploads.map((u) => ({
+        snippet: {
+          title: u.title,
+          publishedAt: new Date().toISOString(),
+          resourceId: { videoId: u.videoId },
+        },
+      })),
+    });
+  }
   if (url.pathname === "/buffer") {
+    if (fakes.bufferRefuses && body.includes("mutation CreatePost")) {
+      return json(200, { data: { createPost: { message: "TikTok is busy" } } });
+    }
     return json(200, {
       data: { account: { id: "acct" }, createPost: { post: { id: "buf-1" } } },
     });
@@ -146,7 +186,7 @@ beforeAll(async () => {
         query: new URL(req.url ?? "/", "http://fake").search,
         body,
       });
-      answer(req, res);
+      answer(req, body, res);
     });
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -235,6 +275,9 @@ beforeEach(async () => {
   seen = [];
   renders = 0;
   render.fails = false;
+  fakes.bufferRefuses = false;
+  fakes.youtubeUploadFails = 0;
+  fakes.youtubeUploads = [];
   // An expired grant: the first post refreshes it at the fake token URL.
   await testDb.insert(schema.youtubeAuth).values({
     accessToken: "stale-token",
