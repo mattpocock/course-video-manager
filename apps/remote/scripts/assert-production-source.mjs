@@ -3,7 +3,7 @@
 // checkout cannot ship unmerged code. Preview builds are untouched. The rules
 // live in production-source.mjs.
 //
-// Plain .mjs for the same reason as assert-migrations-applied.mjs: it runs on
+// Plain .mjs for the same reason as migrate-on-deploy.mjs: it runs on
 // whatever Node the build image has, and the app never imports it.
 
 import { execFileSync } from "node:child_process";

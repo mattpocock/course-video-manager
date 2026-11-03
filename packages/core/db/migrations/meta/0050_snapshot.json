@@ -1,5 +1,5 @@
 {
-  "id": "7401fb1a-3a03-4f90-a9c7-27af13b363f1",
+  "id": "934cea96-50c6-4048-b822-c07e47141c4b",
   "prevId": "4d605d1c-6d90-4741-ac4b-0480262469a1",
   "version": "7",
   "dialect": "postgresql",
@@ -2951,18 +2951,6 @@
           "type": "jsonb",
           "primaryKey": false,
           "notNull": false
-        },
-        "footage_path": {
-          "name": "footage_path",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "footage_start": {
-          "name": "footage_start",
-          "type": "double precision",
-          "primaryKey": false,
-          "notNull": false
         }
       },
       "indexes": {
@@ -3100,151 +3088,6 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.course-video-manager_posting_queue_entry": {
-      "name": "course-video-manager_posting_queue_entry",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar(255)",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "video_id": {
-          "name": "video_id",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "queued_at": {
-          "name": "queued_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "CURRENT_TIMESTAMP"
-        },
-        "order": {
-          "name": "order",
-          "type": "varchar(255) COLLATE \"C\"",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "state": {
-          "name": "state",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'queued'"
-        },
-        "claimed_slot": {
-          "name": "claimed_slot",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "claimed_at": {
-          "name": "claimed_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "youtube_failures": {
-          "name": "youtube_failures",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "tiktok_failures": {
-          "name": "tiktok_failures",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "last_failure_reason": {
-          "name": "last_failure_reason",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "ended_at": {
-          "name": "ended_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "posting_queue_entry_one_live_per_video_uniq": {
-          "name": "posting_queue_entry_one_live_per_video_uniq",
-          "columns": [
-            {
-              "expression": "video_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "\"course-video-manager_posting_queue_entry\".\"state\" IN ('queued', 'posting', 'held')",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "posting_queue_entry_claimed_slot_uniq": {
-          "name": "posting_queue_entry_claimed_slot_uniq",
-          "columns": [
-            {
-              "expression": "claimed_slot",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "posting_queue_entry_ended_at_idx": {
-          "name": "posting_queue_entry_ended_at_idx",
-          "columns": [
-            {
-              "expression": "ended_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "course-video-manager_posting_queue_entry_video_id_course-video-manager_video_id_fk": {
-          "name": "course-video-manager_posting_queue_entry_video_id_course-video-manager_video_id_fk",
-          "tableFrom": "course-video-manager_posting_queue_entry",
-          "tableTo": "course-video-manager_video",
-          "columnsFrom": ["video_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "posting_queue_entry_state_valid": {
-          "name": "posting_queue_entry_state_valid",
-          "value": "\"course-video-manager_posting_queue_entry\".\"state\" IN ('queued', 'posting', 'posted', 'held', 'failed', 'removed')"
-        }
-      },
       "isRLSEnabled": false
     },
     "public.course-video-manager_recording_session_scene_event": {

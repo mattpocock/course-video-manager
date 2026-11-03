@@ -65,7 +65,12 @@ const openDatabase = async (
   const opened = { name, pool };
   openedThisFile.push(opened);
   const close = () => closeDatabase(opened);
-  return { pool, db: testDrizzle(pool), close };
+  return {
+    pool,
+    db: testDrizzle(pool),
+    close,
+    url: urlForDatabase(serverUrl, name),
+  };
 };
 
 const closeDatabase = async (opened: Opened) => {
@@ -98,8 +103,10 @@ export const releaseTestDatabases = async () => {
 export const createBlankDb = async () => {
   // One connection: these tests set session state (`session_replication_role`)
   // and expect the next statement to see it.
-  const { pool, db, close } = await openDatabase(undefined, 1);
-  return { client: pool, db, close };
+  const { pool, db, close, url } = await openDatabase(undefined, 1);
+  // `url` is for tests that need more sessions than this one connection
+  // (`makeTestPool(url)`), e.g. two concurrent migrators.
+  return { client: pool, db, close, url };
 };
 
 /** A second drizzle handle over an existing test database that reports every query it sends. */
