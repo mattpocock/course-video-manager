@@ -351,6 +351,13 @@
       "when": 1793658550980,
       "tag": "0049_b_roll_to_footage_layers",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1793704731957,
+      "tag": "0050_overlay_drop_b_roll_footage",
+      "breakpoints": true
     }
   ]
 }
