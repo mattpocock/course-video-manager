@@ -10,8 +10,9 @@ import { FRAMES_DIRECTORY } from "@/services/frame-stills";
 
 /**
  * A Clip `at` seconds in, as its Video's render shows it, drawn by the same
- * code as `cvm clip frame` (`clipFrame`), for the editor's paused preview
- * (the Portrait Studio's, #2580). Like any still it is refused while anything records
+ * code as `cvm clip frame` (`clipFrame`), for the editor's paused preview on
+ * both Video Formats (`clip-frame-preview-reducer.ts`, #2580, #2609). Like any
+ * still it is refused while anything records
  * (the Still Gate, 503); the editor asks again after the Stop. The PNG is
  * sent and its file removed: the URL's `v` names what it was drawn from, so
  * the browser may keep it.
