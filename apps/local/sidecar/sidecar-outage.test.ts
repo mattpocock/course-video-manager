@@ -102,28 +102,37 @@ const outage = () => {
   return { state, layer };
 };
 
-const startSidecar = Effect.gen(function* () {
-  const stop = yield* Deferred.make<string>();
-  const serving = yield* Deferred.make<void>();
-  const fiber = yield* Effect.fork(
-    runSidecar({
-      identity: {
-        holder: "first-holder",
-        pid: process.pid,
-        hostname: "test",
-        checkout: "/checkouts/first",
-        gitSha: "abc1234",
-        socket: path.join(dir, "first.sock"),
-      },
-      registry: JOB_KINDS,
-      timing: TIMING,
-      stop,
-      serve: () => Deferred.succeed(serving, undefined),
-    })
+/** The real Job operations, always reachable: a second sidecar's view. */
+const reachable = () =>
+  JobOperationsService.Default.pipe(
+    Layer.provide(Layer.succeed(DrizzleService, testDb as any))
   );
-  yield* Deferred.await(serving);
-  return { stop, fiber };
-});
+
+const startNamedSidecar = (name: string, timing: SidecarTiming = TIMING) =>
+  Effect.gen(function* () {
+    const stop = yield* Deferred.make<string>();
+    const serving = yield* Deferred.make<void>();
+    const fiber = yield* Effect.fork(
+      runSidecar({
+        identity: {
+          holder: `${name}-holder`,
+          pid: process.pid,
+          hostname: "test",
+          checkout: `/checkouts/${name}`,
+          gitSha: "abc1234",
+          socket: path.join(dir, `${name}.sock`),
+        },
+        registry: JOB_KINDS,
+        timing,
+        stop,
+        serve: () => Deferred.succeed(serving, undefined),
+      })
+    );
+    yield* Deferred.await(serving);
+    return { stop, fiber };
+  });
+
+const startSidecar = startNamedSidecar("first");
 
 const waitForJob = (id: string, done: (job: Job) => boolean) =>
   Effect.gen(function* () {
@@ -218,5 +227,55 @@ describe("the sidecar through a database outage (#2621)", () => {
       }).pipe(Effect.provide(db.layer));
     },
     20_000
+  );
+
+  it.live(
+    "a second sidecar that takes the lease never re-runs a Job the first still runs",
+    () => {
+      const db = outage();
+      return Effect.gen(function* () {
+        const first = yield* startSidecar;
+        const job = yield* enqueueJob({
+          id: null,
+          kind: "noop",
+          title: "noop",
+          params: { durationMs: 20_000 },
+          dependsOn: null,
+          subject: null,
+          attemptsSpent: 0,
+          registry: JOB_KINDS,
+        });
+        yield* waitForJob(job.id, (j) => j.status === "running");
+
+        // The first sidecar loses its database; a second one, which can
+        // still reach it, waits out the first's lease and takes it.
+        db.state.down = true;
+        const second = yield* startNamedSidecar("second", {
+          ...TIMING,
+          lapseWaitMs: 10_000,
+        }).pipe(Effect.provide(reachable()));
+
+        // Well past the first's Job lease, inside its outage tolerance: the
+        // first is still running the Job, so nobody else may.
+        yield* Effect.sleep(3_500);
+        const meanwhile = yield* Effect.flatMap(JobOperationsService, (ops) =>
+          ops.getJob(job.id)
+        ).pipe(Effect.provide(reachable()));
+        expect(meanwhile).toMatchObject({
+          status: "running",
+          holder: "first-holder",
+          attempt: 1,
+        });
+
+        db.state.down = false;
+        // Lost its lease or ran out of tolerance: either way, it stops.
+        expect(yield* Fiber.join(first.fiber)).toMatchObject({
+          _tag: "Stopped",
+        });
+        yield* Deferred.succeed(second.stop, "test over");
+        yield* Fiber.join(second.fiber);
+      }).pipe(Effect.provide(db.layer));
+    },
+    30_000
   );
 });
