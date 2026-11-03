@@ -35,7 +35,8 @@ import {
  * `cvm clip layer`: a Clip's Layers (ADR 0056), addressed by their index,
  * bottom (0) to top. Each verb reads the Clip's Layers, changes the list and
  * writes it back whole (`setClipLayers`), which judges it against the Clip's
- * Video Format and Recording Session.
+ * Video Format and Recording Session. The write carries the Layers it read,
+ * so a concurrent edit in between is refused (exit 8), never lost (#2598).
  */
 
 const refuse = (message: string) => parseError(message, "clip");
@@ -247,10 +248,15 @@ const loadClip = (clipId: string) =>
 const emitLayers = (layers: readonly ClipLayerSpec[]) =>
   emitNdjson(layers.map((layer, index) => ({ index, ...layer })));
 
-const write = (clipId: string, layers: readonly ClipLayerSpec[]) =>
+/** Write `layers` over `read`, the Layers this command read and changed. */
+const write = (
+  clipId: string,
+  read: readonly ClipLayerSpec[],
+  layers: readonly ClipLayerSpec[]
+) =>
   Effect.gen(function* () {
     const clipOps = yield* ClipOperationsService;
-    yield* emitLayers(yield* clipOps.setClipLayers([clipId], layers));
+    yield* emitLayers(yield* clipOps.setClipLayers([clipId], layers, read));
   });
 
 const requireIndex = (layers: readonly ClipLayerSpec[], index: number) =>
@@ -286,7 +292,7 @@ const addCmd = Command.make(
       const layer = scene
         ? yield* sceneLayer(flags, SCENE_LAYER_VOLUME)
         : yield* footageLayer(flags, null, frame);
-      yield* write(clip, [...layers, layer]);
+      yield* write(clip, layers, [...layers, layer]);
     })
 ).pipe(Command.withDescription(detail(LAYER_ADD_HELP)));
 
@@ -303,6 +309,7 @@ const updateCmd = Command.make(
           : yield* footageLayer(flags, current, frame);
       yield* write(
         clip,
+        layers,
         layers.map((each, i) => (i === index ? layer : each))
       );
     })
@@ -323,7 +330,11 @@ const moveCmd = Command.make(
       const layer = yield* requireIndex(layers, index);
       yield* requireIndex(layers, to);
       const rest = layers.filter((_, i) => i !== index);
-      yield* write(clip, [...rest.slice(0, to), layer, ...rest.slice(to)]);
+      yield* write(clip, layers, [
+        ...rest.slice(0, to),
+        layer,
+        ...rest.slice(to),
+      ]);
     })
 ).pipe(Command.withDescription(detail(LAYER_MOVE_HELP)));
 
@@ -336,6 +347,7 @@ const removeCmd = Command.make(
       yield* requireIndex(layers, index);
       yield* write(
         clip,
+        layers,
         layers.filter((_, i) => i !== index)
       );
     })

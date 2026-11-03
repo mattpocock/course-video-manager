@@ -31,7 +31,10 @@ Verbs (flags go BEFORE the positionals):
   clip layer move --to <i> <clip> <index>     move a Layer to index <i>
   clip layer remove <clip> <index>            remove a Layer (a Clip keeps at least one)
   clip update --layers-from <clip> <clip...>  copy one Clip's Layers onto others (a copy; nothing linked)
-Each write prints the Clip's Layers after it (NDJSON).
+Each write prints the Clip's Layers after it (NDJSON). Two edits of one Clip's Layers at
+once never lose either: a write whose Layers another command changed after it read them
+is refused (exit 8, _tag "ClipLayersChangedError") and writes nothing. Run it again; it
+reads the Layers as they are now, so re-check the index you meant.
 
 Recipe — a stream Clip on a Short: the screen's left square on top, the face below.
   cvm footage frame <camera-file> --at <t>      # look at the frames to choose crops

@@ -186,6 +186,18 @@ export class ClipLayersRefusedError extends Data.TaggedError(
 }> {}
 
 /**
+ * A Clip's Layers write refused because they are no longer the Layers the
+ * writer read: another command changed them in between. Nothing is written;
+ * reading them again and redoing the edit is the fix (a lost update, #2598).
+ */
+export class ClipLayersChangedError extends Data.TaggedError(
+  "ClipLayersChangedError"
+)<{
+  clipId: string;
+  message: string;
+}> {}
+
+/**
  * An Agent Session upload (`cvm video agent-sessions set`) that broke a content
  * rule — a skill body or tool result, an absolute local path, a secret — or
  * whose Claude Code session id matched more than one Agent Session. The whole
