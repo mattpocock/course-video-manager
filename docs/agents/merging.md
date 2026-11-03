@@ -22,4 +22,4 @@ Never skip hooks: no `git commit --no-verify`, no `HUSKY=0`, no other way round 
 
 ## A PR with a migration
 
-Follow the `deploy-migration` skill (`.claude/skills/deploy-migration/SKILL.md`): the migration and its code may ship in one PR, the `apps/remote` deploy fails on purpose until Matt migrates production, then you redeploy. Agents never run `db:migrate` against production (ADR 0026).
+Follow the `deploy-migration` skill (`.claude/skills/deploy-migration/SKILL.md`): the migration and its code may ship in one PR, the `apps/remote` deploy fails on purpose until production is migrated, then you redeploy. Production is migrated only through `pnpm db:migrate:prod`, which takes a PlanetScale backup first. Never run `db:migrate` against production (ADR 0026).
