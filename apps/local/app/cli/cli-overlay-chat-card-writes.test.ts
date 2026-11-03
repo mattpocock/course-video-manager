@@ -239,3 +239,109 @@ describe("a Chat Card", () => {
     expect([retitled.exitCode, unmade.exitCode]).toEqual([3, 3]);
   });
 });
+
+// A Call to Action sits in the lower half and a Chat Card at the top, so the
+// two may share the screen: the one exception to "one Overlay at a time" (#2602).
+describe("a Chat Card beside a Call to Action", () => {
+  const addCallToAction = ({ at = "2" } = {}) =>
+    run([
+      "overlay",
+      "add",
+      "--clip",
+      short.clipId,
+      "--at",
+      at,
+      "--duration",
+      "5",
+      "--kind",
+      "callToAction",
+    ]);
+  const addDefinitionCard = ({ at = "2" } = {}) =>
+    run([
+      "overlay",
+      "add",
+      "--clip",
+      short.clipId,
+      "--at",
+      at,
+      "--duration",
+      "5",
+      "--title",
+      "t",
+      "--description",
+      "d",
+    ]);
+  const moveTo = (id: string, at: string) =>
+    run(["overlay", "update", "--at", at, id]);
+
+  it("may overlap it, whichever is added first", async () => {
+    // The Call to Action 0-5s, the Chat Card 2-7s, a second Call to Action 5-10s.
+    const results = [
+      await addCallToAction({ at: "0" }),
+      await addChatCard(),
+      await addCallToAction({ at: "5" }),
+    ];
+
+    expect(results.map((r) => [r.exitCode, r.stderr])).toEqual([
+      [0, ""],
+      [0, ""],
+      [0, ""],
+    ]);
+  });
+
+  it("may be moved onto it, either one onto the other", async () => {
+    const card = one<{ id: string }>((await addChatCard()).stdout);
+    const call = one<{ id: string }>(
+      (await addCallToAction({ at: "7" })).stdout
+    );
+
+    const callMoved = await moveTo(call.id, "3");
+    const cardMoved = await moveTo(card.id, "4");
+
+    expect([callMoved.exitCode, cardMoved.exitCode]).toEqual([0, 0]);
+  });
+
+  it.each<[string, () => Promise<RunResult>, () => Promise<RunResult>]>([
+    [
+      "two Calls to Action",
+      () => addCallToAction(),
+      () => addCallToAction({ at: "4" }),
+    ],
+    [
+      "two Chat Cards",
+      () => addChatCard(),
+      () =>
+        addChatCard(["--chat-highlight", short.highlightIds[0]!], {
+          at: "4",
+        }),
+    ],
+    [
+      "a Call to Action over a Definition Card",
+      () => addDefinitionCard(),
+      () => addCallToAction({ at: "4" }),
+    ],
+    [
+      "a Definition Card over a Call to Action",
+      () => addCallToAction(),
+      () => addDefinitionCard({ at: "4" }),
+    ],
+  ])("still refuses %s overlapping", async (_, first, second) => {
+    expect((await first()).exitCode).toBe(0);
+
+    const { exitCode, stderr } = await second();
+
+    expect(exitCode).toBe(3);
+    expect(stderr).toContain("At most one Overlay");
+  });
+
+  it("still refuses a Call to Action moved onto another", async () => {
+    await addCallToAction({ at: "0" });
+    const mover = one<{ id: string }>(
+      (await addCallToAction({ at: "6" })).stdout
+    );
+
+    const { exitCode } = await moveTo(mover.id, "3");
+
+    expect(exitCode).toBe(3);
+  });
+});

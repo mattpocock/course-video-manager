@@ -82,8 +82,9 @@ import {
  *   `overlay.clip-zoom-guard.ts`.
  *
  *   At most ONE Overlay is visible at a given moment across the whole Video,
- *   so an Overlay whose window overlaps another's — of either kind, on any
- *   Clip of the same Video — is refused rather than authored.
+ *   so an Overlay whose window overlaps another's — of any kind, on any Clip
+ *   of the same Video — is refused rather than authored. The one exception
+ *   is a Call to Action beside a Chat Card (`overlay.overlap-guard.ts`).
  *
  *   Overlays are CHILDREN of a Clip, addressed only by id, with no version
  *   scoping. Unlike every other write noun here, delete is a HARD delete: an
@@ -332,6 +333,7 @@ const addCmd = Command.make(
         clipId: clip,
         at,
         durationInSeconds: duration,
+        kind: willBeKind,
       });
       yield* requireNoClipZoomUnderTransform({
         videoId: anchor.videoId,
@@ -492,6 +494,7 @@ const updateCmd = Command.make(
           clipId: anchor.id,
           at: newAt ?? overlay.at,
           durationInSeconds: nextDuration,
+          kind: willBeKind,
           exclude: id,
         });
       }

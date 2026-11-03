@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  findActiveOverlays,
   landscapeOverlaysByClipId,
   shortOverlaysByClipId,
   type ClipOverlay,
@@ -50,5 +51,32 @@ describe("the Overlays an editor preview draws", () => {
       clip_1: ["ovl_def"],
       clip_3: ["ovl_panel"],
     });
+  });
+});
+
+describe("the Overlays the playing preview draws at a moment", () => {
+  const at = (o: ClipOverlay, start: number) => ({ ...o, at: start });
+
+  it("draws a Call to Action and a Chat Card together", () => {
+    const overlays = [
+      overlay("ovl_chat", "chatCard"),
+      at(overlay("ovl_cta", "callToAction"), 2),
+    ];
+
+    expect(findActiveOverlays(overlays, 3).map((o) => o.id)).toEqual([
+      "ovl_chat",
+      "ovl_cta",
+    ]);
+  });
+
+  it("draws only the later of any other two that overlap", () => {
+    const overlays = [
+      overlay("ovl_def", "definitionCard"),
+      at(overlay("ovl_cta", "callToAction"), 2),
+    ];
+
+    expect(findActiveOverlays(overlays, 3).map((o) => o.id)).toEqual([
+      "ovl_cta",
+    ]);
   });
 });

@@ -75,7 +75,9 @@ own picture ('cvm clip layer --help').
     call to action, add one with '--at 0 --duration 5' on the Short's first
     Clip. It takes no --bullets-json or Chat Card flags, is refused on any
     Video but a Short, and 'update' may edit its words, anchor, duration and
-    toggles but cannot turn anything into or out of one.
+    toggles but cannot turn anything into or out of one. It may share the
+    screen with a Chat Card (see ONE AT A TIME), never with another Call to
+    Action or any other Kind.
 
 'revealAt' is SECONDS AFTER THE OVERLAY'S OWN START, so an authoring agent
 derives it straight from the transcript as 'wordStartTime - overlayAt'. Bullets
@@ -116,8 +118,12 @@ Overlay off it.
 
 ONE AT A TIME. At most one Overlay is ever on screen at a given moment across
 the whole Video — there are no tracks and no layering. An 'add' or an 'update'
-whose window would overlap another Overlay's is refused (exit 3), whatever the
-two kinds are and whichever Clips they are anchored to. The comparison is on
+whose window would overlap another Overlay's is refused (exit 3), whichever
+Clips they are anchored to. ONE EXCEPTION: a 'callToAction' and a 'chatCard'
+may overlap, because on a Short the Chat Card sits at the top and the Call to
+Action in the lower half, and the Short's render, 'cvm clip frame' and the
+Portrait Studio draw both. Two Calls to Action, two Chat Cards, or a Call to
+Action and any other kind are still refused. The comparison is on
 the VIDEO's flattened timeline, because an Overlay's duration is free to outrun
 its anchor Clip. Windows that merely touch — one Overlay starting exactly where
 the last one ended — are fine.
@@ -263,8 +269,9 @@ thing worth having. Which CONTENT flag is required depends on '--kind'.
 A chatCard or a callToAction is refused (exit 3) on any Video but a Short.
 
 Refused (exit 3) if the Overlay's window would overlap one already on this
-Video, of either kind and on any Clip — only one Overlay is ever on screen at a
-time. 'cvm overlay list --video <id>' shows what is already placed. Also refused
+Video, of any kind and on any Clip — only one Overlay is ever on screen at a
+time, bar a callToAction beside a chatCard (see ONE AT A TIME in 'cvm overlay
+--help'). 'cvm overlay list --video <id>' shows what is already placed. Also refused
 (exit 3) if a camera-moving kind's window lands on a Clip that already has a
 Clip Zoom: the two crops compound rather than compose.
 

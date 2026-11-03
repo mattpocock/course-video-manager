@@ -71,3 +71,20 @@ const OVERLAY_KIND_LABELS: Record<OverlayKind, string> = {
  */
 export const overlayKindLabel = (kind: string | null | undefined): string =>
   OVERLAY_KIND_LABELS[resolveOverlayKind(kind)];
+
+/**
+ * Whether Overlays of these two Kinds may be on screen at the same moment.
+ * At most one Overlay is visible at a time (GLOSSARY.md, **Overlay**), with
+ * ONE exception: a Call to Action and a Chat Card. On a Short the Chat Card
+ * sits at the top and the Call to Action in the lower half, so the two never
+ * collide. Two of either may not, and nothing else may share with either.
+ *
+ * `cvm overlay add`/`update` refuse any other overlap, and the editor's
+ * playing preview draws both of the pair, as the Short's render does.
+ */
+export const overlayKindsMayShareTheScreen = (
+  a: OverlayKind,
+  b: OverlayKind
+): boolean =>
+  (a === "callToAction" && b === "chatCard") ||
+  (a === "chatCard" && b === "callToAction");
