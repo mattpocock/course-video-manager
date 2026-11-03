@@ -22,6 +22,7 @@ import { requireActiveClip, withEffectiveScene } from "./clip.shared";
 import { updateCmd } from "./clip.update";
 import { clipLayerCommand } from "./clip.layer";
 import { clipFrameCmd } from "./clip-frame";
+import { editTranscriptCmd } from "./clip.edit-transcript";
 import { MINIMUM_CLIP_LENGTH_SECONDS } from "@/silence-detection-constants";
 import { readFootageTranscript } from "@/services/footage-cache";
 import {
@@ -101,6 +102,8 @@ import {
  *   clip delete <id>                          archive (soft delete; see `clip restore`)
  *   clip restore <id>                         undo `clip delete`
  *   clip words <id>                           the Clip's Transcript Words (NDJSON)
+ *   clip edit-transcript --find <t> --replace <t> <id>
+ *                                             fix the Clip's text (and its words)
  *
  * `update`'s --start/--end retime the cut WITHOUT touching `text`/`transcribedAt` — there is no
  * re-transcription step, so a retimed clip's text can drift out of sync with its new audio range
@@ -442,6 +445,7 @@ export const clipCommand = Command.make("clip").pipe(
     deleteCmd,
     restoreCmd,
     wordsCmd,
+    editTranscriptCmd,
     clipLayerCommand,
     clipFrameCmd,
   ])

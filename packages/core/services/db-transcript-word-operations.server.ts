@@ -129,6 +129,19 @@ export const createTranscriptWordOperationsUnwrapped = (db: Database) => {
   });
 
   /**
+   * Edit Transcript: set a Clip's text by hand, its Transcript Words rewritten
+   * to match in the same write (`writeClipText`). `undefined` for no such Clip.
+   * Guarded by the owning version's Draft check like every other Clip write.
+   */
+  const setClipText = Effect.fn("setClipText")(function* (
+    clipId: string,
+    text: string
+  ) {
+    yield* requireDraftVersionForClip(db, clipId);
+    return yield* writeClipText(db, clipId, text);
+  });
+
+  /**
    * The live Clips of this Video that have at least one Transcript Word.
    *
    * Already-transcribed Clips are deliberately never backfilled (spec #1567),
@@ -158,6 +171,7 @@ export const createTranscriptWordOperationsUnwrapped = (db: Database) => {
   return {
     listTranscriptWords,
     replaceTranscriptWords,
+    setClipText,
     listClipIdsWithTranscriptWords,
   };
 };
