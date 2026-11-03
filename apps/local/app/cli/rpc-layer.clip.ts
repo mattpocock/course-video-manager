@@ -40,6 +40,9 @@ export const clipService = (client: RpcClient) =>
     replaceTranscriptWords: rpcMethod((json) =>
       client.rpc.clip.replaceTranscriptWords.$post({ json })
     ),
+    setClipText: rpcMethod((json) =>
+      client.rpc.clip.setClipText.$post({ json })
+    ),
     listClipLayers: rpcMethod((json) =>
       client.rpc.clip.listClipLayers.$post({ json })
     ),

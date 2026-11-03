@@ -42,6 +42,8 @@ Verbs:
   clip delete <id>                           archive the clip (soft delete; see 'clip restore')
   clip restore <id>                          undo 'clip delete'
   clip words <id>                            the clip's Transcript Words, in spoken order (NDJSON)
+  clip edit-transcript --find <t> --replace <t> <id>
+                                             fix a misheard word in the clip's text (and its words)
   clip layer list|add|update|move|remove     the clip's Layers: its picture (see 'clip layer --help')
   clip update --layers-from <id> <id...>     copy one clip's Layers onto others
   clip frame --at <t> <id>                   a PNG of a clip as its render ships it (Short or Landscape)
@@ -272,10 +274,28 @@ A clip that has never been transcribed simply HAS no words: that prints nothing
 and exits 0 — it is an ordinary state, not an error. Clips transcribed before
 Transcript Words existed are in exactly that state and need a re-transcribe.
 
-Read-only: there is no CLI verb that writes or edits an individual word.
+Read-only: no verb edits a single word. To fix a misheard word, edit the clip's
+text with 'cvm clip edit-transcript', which rewrites its words to match.
 
 Examples:
   cvm clip words clip_abc
 
   # When was "overlay" said in this clip?
   cvm clip words clip_abc | jq 'select(.text == "overlay")'`;
+
+export const EDIT_TRANSCRIPT_HELP = `Edit Transcript: fix a misheard word in a Clip's text.
+
+  cvm clip edit-transcript --find "Andrea Karpathy" --replace "Andrej Karpathy" clip_abc
+
+Replaces every occurrence of --find (literal, case-sensitive) in the clip's 'text' with
+--replace, and prints the updated clip. The same write as the editor's Edit Transcript: the
+clip's Transcript Words ('cvm clip words') are rewritten to match the new text. With the same
+number of words, each word keeps its old start/end exactly (the usual fix: a misheard name). With
+a different number, the old words' span is shared out by letter count. A clip with no words keeps
+none. Footage, source times and transcriptionStatus are untouched.
+
+A Short's captions are each clip's text timed by its words, and its Short Export Hash covers both,
+so the Short is stale after this and its next render (or Posting Slot) draws the corrected text.
+
+Refused with exit 3, writing nothing, when --find is empty or not in the clip's text. Not-found
+(exit 2) for an unknown or archived clip. Like every clip write, the clip's Version must be a draft.`;

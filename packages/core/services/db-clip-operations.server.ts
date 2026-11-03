@@ -671,6 +671,7 @@ export const createClipOperations = (db: Database) =>
     "createClipWebLinks",
     "deleteClipWebLink",
     "replaceTranscriptWords",
+    "setClipText",
     "retimeClip",
     "setClipLayers",
   ]);
