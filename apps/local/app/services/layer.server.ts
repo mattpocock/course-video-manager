@@ -33,6 +33,7 @@ import { ThumbnailOperationsService } from "@/services/db-thumbnail-operations.s
 import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
 import { ApiTokenOperationsService } from "@/services/db-api-token-operations.server";
 import { VideoPostOperationsService } from "@/services/db-video-post-operations.server";
+import { PostingQueueOperationsService } from "@/services/db-posting-queue-operations.server";
 import { BufferApiService } from "./buffer-api-service.server";
 import { ObjectStoreService } from "./object-store-service.server";
 import { TextGenerationService } from "./text-generation-service";
@@ -69,6 +70,7 @@ const coreLayer = Layer.mergeAll(
   // Background Jobs: the app enqueues them; the Sidecar runs them.
   JobOperationsService.Default,
   VideoPostOperationsService.Default,
+  PostingQueueOperationsService.Default,
   BufferApiService.Default,
   ObjectStoreService.Default,
   TextGenerationService.Default,

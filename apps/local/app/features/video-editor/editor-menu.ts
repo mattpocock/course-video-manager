@@ -30,8 +30,6 @@ export const SHORT_LEAVES_OUT = {
 export const LANDSCAPE_LEAVES_OUT = {
   silenceLength: "the landscape editor keeps its toggle under the player",
   postShort: "posting is a Short's",
-  postToYouTube: "posting is a Short's",
-  postToTikTok: "posting is a Short's",
 } as const satisfies LeftOut;
 
 /**

@@ -1,6 +1,9 @@
 import { Args, Command, Options } from "@effect/cli";
 import { Clock, Effect } from "effect";
-import { formatLondon } from "@cvm/core/features/time/london-time";
+import {
+  postingQueueView,
+  withGoesOutAt,
+} from "@cvm/core/features/posting-queue/goes-out-at";
 import { PostingQueueOperationsService } from "@/services/db-posting-queue-operations.server";
 import { ShortPostRefusedError } from "@/services/db-service-errors";
 import {
@@ -10,12 +13,6 @@ import {
 import { detail, emitNdjson, emitObject } from "@/cli/helpers";
 import { draftIdArg } from "../entity-id";
 import { POST_HELP, QUEUE_HELP } from "./short.help";
-
-/** An ISO slot, with the UK wall-clock reading beside it. */
-const withUkTime = <T extends { slot: string | null }>(row: T) => ({
-  ...row,
-  goesOutAt: row.slot === null ? null : formatLondon(Date.parse(row.slot)),
-});
 
 // ---------------------------------------------------------------------------
 // short post
@@ -42,7 +39,7 @@ export const postCmd = Command.make(
         PostingQueueOperationsService,
         (svc) => svc.postShorts({ videoIds, dryRun, now })
       );
-      yield* emitNdjson(verdicts.map(withUkTime));
+      yield* emitNdjson(verdicts.map(withGoesOutAt));
 
       // A dry run exits as the real run would: 3 if any Short is refused.
       const refusals = verdicts.flatMap((v) =>
@@ -70,9 +67,6 @@ export const queueCmd = Command.make("queue", {}, () =>
       PostingQueueOperationsService,
       (svc) => svc.listPostingQueue(now)
     );
-    yield* emitObject({
-      days: listing.days,
-      entries: listing.entries.map(withUkTime),
-    });
+    yield* emitObject(postingQueueView(listing));
   })
 ).pipe(Command.withDescription(detail(QUEUE_HELP)));
