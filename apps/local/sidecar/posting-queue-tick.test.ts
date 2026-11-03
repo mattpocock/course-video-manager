@@ -1,293 +1,35 @@
 import { execFileSync } from "node:child_process";
-import http from "node:http";
-import type { AddressInfo } from "node:net";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import {
-  Deferred,
-  Effect,
-  Fiber,
-  Layer,
-  Logger,
-  LogLevel,
-  TestClock,
-  TestContext,
-} from "effect";
-import { NodeContext } from "@effect/platform-node";
+import { describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
-import { JobOperationsService } from "@cvm/core/services/db-job-operations.server";
-import { DrizzleService } from "@/services/drizzle-service.server";
-import { VideoPostOperationsService } from "@/services/db-video-post-operations.server";
-import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
-import { PostingQueueOperationsService } from "@/services/db-posting-queue-operations.server";
-import { PostingQueueSidecarService } from "@/services/db-posting-queue-sidecar.server";
-import { BufferApiService } from "@/services/buffer-api-service.server";
-import { ObjectStoreService } from "@/services/object-store-service.server";
-import { SidecarContextTest } from "@/services/sidecar-context";
 import * as schema from "@/db/schema";
+import { postingQueueTickIn } from "./posting-queue-tick";
 import {
-  createTestDb,
-  truncateAllTables,
-  type TestDb,
-} from "@/test-utils/test-db";
-import { runSidecar, type SidecarTiming } from "./sidecar";
-import { youtubeShortsJobKind } from "./kinds/youtube-shorts";
-import { bufferJobKind } from "./kinds/buffer";
-import type { JobKindRegistry } from "./job-kinds";
-import { postingQueueTick, postingQueueTickIn } from "./posting-queue-tick";
+  bufferPosts,
+  exportedShort,
+  fakeUrl,
+  jobKinds,
+  queue,
+  render,
+  renders,
+  runSidecarUntilSettled,
+  s3Puts,
+  seen,
+  stateOf,
+  testDb,
+  tickAt,
+  uk,
+  youtubeInits,
+} from "./posting-queue-test-harness";
 
 // ===========================================================================
 // The Posting Queue tick (#2614): at a Posting Slot the Sidecar posts the
-// head of the Posting Queue to YouTube direct and to TikTok through Buffer.
-//
-// The tick reads the time from a TestClock. A REAL Sidecar runs the
-// `youtube-shorts` and `buffer` Jobs on PGlite against ONE fake HTTP server
-// standing in for Google's token URL, YouTube's upload API, Buffer's API and
-// S3, through the existing URL overrides. Nothing leaves this machine.
+// head of the Posting Queue to YouTube direct and to TikTok through Buffer,
+// rendering it first when its vertical export is stale (#2615). The harness
+// runs a real Sidecar against fakes; nothing leaves this machine.
 // ===========================================================================
-
-/** Wednesday 14 October 2026, UK summer time (BST, UTC+1). */
-const uk = (hhmm: string, day = "2026-10-14") =>
-  new Date(`${day}T${hhmm}:00+01:00`).getTime();
-
-type Seen = { method: string; path: string; query: string; body: string };
-let seen: Seen[] = [];
-let server: http.Server;
-let fakeUrl = "";
-let youtubeIds = 0;
-
-const youtubeInits = () =>
-  seen.filter(
-    (r) => r.method === "POST" && r.path.startsWith("/upload/youtube/v3/videos")
-  );
-const bufferPosts = () =>
-  seen.filter(
-    (r) => r.path === "/buffer" && r.body.includes("mutation CreatePost")
-  );
-const s3Puts = () => seen.filter((r) => r.path.startsWith("/cvm-bucket/"));
-
-const answer = (req: http.IncomingMessage, res: http.ServerResponse) => {
-  const url = new URL(req.url ?? "/", "http://fake");
-  const json = (status: number, body: unknown, headers = {}) => {
-    res.writeHead(status, { "Content-Type": "application/json", ...headers });
-    res.end(JSON.stringify(body));
-  };
-  if (url.pathname === "/token") {
-    return json(200, { access_token: "fresh-token", expires_in: 3600 });
-  }
-  if (url.pathname === "/upload/youtube/v3/videos") {
-    return json(200, {}, { Location: `${fakeUrl}/upload-session` });
-  }
-  if (url.pathname === "/upload-session") {
-    youtubeIds += 1;
-    return json(200, { id: `yt-${youtubeIds}` });
-  }
-  if (url.pathname === "/buffer") {
-    return json(200, {
-      data: { account: { id: "acct" }, createPost: { post: { id: "buf-1" } } },
-    });
-  }
-  if (url.pathname.startsWith("/cvm-bucket/")) {
-    res.writeHead(200, { ETag: '"etag"' });
-    return res.end();
-  }
-  json(404, { error: "not faked" });
-};
-
-const ENV: Record<string, () => string> = {
-  YOUTUBE_API_URL: () => fakeUrl,
-  GOOGLE_OAUTH_TOKEN_URL: () => `${fakeUrl}/token`,
-  GOOGLE_CLIENT_ID: () => "client-id",
-  GOOGLE_CLIENT_SECRET: () => "client-secret",
-  BUFFER_API_URL: () => `${fakeUrl}/buffer`,
-  BUFFER_API_TOKEN: () => "buffer-token",
-  BUFFER_CHANNEL_ID: () => "tiktok-channel",
-  S3_ENDPOINT: () => fakeUrl,
-  S3_BUCKET: () => "cvm-bucket",
-  AWS_REGION: () => "eu-west-2",
-  AWS_ACCESS_KEY_ID: () => "fake-key",
-  AWS_SECRET_ACCESS_KEY: () => "fake-secret",
-  STORAGE_ROOTS: () => root,
-};
-const previousEnv = Object.fromEntries(
-  Object.keys(ENV).map((k) => [k, process.env[k]])
-);
-
-let testDb: TestDb;
-let root: string;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let layer: Layer.Layer<any, any, never>;
-
-beforeAll(async () => {
-  testDb = (await createTestDb()).testDb;
-  server = http.createServer((req, res) => {
-    let body = "";
-    req.on("data", (chunk) => (body += chunk));
-    req.on("end", () => {
-      seen.push({
-        method: req.method ?? "",
-        path: new URL(req.url ?? "/", "http://fake").pathname,
-        query: new URL(req.url ?? "/", "http://fake").search,
-        body,
-      });
-      answer(req, res);
-    });
-  });
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  fakeUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-  root = fs.mkdtempSync(path.join(os.tmpdir(), "cvm-posting-queue-"));
-  for (const [key, value] of Object.entries(ENV)) process.env[key] = value();
-
-  layer = Layer.mergeAll(
-    JobOperationsService.Default,
-    VideoPostOperationsService.Default,
-    LinkAuthOperationsService.Default,
-    PostingQueueOperationsService.Default,
-    PostingQueueSidecarService.Default,
-    BufferApiService.Default,
-    ObjectStoreService.Default
-  ).pipe(
-    Layer.provide(Layer.succeed(DrizzleService, testDb as never)),
-    Layer.merge(NodeContext.layer),
-    Layer.merge(SidecarContextTest)
-  );
-});
-
-afterAll(async () => {
-  await new Promise((resolve) => server.close(resolve));
-  for (const [key, value] of Object.entries(previousEnv)) {
-    if (value === undefined) delete process.env[key];
-    else process.env[key] = value;
-  }
-  fs.rmSync(root, { recursive: true, force: true });
-});
-
-beforeEach(async () => {
-  await truncateAllTables(testDb);
-  seen = [];
-  // An expired grant: the first post refreshes it at the fake token URL.
-  await testDb.insert(schema.youtubeAuth).values({
-    accessToken: "stale-token",
-    refreshToken: "refresh-token",
-    expiresAt: new Date(Date.now() - 60_000),
-  });
-});
-
-const run = <A, E>(effect: Effect.Effect<A, E, any>) =>
-  Effect.runPromise(
-    effect.pipe(
-      Effect.provide(layer),
-      Logger.withMinimumLogLevel(LogLevel.None)
-    ) as Effect.Effect<A, E, never>
-  );
-
-/** One tick of the Posting Queue, with the TestClock at `at`. */
-const tickAt = (
-  at: number,
-  tick: Effect.Effect<void, unknown, any> = postingQueueTick
-) =>
-  run(
-    Effect.gen(function* () {
-      yield* TestClock.setTime(at);
-      yield* tick;
-    }).pipe(Effect.provide(TestContext.TestContext))
-  );
-
-const TIMING: SidecarTiming = {
-  leaseMs: 5_000,
-  leaseRenewMs: 1_000,
-  jobLeaseMs: 5_000,
-  jobHeartbeatMs: 1_000,
-  pollMs: 20,
-  recoverEveryMs: 1_000,
-  lapseWaitMs: 200,
-  postCheckTimeoutMs: 1_000,
-  postingQueueTickMs: 60_000,
-};
-
-// The two posting kinds, run on the test's own layer of services.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const POSTING_KINDS: JobKindRegistry<any> = {
-  "youtube-shorts": youtubeShortsJobKind,
-  buffer: bufferJobKind,
-};
-
-/** A real Sidecar running the two posting kinds until every Job settles. */
-const runSidecarUntilSettled = async () => {
-  const stop = Effect.runSync(Deferred.make<string>());
-  const fiber = Effect.runFork(
-    runSidecar({
-      identity: {
-        holder: `posting-queue-${Math.random()}`,
-        pid: process.pid,
-        hostname: "test",
-        checkout: "/checkouts/posting-queue",
-        gitSha: "abc1234",
-        socket: path.join(os.tmpdir(), "cvm-posting-queue-test.sock"),
-      },
-      registry: POSTING_KINDS,
-      timing: TIMING,
-      stop,
-      serve: () => Effect.void,
-    }).pipe(Effect.provide(layer), Logger.withMinimumLogLevel(LogLevel.None))
-  );
-  for (let i = 0; i < 500; i++) {
-    const live = await testDb
-      .select({ status: schema.jobs.status })
-      .from(schema.jobs);
-    if (live.every((j) => j.status !== "queued" && j.status !== "running")) {
-      break;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 20));
-  }
-  await Effect.runPromise(
-    Deferred.succeed(stop, "test over").pipe(Effect.zipRight(Fiber.join(fiber)))
-  );
-};
-
-/** An exported Short, ready to post. */
-const exportedShort = async (title: string, opts = { exported: true }) => {
-  const [video] = await testDb
-    .insert(schema.videos)
-    .values({
-      title,
-      originalFootagePath: "f.mp4",
-      format: "short",
-      description: `All about ${title}`,
-    })
-    .returning();
-  if (opts.exported) {
-    fs.mkdirSync(path.join(root, "finished-videos"), { recursive: true });
-    fs.writeFileSync(
-      path.join(root, "finished-videos", `${video!.id}.mp4`),
-      "vertical mp4 bytes"
-    );
-  }
-  return video!.id;
-};
-
-const queue = async (videoId: string, queuedAt: number, order: string) => {
-  const [entry] = await testDb
-    .insert(schema.postingQueueEntries)
-    .values({ videoId, queuedAt: new Date(queuedAt), order, state: "queued" })
-    .returning();
-  return entry!.id;
-};
-
-const stateOf = async (entryId: string) => {
-  const [entry] = await testDb
-    .select()
-    .from(schema.postingQueueEntries)
-    .where(eq(schema.postingQueueEntries.id, entryId));
-  return entry!;
-};
-
-const jobKinds = async () =>
-  (await testDb.select({ kind: schema.jobs.kind }).from(schema.jobs))
-    .map((j) => j.kind)
-    .sort();
 
 describe("the Posting Queue tick", () => {
   it("at 13:00 UK on a weekday posts the one queued Short once to YouTube (public, no notification) and once to Buffer (shareNow), and the entry ends Posted", async () => {
@@ -405,25 +147,86 @@ describe("the Posting Queue tick", () => {
     expect(bufferPosts()).toHaveLength(2);
   });
 
-  it("a Short with no vertical export does not claim: it waits, and `cvm short queue` says why", async () => {
-    const videoId = await exportedShort("Not rendered", { exported: false });
+  it("a queued Short with no export renders, then posts, at its slot: both posting Jobs wait on the render", async () => {
+    const videoId = await exportedShort("Not rendered", "none");
     const entryId = await queue(videoId, uk("08:00"), "a0");
 
     await tickAt(uk("13:00"));
+    expect((await stateOf(entryId)).state).toBe("posting");
+    const jobs = await testDb.select().from(schema.jobs);
+    const renderJob = jobs.find((j) => j.kind === "render-vertical")!;
+    expect(renderJob.params).toEqual({ videoId });
+    expect(
+      jobs.filter((j) => j.kind !== "render-vertical").map((j) => j.dependsOn)
+    ).toEqual([renderJob.id, renderJob.id]);
 
-    expect((await stateOf(entryId)).state).toBe("queued");
-    expect(await jobKinds()).toEqual([]);
-    const listing = await run(
-      Effect.flatMap(PostingQueueOperationsService, (svc) =>
-        svc.listPostingQueue(uk("13:01"))
-      )
+    await runSidecarUntilSettled();
+    await tickAt(uk("13:02"));
+    expect((await stateOf(entryId)).state).toBe("posted");
+    expect(renders).toBe(1);
+    expect(youtubeInits()).toHaveLength(1);
+    expect(bufferPosts()).toHaveLength(1);
+  });
+
+  it("a Short edited after its render re-renders before posting; one rendered before the Short Export Hash re-renders once", async () => {
+    const edited = await exportedShort("Edited");
+    const legacy = await exportedShort("Legacy", "legacy");
+    await queue(edited, uk("08:00"), "a0");
+    const legacyEntry = await queue(legacy, uk("08:01"), "a1");
+    // A caption word change: only the vertical render draws it.
+    await testDb
+      .update(schema.clips)
+      .set({ text: "Hello again" })
+      .where(eq(schema.clips.videoId, edited));
+
+    // Wednesday 13:00 takes the edited Short; Thursday 13:00 the legacy one.
+    await tickAt(uk("13:00"));
+    expect(await jobKinds()).toEqual([
+      "buffer",
+      "render-vertical",
+      "youtube-shorts",
+    ]);
+    await runSidecarUntilSettled();
+    await tickAt(uk("13:00", "2026-10-15"));
+    expect((await stateOf(legacyEntry)).state).toBe("posting");
+    await runSidecarUntilSettled();
+    expect(renders).toBe(2);
+
+    // Rendered now, so queued again it posts without a render.
+    await testDb
+      .update(schema.postingQueueEntries)
+      .set({ state: "removed" })
+      .where(eq(schema.postingQueueEntries.id, legacyEntry));
+    await queue(legacy, uk("14:00", "2026-10-15"), "a2");
+    await tickAt(uk("13:00", "2026-10-16"));
+    await runSidecarUntilSettled();
+    expect(renders).toBe(2);
+    expect(youtubeInits()).toHaveLength(3);
+  });
+
+  it("a render that fails for good posts nothing: the entry stays Posting with the render's reason", async () => {
+    render.fails = true;
+    const entryId = await queue(
+      await exportedShort("Broken", "none"),
+      uk("08:00"),
+      "a0"
     );
-    expect(listing.entries[0]).toMatchObject({
-      entryId,
-      state: "queued",
-      lastFailureReason: expect.stringContaining(
-        `has not been rendered. Render it with 'cvm short render ${videoId}'`
-      ),
+
+    await tickAt(uk("13:00"));
+    await runSidecarUntilSettled();
+    await tickAt(uk("13:02"));
+
+    expect(renders).toBe(3);
+    expect(youtubeInits()).toHaveLength(0);
+    expect(bufferPosts()).toHaveLength(0);
+    const statuses = await testDb
+      .select({ kind: schema.jobs.kind, status: schema.jobs.status })
+      .from(schema.jobs);
+    expect(statuses.every((j) => j.status === "failed")).toBe(true);
+    expect(await stateOf(entryId)).toMatchObject({
+      state: "posting",
+      lastFailureReason:
+        "Its render failed: Overlay renderer exited with code 1: boom",
     });
   });
 

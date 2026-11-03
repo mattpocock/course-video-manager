@@ -24,3 +24,19 @@ export type QueuedShortPostParams = {
   readonly videoId: string;
   readonly postingQueueEntryId: string;
 };
+
+/**
+ * The render a claim enqueues when the Short's vertical export is stale
+ * (#2615): the Sidecar's `render-vertical` kind, with its own policy
+ * (`apps/local/sidecar/retry-policy.ts`, tied to this one at compile
+ * time). Both posting Jobs wait on it, so a render that fails for good
+ * posts nothing.
+ */
+export const SHORT_RENDER_JOB = {
+  kind: "render-vertical",
+  lane: "default",
+  maxAttempts: 3,
+} as const;
+
+/** A `render-vertical` Job's params. */
+export type ShortRenderParams = { readonly videoId: string };

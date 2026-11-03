@@ -166,9 +166,10 @@ States: Queued (waiting for its slot), Posting (claimed a slot, being
 posted), Held (a channel's outcome is unknown: check before retrying),
 Failed (a channel failed 3 times).
 
-'lastFailureReason' says why a Short is not going out: for a Queued Short,
-that its slot came and it has no vertical export yet (render it with
-'cvm short render <id>'; until then the queue waits behind it).
+'lastFailureReason' says why a Short is not going out: for a Posting Short,
+that its render failed ("Its render failed: …"). A Short whose vertical
+export is missing or out of date (its Short Export Hash differs) is rendered
+at its slot, before it posts; there is no need to render it first.
 
 'slot' is the ISO instant, 'goesOutAt' the UK wall-clock time; for a
 Posting, Held or Failed Short it is the slot it claimed. The projection is the
