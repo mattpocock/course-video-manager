@@ -46,12 +46,6 @@ export interface UploadContextType {
     thumbnailId: string,
     dependsOn?: string
   ) => string;
-  startSocialUpload: (
-    videoId: string,
-    title: string,
-    caption: string,
-    dependsOn?: string
-  ) => string;
   startAiHeroUpload: (
     videoId: string,
     title: string,
@@ -69,12 +63,6 @@ export interface UploadContextType {
     newsletterSubject: string,
     newsletterPreviewText: string,
     newsletterCopy: string,
-    dependsOn?: string
-  ) => string;
-  startYoutubeShortsUpload: (
-    videoId: string,
-    title: string,
-    description: string,
     dependsOn?: string
   ) => string;
   /**
@@ -193,34 +181,6 @@ export function UploadProvider({
         kind: "youtube",
         title,
         params: { videoId, title, description, privacyStatus, thumbnailId },
-        subject: { type: "video", id: videoId },
-        attemptsSpent: 0,
-        dependsOn: dependsOn ?? null,
-      }),
-    [startJob]
-  );
-
-  // A Buffer post is a posting Job: run once, after its render succeeds.
-  const startSocialUpload = useCallback(
-    (videoId: string, title: string, caption: string, dependsOn?: string) =>
-      startJob({
-        kind: "buffer",
-        title,
-        params: { videoId, caption },
-        subject: { type: "video", id: videoId },
-        attemptsSpent: 0,
-        dependsOn: dependsOn ?? null,
-      }),
-    [startJob]
-  );
-
-  // A Shorts post is a posting Job: run once, after its render succeeds.
-  const startYoutubeShortsUpload = useCallback(
-    (videoId: string, title: string, description: string, dependsOn?: string) =>
-      startJob({
-        kind: "youtube-shorts",
-        title,
-        params: { videoId, title, description },
         subject: { type: "video", id: videoId },
         attemptsSpent: 0,
         dependsOn: dependsOn ?? null,
@@ -457,8 +417,6 @@ export function UploadProvider({
       clearFinished: clearFinishedJobs,
       clock,
       startUpload,
-      startSocialUpload,
-      startYoutubeShortsUpload,
       startAiHeroUpload,
       startSkillsChangelogUpload,
       startExportUpload,
@@ -481,8 +439,6 @@ export function UploadProvider({
       clearFinishedJobs,
       clock,
       startUpload,
-      startSocialUpload,
-      startYoutubeShortsUpload,
       startAiHeroUpload,
       startSkillsChangelogUpload,
       startExportUpload,

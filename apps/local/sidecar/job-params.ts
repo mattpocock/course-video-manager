@@ -50,11 +50,17 @@ const youtubeMetadataAccepted = <
     )
   );
 
-/** A posting Job the Posting Queue enqueued: `QueuedShortPostParams`. */
+/**
+ * A Short's posting Job, which only the Posting Queue enqueues
+ * (`QueuedShortPostParams`): its entry, and the words its slot was claimed
+ * with. TikTok's caption is the title.
+ */
 const QUEUED_SHORT_POST_PARAMS = Schema.Struct({
   videoId: Schema.String,
   postingQueueEntryId: Schema.String,
-}) satisfies Schema.Schema<QueuedShortPostParams>;
+  title: Schema.Trim.pipe(Schema.nonEmptyString()),
+  description: Schema.Trim.pipe(Schema.nonEmptyString()),
+}) satisfies Schema.Schema<QueuedShortPostParams, QueuedShortPostParams>;
 
 export const JOB_PARAMS = {
   noop: Schema.Struct({
@@ -211,26 +217,8 @@ export const JOB_PARAMS = {
       thumbnailId: Schema.String,
     })
   ),
-  // The Shorts page modal's post names its words; a Posting Queue post
-  // names its entry and reads the Short's words from the Video when it runs
-  // (ADR 0057). The modal's shape goes when it queues instead (#2617).
-  "youtube-shorts": Schema.Union(
-    youtubeMetadataAccepted(
-      Schema.Struct({
-        videoId: Schema.String,
-        title: Schema.Trim.pipe(Schema.nonEmptyString()),
-        description: Schema.Trim.pipe(Schema.nonEmptyString()),
-      })
-    ),
-    QUEUED_SHORT_POST_PARAMS
-  ),
-  buffer: Schema.Union(
-    Schema.Struct({
-      videoId: Schema.String,
-      caption: Schema.Trim.pipe(Schema.nonEmptyString()),
-    }),
-    QUEUED_SHORT_POST_PARAMS
-  ),
+  "youtube-shorts": youtubeMetadataAccepted(QUEUED_SHORT_POST_PARAMS),
+  buffer: QUEUED_SHORT_POST_PARAMS,
   "ai-hero": Schema.Struct({
     videoId: Schema.String,
     title: Schema.Trim.pipe(Schema.nonEmptyString()),

@@ -13,7 +13,7 @@ import {
 type Job = typeof jobs.$inferSelect;
 type PostingQueueEntry = typeof postingQueueEntries.$inferSelect;
 
-/** One channel of a Posting or Held entry whose latest posting Job failed. */
+/** One channel of a Posting or Held entry whose latest posting Job ended unposted. */
 export type ChannelFailure = {
   readonly kind: ShortPostingJobKind;
   readonly job: Job;
@@ -38,6 +38,17 @@ export type ChannelOutcome = {
   readonly url: string | null;
   readonly renderFailure: string | null;
 };
+
+/**
+ * How a posting Job ends without posting: it failed, it was cut off, or it
+ * was cancelled. Each is one failure on its channel, so the entry leaves
+ * Posting and the queue moves on.
+ */
+export const ENDED_UNPOSTED: ReadonlyArray<Job["status"]> = [
+  "failed",
+  "interrupted",
+  "cancelled",
+];
 
 /** How a channel is named in a failure reason. */
 export const CHANNEL_NAME: Record<ShortPostingJobKind, string> = {
@@ -65,7 +76,8 @@ export const decideChannelFailures = (input: {
     buffer: input.entry.tiktokFailures,
   };
   const posted: ShortPostingJobKind[] = [];
-  const retry: { kind: ShortPostingJobKind; title: string }[] = [];
+  /** Each channel to retry, with the params its failed Job carried. */
+  const retry: { kind: ShortPostingJobKind; params: unknown }[] = [];
   let held = false;
   let reason: string | null = null;
   const current = input.outcomes.flatMap((o) => {
@@ -73,7 +85,7 @@ export const decideChannelFailures = (input: {
     const stillThisRun =
       job?.id === o.jobId &&
       job.attempt === o.attempt &&
-      (job.status === "failed" || job.status === "interrupted") &&
+      ENDED_UNPOSTED.includes(job.status) &&
       !input.posted.has(o.kind);
     return stillThisRun && job ? [{ o, job }] : [];
   });
@@ -86,8 +98,13 @@ export const decideChannelFailures = (input: {
     } else {
       failures[o.kind] += 1;
       reason =
-        o.renderFailure ?? `${CHANNEL_NAME[o.kind]}: ${messageOf(job.error)}`;
-      retry.push({ kind: o.kind, title: job.title });
+        o.renderFailure ??
+        `${CHANNEL_NAME[o.kind]}: ${
+          job.status === "cancelled"
+            ? "its post was cancelled"
+            : messageOf(job.error)
+        }`;
+      retry.push({ kind: o.kind, params: job.params });
     }
   }
   const failed = Object.values(failures).some(

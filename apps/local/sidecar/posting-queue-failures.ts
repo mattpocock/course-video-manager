@@ -77,11 +77,12 @@ const postCheckOf = (kind: ShortPostingJobKind, job: Job) =>
 
 const outcomeOf = (failure: ChannelFailure) =>
   Effect.map(
-    // A render that failed for good: the post never ran, so nothing went out.
-    failure.renderFailure
+    // A render that failed for good, or a Cancel before it started: the
+    // post never ran, so nothing went out.
+    failure.renderFailure || failure.job.startedAt === null
       ? Effect.succeed<PostCheck>({
           verdict: "not-posted",
-          detail: failure.renderFailure,
+          detail: failure.renderFailure ?? "It never started.",
           url: null,
         })
       : postCheckOf(failure.kind, failure.job),
@@ -98,11 +99,11 @@ const outcomeOf = (failure: ChannelFailure) =>
 
 /**
  * POSTING QUEUE FAILURES (#2618, ADR 0057): for each Posting or Held entry,
- * every channel whose latest posting Job ended failed or interrupted is
- * looked for at its service, read-only, and settled on the answer: posted
- * is recorded, unknown Holds the entry, not-posted counts a failure and
- * enqueues a NEW Job for that channel only (rendering first when the
- * export is stale). No Job is ever re-run.
+ * every channel whose latest posting Job ended failed, interrupted or
+ * cancelled is looked for at its service, read-only, and settled on the
+ * answer: posted is recorded, unknown Holds the entry, not-posted counts a
+ * failure and enqueues a NEW Job for that channel only (rendering first
+ * when the export is stale). No Job is ever re-run.
  */
 export const settlePostingFailures = (now: number) =>
   Effect.gen(function* () {

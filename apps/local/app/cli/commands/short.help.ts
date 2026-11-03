@@ -125,7 +125,8 @@ when each goes out. Prints one NDJSON line per Short:
   { videoId, title, verdict: "queued" | "refused", reason, slot, goesOutAt }
 'slot' is the ISO instant, 'goesOutAt' the UK wall-clock time ("Wed
 2026-11-04 13:00"). A slot already missed today shows as now: it goes out at
-the Sidecar's next check.
+the Sidecar's next check. A day's slots are set by the queue at 00:00 UK, so a
+Short queued onto an empty queue goes out the next day.
 
 Nothing is posted here: the Sidecar posts each Short at its Posting Slot. A
 Short is checked before it is queued; it needs a title of its own and a
@@ -139,6 +140,7 @@ why). If ANY Short of the batch is refused, NONE is queued:
   a Landscape Video; a Short still on its default title ("Short 11/3/2026");
   a Short with no description; a Short already in the Posting Queue (Queued,
   Posting or Held); a Short already Posted on both YouTube and TikTok.
+A Short Posted on only one of them is queued, and goes out only to the other.
 An unknown Video id is a not-found (exit 2).
 
 --dry-run prints every verdict, refusals included, and writes nothing. It
@@ -158,7 +160,8 @@ export const QUEUE_HELP = `List the Posting Queue and when each Short goes out. 
   { days, entries: [{ entryId, videoId, title, state, slot, goesOutAt,
                       lastFailureReason }] }
 in posting order: Shorts being posted first, then the Queued ones by when they
-go out (oldest queued first, unless moved), then any that Failed recently.
+go out (oldest queued first, unless moved), then every Failed one, which
+stays until it is taken off with 'cvm short unqueue'.
 'days' is how many UK days the Queued Shorts' slots fall on — how many days
 of content the queue holds.
 
@@ -168,9 +171,10 @@ Failed (a channel failed 3 times).
 
 'lastFailureReason' says what last went wrong, naming the channel
 ("YouTube: …", "TikTok (Buffer): …") or the render ("Its render failed: …").
-A channel that failed is tried again at the next check, as a new post and
-only after a read-only check says it did not go out; a channel that went out
-is never posted again. A Held Short's reason is what that check found: look
+A channel that failed (or whose post was cancelled) is tried again at the
+next check, as a new post and only after a read-only check says it did not go
+out; a channel that went out is never posted again. A post goes out with the
+title and description the Short had when its slot was claimed. A Held Short's reason is what that check found: look
 (the link is in the reason), then press Retry on its Job, or take it off with
 'cvm short unqueue'. A Short whose vertical
 export is missing or out of date (its Short Export Hash differs) is rendered

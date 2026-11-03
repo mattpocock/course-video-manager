@@ -115,52 +115,34 @@ describe("the day's slot count, from the queue length at 00:00 UK time", () => {
   });
 });
 
-describe("once a day minimum: a day whose queue was empty at 00:00", () => {
-  /** Friday posted at its slot; the weekend's slots claimed none, queue empty. */
+describe("a day whose queue was empty at 00:00 has no slots", () => {
+  /** Friday posted at its slot; the weekend's queue empty. */
   const fridayPosted = () => [postedAt("2026-10-30T13:00:00Z")];
-
-  it.each([
-    ["a weekday", mondayPosted, "2026-11-03"],
-    ["a weekend day", fridayPosted, "2026-10-31"],
-  ])(
-    "on %s, a Short queued before 13:00 goes out at 13:00 that day",
-    (_, history, day) => {
-      const entries = [
-        ...history(),
-        entry({ queuedAt: at(`${day}T10:00:00Z`) }),
-      ];
-      const slot = at(`${day}T13:00:00Z`);
-      expect(project(at(`${day}T10:00:01Z`), entries)).toEqual([iso(slot)]);
-      expect(
-        dueNow({ now: slot + 60_000, entries, patterns: SLOT_PATTERNS })
-      ).toEqual({ kind: "claim", entryId: entries.at(-1)!.id, slot });
-    }
-  );
 
   it.each([
     ["a weekday", mondayPosted, "2026-11-03", "2026-11-04T13:00:00.000Z"],
     ["a weekend day", fridayPosted, "2026-10-31", "2026-11-01T13:00:00.000Z"],
   ])(
-    "on %s, a Short queued after 13:00 waits for the next day's slot",
+    "on %s, a Short queued at 10:00 waits for the next day's slot",
     (_, history, day, next) => {
       const entries = [
         ...history(),
-        entry({ queuedAt: at(`${day}T14:00:00Z`) }),
+        entry({ queuedAt: at(`${day}T10:00:00Z`) }),
       ];
-      const now = at(`${day}T14:00:01Z`);
-      expect(project(now, entries)).toEqual([next]);
+      expect(project(at(`${day}T10:00:01Z`), entries)).toEqual([next]);
       expect(
-        dueNow({ now: now + 60_000, entries, patterns: SLOT_PATTERNS })
+        dueNow({
+          now: at(`${day}T13:01:00Z`),
+          entries,
+          patterns: SLOT_PATTERNS,
+        })
       ).toEqual({ kind: "nothing", nextSlot: at(next) });
     }
   );
 
-  it("a day whose queue stayed empty is not a missed day: no catch-up after it", () => {
-    // Monday's 13:00 had nothing queued; a Short queued Monday evening.
-    const entries = [
-      ...mondayPosted(),
-      entry({ queuedAt: at("2026-11-02T20:00:00Z") }),
-    ];
+  it("and is not a missed day: no catch-up after it", () => {
+    // Monday's queue was empty at 00:00; a Short queued Monday evening.
+    const entries = [entry({ queuedAt: at("2026-11-02T20:00:00Z") })];
     expect(firstDaySlots(TUE, entries)).toEqual(["2026-11-03T13:00:00.000Z"]);
   });
 });

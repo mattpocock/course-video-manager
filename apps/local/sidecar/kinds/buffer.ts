@@ -23,20 +23,15 @@ export const bufferJobKind = definePostingJobKind({
       // The program reports as it did to its stream; a stream `error` that
       // was not a failure (no exported file) is the Job failing here.
       let notStarted: string | null = null;
-      // A Posting Queue post's caption is the Short's title, read now, and
-      // only while the Short is still to be posted on this channel.
-      const caption =
-        "postingQueueEntryId" in params
-          ? yield* Effect.flatMap(PostingQueueSidecarService, (queue) =>
-              queue.assertStillToPost(params, "buffer").pipe(
-                Effect.zipRight(queue.shortToPost(params)),
-                Effect.map((short) => short.title)
-              )
-            )
-          : params.caption;
+      // Only while the Short is still to be posted on this channel. Its
+      // caption is the title its slot was claimed with.
+      yield* (yield* PostingQueueSidecarService).assertStillToPost(
+        params,
+        "buffer"
+      );
       yield* bufferPostProgram({
         videoId: params.videoId,
-        caption,
+        caption: params.title,
         sendEvent: (event, data) => {
           const d = (data ?? {}) as { percentage?: number; message?: string };
           if (event === "uploading-blob") {

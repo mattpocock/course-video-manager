@@ -15,7 +15,6 @@ import {
   TestContext,
 } from "effect";
 import { NodeContext } from "@effect/platform-node";
-import { eq } from "drizzle-orm";
 import { JobOperationsService } from "@cvm/core/services/db-job-operations.server";
 import { DrizzleService } from "@/services/drizzle-service.server";
 import { VideoPostOperationsService } from "@/services/db-video-post-operations.server";
@@ -74,15 +73,21 @@ let youtubeIds = 0;
 /**
  * How the fakes misbehave. `bufferRefuses`: Buffer answers `createPost`
  * with a `MutationError`, so it makes no post. `youtubeUploadFails`:
- * this many YouTube uploads answer 500 before one succeeds. `youtubeUploads`:
+ * this many YouTube uploads answer 500 before one succeeds.
+ * `youtubeAnswerLost`: this many uploads GO OUT (the playlist lists them
+ * under the title they were sent with) but the answer with the remote id
+ * never arrives, as when the Sidecar dies mid-upload. `youtubeUploads`:
  * what the channel's uploads playlist lists, which the read-only post check
  * reads.
  */
 export const fakes = {
   bufferRefuses: false,
   youtubeUploadFails: 0,
+  youtubeAnswerLost: 0,
   youtubeUploads: [] as { title: string; videoId: string }[],
 };
+/** The title the last YouTube upload was started with. */
+let uploadingTitle = "";
 
 export const youtubeInits = () =>
   seen.filter(
@@ -109,6 +114,8 @@ const answer = (
     return json(200, { access_token: "fresh-token", expires_in: 3600 });
   }
   if (url.pathname === "/upload/youtube/v3/videos") {
+    uploadingTitle = (JSON.parse(body) as { snippet: { title: string } })
+      .snippet.title;
     return json(200, {}, { Location: `${fakeUrl}/upload-session` });
   }
   if (url.pathname === "/upload-session") {
@@ -117,6 +124,14 @@ const answer = (
       return json(500, { error: "backend error" });
     }
     youtubeIds += 1;
+    if (fakes.youtubeAnswerLost > 0) {
+      fakes.youtubeAnswerLost -= 1;
+      fakes.youtubeUploads.push({
+        title: uploadingTitle,
+        videoId: `yt-${youtubeIds}`,
+      });
+      return json(500, { error: "connection reset" });
+    }
     return json(200, { id: `yt-${youtubeIds}` });
   }
   if (url.pathname === "/youtube/v3/channels") {
@@ -171,8 +186,29 @@ const previousEnv = Object.fromEntries(
 
 export let testDb: TestDb;
 export let root: string;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let layer: Layer.Layer<any, any, never>;
+
+/** The services every test and the Sidecar run on: the real ones on `db`. */
+const makeLayer = (db: TestDb) =>
+  Layer.mergeAll(
+    JobOperationsService.Default,
+    VideoPostOperationsService.Default,
+    LinkAuthOperationsService.Default,
+    PostingQueueOperationsService.Default,
+    PostingQueueSidecarService.Default,
+    BufferApiService.Default,
+    ObjectStoreService.Default,
+    VideoOperationsService.Default,
+    ClipOperationsService.Default
+  ).pipe(
+    Layer.provide(Layer.succeed(DrizzleService, DrizzleService.make(db))),
+    (services) =>
+      Layer.merge(services, fakeRender.pipe(Layer.provide(services))),
+    Layer.merge(NodeContext.layer),
+    Layer.merge(SidecarContextTest)
+  );
+
+export type HarnessServices = Layer.Layer.Success<ReturnType<typeof makeLayer>>;
+let layer: ReturnType<typeof makeLayer>;
 
 beforeAll(async () => {
   testDb = (await createTestDb()).testDb;
@@ -193,24 +229,7 @@ beforeAll(async () => {
   fakeUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   root = fs.mkdtempSync(path.join(os.tmpdir(), "cvm-posting-queue-"));
   for (const [key, value] of Object.entries(ENV)) process.env[key] = value();
-
-  layer = Layer.mergeAll(
-    JobOperationsService.Default,
-    VideoPostOperationsService.Default,
-    LinkAuthOperationsService.Default,
-    PostingQueueOperationsService.Default,
-    PostingQueueSidecarService.Default,
-    BufferApiService.Default,
-    ObjectStoreService.Default,
-    VideoOperationsService.Default,
-    ClipOperationsService.Default
-  ).pipe(
-    Layer.provide(Layer.succeed(DrizzleService, testDb as never)),
-    (services) =>
-      Layer.merge(services, fakeRender.pipe(Layer.provide(services))),
-    Layer.merge(NodeContext.layer),
-    Layer.merge(SidecarContextTest)
-  );
+  layer = makeLayer(testDb);
 });
 
 /** How many times the fake vertical render ran. */
@@ -277,7 +296,9 @@ beforeEach(async () => {
   render.fails = false;
   fakes.bufferRefuses = false;
   fakes.youtubeUploadFails = 0;
+  fakes.youtubeAnswerLost = 0;
   fakes.youtubeUploads = [];
+  clockAt = uk("08:00");
   // An expired grant: the first post refreshes it at the fake token URL.
   await testDb.insert(schema.youtubeAuth).values({
     accessToken: "stale-token",
@@ -286,25 +307,30 @@ beforeEach(async () => {
   });
 });
 
-export const run = <A, E>(effect: Effect.Effect<A, E, any>) =>
+export const run = <A, E>(effect: Effect.Effect<A, E, HarnessServices>) =>
   Effect.runPromise(
     effect.pipe(
       Effect.provide(layer),
       Logger.withMinimumLogLevel(LogLevel.None)
-    ) as Effect.Effect<A, E, never>
+    )
   );
+
+/** The test's clock: where the last tick (or queueing) set it. */
+let clockAt = 0;
 
 /** One tick of the Posting Queue, with the TestClock at `at`. */
 export const tickAt = (
   at: number,
-  tick: Effect.Effect<void, unknown, any> = postingQueueTick
-) =>
-  run(
+  tick: Effect.Effect<void, unknown, HarnessServices> = postingQueueTick
+) => {
+  clockAt = at;
+  return run(
     Effect.gen(function* () {
       yield* TestClock.setTime(at);
       yield* tick;
     }).pipe(Effect.provide(TestContext.TestContext))
   );
+};
 
 const TIMING: SidecarTiming = {
   leaseMs: 5_000,
@@ -315,13 +341,11 @@ const TIMING: SidecarTiming = {
   recoverEveryMs: 1_000,
   lapseWaitMs: 200,
   postCheckTimeoutMs: 1_000,
-  postingQueueTickMs: 60_000,
 };
 
 // The two posting kinds and the vertical render, run on the test's own
 // layer of services.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const POSTING_KINDS: JobKindRegistry<any> = {
+const POSTING_KINDS: JobKindRegistry<HarnessServices> = {
   "youtube-shorts": youtubeShortsJobKind,
   buffer: bufferJobKind,
   "render-vertical": renderVerticalJobKind,
@@ -347,9 +371,7 @@ export const runSidecarUntilSettled = async () => {
     }).pipe(Effect.provide(layer), Logger.withMinimumLogLevel(LogLevel.None))
   );
   for (let i = 0; i < 500; i++) {
-    const live = await testDb
-      .select({ status: schema.jobs.status })
-      .from(schema.jobs);
+    const live = await jobs();
     if (live.every((j) => j.status !== "queued" && j.status !== "running")) {
       break;
     }
@@ -393,27 +415,76 @@ export const exportedShort = async (
   return video!.id;
 };
 
-export const queue = async (
-  videoId: string,
-  queuedAt: number,
-  order: string
-) => {
-  const [entry] = await testDb
-    .insert(schema.postingQueueEntries)
-    .values({ videoId, queuedAt: new Date(queuedAt), order, state: "queued" })
-    .returning();
-  return entry!.id;
+/** `cvm short post` at `at`: the Short joins the back of the Posting Queue. */
+export const queue = async (videoId: string, at: number) => {
+  clockAt = at;
+  await run(
+    Effect.flatMap(PostingQueueOperationsService, (q) =>
+      q.postShorts({ videoIds: [videoId], dryRun: false, now: at })
+    )
+  );
 };
 
-export const stateOf = async (entryId: string) => {
-  const [entry] = await testDb
-    .select()
-    .from(schema.postingQueueEntries)
-    .where(eq(schema.postingQueueEntries.id, entryId));
-  return entry!;
-};
+/** Every Job, oldest first, as the Jobs feed lists them. */
+export const jobs = () =>
+  run(
+    Effect.flatMap(JobOperationsService, (ops) =>
+      ops.listRecentJobs({ finishedWithinMs: 7 * 24 * 60 * 60 * 1000 })
+    )
+  ).then((rows) => rows.map((r) => r.job));
 
-export const jobKinds = async () =>
-  (await testDb.select({ kind: schema.jobs.kind }).from(schema.jobs))
-    .map((j) => j.kind)
+export const jobKinds = async () => (await jobs()).map((j) => j.kind).sort();
+
+/** The full rows of the Jobs of `kind`, oldest first. */
+export const jobsOf = async (kind: string) =>
+  Promise.all(
+    (await jobs())
+      .filter((j) => j.kind === kind)
+      .map((j) =>
+        run(Effect.flatMap(JobOperationsService, (ops) => ops.getJob(j.id)))
+      )
+  ).then((rows) => rows.flatMap((r) => (r ? [r] : [])));
+
+/** The channels a Short has a posted Video Post on. */
+export const postedOn = async (videoId: string) =>
+  (
+    await run(
+      Effect.flatMap(VideoPostOperationsService, (posts) =>
+        posts.listByVideoId(videoId)
+      )
+    )
+  )
+    .filter((p) => p.postedAt !== null)
+    .map((p) => p.platform)
     .sort();
+
+/**
+ * Where a Short stands, as `cvm short queue` lists it at the test's clock:
+ * its entry's state, slot (epoch ms) and reason. Off the list, it is
+ * "posted" when both channels have it (that is what Posted means), else
+ * "off the queue".
+ */
+export const stateOf = async (videoId: string) => {
+  const listing = await run(
+    Effect.flatMap(PostingQueueOperationsService, (q) =>
+      q.listPostingQueue(clockAt)
+    )
+  );
+  const row = listing.entries.find((e) => e.videoId === videoId);
+  if (row) {
+    return {
+      state: row.state,
+      slot: row.slot === null ? null : new Date(row.slot).getTime(),
+      lastFailureReason: row.lastFailureReason,
+    };
+  }
+  const posted = await postedOn(videoId);
+  return {
+    state:
+      posted.includes("youtube-shorts") && posted.includes("buffer")
+        ? "posted"
+        : "off the queue",
+    slot: null,
+    lastFailureReason: null,
+  };
+};

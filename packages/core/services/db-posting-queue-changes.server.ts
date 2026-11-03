@@ -8,6 +8,7 @@ import {
   PostingQueueChangeRefusedError,
   UnknownDBServiceError,
 } from "./db-service-errors.js";
+import { requireDraftVersionForPostingQueueEntry } from "./draft-guard.server.js";
 import type { Database } from "./drizzle-service.server.js";
 import { withDbTransaction } from "./with-db-transaction.server.js";
 
@@ -138,6 +139,7 @@ export const createPostingQueueChanges = (db: Database) => {
         const others = live.filter(
           (e) => e.state === "queued" && e.id !== target.id
         );
+        yield* requireDraftVersionForPostingQueueEntry(tx, target.id);
         const at = others.findIndex((e) => e.videoId === anchorId);
         const [below, above] =
           input.to.kind === "top"
@@ -198,6 +200,9 @@ export const createPostingQueueChanges = (db: Database) => {
         if (refusals.length > 0) return yield* refuse("taken off", refusals);
 
         const leaving = live.filter((e) => ids.includes(e.videoId));
+        for (const entry of [...leaving, ...failed]) {
+          yield* requireDraftVersionForPostingQueueEntry(tx, entry.id);
+        }
         if (leaving.length > 0) {
           yield* makeDbCall(() =>
             tx
