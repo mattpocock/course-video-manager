@@ -20,7 +20,11 @@ import { UNUSED_FOOTAGE_MIN_AGE_MS } from "./unused-wire";
 /** Loading what owns which file failed; the scan cannot start. */
 export class StorageOwnershipLoadError extends Data.TaggedError(
   "StorageOwnershipLoadError"
-)<{ readonly message: string }> {}
+)<{
+  readonly message: string;
+  /** What the database threw: a route reads it to tell "migrate" from a bug. */
+  readonly cause?: unknown;
+}> {}
 
 /**
  * What the database says owns each file: every Course, every Video (in any
@@ -159,5 +163,6 @@ export const loadStorageOwnership = (
     catch: (cause) =>
       new StorageOwnershipLoadError({
         message: `Could not read what owns each file: ${cause instanceof Error ? cause.message : String(cause)}`,
+        cause,
       }),
   });

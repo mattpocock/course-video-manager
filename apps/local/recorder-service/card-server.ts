@@ -22,7 +22,7 @@ const FRAME_WIDTH = 1920;
  * launched with it before the card server is up, so it is known here, and
  * the card server's ready line is checked against it.
  */
-export const CARD_CANVAS = { width: 736, height: 344 } as const;
+export const CARD_CANVAS = { width: 896, height: 406 } as const;
 
 /** How long `quit` gets before it is killed. */
 const QUIT_MS = 5_000;
