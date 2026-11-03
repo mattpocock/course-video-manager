@@ -262,6 +262,11 @@ Fields:
                       setting a format calls updateVideoFormat, which ALSO NULLs
                       the video's lessonId (re-homing it to standalone) — this is
                       existing app behavior, since a Short is always standalone.
+                      Each Clip's Footage Layers are carried into the new frame
+                      in the same write: the Placement by fractions of the
+                      frame, the Source Crop narrowed about its centre to the
+                      box's new aspect (never stretched), as 'short create'
+                      does. Scene Layers are unchanged. Refused without a Draft.
 
 Body and SEO description are the DB-owned fields the AI Hero auto-link publishes.
 Passing an empty string ("") stores an empty value (it does not clear to null).
@@ -275,7 +280,7 @@ Examples:
   cvm video update --body-file ./notes.md vid_123
   some-tool | cvm video update --body-file - vid_123
   cvm video update --name "03-final" --description "The finished cut" vid_123
-  cvm video update --format short vid_123   # also re-homes to standalone`;
+  cvm video update --format short vid_123   # re-homes to standalone, moves Footage Layers`;
 
 export const ARCHIVE_HELP = `Archive a Video by id — the soft delete. The row stays in the database with
 'archived' flipped to true; nothing is destroyed, and its Clips, Chapters and

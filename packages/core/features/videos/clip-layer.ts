@@ -236,7 +236,8 @@ export const clipLayersProblem = (
 
 /**
  * A stored Footage Layer moved from one Video format's frame into another's,
- * for a Clip copied across formats (`short create` from a Landscape Video).
+ * for a Clip copied across formats (`short create` from a Landscape Video)
+ * or a Video whose format changes (`updateVideoFormat`).
  * Its Placement carries over by fractions of the frame, like the Scene
  * Layer's camera crops. The box changes shape, so its Source Crop is narrowed
  * about its centre to the box's new aspect: the picture is cropped, never
