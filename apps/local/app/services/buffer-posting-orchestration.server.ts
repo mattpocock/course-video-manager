@@ -43,24 +43,39 @@ export const bufferPostProgram = (opts: {
       platform: "buffer",
     });
 
+    // Nothing reached Buffer (the S3 upload failed), or Buffer refused it:
+    // nothing went out, so the row goes and a post check says not-posted.
+    // Any other failure leaves the row: Buffer may have the post.
+    const dropRow = videoPostOps
+      .deleteUnpostedVideoPost(post.id)
+      .pipe(Effect.orDie);
+
     opts.sendEvent("uploading-blob", { percentage: 0 });
 
     const objectKey = `cvm/buffer-posts/${opts.videoId}.mp4`;
-    const uploaded = yield* objectStore.upload({
-      pathname: objectKey,
-      filePath,
-      onProgress: (percentage) => {
-        opts.sendEvent("uploading-blob", { percentage });
-      },
-    });
+    const uploaded = yield* objectStore
+      .upload({
+        pathname: objectKey,
+        filePath,
+        onProgress: (percentage) => {
+          opts.sendEvent("uploading-blob", { percentage });
+        },
+      })
+      .pipe(Effect.tapError(() => dropRow));
 
     opts.sendEvent("creating-post", {});
 
-    const bufferPost = yield* bufferApi.createPost({
-      channelId,
-      text: opts.caption,
-      videoUrl: uploaded.url,
-    });
+    const bufferPost = yield* bufferApi
+      .createPost({
+        channelId,
+        text: opts.caption,
+        videoUrl: uploaded.url,
+      })
+      .pipe(
+        Effect.tapError((e) =>
+          e._tag === "BufferAuthError" || e.refused ? dropRow : Effect.void
+        )
+      );
 
     yield* videoPostOps.updateRemoteInfo({
       id: post.id,

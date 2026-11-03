@@ -11,12 +11,10 @@ import {
 import {
   JobOperationsService,
   type Job,
-  type JobFailure,
   type SidecarLease,
 } from "@cvm/core/services/db-job-operations.server";
-import { formatFailureCause } from "@/services/format-failure-cause";
-import { storageRootOfflineErrorOf } from "@/packages/storage";
 import { readStorageRootsOrNone } from "@/services/storage-roots";
+import { toJobFailure } from "./to-job-failure";
 import {
   isNeverReRun,
   isPostingKind,
@@ -31,6 +29,7 @@ import { makeLeaseRenewal } from "./lease-renewal";
 import { settleCancelled } from "./settle-cancelled";
 import { retryingSettleOps } from "./settle-retry";
 import { makePostChecks } from "./post-checks";
+import { repeatTick } from "./posting-queue-tick";
 import { makeJobEventFeed, type JobEventFeed } from "./job-event-feed";
 import {
   enqueueThrough,
@@ -96,34 +95,6 @@ export type SidecarOutcome =
   | { readonly _tag: "Stopped"; readonly reason: string }
   | { readonly _tag: "LeaseHeld"; readonly lease: SidecarLease | undefined };
 
-/** A Job's failure as `job.error` keeps it: tag, one line, and the whole chain. */
-export const toJobFailure = (
-  cause: Cause.Cause<unknown>,
-  roots: readonly string[] = []
-): JobFailure => {
-  const squashed = Cause.squash(cause);
-  // A Job that needs an Offline Storage Root fails saying which drive, not
-  // with the filesystem's ENODEV.
-  const error = storageRootOfflineErrorOf(squashed, roots) ?? squashed;
-  const tag =
-    typeof error === "object" &&
-    error !== null &&
-    "_tag" in error &&
-    typeof error._tag === "string"
-      ? error._tag
-      : null;
-  const message =
-    error instanceof Error
-      ? error.message
-      : typeof error === "object" &&
-          error !== null &&
-          "message" in error &&
-          typeof error.message === "string"
-        ? error.message
-        : String(error);
-  return { tag, message, cause: formatFailureCause(squashed) };
-};
-
 const logCause = (what: string) =>
   Effect.catchAllCause((cause: Cause.Cause<unknown>) =>
     Effect.logError(what, cause)
@@ -143,6 +114,14 @@ export const runSidecar = <R>(opts: {
    * sidecar.
    */
   readonly afterRecovery?: Effect.Effect<void, unknown, R>;
+  /**
+   * The Posting Queue tick (`posting-queue-tick.ts`) and how often it runs.
+   * Only `run-sidecar.ts` passes one: a Sidecar without it posts nothing.
+   */
+  readonly postingQueueTick?: {
+    readonly tick: Effect.Effect<void, unknown, R>;
+    readonly everyMs: number;
+  };
   /** Starts the socket once the lease is held; it is closed first on the way out. */
   readonly serve: (
     handle: SidecarHandle
@@ -552,6 +531,15 @@ export const runSidecar = <R>(opts: {
           Schedule.forever
         )
       );
+      if (opts.postingQueueTick) {
+        yield* Effect.forkScoped(
+          repeatTick(
+            opts.postingQueueTick.tick,
+            opts.postingQueueTick.everyMs,
+            nudge
+          )
+        );
+      }
       const lanes = yield* Effect.forkScoped(
         Effect.forEach(LANE_NAMES, laneLoop, {
           concurrency: "unbounded",

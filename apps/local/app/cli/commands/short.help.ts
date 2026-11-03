@@ -13,6 +13,8 @@ finished-videos/<videoId>.mp4 on a Storage Root.
     --footage <path>) --range <r> [--range <r>…]
                                        # cut a new Short from ranges of a source
   cvm short render <videoId>           # render the vertical file and print its path
+  cvm short post [--dry-run] <videoId…> # add Shorts to the Posting Queue
+  cvm short queue                      # list the Posting Queue and when each goes out
 
 Find a Short's id with 'cvm video list --format short'.
 
@@ -32,7 +34,20 @@ THE STREAM-TO-SHORT LOOP:
      'cvm overlay add --kind callToAction' (none is added for you; a Short
      cut from a Short keeps the ones its range holds);
   6. 'cvm clip frame' to check;
-  7. 'cvm short render', then post it.`;
+  7. 'cvm short render' to check the file;
+  8. 'cvm video update --name … --description …', then 'cvm short post'.
+
+THE POSTING QUEUE:
+  A Short is posted from CVM's own Posting Queue, never at once. Each UK day
+  (Europe/London) gets at least one Posting Slot, 13:00, even if its queue was
+  empty at 00:00. On weekdays more than 14 queued at 00:00 gives 2 (09:00,
+  18:00) and more than 21 gives 3 (09:00, 13:00, 18:00); Saturday and Sunday
+  always 1. A slot posts the oldest Short queued at that time: one queued
+  after 13:00 on a one-a-day day goes out the next day. A weekday after a day
+  that had a Short to post and posted nothing takes the next pattern up
+  (catch-up; Monday looks back over the weekend). At a
+  slot this machine's Sidecar posts the oldest Queued Short to YouTube
+  (public, direct) and to TikTok (through Buffer, "share now").`;
 
 export const RENDER_HELP = `Render a Short's vertical file into finished-videos/ and print its path.
 
@@ -109,3 +124,116 @@ EXAMPLES:
 
   # Any Footage file, Imported Footage included:
   cvm short create --name "Demo" --footage raw-footage/imported/demo.mp4 --range 10-52`;
+
+export const POST_HELP = `Add Shorts to the Posting Queue, oldest first in the order given, and print
+when each goes out. Prints one NDJSON line per Short:
+  { videoId, title, verdict: "queued" | "refused", reason, slot, goesOutAt }
+'slot' is the ISO instant, 'goesOutAt' the UK wall-clock time ("Wed
+2026-11-04 13:00"). A slot already missed today shows as now: it goes out at
+the Sidecar's next check. A day's slots are set by the queue at 00:00 UK, so a
+Short queued onto an empty queue goes out the next day.
+
+Nothing is posted here: the Sidecar posts each Short at its Posting Slot. A
+Short is checked before it is queued; it needs a title of its own and a
+description (the Video's description, set with 'cvm video update --name …
+--description …'), which become its YouTube title and description. The
+Shorts page's Add to Posting Queue does the same as this verb: its
+description field is the Video's description.
+
+REFUSED (exit 3, _tag "ShortPostRefusedError", 'refusals' names each Short and
+why). If ANY Short of the batch is refused, NONE is queued:
+  a Landscape Video; a Short still on its default title ("Short 11/3/2026");
+  a Short with no description; a Short already in the Posting Queue (Queued,
+  Posting or Held); a Short already Posted on both YouTube and TikTok.
+A Short Posted on only one of them is queued, and goes out only to the other.
+An unknown Video id is a not-found (exit 2).
+
+--dry-run prints every verdict, refusals included, and writes nothing. It
+exits as the real run would: 0 when all would be queued, 3 when any would be
+refused.
+
+LOCAL-ONLY
+  Only this machine's Sidecar posts from the Posting Queue, so on any other
+  box it is refused before anything happens — _tag "LocalOnlyCommandError",
+  exit 7. Stop rather than retry.
+
+EXAMPLES:
+  cvm short post --dry-run vid_1 vid_2 vid_3
+  cvm short post vid_1 vid_2 vid_3`;
+
+export const QUEUE_HELP = `List the Posting Queue and when each Short goes out. Prints one object:
+  { days, entries: [{ entryId, videoId, title, state, slot, goesOutAt,
+                      lastFailureReason }] }
+in posting order: Shorts being posted first, then the Queued ones by when they
+go out (oldest queued first, unless moved), then every Failed one, which
+stays until it is taken off with 'cvm short unqueue'.
+'days' is how many UK days the Queued Shorts' slots fall on — how many days
+of content the queue holds.
+
+States: Queued (waiting for its slot), Posting (claimed a slot, being
+posted), Held (a channel's outcome is unknown: check before retrying),
+Failed (a channel failed 3 times).
+
+'lastFailureReason' says what last went wrong, naming the channel
+("YouTube: …", "TikTok (Buffer): …") or the render ("Its render failed: …").
+A channel that failed (or whose post was cancelled) is tried again at the
+next check, as a new post and only after a read-only check says it did not go
+out; a channel that went out is never posted again. A post goes out with the
+title and description the Short had when its slot was claimed. A Held Short's reason is what that check found: look
+(the link is in the reason), then press Retry on its Job, or take it off with
+'cvm short unqueue'. A Short whose vertical
+export is missing or out of date (its Short Export Hash differs) is rendered
+at its slot, before it posts; there is no need to render it first.
+
+'slot' is the ISO instant, 'goesOutAt' the UK wall-clock time; for a
+Posting, Held or Failed Short it is the slot it claimed. The projection is the
+same one 'cvm short post --dry-run' and the Shorts page use, from the same
+Slot Schedule, so they always agree.`;
+
+export const MOVE_HELP = `Move a Queued Short in the Posting Queue, then print the queue as
+'cvm short queue' does, with every Short's new slot. The flag comes before
+the Short's id. Exactly one of:
+  --top            to the head of the queue: it takes the next open slot
+  --before <id>    just before another Queued Short
+  --after <id>     just after another Queued Short
+The Shorts behind it each move back one slot. A Short can't take a slot from
+before it was queued, so one queued after today's slot still goes out on a
+later day.
+
+REFUSED (exit 3, _tag "PostingQueueChangeRefusedError", 'refusals' names each
+Short and why; nothing moves):
+  a Short that is Posting or Held (it has claimed its slot); a Short not in
+  the Posting Queue; a --before / --after Short that is not Queued, or is the
+  Short being moved. None of --top / --before / --after, or more than one, is
+  a ParseError (exit 3). An unknown Video id is a not-found (exit 2).
+
+LOCAL-ONLY
+  Only this machine's Sidecar posts from the Posting Queue, so on any other
+  box it is refused before anything happens — _tag "LocalOnlyCommandError",
+  exit 7. Stop rather than retry.
+
+EXAMPLES:
+  cvm short move --top vid_3
+  cvm short move --before vid_1 vid_3
+  cvm short move --after vid_3 vid_1`;
+
+export const UNQUEUE_HELP = `Take Shorts off the Posting Queue, then print the queue as 'cvm short
+queue' does, with every Short's new slot. Takes a Short that is Queued, Held
+(take it off instead of retrying) or Failed (it leaves the list). Nothing is
+deleted from YouTube or TikTok. A Short taken off can be added again with
+'cvm short post', which puts it at the back of the queue.
+
+REFUSED (exit 3, _tag "PostingQueueChangeRefusedError", 'refusals' names each
+Short and why). If ANY Short named is refused, NONE is taken off:
+  a Short that is Posting (it is being posted now: wait for it to settle);
+  a Short not in the Posting Queue. An unknown Video id is a not-found
+  (exit 2).
+
+LOCAL-ONLY
+  Only this machine's Sidecar posts from the Posting Queue, so on any other
+  box it is refused before anything happens — _tag "LocalOnlyCommandError",
+  exit 7. Stop rather than retry.
+
+EXAMPLES:
+  cvm short unqueue vid_2
+  cvm short unqueue vid_2 vid_5`;

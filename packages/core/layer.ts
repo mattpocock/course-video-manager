@@ -16,6 +16,7 @@ import { LearningGoalOperationsService } from "./services/db-learning-goal-opera
 import { LessonSectionOperationsService } from "./services/db-lesson-section-operations.server.js";
 import { OverlayOperationsService } from "./services/db-overlay-operations.server.js";
 import { PitchOperationsService } from "./services/db-pitch-operations.server.js";
+import { PostingQueueOperationsService } from "./services/db-posting-queue-operations.server.js";
 import { SearchOperationsService } from "./services/db-search-operations.server.js";
 import { VersionOperationsService } from "./services/db-version-operations.server.js";
 import { VideoOperationsService } from "./services/db-video-operations.server.js";
@@ -49,6 +50,7 @@ export const domainServicesLayer = Layer.mergeAll(
   BeatOperationsService.Default,
   PitchOperationsService.Default,
   DeliverableOperationsService.Default,
+  PostingQueueOperationsService.Default,
   // No disk on the deployed box: a Diagram written through the API is stored
   // without a snapshot thumbnail, which is only ever a cache of its scene.
   DiagramOperationsService.Default.pipe(

@@ -1,7 +1,22 @@
-import { Circle, Download, Send, type LucideIcon } from "lucide-react";
+import {
+  CircleAlert,
+  Circle,
+  Download,
+  ListOrdered,
+  Send,
+  type LucideIcon,
+} from "lucide-react";
 import type { VideoPostPlatform } from "@/services/db-video-post-operations.server";
 
-export type ShortStatus = "recorded" | "exported" | "posted";
+export type ShortStatus =
+  "recorded" | "exported" | "queued" | "posted" | "failed";
+
+/**
+ * Where a Short stands in the Posting Queue, as the grid shows it: Queued
+ * while it has a live entry (Queued, Posting or Held), Failed when its latest
+ * entry the queue still shows Failed.
+ */
+export type ShortQueueState = "queued" | "failed";
 
 export type PostedPlatforms = { youtube: boolean; tiktok: boolean };
 
@@ -38,11 +53,36 @@ export function getPostedPlatforms(
   return posted;
 }
 
+/**
+ * Each Short's Posting Queue state, from the entries the Queue panel shows
+ * (`cvm short queue`'s listing). A live entry wins over a Failed one, so a
+ * Short queued again after failing reads Queued.
+ */
+export function getShortQueueStates(
+  entries: ReadonlyArray<{ videoId: string; state: string }>
+): Record<string, ShortQueueState> {
+  const states: Record<string, ShortQueueState> = {};
+  for (const entry of entries) {
+    if (entry.state === "failed") states[entry.videoId] ??= "failed";
+    else states[entry.videoId] = "queued";
+  }
+  return states;
+}
+
+/**
+ * A Short's status on the Shorts grid: Recorded, Exported, Queued, Posted,
+ * in the order a Short goes through them, or Failed. The Posting Queue
+ * outranks the Video Posts: a Short posted on one channel and queued for the
+ * rest reads Queued, and one whose entry failed reads Failed.
+ */
 export function getShortStatus(
   videoId: string,
   exportedMap: Record<string, boolean>,
-  postedMap: Record<string, PostedPlatforms>
+  postedMap: Record<string, PostedPlatforms>,
+  queueStates: Record<string, ShortQueueState>
 ): ShortStatus {
+  const queueState = queueStates[videoId];
+  if (queueState) return queueState;
   const posted = postedMap[videoId];
   if (posted && (posted.youtube || posted.tiktok)) return "posted";
   if (exportedMap[videoId]) return "exported";
@@ -55,5 +95,7 @@ export const STATUS_META: Record<
 > = {
   recorded: { label: "Recorded", icon: Circle },
   exported: { label: "Exported", icon: Download },
+  queued: { label: "Queued", icon: ListOrdered },
   posted: { label: "Posted", icon: Send },
+  failed: { label: "Failed", icon: CircleAlert },
 };

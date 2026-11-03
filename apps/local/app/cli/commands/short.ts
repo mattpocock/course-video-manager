@@ -15,6 +15,8 @@ import { withFootageJobs } from "./footage-jobs";
 import { waitForShortRender } from "./short-render-wait";
 import { HELP, RENDER_HELP } from "./short.help";
 import { createCmd } from "./short-create";
+import { postCmd, queueCmd } from "./short-post";
+import { moveCmd, unqueueCmd } from "./short-queue-change";
 
 // ---------------------------------------------------------------------------
 // short render
@@ -87,5 +89,12 @@ const renderCmd = Command.make(
 
 export const shortCommand = Command.make("short").pipe(
   Command.withDescription(detail(HELP)),
-  Command.withSubcommands([createCmd, renderCmd])
+  Command.withSubcommands([
+    createCmd,
+    renderCmd,
+    postCmd,
+    queueCmd,
+    moveCmd,
+    unqueueCmd,
+  ])
 );

@@ -247,8 +247,12 @@ _Avoid_: Lint warning, Lint error, Publish blocker (this never blocks a Publish)
 ### Video export and hashing
 
 **Export Hash**:
-A fingerprint of everything that decides how a Video is rendered: its clips and their order and timing, **Pauses**, **Clip Zoom**, **Overlays**, format, and the **Export Version Key**. A CVM-recorder Clip also adds what its picture is drawn from: its **Recording Session**, the scenes in its range, its **Scene Override**, the mic offset, the **Mic EQ** and the layout version; an OBS Clip's part never changes. A Clip's Footage is named in it by its path relative to its **Storage Root**, never by the drive it is on, so moving Footage between drives never changes it (ADR 0040). It decides whether a Video needs a new export, names the **Exported Video**, and is part of the **Bundle** address (ADR 0023). It names what the render was asked to do, not what it produced, so it must include everything that changes the render. Whether a Video is uploaded is decided by the **Byte Hash** instead (ADR 0027).
+A fingerprint of everything that decides how a Video is rendered: its clips and their order and timing, **Pauses**, **Clip Zoom**, **Overlays**, format, and the **Export Version Key**. A CVM-recorder Clip also adds what its picture is drawn from: its **Recording Session**, the scenes in its range, its **Scene Override**, the mic offset, the **Mic EQ** and the layout version; an OBS Clip's part never changes. A Clip's Footage is named in it by its path relative to its **Storage Root**, never by the drive it is on, so moving Footage between drives never changes it (ADR 0040). It decides whether a Video needs a new export, names the **Exported Video**, and is part of the **Bundle** address (ADR 0023). It names what the render was asked to do, not what it produced, so it must include everything that changes the render. It leaves out a Clip's text, which only a Short's captions draw: the **Short Export Hash** adds it. Whether a Video is uploaded is decided by the **Byte Hash** instead (ADR 0027).
 _Avoid_: Content hash (that is an encoding of the **Byte Hash**, not of this), Video hash, Byte Hash (the recipe and the result are different things)
+
+**Short Export Hash**:
+The **Export Hash** of a Short widened to cover what only the vertical render draws: its captions, which are each **Clip**'s text timed by its **Transcript Words**. The Export Hash leaves a Clip's text out on purpose, because a Landscape export draws no words. Everything else the vertical render draws (the Clips, their order and timing, **Pauses**, **Clip Zoom**, its Chat Cards, the format and the **Export Version Key**) is already in the Export Hash. The vertical render writes it beside its file, as `{videoId}.mp4.export-hash`. A Short's vertical export is stale when it has no such file or a different hash in it, and the **Posting Queue** renders a stale Short at its **Posting Slot**, before posting it.
+_Avoid_: Caption hash, Vertical hash
 
 **Mic EQ**:
 The equaliser the export applies to the mic of every CVM-recorder **Recording Session**, one setting for all of them: OBS's 3-band EQ gains, initially Matt's OBS mic EQ (highs down 6.1 dB). It is applied with the mic offset in the same pass that draws the picture; the raw mic **Footage** is never changed. It is part of the **Export Hash** of CVM-recorder Clips only, so changing it makes every CVM-recorder Video need a new export. Matt sets it, and a Recording Session's mic offset, from a CVM-recorder Clip's Mic Settings in the editor.
@@ -568,6 +572,44 @@ _Avoid_: Checkpoint, Commit list, Course Version commit state (release state, un
 A published AI Hero entry that bundles an article and a newsletter draft for one **Video**. It is published at once and creates a newsletter draft, which is never sent automatically. The newsletter is required. Its public page links back to the skills page.
 _Avoid_: Changelog (ambiguous with course publish changelog), Skill post, Changelog entry
 
+### Posting Shorts
+
+**Posting Queue**:
+CVM's ordered list of **Shorts** waiting to be posted, oldest queued first unless moved (ADR 0057). A Short joins it through `cvm short post` or the Shorts page's Add to Posting Queue, and the Sidecar of the author's main checkout posts its head at each **Posting Slot**: to YouTube, public and direct, and to TikTok through Buffer with "share now". Each time a Short is queued is one entry, in one of the states below. **Queued**, **Posting** and **Held** entries are live, and a Short has at most one live entry. Entries are kept after they end, because the **Slot Schedule** reads past days from them. A channel that went out is never posted again: a Short Posted on one channel only, queued again, posts only to the other.
+_Avoid_: Queue, unqualified (the Sidecar's Job queue is the queue), Buffer Queue (Buffer holds at most one post)
+
+**Queued**:
+A **Posting Queue** entry waiting for its **Posting Slot**. Only a Queued entry can be moved.
+
+**Posting**:
+A **Posting Queue** entry that has claimed its **Posting Slot**: its posting Jobs, one per channel not Posted yet, are running or waiting to be retried. While an entry is Posting nothing else is claimed, and it cannot be moved or taken off.
+
+**Posted**:
+A **Posting Queue** entry whose Short both YouTube and TikTok have: it has left the queue.
+
+**Held**:
+A **Posting Queue** entry with a channel whose outcome is unknown: the post check could not say whether it went out. Nothing is retried; the author checks (the link is in its reason), then presses Retry on the Job or takes it off the queue. It has settled its slot, so the next Short may claim the next one.
+_Avoid_: Stuck, Paused
+
+**Failed**:
+A **Posting Queue** entry with a channel that failed 3 times. Its slot stays used, and it stays listed, with its reason, until it is taken off the queue. Posting the Short again makes a new entry.
+
+**Removed**:
+A **Posting Queue** entry taken off the queue with `cvm short unqueue`, from Queued, Held or Failed. Nothing is deleted from YouTube or TikTok, and the Short can be posted again.
+_Avoid_: Unqueued, Taken off, Deleted (as names of the state; "take off the queue" is fine for the act)
+
+**Queue panel**:
+The panel on the Shorts page that shows the **Posting Queue** as `cvm short queue` prints it: each entry's state, when it goes out, and the reason a Held or Failed one gives. It is read-only.
+_Avoid_: Queue, unqualified; Posting panel
+
+**Posting Slot**:
+One time on one UK (Europe/London) day when the head of the **Posting Queue** is posted. The times are UK wall-clock times and stay so across the clock changes. A slot missed earlier in the day is taken at the Sidecar's next check, one at a time, by a Short queued before it; one not taken by the end of its day is dropped.
+_Avoid_: Schedule slot, Time slot
+
+**Slot Schedule**:
+The rule that turns the **Posting Queue**'s length, the date and the queue's history into a day's **Posting Slots**. The count comes from how many Shorts were in the queue at 00:00 UK time, so Shorts queued later that day never change it: none when the queue was empty, so a Short queued onto an empty queue waits for the next day; otherwise 1 on a weekday (13:00), 2 when more than 14 are queued (09:00, 18:00), 3 when more than 21 are (09:00, 13:00, 18:00); Saturday and Sunday always 1. A slot posts the oldest Short in the queue at the slot; a Short queued after a slot never takes it. Catch-up: a weekday after a day that had a Short to post and posted nothing takes the next pattern up (3 stays 3), and Monday looks back over Friday and the weekend; the weekend never catches up. One pure function answers both "what is due now?" and "when does each Queued Short go out?", so the Sidecar, `cvm short queue` and the Shorts page agree.
+_Avoid_: Posting schedule, Buffer schedule
+
 ### Deliverables and scheduling
 
 **Deliverable**:
@@ -637,7 +679,7 @@ _Avoid_: API version, Migration number, Protocol version
 ### Background work
 
 **Job**:
-A piece of background work, kept as a row in the database: something the author starts and walks away from, such as an export, a render, a post or a **Publish**. It has a kind, a title, the parameters it was started with, and a status (queued, running, succeeded, failed, interrupted, cancelled). Only a Job that cleans up after itself offers Cancel, and today that is a **Storage move** and a Storage delete: a queued one ends cancelled at once; a running move is asked to stop, removes its partial copies, and ends cancelled (never retried, never failed); a running delete stops before its next file. A Job may wait on another Job and starts only once that one has succeeded; when the one it waits on fails, it fails too. A failed attempt is run again at once while the Job has attempts left, and the number of attempts is copied from what the Upload Manager allowed for that kind. Two kinds are exceptions. A Job that **posts** (to YouTube, Buffer or AI Hero, a Skills Changelog included) runs exactly once, is never retried or re-queued on its own, and a post cut off mid-run ends interrupted ("check before retrying") until the author presses Retry — which is never offered once the post went out, because posting twice would be worse than not posting. A **Publish** has one attempt and is never re-run on its own either: one cut off after Submit leaves a Pending Version, which the author Promotes or Discards from the publish page (or Discards with `cvm course publish discard`). Closing the browser never stops a Job. A Storage move (a **Storage Bucket**'s Footage, Exported Videos or **Clip Mockups** copied to another **Storage Root** and checked by checksum, originals kept), a Storage delete (every delete on the Storage page, one `operation` each; today **Delete originals**), a Video export, an **Exported Animatic**'s export, a Batch export, a vertical Shorts render, every post (YouTube, YouTube Shorts, Buffer, AI Hero, Skills Changelog), a Course **Autofill**, a **Publish**, a Clip transcription, a **Footage** transcription and a **Clip Mockup**'s voice run as one, beside a test kind (`noop`) (docs/plans/background-jobs-sidecar.md). A Clip transcription and a Clip Mockup's voice show on what they work on, not as a row or a toast of their own; a Clip Mockup's voice is retried on its own (three attempts), and never toasted: its final failure shows on the Clip Mockup and in the Jobs list.
+A piece of background work, kept as a row in the database: something the author starts and walks away from, such as an export, a render, a post or a **Publish**. It has a kind, a title, the parameters it was started with, and a status (queued, running, succeeded, failed, interrupted, cancelled). Only a Job that cleans up after itself offers Cancel, and today that is a **Storage move** and a Storage delete: a queued one ends cancelled at once; a running move is asked to stop, removes its partial copies, and ends cancelled (never retried, never failed); a running delete stops before its next file. A Job may wait on another Job and starts only once that one has succeeded; when the one it waits on fails, it fails too. A failed attempt is run again at once while the Job has attempts left, and the number of attempts is copied from what the Upload Manager allowed for that kind. Two kinds are exceptions. A Job that **posts** (to YouTube, Buffer or AI Hero, a Skills Changelog included) runs exactly once, is never retried or re-queued on its own, and a post cut off mid-run ends interrupted ("check before retrying") until the author presses Retry — which is never offered once the post went out, because posting twice would be worse than not posting. The one automatic second attempt is a **Posting Queue** Short's: when one of its channels fails, the Sidecar checks that channel read-only, and only if the post did not go out does it start a new Job for that channel, up to 3 failures; if the check can't tell, the Short is Held for the author (ADR 0057). A **Publish** has one attempt and is never re-run on its own either: one cut off after Submit leaves a Pending Version, which the author Promotes or Discards from the publish page (or Discards with `cvm course publish discard`). Closing the browser never stops a Job. A Storage move (a **Storage Bucket**'s Footage, Exported Videos or **Clip Mockups** copied to another **Storage Root** and checked by checksum, originals kept), a Storage delete (every delete on the Storage page, one `operation` each; today **Delete originals**), a Video export, an **Exported Animatic**'s export, a Batch export, a vertical Shorts render, every post (YouTube, YouTube Shorts, Buffer, AI Hero, Skills Changelog), a Course **Autofill**, a **Publish**, a Clip transcription, a **Footage** transcription and a **Clip Mockup**'s voice run as one, beside a test kind (`noop`) (docs/plans/background-jobs-sidecar.md). A Clip transcription and a Clip Mockup's voice show on what they work on, not as a row or a toast of their own; a Clip Mockup's voice is retried on its own (three attempts), and never toasted: its final failure shows on the Clip Mockup and in the Jobs list.
 _Avoid_: Task, Upload (the Upload Manager's word for all of them), Background request
 
 **Sidecar**:

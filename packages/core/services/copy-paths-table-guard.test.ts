@@ -178,6 +178,9 @@ async function seedEveryTable() {
     .insert(schema.thumbnails)
     .values({ videoId, layers: [], filePath: null });
   await testDb.insert(schema.videoPosts).values({ videoId, platform: "x" });
+  await testDb
+    .insert(schema.postingQueueEntries)
+    .values({ videoId, order: "a0" });
   return { course: course!, version: version!, video: video! };
 }
 

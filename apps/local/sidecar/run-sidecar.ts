@@ -32,6 +32,10 @@ import { sweepStuckClips } from "./stuck-clip-sweep";
 import { sweepUnqueuedVoices } from "./clip-mockup-voice-sweep";
 import { sweepMovePartials } from "./move-partials-sweep";
 import { superviseSidecar } from "./supervise";
+import {
+  POSTING_QUEUE_TICK_MS,
+  postingQueueTickIn,
+} from "./posting-queue-tick";
 
 /**
  * The sidecar's entry point (`pnpm dev` runs it as `dev:sidecar`, `pnpm start`
@@ -170,6 +174,11 @@ const main = async (): Promise<void> => {
               timing: SIDECAR_TIMING,
               stop,
               // Each sweep on its own: one that fails never skips the other.
+              // Only Matt's main checkout posts the Posting Queue.
+              postingQueueTick: {
+                tick: postingQueueTickIn(CHECKOUT),
+                everyMs: POSTING_QUEUE_TICK_MS,
+              },
               afterRecovery: sweepStuckClips.pipe(
                 Effect.catchAllCause((cause) =>
                   Effect.logError("sidecar: the stuck-Clip sweep failed", cause)

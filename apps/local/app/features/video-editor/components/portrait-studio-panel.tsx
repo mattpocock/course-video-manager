@@ -12,14 +12,11 @@ import { PreloadableClipManager } from "../preloadable-clip";
 import { shortOverlaysByClipId } from "../overlay-preview";
 import { getShowScrubSlider as getShowScrubSliderSelector } from "../video-editor-selectors";
 import { formatDuration } from "@/lib/format-duration";
-import { SendIcon, VideoOffIcon } from "lucide-react";
+import { ListPlusIcon, VideoOffIcon } from "lucide-react";
 import { useContextSelector } from "use-context-selector";
 import { VideoEditorContext } from "../video-editor-context";
 import { useState, useCallback, useMemo, type ChangeEvent } from "react";
-import {
-  ShortsPostingModal,
-  type ShortsPostingMode,
-} from "@/features/video-posting/shorts-posting-modal";
+import { ShortsPostingModal } from "@/features/video-posting/shorts-posting-modal";
 
 export const PortraitStudioPanel = () => {
   const footageNotFound = useContextSelector(
@@ -109,17 +106,9 @@ export const PortraitStudioPanel = () => {
   const hasLivePreview = getHasLivePreview(cvmRecorderState);
 
   const [isPostingModalOpen, setIsPostingModalOpen] = useState(false);
-  const [postingMode, setPostingMode] = useState<ShortsPostingMode>("both");
-  const openPostingModal = useCallback((mode: ShortsPostingMode) => {
-    setPostingMode(mode);
-    setIsPostingModalOpen(true);
-  }, []);
+  const openPostingModal = useCallback(() => setIsPostingModalOpen(true), []);
 
-  const menu = useEditorVideoMenu({
-    postShort: () => openPostingModal("both"),
-    postToYouTube: () => openPostingModal("youtube"),
-    postToTikTok: () => openPostingModal("tiktok"),
-  });
+  const menu = useEditorVideoMenu({ postShort: openPostingModal });
 
   const showScrubSlider = getShowScrubSliderSelector(
     currentClip?.type,
@@ -208,9 +197,9 @@ export const PortraitStudioPanel = () => {
             groups={menu.groups}
             allClipsHaveSilenceDetected={allClipsHaveSilenceDetected}
           />
-          <Button size="sm" onClick={() => openPostingModal("both")}>
-            <SendIcon className="w-3.5 h-3.5 mr-1" />
-            Post
+          <Button size="sm" onClick={openPostingModal}>
+            <ListPlusIcon className="w-3.5 h-3.5 mr-1" />
+            Queue
           </Button>
         </div>
       </div>
@@ -220,7 +209,6 @@ export const PortraitStudioPanel = () => {
         onOpenChange={setIsPostingModalOpen}
         videoId={videoId}
         videoTitle={videoTitle}
-        mode={postingMode}
       />
     </div>
   );
