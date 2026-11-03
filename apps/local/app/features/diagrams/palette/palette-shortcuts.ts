@@ -2,13 +2,13 @@
  * The palette's global keyboard shortcuts, as a pure decision function.
  *
  * Extracted from the hook for the same reason the page stack is (see
- * `palette-nav`): a plain function is the only part of this the test suite can
+ * `palette-reducer`): a plain function is the only part of this the test suite can
  * reach. The open/closed state comes in as an argument rather than being
  * branched on in the hook, so "which key dismisses and which never does" is
  * decided here, where it is tested.
  */
 
-import type { PageKey } from "./palette-nav";
+import type { PageKey } from "./palette-reducer";
 
 export type PaletteCommand =
   /** Summon it, standing on `page` — or on the root list when that is null. */

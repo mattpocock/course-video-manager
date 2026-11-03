@@ -1,11 +1,6 @@
 {
   "use-state": [
     {
-      "file": "apps/local/app/features/diagrams/palette/use-palette.ts",
-      "count": 9,
-      "reason": "Pre-dates the guard. Migrates in docs/plans/reducer-migration.md, batch 8."
-    },
-    {
       "file": "apps/local/app/features/video-posting/ai-hero-page.tsx",
       "count": 5,
       "reason": "Pre-dates the guard. Migrates in docs/plans/reducer-migration.md, batch 9."
@@ -17,11 +12,6 @@
     }
   ],
   "effect-sets-state": [
-    {
-      "file": "apps/local/app/features/diagrams/palette/use-palette.ts",
-      "count": 3,
-      "reason": "Pre-dates the guard. Migrates in docs/plans/reducer-migration.md, batch 8."
-    },
     {
       "file": "apps/local/app/features/video-posting/ai-hero-page.tsx",
       "count": 2,
