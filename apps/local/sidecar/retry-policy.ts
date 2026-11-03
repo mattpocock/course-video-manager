@@ -1,5 +1,6 @@
 import { PUBLISH_INTERRUPTED_MESSAGE } from "@/features/jobs/job-wire";
 import type { LaneName } from "./lanes";
+import { SHORT_POSTING_JOB_POLICY } from "@cvm/core/features/posting-queue/posting-jobs";
 import { CLIP_MOCKUP_VOICE_POLICY as CORE_CLIP_MOCKUP_VOICE_POLICY } from "@cvm/core/features/clip-mockups/voice-status";
 
 /**
@@ -271,6 +272,15 @@ export const STORAGE_DELETE_POLICY = {
  */
 export const CLIP_MOCKUP_VOICE_POLICY =
   CORE_CLIP_MOCKUP_VOICE_POLICY satisfies RetryingJobPolicy;
+
+/**
+ * The policy core's Posting Queue enqueues its posting Jobs with
+ * (`SHORT_POSTING_JOB_POLICY`) is this one: a mismatch does not compile.
+ */
+SHORT_POSTING_JOB_POLICY satisfies Pick<
+  typeof POSTING_JOB_POLICY,
+  "lane" | "maxAttempts"
+>;
 
 /**
  * The Upload Manager types that post to an outside service: each must be a

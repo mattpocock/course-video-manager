@@ -60,6 +60,7 @@ const TIMING: SidecarTiming = {
   recoverEveryMs: 500,
   lapseWaitMs: 200,
   postCheckTimeoutMs: 1_000,
+  postingQueueTickMs: 60_000,
 };
 
 describe("the sidecar's after-recovery sweep", () => {

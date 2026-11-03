@@ -58,7 +58,7 @@ export type PostingQueueListing = {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-const toScheduleEntry = (
+export const toScheduleEntry = (
   row: typeof postingQueueEntries.$inferSelect
 ): SlotScheduleEntry => ({
   id: row.id,
@@ -69,31 +69,33 @@ const toScheduleEntry = (
   endedAt: row.endedAt?.getTime() ?? null,
 });
 
+/**
+ * Every entry the Slot Schedule needs at `now`: the live ones, and those that
+ * ended recently enough for their day's queue length or claim to matter
+ * (catch-up looks back at most to last Friday).
+ */
+export const selectScheduleRows = (db: Database, now: number) =>
+  makeDbCall(() =>
+    db
+      .select()
+      .from(postingQueueEntries)
+      .where(
+        or(
+          isNull(postingQueueEntries.endedAt),
+          gt(
+            postingQueueEntries.endedAt,
+            new Date(now - (SLOT_SCHEDULE_HISTORY_DAYS + 1) * DAY_MS)
+          )
+        )
+      )
+      .orderBy(asc(postingQueueEntries.order))
+  );
+
 const isLive = (state: PostingQueueEntryState) =>
   (LIVE_POSTING_QUEUE_ENTRY_STATES as ReadonlyArray<string>).includes(state);
 
 export const createPostingQueueOperations = (db: Database) => {
-  /**
-   * Every entry the Slot Schedule needs at `now`: the live ones, and those
-   * that ended recently enough for their day's queue length or claim to
-   * matter (catch-up looks back at most to last Friday).
-   */
-  const scheduleRows = (now: number) =>
-    makeDbCall(() =>
-      db
-        .select()
-        .from(postingQueueEntries)
-        .where(
-          or(
-            isNull(postingQueueEntries.endedAt),
-            gt(
-              postingQueueEntries.endedAt,
-              new Date(now - (SLOT_SCHEDULE_HISTORY_DAYS + 1) * DAY_MS)
-            )
-          )
-        )
-        .orderBy(asc(postingQueueEntries.order))
-    );
+  const scheduleRows = (now: number) => selectScheduleRows(db, now);
 
   /**
    * Add Shorts to the Posting Queue, oldest first in the order given. Every
