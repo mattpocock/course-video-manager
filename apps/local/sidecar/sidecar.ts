@@ -27,6 +27,7 @@ import {
   type JobContext,
 } from "./job-kind";
 import { makeKindCleanup } from "./kind-cleanup";
+import { makeLeaseRenewal } from "./lease-renewal";
 import { settleCancelled } from "./settle-cancelled";
 import { retryingSettleOps } from "./settle-retry";
 import { makePostChecks } from "./post-checks";
@@ -447,6 +448,8 @@ export const runSidecar = <R>(opts: {
           neverRetryKinds: neverReRunMessagesOf(registry),
           resumableKinds: resumableKindsOf(registry),
           stillRunning: [...running.keys()],
+          // A sidecar cut off from the database runs its Jobs this long.
+          holderGoneAfterMs: timing.outageToleranceMs,
         })
       ).pipe(
         Effect.flatMap((recovered) =>
@@ -495,39 +498,13 @@ export const runSidecar = <R>(opts: {
         }
       }).pipe(logCause("sidecar: the job heartbeat failed"));
 
-      // A sidecar that cannot reach its database for longer than the lease
-      // has lost it — another may hold it by now — so it stops rather than run
-      // Jobs on a lease it cannot prove.
-      let lastRenewed = Date.now();
-      const renewLease = ops
-        .renewSidecarLease({
-          holder: identity.holder,
-          leaseMs: timing.leaseMs,
-        })
-        .pipe(
-          Effect.flatMap((renewed) =>
-            renewed
-              ? Effect.sync(() => {
-                  lastRenewed = Date.now();
-                })
-              : Effect.logError(
-                  "sidecar: another sidecar took this database's lease; stopping"
-                ).pipe(Effect.zipRight(Deferred.succeed(stop, "lease lost")))
-          ),
-          Effect.catchAllCause((cause) =>
-            Effect.logError("sidecar: could not renew the lease", cause).pipe(
-              Effect.zipRight(
-                Date.now() - lastRenewed > timing.leaseMs
-                  ? Effect.logError(
-                      "sidecar: the lease lapsed while the database was unreachable; stopping"
-                    ).pipe(
-                      Effect.zipRight(Deferred.succeed(stop, "lease lapsed"))
-                    )
-                  : Effect.void
-              )
-            )
-          )
-        );
+      // Stops on a takeover, or after `outageToleranceMs` of silence.
+      const renewLease = makeLeaseRenewal({
+        ops,
+        holder: identity.holder,
+        timing,
+        stop,
+      });
 
       // Recovery runs once before any lane claims, so a Job the last sidecar
       // left running is settled before new work starts beside it.

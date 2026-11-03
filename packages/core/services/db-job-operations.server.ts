@@ -337,10 +337,18 @@ export const createJobOperations = (db: Database) => {
    * (`kind → message`). Safe to call at any time and from any process.
    * Never one in `stillRunning`, the caller's own live runs: a late
    * heartbeat can lapse a lease while the post goes on.
+   *
+   * Never one whose lease ran out less than `holderGoneAfterMs` ago (#2621).
+   * A sidecar that cannot reach the database keeps running its Jobs for its
+   * outage tolerance, heartbeats failing, and stops only after it; another
+   * sidecar that took the lease meanwhile must not run them a second time
+   * beside it. Past that, its holder has surely stopped.
    */
   const recoverExpiredJobs = Effect.fn("recoverExpiredJobs")(function* (input: {
     neverRetryKinds: { readonly [kind: string]: string };
     stillRunning: readonly string[];
+    /** How long a Job's holder may still run it after its lease ran out. */
+    holderGoneAfterMs: number;
     /** Kinds whose lost run resumes: back at the same attempt (#2167). */
     resumableKinds?: readonly string[];
   }) {
@@ -353,7 +361,10 @@ export const createJobOperations = (db: Database) => {
             .where(
               and(
                 eq(jobs.status, "running"),
-                lt(jobs.leaseUntil, sql`now()`),
+                lt(
+                  jobs.leaseUntil,
+                  sql`now() - (${input.holderGoneAfterMs} * interval '1 millisecond')`
+                ),
                 input.stillRunning.length === 0
                   ? undefined
                   : notInArray(jobs.id, [...input.stillRunning])

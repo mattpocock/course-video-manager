@@ -8,7 +8,7 @@ import type { SidecarOutcome } from "./sidecar";
  * and doubles with each run in a row that could not start (1 s, 2 s, 4 s …
  * up to `maxDelayMs`).
  *
- * A database outage longer than the lease (`lease lapsed`) used to end the
+ * A database outage longer than the outage tolerance (`lease lapsed`) used to end the
  * process with exit 0, and nothing started it again: every Job waited in the
  * queue, silently, until someone restarted `pnpm dev`. So did a database
  * that was unreachable when the sidecar started.

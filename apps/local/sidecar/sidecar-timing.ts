@@ -2,6 +2,14 @@
 export interface SidecarTiming {
   /** How long the sidecar lease lasts without a renewal. */
   readonly leaseMs: number;
+  /**
+   * How long the sidecar keeps running its Jobs while it cannot reach its
+   * database at all. Longer than the lease on purpose: a renewal that ANSWERS
+   * `false` proves another sidecar took over, and stops it at once; silence
+   * proves nothing, so a short network drop no longer kills a Publish an hour
+   * into its encodes (#2621).
+   */
+  readonly outageToleranceMs: number;
   readonly leaseRenewMs: number;
   /** How long a running Job's lease lasts without a heartbeat. */
   readonly jobLeaseMs: number;
@@ -18,6 +26,7 @@ export interface SidecarTiming {
 
 export const SIDECAR_TIMING: SidecarTiming = {
   leaseMs: 15_000,
+  outageToleranceMs: 5 * 60_000,
   leaseRenewMs: 5_000,
   jobLeaseMs: 30_000,
   jobHeartbeatMs: 10_000,

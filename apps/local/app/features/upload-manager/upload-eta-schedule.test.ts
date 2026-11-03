@@ -156,7 +156,7 @@ describe("an Autofill's estimate", () => {
 });
 
 describe("Export All", () => {
-  it("queues its Videos behind the six-way encode pool", () => {
+  it("queues its Videos behind the six-Video export pool", () => {
     const steps: Step[] = Array.from({ length: 7 }, (_, i): Step => [
       0,
       start(`e${i + 1}`, "export", { isBatchEntry: true }),
