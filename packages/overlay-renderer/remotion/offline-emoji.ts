@@ -10,11 +10,14 @@ import emoji from "@fontsource/noto-color-emoji/files/noto-color-emoji-emoji-400
  */
 export const EMOJI_FONT_FAMILY = "Noto Color Emoji";
 
-const handle = delayRender("Loading bundled Noto Color Emoji");
-
-new FontFace(EMOJI_FONT_FAMILY, `url(${emoji}) format("woff2")`)
-  .load()
-  .then((face) => {
-    document.fonts.add(face);
-    continueRender(handle);
-  }, cancelRender);
+// Every browser has FontFace; only Node (a test importing the preview) lacks
+// it, and draws nothing there. Remotion's own font loaders skip it the same way.
+if (typeof FontFace !== "undefined") {
+  const handle = delayRender("Loading bundled Noto Color Emoji");
+  new FontFace(EMOJI_FONT_FAMILY, `url(${emoji}) format("woff2")`)
+    .load()
+    .then((face) => {
+      document.fonts.add(face);
+      continueRender(handle);
+    }, cancelRender);
+}
