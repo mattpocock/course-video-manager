@@ -47,6 +47,12 @@ export const youtubeShortsJobKind = definePostingJobKind({
         });
       }
       const filePath = found.value;
+      if ("postingQueueEntryId" in params) {
+        yield* (yield* PostingQueueSidecarService).assertStillToPost(
+          params,
+          "youtube-shorts"
+        );
+      }
       const { title, description } = yield* shortWords(params);
       const videoPosts = yield* VideoPostOperationsService;
       const post = yield* videoPosts.createVideoPost({

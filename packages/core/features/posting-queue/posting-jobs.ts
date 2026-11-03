@@ -19,6 +19,12 @@ export const SHORT_POSTING_JOB_POLICY = {
   maxAttempts: 1,
 } as const;
 
+/**
+ * The failures on one channel that mark a Posting Queue entry Failed
+ * (#2618). A render that fails for good counts once per channel waiting on it.
+ */
+export const SHORT_POSTING_FAILURE_LIMIT = 3;
+
 /** A posting Job's params when the Posting Queue enqueued it. */
 export type QueuedShortPostParams = {
   readonly videoId: string;

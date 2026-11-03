@@ -3,6 +3,12 @@ import { Data, Effect, Config, Redacted } from "effect";
 export class BufferApiError extends Data.TaggedError("BufferApiError")<{
   message: string;
   cause?: unknown;
+  /**
+   * Buffer answered and did not make the post: a 4xx, a GraphQL error or a
+   * `MutationError`. Unset when it is unknown whether Buffer has it (no
+   * answer, a 5xx).
+   */
+  refused?: boolean;
 }> {}
 
 /**
@@ -76,6 +82,7 @@ const failRequest = (opts: {
         message: ok
           ? `Buffer GraphQL: ${detail}`
           : `Buffer API ${status}: ${detail}`,
+        refused: status < 500,
       });
 
   return Effect.logError(
@@ -207,7 +214,9 @@ const createBufferApiOperations = (config: {
         }
         const message = `Buffer createPost failed: ${payload.message ?? "unknown error"}`;
         return Effect.logError(message).pipe(
-          Effect.zipRight(Effect.fail(new BufferApiError({ message })))
+          Effect.zipRight(
+            Effect.fail(new BufferApiError({ message, refused: true }))
+          )
         );
       })
     ),

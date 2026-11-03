@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { Clock, Effect, type Layer } from "effect";
+import { eq } from "drizzle-orm";
 import {
   createTestDb,
   truncateAllTables,
@@ -578,17 +579,36 @@ describe("the Shorts page", () => {
     ]);
   });
 
-  it("the Queue panel shows what `cvm short queue` prints", async () => {
+  it("the Queue panel shows what `cvm short queue` prints, Held and Failed with their reasons", async () => {
     await queuedYesterday("Head");
     const a = await short("Generics");
     await run(["short", "post", a]);
+    const held = await inFlight("Unsure", "held");
+    await testDb
+      .update(schema.postingQueueEntries)
+      .set({ lastFailureReason: "TikTok (Buffer): Buffer may have it" })
+      .where(eq(schema.postingQueueEntries.videoId, held));
+    await testDb.insert(schema.postingQueueEntries).values({
+      videoId: await short("Broken"),
+      order: "Zy",
+      queuedAt: new Date("2026-10-31T14:00:00Z"),
+      state: "failed",
+      claimedSlot: new Date("2026-11-02T13:00:00Z"),
+      endedAt: new Date("2026-11-02T13:30:00Z"),
+      youtubeFailures: 3,
+      lastFailureReason: "YouTube: backend error",
+    });
 
     const panel = await page(loadPostingQueuePanel());
     const cli = await run(["short", "queue"]);
 
-    expect(panel.entries.map((e) => e.goesOutAt)).toEqual([
-      "Tue 2026-11-03 13:00",
-      "Wed 2026-11-04 13:00",
+    expect(
+      panel.entries.map((e) => [e.title, e.state, e.lastFailureReason])
+    ).toEqual([
+      ["Unsure", "held", "TikTok (Buffer): Buffer may have it"],
+      ["Head", "queued", null],
+      ["Generics", "queued", null],
+      ["Broken", "failed", "YouTube: backend error"],
     ]);
     expect(panel).toEqual(one(cli.stdout));
   });

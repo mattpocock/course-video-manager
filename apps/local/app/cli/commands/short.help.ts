@@ -166,8 +166,13 @@ States: Queued (waiting for its slot), Posting (claimed a slot, being
 posted), Held (a channel's outcome is unknown: check before retrying),
 Failed (a channel failed 3 times).
 
-'lastFailureReason' says why a Short is not going out: for a Posting Short,
-that its render failed ("Its render failed: …"). A Short whose vertical
+'lastFailureReason' says what last went wrong, naming the channel
+("YouTube: …", "TikTok (Buffer): …") or the render ("Its render failed: …").
+A channel that failed is tried again at the next check, as a new post and
+only after a read-only check says it did not go out; a channel that went out
+is never posted again. A Held Short's reason is what that check found: look
+(the link is in the reason), then press Retry on its Job, or take it off with
+'cvm short unqueue'. A Short whose vertical
 export is missing or out of date (its Short Export Hash differs) is rendered
 at its slot, before it posts; there is no need to render it first.
 
