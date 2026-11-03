@@ -11,6 +11,7 @@ import { clipMockupCommand } from "./commands/clip-mockup";
 import { clipMockupChapterCommand } from "./commands/clip-mockup-chapter";
 import { clipMockupCommentCommand } from "./commands/clip-mockup-comment";
 import { overlayCommand } from "./commands/overlay";
+import { chatHighlightCommand } from "./commands/chat-highlight";
 import { beatCommand } from "./commands/beat";
 import { learningGoalCommand } from "./commands/learning-goal";
 import { fileCommand } from "./commands/file";
@@ -256,8 +257,12 @@ WRITES
 
 NOUNS
   course version section learning-goal lesson video short clip clip-mockup
-  clip-mockup-chapter clip-mockup-comment chapter overlay beat file footage pitch deliverable
-  diagram
+  clip-mockup-chapter clip-mockup-comment chapter overlay chat-highlight beat file footage
+  pitch deliverable diagram
+
+  chat-highlight list (--recording-session <id> | --video <id>): a Streamed
+  Recording Session's Chat Highlights (id, shownAt/hiddenAt in seconds on its
+  clock, author, text): what a Chat Card is made from.
 
 SEARCH
   search <query>   Case-insensitive substring search DOWN THE TREE across every
@@ -286,6 +291,7 @@ export const rootCommand = Command.make("cvm").pipe(
     clipMockupChapterCommand,
     clipMockupCommentCommand,
     overlayCommand,
+    chatHighlightCommand,
     beatCommand,
     learningGoalCommand,
     fileCommand,

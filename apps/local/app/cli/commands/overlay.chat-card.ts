@@ -22,9 +22,10 @@ import {
 export const chatCardOpts = {
   chatHighlight: Options.text("chat-highlight").pipe(
     Options.withDescription(
-      "The Chat Highlight id a Chat Card shows. Omitted: the one showing at " +
-        "the anchor point of a Streamed Recording Session's Clip, else the " +
-        "last one shown before it. Only with --kind chatCard."
+      "The Chat Highlight id a Chat Card shows ('cvm chat-highlight list'). " +
+        "Omitted: the one showing at the anchor point of a Streamed " +
+        "Recording Session's Clip (the latest shown by then, if not yet " +
+        "hidden). Only with --kind chatCard."
     ),
     Options.optional
   ),
@@ -158,9 +159,9 @@ const pickChatHighlight = (params: {
         )
         .join(", ");
       return yield* refuse(
-        `no Chat Highlight was shown by ${secs(atMs - session.t0Ms)} into ` +
+        `no Chat Highlight is showing ${secs(atMs - session.t0Ms)} into ` +
           "this Clip's Recording Session; pass --chat-highlight with one of " +
-          `its Chat Highlights: ${listed}`
+          `its Chat Highlights ('cvm chat-highlight list'): ${listed}`
       );
     }
     return { pick, session: session.highlights };

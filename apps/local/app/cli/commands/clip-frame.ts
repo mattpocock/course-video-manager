@@ -4,6 +4,7 @@ import { OverlayFrameService } from "@/services/overlay-frame";
 import { clipFrame } from "@/services/clip-frame";
 import { detail, emitObject } from "@/cli/helpers";
 import { NEEDS_FOOTAGE_ON_DISK, requireLocalMachine } from "@/cli/local-only";
+import { loadRepoEnv } from "@/services/repo-env";
 import { entityIdArg } from "../entity-id";
 import { requireActiveClip } from "./clip.shared";
 import { atOption, frameLayer } from "./footage-frame";
@@ -57,6 +58,9 @@ export const clipFrameCmd = Command.make(
   ({ clip, at }) =>
     Effect.gen(function* () {
       yield* requireLocalMachine("cvm clip frame", NEEDS_FOOTAGE_ON_DISK);
+      // STORAGE_ROOTS lives in the repo .env on the author's machine, which
+      // tsx does not load: read it in, as 'footage frame' finds it there.
+      yield* Effect.sync(() => loadRepoEnv());
       yield* requireActiveClip(clip);
       const png = yield* clipFrame(clip, at).pipe(
         withOverlayRenderer,
