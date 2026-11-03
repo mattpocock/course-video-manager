@@ -12,6 +12,7 @@
 
 import type { MetricDef } from "./metric-def";
 import { STILLS_METRICS } from "./metrics-stills";
+import { STREAM_SPEED_METRICS } from "./stream-speed";
 
 export type { MetricDef, MetricGroup } from "./metric-def";
 
@@ -579,6 +580,7 @@ export const METRICS: readonly MetricDef[] = [
     obs: null,
     scale: 1,
   },
+  ...STREAM_SPEED_METRICS,
   // #2459: it reconnects for ever, and the take never notices (the
   // streamed framesLost above cover the take).
   {

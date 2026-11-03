@@ -62,18 +62,28 @@ const polledSignal = (
   };
 };
 
+/**
+ * The recorder service at `url` (a `ws://host:port`) as a
+ * {@link RecordingSignal}: busy while it records (a Live Stream always
+ * records) or a stopped take is still closing its files.
+ */
+export const recorderRecordingSignal = (url: string) =>
+  Effect.gen(function* () {
+    const port = Number(new URL(url).port);
+    // `recorderHealth` never rejects: anything but a recorder's answer is
+    // "nothing" or "something-else", neither of which records.
+    const busy = () => recorderHealth(port).then(recorderBusy);
+    const initial = yield* Effect.async<boolean>((resume) => {
+      void busy().then((now) => resume(Effect.succeed(now)));
+    });
+    return polledSignal(initial, busy);
+  });
+
 /** The Still Gate on the recorder service at `url` (a `ws://host:port`). */
 export const recorderStillGateLayer = (url: string) =>
   Layer.effect(
     StillGate,
-    Effect.gen(function* () {
-      const port = Number(new URL(url).port);
-      // `recorderHealth` never rejects: anything but a recorder's answer is
-      // "nothing" or "something-else", neither of which records.
-      const busy = () => recorderHealth(port).then(recorderBusy);
-      const initial = yield* Effect.async<boolean>((resume) => {
-        void busy().then((now) => resume(Effect.succeed(now)));
-      });
-      return { run: makeStillGate(polledSignal(initial, busy)) };
-    })
+    recorderRecordingSignal(url).pipe(
+      Effect.map((signal) => ({ run: makeStillGate(signal) }))
+    )
   );

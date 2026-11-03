@@ -10,6 +10,8 @@ import { VideoExportService } from "@/services/video-export-service";
 import { WhisperTranscriptionService } from "@/services/whisper-transcription-service";
 import { ClipMockupVoiceOperationsService } from "@/services/db-clip-mockup-voice-operations.server";
 import { LocalWhisperEngineLive } from "./local-whisper-engine";
+import { recorderGpuGateLayer } from "@/services/gpu-gate";
+import { stillGateRecorderUrl } from "@/services/recorder-still-gate";
 import { SIDECAR_TIMING } from "./sidecar-timing";
 
 /**
@@ -56,7 +58,12 @@ export const sidecarLayer = Layer.mergeAll(
   Layer.provideMerge(SidecarContextLive),
   // Local Whisper: its env made ready when the Sidecar starts, and one
   // worker shared by every WhisperTranscriptionService built above.
-  Layer.provideMerge(LocalWhisperEngineLive)
+  Layer.provideMerge(LocalWhisperEngineLive),
+  // No Whisper pass starts while a Recording Session or Live Stream is live
+  // (#2631): the recorder service's /health, the one `cvm`'s Still Gate reads.
+  Layer.provideMerge(
+    Layer.suspend(() => recorderGpuGateLayer(stillGateRecorderUrl(process.env)))
+  )
 );
 
 /** Every service a Job's handler may ask for. */
