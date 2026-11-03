@@ -54,7 +54,7 @@ export type RecordingSignal = {
 };
 
 /** Waits until `signal` reads `want`; at once if it already does. */
-const until = (signal: RecordingSignal, want: boolean) =>
+export const untilRecordingIs = (signal: RecordingSignal, want: boolean) =>
   Effect.async<void>((resume) => {
     if (signal.recording() === want) return resume(Effect.void);
     const stop = signal.onRecordingChange((recording) => {
@@ -84,7 +84,7 @@ export const makeStillGate = (signal: RecordingSignal) => {
           if (signal.recording()) return yield* held();
           const done = yield* Effect.raceFirst(
             decode.pipe(Effect.map(Option.some)),
-            until(signal, true).pipe(Effect.as(Option.none<A>()))
+            untilRecordingIs(signal, true).pipe(Effect.as(Option.none<A>()))
           );
           if (Option.isNone(done)) return yield* held();
           return done.value;

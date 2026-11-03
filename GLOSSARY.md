@@ -389,7 +389,7 @@ A next line the author could say, with a title of two to four words naming where
 _Avoid_: Autofill (a different feature that writes a Video's description and Chapters), Prompt
 
 **Transcription**:
-The process of getting a clip's text from its audio. A **Clip** is transcribed as soon as it is saved, by Local Whisper in the **Sidecar**, even while its **Recording Session** is still recording, so its text is there mid-take. That Transcription runs below the capture and reads only the Clip's span of the mic file. A **Footage** file's Transcription waits until the Recording Session stops.
+The process of getting a clip's text from its audio, by Local Whisper in the **Sidecar**. A **Clip** is queued for it as soon as it is saved, but Whisper never runs while any **Recording Session** records (a **Live Stream** always does): the GPU is the capture's and the stream's first. A Transcription asked for mid-take waits for the Stop, then runs; one already running finishes the file it is on and waits before the next (a **Footage** file's next chunk). A Footage file's Transcription does not even start until the Recording Session stops (#2631).
 _Avoid_: Caption, Subtitle
 
 **Transcription Status**:

@@ -193,11 +193,14 @@ stay, by name. The plan and the order the jobs move in:
 
 ### Work that runs during a take stays below the capture
 
-A Clip is transcribed as it arrives, while its take is still recording
-(#2224), because the recording workflow needs its text at once. Anything
-that runs mid-take must never take time from the capture (#2214, which lost
-41 frames to a Whisper cold start and stills grabbed from the growing take):
+Anything that runs mid-take must never take time from the capture (#2214,
+which lost 41 frames to a Whisper cold start and stills grabbed from the
+growing take), nor the GPU from a Live Stream (#2631):
 
+- GPU work waits for Stop. Each Local Whisper pass goes through the GPU gate
+  (`app/services/gpu-gate.ts`), held while recording. Read "is
+  anything live" from the Still Gate's `RecordingSignal`, never your own.
+  The recorder keeps Whisper loaded while open.
 - It runs at the lowest CPU priority: `nice -n 19` for ffmpeg and the Local
   Whisper worker (`whisper-transcription-service.ts`,
   `sidecar/local-whisper-engine.ts`). The capture, mic and writers are High.
@@ -205,8 +208,6 @@ that runs mid-take must never take time from the capture (#2214, which lost
   `.mkv` has no Cues, so `ffmpeg -ss` reads it from the start: go through
   `copyMkvSpan` (`app/services/mkv-span.ts`), which copies out only the
   Clusters it needs.
-- It never cold-starts the GPU: the recorder keeps Whisper loaded while it
-  is open (`recorder-client/whisper-warmth.ts`).
 - Heavier work waits for Stop: `transcribe-footage` Jobs
   (`HELD_WHILE_RECORDING_KINDS`) and the stills of the live take
   (`holdsStillsOf`), the last-frame overlay on the live preview included:

@@ -5,6 +5,7 @@ import type { RecorderMessage } from "../../recorder-service/protocol";
 import { findFfmpegExe } from "../../recorder-service/windows-launcher";
 import { analysePicture, decodeStamps } from "./footage-analysis";
 import { isState, type Received } from "./service-control";
+import { longestLowSpeedS } from "./stream-speed";
 import type { ProgressSample, Span } from "./stream-sink";
 import {
   readProgress,
@@ -203,6 +204,7 @@ const takePicture = (
   const relaunchedLag = relaunched && streamLag(pushed, relaunched, at.t0Ms);
   if (at.liveAt === null)
     return {
+      steady: [],
       fps: null,
       relaunchedFps,
       relaunchedLag,
@@ -213,8 +215,10 @@ const takePicture = (
       encodedFrames: null,
     };
   const first: Span = [at.liveAt + FIRST_WARM_UP_MS, at.killAt];
+  const steady = relaunched ? [first, relaunched] : [first];
   return {
-    fps: takeFps(pushed, relaunched ? [first, relaunched] : [first]),
+    steady,
+    fps: takeFps(pushed, steady),
     relaunchedFps,
     relaunchedLag,
     ...takeDupsDrops(pushed),
@@ -251,6 +255,14 @@ const healthOf = (received: readonly Received[]) => {
   );
   return { heard: all.length, first: all[0] ?? null, last: all.slice(-5) };
 };
+
+/** The speed in each stream health the service sent, when it was heard. */
+const speedsOf = (received: readonly Received[]) =>
+  received.flatMap((r) =>
+    r.message.type === "stream-health"
+      ? [{ at: r.at, speed: r.message.health.speed }]
+      : []
+  );
 
 /** The Live Stream's statuses in order, each once. */
 const statusesFrom = (received: readonly Received[]) =>
@@ -374,6 +386,10 @@ export const streamed = async (
     m.stream_take_fps_off_60 = offSixty(picture.fps);
     m.stream_dup_frames = picture.dupFrames;
     m.stream_drop_frames = picture.dropFrames;
+    m.stream_low_speed_max_s = longestLowSpeedS(
+      speedsOf(ctx.client.received.slice(go.from)),
+      picture.steady
+    );
     m.stream_back_after_sink_drop = fault.backAfterSinkDrop ? 1 : 0;
     m.stream_back_after_kill = fault.backAfterKill ? 1 : 0;
     m.stream_back_after_feed_cut = fault.backAfterFeedCut ? 1 : 0;
