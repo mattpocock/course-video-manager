@@ -8,6 +8,10 @@ import {
   videos,
 } from "../db/schema.js";
 import { layerRowInVideoFormat } from "../features/videos/clip-layer.js";
+import {
+  recutHoldsOverlay,
+  retimeShift,
+} from "../features/videos/retime-cascade.js";
 import { resolveVideoFormat } from "../features/videos/video-format.js";
 import { clipChildrenWith, copyClipsOntoVideo } from "./copy-child-rows.js";
 import { createClipRetimeOperationsUnwrapped } from "./db-clip-retime.server.js";
@@ -27,7 +31,8 @@ import type { Database } from "./drizzle-service.server.js";
  *
  * - A `copy` Part is a Clip of a Video, copied by `copyClipsOntoVideo` (Clip
  *   Origin `copy`, every Clip column and child row carried, the same Recording
- *   Session) WITHOUT its Overlays, then recut to the Part's range through
+ *   Session) — its Overlays only from a Short, only those the Part's range
+ *   holds, each cut to end by the range's end — then recut to the Part's range through
  *   `retimeClip`, so its Transcript Words are shifted and trimmed by the same
  *   cascade as any recut. Which tables this path copies, and why it leaves the
  *   rest, is COPY_PATHS.shortCreate in version-copy-manifest.ts.
@@ -188,10 +193,28 @@ export const createShortOperationsUnwrapped = (db: Database) => {
           continue;
         }
         const { video: from, ...source } = sourceById.get(part.clipId)!;
-        // One copy per Part (a Clip may be in two ranges), Overlays left behind:
-        // a Short draws only Chat Cards and Calls to Action, added afterwards.
-        // Footage Layers placed in a Landscape frame are carried into the
-        // Short's.
+        // One copy per Part (a Clip may be in two ranges). From a Short, its
+        // Overlays (Chat Cards and Calls to Action) come too, the ones the
+        // range holds, and `retime` below keeps them on the same moment of
+        // footage. A Landscape Video's Overlays were placed for its picture
+        // and stay behind. Footage Layers placed in a Landscape frame are
+        // carried into the Short's.
+        const fromShort = resolveVideoFormat(from.format) === "short";
+        const shift = retimeShift(source, part);
+        // Each ends by the end of its range, so a copy is never one `overlay
+        // add` would refuse: none runs past its Clip, across a jump cut, or
+        // into an Overlay of the next range.
+        const overlays = fromShort
+          ? source.overlays
+              .filter((o) => recutHoldsOverlay(o.at, shift))
+              .map((o) => ({
+                ...o,
+                durationInSeconds: Math.min(
+                  o.durationInSeconds,
+                  shift.newDuration - (o.at + shift.delta)
+                ),
+              }))
+          : [];
         const layers = source.layers.map((row) =>
           layerRowInVideoFormat(row, resolveVideoFormat(from.format), "short")
         );
@@ -200,7 +223,7 @@ export const createShortOperationsUnwrapped = (db: Database) => {
             db,
             [
               {
-                clip: { ...source, overlays: [], layers },
+                clip: { ...source, overlays, layers },
                 videoId: short!.id,
                 order: orders[i]!,
               },

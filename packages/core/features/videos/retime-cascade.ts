@@ -121,6 +121,15 @@ export const shiftTranscriptWords = <W extends ShiftableWord>(
 export const clampOverlayAnchor = (at: number, shift: RetimeShift): number =>
   Math.max(0, Math.min(at + shift.delta, shift.newDuration));
 
+/**
+ * Whether a recut Clip still holds an Overlay's anchor: shifted, it lands at
+ * or after the Clip's start and before its end. A recut in place clamps
+ * instead (`clampOverlayAnchor`); a copy cut to a smaller range (a Short made
+ * from a Short) leaves the Overlays it does not hold behind.
+ */
+export const recutHoldsOverlay = (at: number, shift: RetimeShift): boolean =>
+  at + shift.delta >= 0 && at + shift.delta < shift.newDuration;
+
 /** An Overlay's identity and anchor. The DB row is a superset of this. */
 export interface ShiftableOverlay {
   readonly id: string;

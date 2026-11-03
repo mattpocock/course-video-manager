@@ -167,9 +167,11 @@ export const COPY_PATHS: Record<CopyPathName, CopyPath> = {
   },
   /**
    * `cvm short create` from a Video range (#2577): a Standalone Short holding
-   * copies of the live Clips a range covers. A Short draws only Chat Card
-   * Overlays, so the source's Overlays and Chapters stay behind (the agent
-   * adds Chat Cards afterwards); everything else on a Clip travels with it.
+   * copies of the live Clips a range covers. A Landscape Video's Overlays and
+   * Chapters stay behind (the agent adds Chat Cards and Calls to Action
+   * afterwards); everything else on a Clip travels with it. From a Short, the
+   * Overlays its range holds travel too (#2633), tested in
+   * cli-short-create.test.ts: the guard's seed is a Landscape Video.
    */
   shortCreate: {
     root: schema.videos,
@@ -178,8 +180,9 @@ export const COPY_PATHS: Record<CopyPathName, CopyPath> = {
       ...TIMELINE_TABLES,
       overlay: {
         notCopied:
-          "A Short draws only Chat Card Overlays, added to it afterwards; " +
-          "the source's Overlays were placed for the source's picture.",
+          "A Landscape Video's Overlays were placed for its picture; a " +
+          "Short draws only Chat Cards and Calls to Action, added afterwards. " +
+          "From a Short, the Overlays its range holds are copied.",
       },
       chapter: {
         notCopied:
