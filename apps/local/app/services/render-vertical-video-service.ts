@@ -196,7 +196,7 @@ export class RenderVerticalVideoService extends Effect.Service<RenderVerticalVid
             // Overlays a Short draws), placed on the concat's own durations.
             yield* overlayRenderer.renderVideo(props, overlayPath).pipe(
               Effect.catchTag(
-                "ShortOverlayRenderError",
+                "OverlayRendererError",
                 (error) =>
                   new RenderVerticalError({
                     cause: error.cause,

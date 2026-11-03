@@ -8,8 +8,9 @@ import { z } from "zod";
 export const COMPOSITION_ID = "Overlay";
 
 /**
- * The render contract for a CVM overlay — subtitles + CTA (the vertical Shorts
- * pipeline) and Definition Cards (the landscape course-video pipeline).
+ * The render contract for a CVM overlay — subtitles, Chat Cards and Calls to
+ * Action (the vertical Shorts pipeline) and Definition Cards (the landscape
+ * course-video pipeline).
  *
  * Every invocation is driven entirely by these explicit props — there is no
  * `meta.json`-in-the-source-tree handshake like the deprecated monorepo used.
@@ -29,18 +30,30 @@ export const subtitleSchema = z.object({
 export type Subtitle = z.infer<typeof subtitleSchema>;
 
 /**
- * The call-to-action pill shown near the end of the overlay. Rendered as one of
- * the pre-made branded CTA images (kept as images so the look stays
- * pixel-identical to the current Remotion output). `null` = no CTA.
+ * One Call to Action in a Short: a branded card drawn from text, a bold
+ * headline (`title`, e.g. a URL) over a lighter subline (`description`), in the
+ * lower half of the 1080x1920 frame. Either line may be empty, and the card
+ * then draws only the line it has.
+ *
+ * It fades in, drifts up and fades out. Each Animation Toggle hard-cuts that
+ * end instead.
  */
-export const ctaSchema = z.object({
-  /** Which branded CTA image to show. */
-  variant: z.enum(["ai", "typescript"]),
-  /** How many frames the CTA stays on screen (it fades in and out). */
+export const callToActionSchema = z.object({
+  /** The headline. */
+  title: z.string(),
+  /** The subline under the headline. */
+  description: z.string(),
+  /** First frame the card is visible on. Defaults to the overlay's start. */
+  startFrame: z.number().default(0),
+  /** How many frames the card stays on screen. */
   durationInFrames: z.number(),
+  /** Hard-cut in: the card appears fully formed instead of fading in. */
+  disableEnterAnimation: z.boolean().default(false),
+  /** Hard-cut out: the card vanishes instead of fading out. */
+  disableExitAnimation: z.boolean().default(false),
 });
 
-export type Cta = z.infer<typeof ctaSchema>;
+export type CallToAction = z.infer<typeof callToActionSchema>;
 
 /**
  * One on-screen term Definition Card: an AI-Hero-branded `title` +
@@ -146,7 +159,7 @@ export type ChatCardPose = z.infer<typeof chatCardPoseSchema>;
 /**
  * Where a Short's Chat Card sits on the 1080x1920 frame: centred, its top
  * `top` px down (inside the platforms' safe area, above the centred captions
- * and the CTA), `width` px wide.
+ * and the Call to Action), `width` px wide.
  */
 export const CHAT_CARD_PLACEMENT = { top: 240, width: 960 } as const;
 
@@ -179,14 +192,12 @@ export const overlayPropsSchema = z.object({
   width: z.number().default(1080),
   /** Overlay height in px. Defaults to the vertical 9:16 frame. */
   height: z.number().default(1920),
-  /** Frames per second the segment/CTA timings are expressed in. */
+  /** Frames per second every timing is expressed in. */
   fps: z.number().default(60),
   /** Total length of the overlay in frames. */
   durationInFrames: z.number(),
   /** Word-timed caption segments. Defaults to none. */
   subtitles: z.array(subtitleSchema).default([]),
-  /** Optional call-to-action, or `null` for none. */
-  cta: ctaSchema.nullable().default(null),
   /**
    * Term Definition Cards to draw. Defaults to none, so the vertical Shorts
    * pipeline keeps sending its existing props unchanged.
@@ -199,8 +210,10 @@ export const overlayPropsSchema = z.object({
    * caller's props valid unchanged.
    */
   bulletPanels: z.array(bulletPanelSchema).default([]),
-  /** A Short's Chat Cards, beside its captions and CTA. Defaults to none. */
+  /** A Short's Chat Cards, beside its captions. Defaults to none. */
   chatCards: z.array(chatCardSchema).default([]),
+  /** A Short's Calls to Action, in the lower half. Defaults to none. */
+  callsToAction: z.array(callToActionSchema).default([]),
 });
 
 /** Parsed props (all defaults applied) — what the composition receives. */

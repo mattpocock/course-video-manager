@@ -32,7 +32,8 @@ export const handleSetSceneOverride = (
     effectiveClipScene({
       scene: item.scene,
       sceneOverride: action.sceneOverride,
-    })
+    }),
+    item.layers ?? []
   )
     ? item.zoomType
     : "none";

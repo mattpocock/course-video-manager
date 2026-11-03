@@ -10,8 +10,8 @@
 //    encode runner and the encodes built on it, the Overlay renderer
 //    (Remotion's `bin.mjs`), the vertical Short, Whisper transcription (its
 //    ffmpeg audio extraction), and the Sidecar's own layer and Job handlers.
-//    A route enqueues a Job instead. One frame of a Short's overlay is not
-//    background work (`short-overlay-frame.ts`, the Portrait Studio's
+//    A route enqueues a Job instead. One frame of an overlay is not
+//    background work (`overlay-frame.ts`, the editor's paused
 //    preview and `cvm clip frame` wait on it, as on a still), so it and the
 //    renderer's path (`overlay-renderer-bin.ts`) are not listed.
 //

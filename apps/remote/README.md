@@ -47,20 +47,25 @@ copy of a signature TypeScript already checks twice is the copy that drifts.
 `routes/search.ts` is the one exception: its `types` parameter is a `Set`, and a
 `Set` is not JSON.
 
-**This app does not run the migrations.** `vercel-build` only builds
-`@cvm/core` — it used to also apply migrations through `DIRECT_DATABASE_URL`,
-but that ran on every Vercel build, including a preview build for an unmerged
-PR, which could land an unreviewed migration on the production schema. Applying
-one is now a manual step, `pnpm db:migrate` from the repo root, run by hand
-whenever the author chooses — same as generating one already was
-(`pnpm db:generate`). See [ADR 0026](../../docs/adr/0026-migrations-applied-by-hand.md).
+**The production build runs the migrations, backup first (#2655).** Merging a
+migration to `main` runs it. Only a `VERCEL_ENV=production` build migrates;
+preview builds never do (an unmerged PR once could, ADR 0026). If nothing is
+pending, the build takes no backup and does nothing. Otherwise it takes a
+PlanetScale backup, waits until it is ready, prints its ID, then migrates under
+a Postgres advisory lock, so two concurrent builds cannot both migrate. Any
+failure fails the build and the previous deployment keeps serving.
 
-The consequence is a rule, not a preference: **migrations are additive-only**.
-No dropped or renamed column without a two-step release, because a `cvm` command
-may be in flight on some box while a deploy lands. The version gate is what
-catches that box's NEXT command; it does nothing for the one already running.
-It is also what keeps a hand-run migration safe to apply ahead of its deploy:
-old code simply ignores a column it doesn't know about yet.
+The consequence is a rule, not a preference: **every migration must be safe for
+the previous code.** The old deployment keeps serving while the build migrates
+(and for good if the build fails afterwards), Matt's local CVM runs against
+production on whatever checkout it has, and a `cvm` command may be in flight on
+some box. So migrations are additive, and a column or table is dropped only
+after no deployed or local code reads it: one PR stops reading and writing it,
+a later PR drops it (the `deploy-migration` skill, section 4). #2648 is the
+worked example: #2576 (PR #2593) removed every read and write of
+`overlay.footage_path`/`footage_start` and is what serves, so its `0050` DROPs
+break nothing once Matt's local checkout is past #2593. The version gate catches
+a stale box's NEXT command; it does nothing for the one already running.
 
 **Routes stay chained, groups stay mounted.** Each `routes/*.ts` returns one
 chained `new Hono()...` expression, and `app.ts` mounts it with `.route()`,
@@ -81,12 +86,12 @@ stops a filming-related commit in `apps/local` triggering an API deploy, and
 unlike `turbo-ignore` it does not consume a concurrent build slot.
 
 The `vercel-build` script takes precedence over the preset's own build command.
-It BUILDS `@cvm/core`, then runs `scripts/assert-migrations-applied.mjs`: a
-read-only `SELECT` on production's `drizzle.__drizzle_migrations` that fails
-the build when this commit's latest migration is not applied, so a deploy that
-would query schema production does not have is never promoted (PR #1859). It
-never migrates. Deploying a migration-only merge therefore fails until the
-migration is applied by hand — expected; the previous deployment keeps serving.
+It checks the build is GitHub's `main` (`scripts/assert-production-source.mjs`),
+BUILDS `@cvm/core`, then runs `scripts/migrate-on-deploy.mjs` (logic and tests:
+`packages/core/db/migrate-on-deploy.ts`). That migrates a production build as
+above, then, for every build, reads production's `drizzle.__drizzle_migrations`
+and fails unless this commit's latest migration is applied, so a deploy that
+would query schema production does not have is never promoted (PR #1859).
 
 The build is not optional, and the reason is worth stating because the failure
 it prevents is silent. Vercel does not bundle — it transpiles each file it can
@@ -107,10 +112,16 @@ which is what removes the disagreement instead of picking a side.
 tsconfig `paths` and reads the source directly, so `dist/` is a deployment
 artefact and never part of the local loop.
 
-Environment: `DATABASE_URL` (the pooled PlanetScale string), at runtime and at
-build time — the migration check reads it during the build. This deploy does
-not need `DIRECT_DATABASE_URL` — that's for `pnpm db:migrate`, run by hand from
-the author's machine, not from Vercel.
+Environment, all set by Matt in the Vercel project (agents never set them):
+
+| Variable                   | Environments         | Used for                                                                                              |
+| -------------------------- | -------------------- | ----------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`             | all, runtime + build | every query; the build's read of the migrations table                                                 |
+| `DIRECT_DATABASE_URL`      | **Production only**  | the build's migrate and advisory lock (PgBouncer cannot hold either). Needed only when pending        |
+| `PLANETSCALE_BACKUP_TOKEN` | **Production only**  | `<SERVICE_TOKEN_ID>:<SERVICE_TOKEN>`, `read_backups` + `write_backups` only. Needed only when pending |
+
+A production build with a pending migration and either of the last two missing
+fails, naming the variable, before any backup or connection.
 
 ## Testing
 

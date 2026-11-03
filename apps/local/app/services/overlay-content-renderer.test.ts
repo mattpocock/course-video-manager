@@ -7,7 +7,7 @@ import {
   OVERLAY_CONTENT_FPS,
   OVERLAY_TRANSFORM_EASE_IN_SECONDS,
 } from "@/features/videos/overlay-transform";
-import { overlayRenderProps } from "@/services/overlay-content-renderer";
+import { overlayRenderProps } from "@/services/overlay-content-props";
 import {
   OVERLAY_RENDER_FPS,
   OVERLAY_RENDER_FRAME,

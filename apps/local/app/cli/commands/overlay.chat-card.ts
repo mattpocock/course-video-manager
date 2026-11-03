@@ -1,10 +1,8 @@
 import { Options } from "@effect/cli";
 import { Effect, Option } from "effect";
-import { notFound, parseError } from "@/cli/helpers";
+import { parseError } from "@/cli/helpers";
 import { OverlayOperationsService } from "@/services/db-overlay-operations.server";
-import { VideoOperationsService } from "@/services/db-video-operations.server";
 import type { OverlayKind } from "@/features/videos/overlay-kind";
-import { resolveVideoFormat } from "@/features/videos/video-format";
 import {
   chatHighlightAt,
   chatSpinReel,
@@ -170,9 +168,10 @@ const pickChatHighlight = (params: {
 
 /**
  * The Chat Card columns this write leaves behind: for every other kind only a
- * null `chatSpin`; for a Chat Card, on a Short only, its Chat Highlight's
- * author and text, and its spin's cells (`[]` with `--no-chat-spin`, or with
- * fewer than two other Chat Highlights in that Recording Session).
+ * null `chatSpin`; for a Chat Card (`requireShortForKind` has already checked
+ * it is on a Short) its Chat Highlight's author and text, and its spin's
+ * cells (`[]` with `--no-chat-spin`, or with fewer than two other Chat
+ * Highlights in that Recording Session).
  */
 export const resolveChatCardColumns = (params: {
   kind: OverlayKind;
@@ -182,21 +181,6 @@ export const resolveChatCardColumns = (params: {
 }) =>
   Effect.gen(function* () {
     if (params.kind !== "chatCard") return { chatSpin: null };
-
-    const videoOps = yield* VideoOperationsService;
-    const video = yield* videoOps
-      .getVideoWithClipsById(params.anchor.videoId)
-      .pipe(
-        Effect.catchTag("NotFoundError", () =>
-          notFound("video", params.anchor.videoId)
-        )
-      );
-    if (resolveVideoFormat(video.format) !== "short") {
-      return yield* refuse(
-        `Video ${params.anchor.videoId} is not a Short, and a Chat Card is ` +
-          "drawn only in a Short"
-      );
-    }
 
     const { pick, session } = yield* pickChatHighlight({
       anchor: params.anchor,

@@ -7,16 +7,20 @@ import {
   type FootageLayerSpec,
   type LayerRect,
 } from "@cvm/core/features/videos/clip-layer";
-import { VIDEO_FORMAT_DIMENSIONS } from "@/features/videos/video-format";
+import {
+  VIDEO_FORMAT_DIMENSIONS,
+  type VideoFormat,
+} from "@/features/videos/video-format";
 
 /**
- * The Portrait Studio's read-only view of a Short's Clip's Layers (ADR 0056):
- * each Layer as the list shows it, and what looks wrong with them. Editing
- * stays in the CLI (`cvm clip layer`); this only reads.
+ * The editor's read-only view of a Clip's Layers (ADR 0056), on both Video
+ * Formats (the Portrait Studio's and the Landscape editor's list): each Layer
+ * as the list shows it, and what looks wrong with them. Editing stays in the
+ * CLI (`cvm clip layer`); this only reads.
  */
 
-/** A Short's Clip as these read it: its time in its source, and its Layers. */
-export type ShortClipLayersInput = {
+/** A Clip as these read it: its time in its source, and its Layers. */
+export type ClipLayersInput = {
   readonly sourceStartTime: number;
   readonly sourceEndTime: number;
   readonly recordingSession?: { readonly screenCaptured: boolean } | null;
@@ -41,12 +45,10 @@ export type ClipLayerFlag = {
   readonly message: string;
 };
 
-const FRAME = VIDEO_FORMAT_DIMENSIONS.short;
-
-const layersOf = (clip: ShortClipLayersInput): readonly ClipLayerSpec[] =>
+const layersOf = (clip: ClipLayersInput): readonly ClipLayerSpec[] =>
   layersOrUntouched(layerSpecsFromRows(clip.layers ?? []));
 
-const durationOf = (clip: ShortClipLayersInput) =>
+const durationOf = (clip: ClipLayersInput) =>
   clip.sourceEndTime - clip.sourceStartTime;
 
 /** Seconds, as few digits as say them: 1.5s, 12s. */
@@ -63,7 +65,7 @@ const volumeText = (volume: number) =>
   volume === 0 ? "Muted" : `${Math.round(volume * 100)}%`;
 
 /** Every Layer of the Clip, bottom to top; an untouched Clip's one Scene Layer. */
-export const clipLayersShown = (clip: ShortClipLayersInput): ClipLayerShown[] =>
+export const clipLayersShown = (clip: ClipLayersInput): ClipLayerShown[] =>
   layersOf(clip).map((layer, index) =>
     layer.kind === "scene"
       ? {
@@ -107,7 +109,12 @@ const spanFlag = (layer: FootageLayerSpec, duration: number): string | null => {
   return null;
 };
 
-const placementFlag = ({ x, y, w, h }: LayerRect): string | null => {
+/** Checked against the Video's own frame: 1920x1080, or a Short's 1080x1920. */
+const placementFlag = (
+  { x, y, w, h }: LayerRect,
+  format: VideoFormat
+): string | null => {
+  const FRAME = VIDEO_FORMAT_DIMENSIONS[format];
   if (x >= FRAME.width || y >= FRAME.height || x + w <= 0 || y + h <= 0) {
     return "Never seen: its Placement is off the frame";
   }
@@ -133,15 +140,17 @@ const uncovered = (layers: readonly FootageLayerSpec[], duration: number) => {
 };
 
 /**
- * What looks wrong with a Short's Clip's Layers: anything its export would
- * refuse (`clipLayersProblem`), a span outside the Clip, a Placement outside
- * the 1080x1920 frame, stretches a Clip with no Scene Layer leaves black, and
+ * What looks wrong with a Clip's Layers: anything its export would refuse
+ * (`clipLayersProblem`), a span outside the Clip, a Placement outside its
+ * Video's frame, stretches a Clip with no Scene Layer leaves black, and
  * a Clip with every Layer muted.
  */
-export const clipLayerFlags = (clip: ShortClipLayersInput): ClipLayerFlag[] => {
+export const clipLayerFlags = (
+  clip: ClipLayersInput,
+  format: VideoFormat
+): ClipLayerFlag[] => {
   const layers = layersOf(clip);
   const invalid = clipLayersProblem(layers, {
-    format: "short",
     session: clip.recordingSession ?? null,
   });
   if (invalid !== null) return [{ layer: null, message: invalid }];
@@ -152,7 +161,8 @@ export const clipLayerFlags = (clip: ShortClipLayersInput): ClipLayerFlag[] => {
   layers.forEach((layer, index) => {
     if (layer.kind !== "footage") return;
     footage.push(layer);
-    const problem = spanFlag(layer, duration) ?? placementFlag(layer.placement);
+    const problem =
+      spanFlag(layer, duration) ?? placementFlag(layer.placement, format);
     if (problem !== null) flags.push({ layer: index, message: problem });
   });
 
@@ -173,13 +183,14 @@ export const clipLayerFlags = (clip: ShortClipLayersInput): ClipLayerFlag[] => {
 };
 
 /**
- * The Short's saved Clips whose Layers are flagged, in order, each with its
+ * The Video's saved Clips whose Layers are flagged, in order, each with its
  * place among them (from 1) and its flags.
  */
-export const shortClipsFlagged = <C extends ShortClipLayersInput>(
-  clips: readonly C[]
+export const clipsFlagged = <C extends ClipLayersInput>(
+  clips: readonly C[],
+  format: VideoFormat
 ): { clip: C; number: number; flags: ClipLayerFlag[] }[] =>
   clips.flatMap((clip, index) => {
-    const flags = clipLayerFlags(clip);
+    const flags = clipLayerFlags(clip, format);
     return flags.length === 0 ? [] : [{ clip, number: index + 1, flags }];
   });

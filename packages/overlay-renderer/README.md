@@ -4,12 +4,12 @@ A **standalone** package that renders CVM's overlays as a **transparent ProRes
 4444 `.mov`**, using `@remotion/renderer` locally (Chromium). It renders **only
 the overlay** — CVM composites it over the source video downstream with ffmpeg.
 
-Two content-kinds share one composition, one props schema and one CLI:
+Two pipelines share one composition, one props schema and one CLI:
 
-| Content-kind        | Used by                           | Typical frame            |
-| ------------------- | --------------------------------- | ------------------------ |
-| Subtitles + CTA     | the vertical Shorts pipeline      | 1080×1920, whole video   |
-| **Definition Card** | the landscape course-video export | 1920×1080, one card long |
+| Content-kinds                               | Used by                           | Typical frame            |
+| ------------------------------------------- | --------------------------------- | ------------------------ |
+| Subtitles, Chat Cards + **Calls to Action** | the vertical Shorts pipeline      | 1080×1920, whole video   |
+| **Definition Card**, Bullet Panel           | the landscape course-video export | 1920×1080, one card long |
 
 A Definition Card is an AI-Hero-branded `title` + `description` pair. The
 landscape pipeline renders **one card per `.mov`**, exactly as long as that
@@ -39,7 +39,6 @@ explicit props (see [`src/props.ts`](./src/props.ts)):
       "text": "There's an idea floating around",
     },
   ],
-  "cta": { "variant": "ai", "durationInFrames": 120 }, // or null
   "definitionCards": [
     {
       "title": "Ubiquitous Language",
@@ -48,16 +47,28 @@ explicit props (see [`src/props.ts`](./src/props.ts)):
       "durationInFrames": 300,
     },
   ],
+  "callsToAction": [
+    {
+      "title": "AIhero.dev",
+      "description": "Go from Zero To AI Hero",
+      "startFrame": 0,
+      "durationInFrames": 300,
+    },
+  ],
 }
 ```
 
 Only `durationInFrames` is required. `width`/`height`/`fps` default to the
-vertical 1080×1920 60fps frame, and `subtitles`/`cta`/`definitionCards` all
-default to empty — so a caller sends only the content-kind it wants, and the
+vertical 1080×1920 60fps frame, and every content-kind (`subtitles`,
+`definitionCards`, `bulletPanels`, `chatCards`, `callsToAction`) defaults to
+empty — so a caller sends only the content-kind it wants, and the
 Shorts pipeline's existing props keep parsing unchanged.
 
-The CTA is rendered from one of the pre-made branded images in `public/`
-(`ai` / `typescript`) so the look stays identical.
+A **Call to Action** is drawn from text, not an image: a dark rounded card with
+a bold headline (`title`) over a lighter subline (`description`), centred in
+the lower half of the 1080×1920 frame. If either line is empty, the card draws
+only the line it has. It fades in, drifts up and fades out;
+`disableEnterAnimation` / `disableExitAnimation` hard-cut that end instead.
 
 ## Branding
 

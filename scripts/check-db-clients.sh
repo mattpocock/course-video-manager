@@ -35,9 +35,10 @@ GUARDED=(
 # Code that legitimately builds its own client. THIS LIST MUST NOT GROW: a new
 # client goes through a factory above. Each entry says why it cannot.
 ALLOWLIST=(
-  # Vercel build step: plain .mjs (no TypeScript, no workspace imports) and no
-  # git checkout, so the guard would be a no-op there. One read-only SELECT.
-  apps/remote/scripts/assert-migrations-applied.mjs
+  # Vercel build step (#2655): plain .mjs, no TypeScript step. Its only gates
+  # are VERCEL_ENV=production and assert-production-source.mjs (GitHub's main,
+  # cloned); the worktree guard has nothing to say about a Vercel clone.
+  apps/remote/scripts/migrate-on-deploy.mjs
   # The test Postgres (ADR 0046): builds every test client, and refuses any
   # server but a local one before it connects.
   packages/core/test-utils/test-postgres.ts

@@ -10,7 +10,7 @@ A Turborepo monorepo over the pnpm workspace:
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `apps/local`                | The application as it runs on the author's machine: the React Router app, the Video Editor, the Diagram Playground, the Publish flow, ffmpeg, the recorder service, and the `cvm` CLI |
 | `packages/core`             | The domain database — the Drizzle schema, the `DrizzleService` and every `db-*` operations service. Every piece of SQL in the repo lives here                                         |
-| `packages/overlay-renderer` | The standalone Remotion renderer for every overlay content-kind — subtitles, the CTA, and Definition Cards — with its own toolchain                                                   |
+| `packages/overlay-renderer` | The standalone Remotion renderer for every overlay content-kind — subtitles, Chat Cards, Calls to Action and Definition Cards — with its own toolchain                                |
 
 `packages/core` has **no filesystem access, no `child_process` and no git
 coupling**, so it can be deployed as well as run locally. `pnpm lint:boundaries`
@@ -63,7 +63,7 @@ Schema changes are managed with **drizzle-kit generate / migrate** (versioned SQ
 
 1. Edit `packages/core/db/schema.ts`.
 2. `pnpm db:generate` — creates a new numbered `.sql` file under `packages/core/db/migrations/`.
-3. Commit it, then `pnpm db:migrate` — run by hand, against `DIRECT_DATABASE_URL` — before or as part of deploying `apps/remote`. Applying migrations used to be the deploy's job exclusively; it moved to a manual step because that ran on every Vercel build, previews included, and could land an unmerged migration on the production schema. See `apps/remote/README.md` and [ADR 0026](docs/adr/0026-migrations-applied-by-hand.md).
+3. Commit it and open a PR. Matt merges it, and merging runs it: the `apps/remote` **production** build backs production up on PlanetScale, waits, then migrates (#2655). Preview builds never migrate. See `apps/remote/README.md` and [ADR 0026](docs/adr/0026-migrations-applied-by-hand.md).
 
 Against any non-local host, `pnpm db:migrate` (and `drizzle-kit push`) refuses unless you are on a clean `main` at exactly `origin/main` — an unmerged branch once migrated production out of order. Merge first, then migrate from the main checkout. Local databases are never checked. See the ADR 0026 addendum.
 
@@ -81,12 +81,14 @@ This registers the `0000` baseline migration as already-applied so the next `pnp
 
 ### Scripts
 
-| Script             | Description                                                   |
-| ------------------ | ------------------------------------------------------------- |
-| `pnpm db:generate` | Generate a new migration from schema changes                  |
-| `pnpm db:migrate`  | Apply pending migrations by hand (deploy no longer does this) |
-| `pnpm db:baseline` | Mark the `0000` baseline as applied (one-time setup)          |
-| `pnpm db:studio`   | Open Drizzle Studio                                           |
+| Script                 | Description                                                                                                  |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `pnpm db:generate`     | Generate a new migration from schema changes                                                                 |
+| `pnpm db:migrate`      | Apply pending migrations by hand (deploy no longer does this)                                                |
+| `pnpm db:migrate:prod` | Back production up on PlanetScale, wait, then migrate it: the break-glass path (the deploy normally does it) |
+| `pnpm db:dump`         | Nightly `pg_dump` of production to `~/backups/cvm/` (keeps 14; `--cron-line` prints the crontab entry)       |
+| `pnpm db:baseline`     | Mark the `0000` baseline as applied (one-time setup)                                                         |
+| `pnpm db:studio`       | Open Drizzle Studio                                                                                          |
 
 ## Zapier Webhook Setup (Buffer Integration)
 
