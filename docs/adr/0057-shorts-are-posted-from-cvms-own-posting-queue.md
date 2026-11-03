@@ -18,9 +18,10 @@ Matt wants to "live stream for an hour and end up with content for a week". A Sh
 4. **A Short is Posted only when both channels have it.** Each channel's post is still a Video Post.
 5. **The Slot Schedule is one pure function** in core, given `now`, the entries and the slot patterns, reading no clock and no database:
    - the day's count comes from the queue length at 00:00 UK time (Europe/London), worked out from the entries' `queued_at` and `ended_at`, so nothing is stored per day and a day CVM was off still has a known length;
-   - weekdays: 1 slot, 2 when more than 14 are queued, 3 when more than 21; Saturday and Sunday always 1; an empty queue none;
+   - once a day minimum: every day has at least its 13:00 slot, even when the queue was empty at 00:00; the 00:00 count only decides whether a weekday gets 2 slots (more than 14 queued) or 3 (more than 21); Saturday and Sunday always 1;
+   - a slot posts the oldest Short in the queue AT the slot: a Short queued at 10:00 on a day that began empty goes out at 13:00 that day, one queued after 13:00 waits for the next day's slot;
    - slot times live in one constant: 1/day 13:00; 2/day 09:00 and 18:00; 3/day 09:00, 13:00 and 18:00, as UK wall-clock times turned into instants across the clock changes (none falls in the 01:00–02:00 hour the clocks skip or repeat);
-   - catch-up: a weekday after a day that had at least one slot and claimed none takes the next pattern up, one extra Short at most, and 3 stays 3. Monday looks back over Friday, Saturday and Sunday; the weekend never catches up;
+   - catch-up: a weekday after a day that had a Short to post (one was in the queue at its first slot) and claimed no slot takes the next pattern up, one extra Short at most, and 3 stays 3. Monday looks back over Friday, Saturday and Sunday; the weekend never catches up;
    - a slot missed earlier in the day is claimed at the next check, one claim per check and only once the previous claim has settled; a slot not claimed by the end of its UK day is dropped.
      The same function answers "what is due now?" for the Sidecar and "when does each Queued Short go out?" for `cvm short queue`, `cvm short post --dry-run` and the Shorts page, so they cannot disagree.
 6. **Order is oldest first**, by a Fractional Index that moving a Short changes.
@@ -36,5 +37,6 @@ Matt wants to "live stream for an hour and end up with content for a week". A Sh
 ## Consequences
 
 - An entry is never deleted while it can matter to the schedule: past days' queue lengths and claims are read from it.
-- Queueing on a day whose queue was empty at 00:00 posts nothing until the next day, by design: the day's plan is fixed at its start.
+- A Short queued before 13:00 on a quiet day goes out the same day; the day's slot COUNT is still fixed at 00:00, so a stream queued at lunchtime only raises the day after's count.
+- A day whose queue stayed empty claimed nothing but missed nothing: it never triggers catch-up.
 - How a failed channel is retried, Held and Failed, and their amendment to ADR 0032's "a post never runs again on its own", are decided by the tickets that build the posting (#2614, #2618).

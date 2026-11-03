@@ -37,11 +37,13 @@ THE STREAM-TO-SHORT LOOP:
 
 THE POSTING QUEUE:
   A Short is posted from CVM's own Posting Queue, never at once. Each UK day
-  (Europe/London) gets its Posting Slots from how many Shorts were queued at
-  00:00: on weekdays 1 (13:00), 2 when more than 14 are queued (09:00, 18:00),
-  3 when more than 21 are queued (09:00, 13:00, 18:00); Saturday and Sunday
-  always 1. A weekday after a day that had a slot and posted nothing takes
-  the next pattern up (catch-up; Monday looks back over the weekend). At a
+  (Europe/London) gets at least one Posting Slot, 13:00, even if its queue was
+  empty at 00:00. On weekdays more than 14 queued at 00:00 gives 2 (09:00,
+  18:00) and more than 21 gives 3 (09:00, 13:00, 18:00); Saturday and Sunday
+  always 1. A slot posts the oldest Short queued at that time: one queued
+  after 13:00 on a one-a-day day goes out the next day. A weekday after a day
+  that had a Short to post and posted nothing takes the next pattern up
+  (catch-up; Monday looks back over the weekend). At a
   slot this machine's Sidecar posts the oldest Queued Short to YouTube
   (public, direct) and to TikTok (through Buffer, "share now").`;
 

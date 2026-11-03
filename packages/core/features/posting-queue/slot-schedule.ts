@@ -138,34 +138,44 @@ const walk = ({ now, entries, patterns }: SlotScheduleInput) => {
   const queued = entries.filter((e) => e.state === "queued").sort(byOrder);
   const held = entries.filter((e) => e.state === "held").length;
   const simulatedClaims = new Map<LondonDate, number>();
-  let remaining = queued.length;
+  /** Queued entries the walk has not given a slot yet, in queue order. */
+  const remaining = [...queued];
+
+  const isHistory = (date: LondonDate) => londonMidnight(date) <= todayStart;
 
   const queueLengthAt = (date: LondonDate) =>
-    londonMidnight(date) <= todayStart
-      ? liveAt(londonMidnight(date))
-      : held + remaining;
+    isHistory(date) ? liveAt(londonMidnight(date)) : held + remaining.length;
 
   const claimsOn = (date: LondonDate) =>
     claimedOn(date) + (simulatedClaims.get(date) ?? 0);
 
-  const slotCount = (date: LondonDate): 0 | 1 | 2 | 3 => {
-    const length = queueLengthAt(date);
-    if (length === 0) return 0;
+  /** The day's pattern before catch-up: never fewer than one a day. */
+  const baseCount = (date: LondonDate): 1 | 2 | 3 => {
     if (isWeekend(date)) return 1;
-    const base =
-      length > THREE_A_DAY_ABOVE ? 3 : length > TWO_A_DAY_ABOVE ? 2 : 1;
+    const length = queueLengthAt(date);
+    return length > THREE_A_DAY_ABOVE ? 3 : length > TWO_A_DAY_ABOVE ? 2 : 1;
+  };
+
+  /**
+   * Whether `date` had a Short to post: one in the queue at its first slot.
+   * A day whose queue stayed empty claimed nothing, but missed nothing.
+   */
+  const hadAShortToPost = (date: LondonDate) =>
+    isHistory(date)
+      ? liveAt(londonInstant(date, patterns[baseCount(date)][0]!)) > 0
+      : queueLengthAt(date) > 0;
+
+  const slotCount = (date: LondonDate): 1 | 2 | 3 => {
+    const base = baseCount(date);
+    if (isWeekend(date)) return base;
     const missed = lookbackDays(date).some(
-      (day) => queueLengthAt(day) > 0 && claimsOn(day) === 0
+      (day) => hadAShortToPost(day) && claimsOn(day) === 0
     );
     return missed ? (Math.min(base + 1, 3) as 2 | 3) : base;
   };
 
-  const slotsOn = (date: LondonDate): number[] => {
-    const count = slotCount(date);
-    return count === 0
-      ? []
-      : patterns[count].map((hhmm) => londonInstant(date, hhmm));
-  };
+  const slotsOn = (date: LondonDate): number[] =>
+    patterns[slotCount(date)].map((hhmm) => londonInstant(date, hhmm));
 
   /** Today's slots no entry has claimed yet, in time order. */
   const openSlotsToday = () => {
@@ -173,52 +183,66 @@ const walk = ({ now, entries, patterns }: SlotScheduleInput) => {
     return slotsOn(today).filter((slot) => !claimed.has(slot));
   };
 
+  /**
+   * The Short a slot posts: the oldest in the queue AT the slot. A Short
+   * queued after a slot never takes it, even when the slot is still open.
+   */
+  const takerOf = (
+    slot: number,
+    from: ReadonlyArray<SlotScheduleEntry>
+  ): SlotScheduleEntry | undefined => from.find((e) => e.queuedAt <= slot);
+
   const project = (): ProjectedPost[] => {
     const projected: ProjectedPost[] = [];
     const take = (date: LondonDate, slot: number) => {
-      const next = queued[projected.length]!;
+      const next = takerOf(slot, remaining);
+      if (!next) return;
+      remaining.splice(remaining.indexOf(next), 1);
       projected.push({ entryId: next.id, slot: Math.max(slot, now) });
       simulatedClaims.set(date, (simulatedClaims.get(date) ?? 0) + 1);
-      remaining--;
     };
 
     for (const slot of openSlotsToday()) {
-      if (remaining === 0) break;
+      if (remaining.length === 0) break;
       take(today, slot);
     }
-    // Every simulated day with a non-empty queue has at least one slot, so
-    // the walk ends within `queued.length` days.
-    for (let day = 1; remaining > 0 && day <= queued.length + 7; day++) {
+    // Every simulated day has at least one slot, and every queued Short was
+    // queued before it, so the walk ends within `queued.length` days.
+    for (let day = 1; remaining.length > 0 && day <= queued.length + 7; day++) {
       const date = addLondonDays(today, day);
       for (const slot of slotsOn(date)) {
-        if (remaining === 0) break;
+        if (remaining.length === 0) break;
         take(date, slot);
       }
     }
+    // Slots are walked in time order, so this is posting order. It can
+    // differ from queue order: a missed slot takes only a Short queued before it.
     return projected;
   };
 
-  return { queued, openSlotsToday, project };
+  return { queued, openSlotsToday, takerOf, project };
 };
 
-/** When each Queued Short goes out, in queue order. */
+/** When each Queued Short goes out, in posting order. */
 export const projectPostingQueue = (
   input: SlotScheduleInput
 ): ProjectedPost[] => walk(input).project();
 
 /**
  * What the Sidecar's tick should do now: claim today's earliest due slot for
- * the head of the queue — one claim per check, and only once the previous
- * claim has settled — or nothing. A slot not claimed by the end of its UK day
- * is dropped; catch-up is how a lost day comes back.
+ * the oldest Short queued at that slot — one claim per check, and only once
+ * the previous claim has settled — or nothing. A slot not claimed by the end
+ * of its UK day is dropped; catch-up is how a lost day comes back.
  */
 export const dueNow = (input: SlotScheduleInput): DueNow => {
   const schedule = walk(input);
-  const head = schedule.queued[0];
   const settled = !input.entries.some((e) => e.state === "posting");
-  const due = schedule.openSlotsToday().find((slot) => slot <= input.now);
-  if (head && settled && due !== undefined) {
-    return { kind: "claim", entryId: head.id, slot: due };
+  if (settled) {
+    for (const slot of schedule.openSlotsToday()) {
+      if (slot > input.now) break;
+      const taker = schedule.takerOf(slot, schedule.queued);
+      if (taker) return { kind: "claim", entryId: taker.id, slot };
+    }
   }
   const next = walk(input).project()[0];
   return { kind: "nothing", nextSlot: next ? next.slot : null };

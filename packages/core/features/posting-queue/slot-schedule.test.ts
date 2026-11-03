@@ -113,17 +113,73 @@ describe("the day's slot count, from the queue length at 00:00 UK time", () => {
       "2026-11-03T13:00:00.000Z",
     ]);
   });
+});
 
-  it("a day whose queue was empty at 00:00 posts nothing, even once Shorts are queued", () => {
+describe("once a day minimum: a day whose queue was empty at 00:00", () => {
+  /** Friday posted at its slot; the weekend's slots claimed none, queue empty. */
+  const fridayPosted = () => [postedAt("2026-10-30T13:00:00Z")];
+
+  it.each([
+    ["a weekday", mondayPosted, "2026-11-03"],
+    ["a weekend day", fridayPosted, "2026-10-31"],
+  ])(
+    "on %s, a Short queued before 13:00 goes out at 13:00 that day",
+    (_, history, day) => {
+      const entries = [
+        ...history(),
+        entry({ queuedAt: at(`${day}T10:00:00Z`) }),
+      ];
+      const slot = at(`${day}T13:00:00Z`);
+      expect(project(at(`${day}T10:00:01Z`), entries)).toEqual([iso(slot)]);
+      expect(
+        dueNow({ now: slot + 60_000, entries, patterns: SLOT_PATTERNS })
+      ).toEqual({ kind: "claim", entryId: entries.at(-1)!.id, slot });
+    }
+  );
+
+  it.each([
+    ["a weekday", mondayPosted, "2026-11-03", "2026-11-04T13:00:00.000Z"],
+    ["a weekend day", fridayPosted, "2026-10-31", "2026-11-01T13:00:00.000Z"],
+  ])(
+    "on %s, a Short queued after 13:00 waits for the next day's slot",
+    (_, history, day, next) => {
+      const entries = [
+        ...history(),
+        entry({ queuedAt: at(`${day}T14:00:00Z`) }),
+      ];
+      const now = at(`${day}T14:00:01Z`);
+      expect(project(now, entries)).toEqual([next]);
+      expect(
+        dueNow({ now: now + 60_000, entries, patterns: SLOT_PATTERNS })
+      ).toEqual({ kind: "nothing", nextSlot: at(next) });
+    }
+  );
+
+  it("a day whose queue stayed empty is not a missed day: no catch-up after it", () => {
+    // Monday's 13:00 had nothing queued; a Short queued Monday evening.
     const entries = [
       ...mondayPosted(),
-      ...queued(3, at("2026-11-03T08:00:00Z")),
+      entry({ queuedAt: at("2026-11-02T20:00:00Z") }),
     ];
-    expect(project(at("2026-11-03T08:30:00Z"), entries)).toEqual([
-      "2026-11-04T13:00:00.000Z",
-      "2026-11-05T13:00:00.000Z",
-      "2026-11-06T13:00:00.000Z",
-    ]);
+    expect(firstDaySlots(TUE, entries)).toEqual(["2026-11-03T13:00:00.000Z"]);
+  });
+});
+
+describe("a missed slot", () => {
+  it("is taken later that day only by a Short queued before it", () => {
+    // 15 queued at 00:00 → 09:00 and 18:00; all taken off the queue at 08:00.
+    const removed = queued(15, BEFORE_TUE).map((e) => ({
+      ...e,
+      state: "removed" as const,
+      endedAt: at("2026-11-03T08:00:00Z"),
+    }));
+    const late = entry({ queuedAt: at("2026-11-03T09:30:00Z") });
+    const entries = [...mondayPosted(), ...removed, late];
+    const now = at("2026-11-03T10:00:00Z");
+    expect(dueNow({ now, entries, patterns: SLOT_PATTERNS })).toEqual({
+      kind: "nothing",
+      nextSlot: at("2026-11-03T18:00:00Z"),
+    });
   });
 });
 

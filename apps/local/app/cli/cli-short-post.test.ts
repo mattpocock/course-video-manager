@@ -78,13 +78,13 @@ const short = async (
   return v!.id;
 };
 
-/** A Short already in the queue since before today, so today has a slot. */
+/** A Short queued yesterday after its 13:00, so it takes today's slot. */
 const queuedYesterday = async (title: string) => {
   const id = await short(title);
   await testDb.insert(schema.postingQueueEntries).values({
     videoId: id,
     order: "a0",
-    queuedAt: new Date("2026-11-02T10:00:00Z"),
+    queuedAt: new Date("2026-11-02T14:00:00Z"),
   });
   return id;
 };
@@ -106,7 +106,7 @@ describe("cvm short post", () => {
     const result = await run(["short", "post", a, b]);
 
     expect(result.exitCode).toBe(0);
-    // Today (Tue) had 1 queued at 00:00 → 13:00 is Head's; Wed has 3 → 1.
+    // Today's one slot, 13:00, is Head's; then one a day.
     expect(ndjson(result.stdout)).toEqual([
       {
         videoId: a,
@@ -136,11 +136,12 @@ describe("cvm short post", () => {
 
     const result = await run(["short", "post", "--dry-run", a, landscape]);
 
+    // Once a day minimum: an empty queue at 00:00 still has today's 13:00.
     expect(ndjson(result.stdout)).toEqual([
       expect.objectContaining({
         videoId: a,
         verdict: "queued",
-        goesOutAt: "Wed 2026-11-04 13:00",
+        goesOutAt: "Tue 2026-11-03 13:00",
       }),
       expect.objectContaining({
         videoId: landscape,
