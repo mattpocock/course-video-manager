@@ -188,8 +188,23 @@ describe("a Chat Card", () => {
     expect(stdout).toBe("");
   });
 
-  it("is refused on a Video that isn't a Short", async () => {
+  it("is refused on a Video that isn't a Short, saying so over any overlap", async () => {
     const landscape = await seedClip(s.standaloneActiveId);
+    const card = await run([
+      "overlay",
+      "add",
+      "--clip",
+      landscape.id,
+      "--at",
+      "0",
+      "--duration",
+      "5",
+      "--title",
+      "A fake term",
+      "--description",
+      "A fake definition",
+    ]);
+    expect(card.exitCode).toBe(0);
 
     const { exitCode, stderr } = await addChatCard([], { clip: landscape.id });
 

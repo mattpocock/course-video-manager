@@ -1,3 +1,4 @@
+import { callToActionInputProps } from "@/features/video-editor/call-to-action-input-props";
 import { chatCardInputProps } from "@/features/video-editor/chat-card-input-props";
 import type { CallToAction } from "@cvm/overlay-renderer/props";
 import {
@@ -84,12 +85,6 @@ const callToActionProps = (
   fps: number
 ): CallToAction[] =>
   placeInFrames(clips, clipDurations, fps, "callToAction").map(
-    ({ overlay, startFrame, durationInFrames }) => ({
-      title: overlay.title,
-      description: overlay.description,
-      startFrame,
-      durationInFrames,
-      disableEnterAnimation: overlay.disableEnterAnimation,
-      disableExitAnimation: overlay.disableExitAnimation,
-    })
+    ({ overlay, startFrame, durationInFrames }) =>
+      callToActionInputProps(overlay, { startFrame, durationInFrames })
   );

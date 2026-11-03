@@ -88,3 +88,20 @@ export const overlayKindsMayShareTheScreen = (
 ): boolean =>
   (a === "callToAction" && b === "chatCard") ||
   (a === "chatCard" && b === "callToAction");
+
+/**
+ * Which Kinds only a Short's render draws: a Chat Card and a Call to Action.
+ * `cvm overlay add` refuses them on any other Video, and the editor's preview
+ * of a Short draws only these. A `Record<OverlayKind, …>`, so a new kind must
+ * say whether it is one.
+ */
+const SHORT_ONLY_OVERLAY_KINDS: Record<OverlayKind, boolean> = {
+  definitionCard: false,
+  bulletPanel: false,
+  chatCard: true,
+  callToAction: true,
+};
+
+/** Whether only a Short's render draws Overlays of this Kind. */
+export const isShortOnlyOverlayKind = (kind: OverlayKind): boolean =>
+  SHORT_ONLY_OVERLAY_KINDS[kind];
