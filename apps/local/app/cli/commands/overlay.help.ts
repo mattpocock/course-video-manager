@@ -57,9 +57,10 @@ own picture ('cvm clip layer --help').
     Spin: the same Recording Session's other Chat Highlights fly past and it
     lands on the pick. Its author and text are COPIED into title and
     description, and the spin's cells into chatSpin, so it outlives the
-    stream. '--chat-highlight <id>' picks it; omitted, it is the one showing
-    at the anchor point of a Clip from a Streamed Recording Session, else the
-    last shown before it. '--no-chat-spin' turns the spin off (it eases in;
+    stream. '--chat-highlight <id>' picks it ('cvm chat-highlight list');
+    omitted, it is the one showing at the anchor point of a Clip from a
+    Streamed Recording Session: the latest shown by then, if not yet
+    hidden. '--no-chat-spin' turns the spin off (it eases in;
     so does one with fewer than 2 other Chat Highlights). It takes no
     --title, --description or bullets, is refused on any
     Video but a Short, and is drawn only in the Shorts editor and the Short's
@@ -259,9 +260,9 @@ thing worth having. Which CONTENT flag is required depends on '--kind'.
                        their own 'revealAt'.
 
   --chat-highlight <id>
-                       a chatCard's Chat Highlight. Omitted: the one at the
-                       anchor point of a Streamed Recording Session's Clip;
-                       with none there, refused (exit 3) naming that
+                       a chatCard's Chat Highlight. Omitted: the one showing
+                       at the anchor point of a Streamed Recording Session's
+                       Clip; with none showing, refused (exit 3) naming that
                        session's Chat Highlights (id, time in, author). An
                        unknown id is refused (exit 3). chatCard only.
   --no-chat-spin       a chatCard with no Chat Spin. chatCard only.

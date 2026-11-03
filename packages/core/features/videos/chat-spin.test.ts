@@ -109,11 +109,21 @@ describe("the Chat Highlight a Chat Card defaults to", () => {
 
   it.each([
     ["the one showing", 1500, "h1"],
-    ["the last shown before, once it is hidden", 3000, "h1"],
+    ["none, once the last shown is hidden", 3000, undefined],
     ["one still showing", 9000, "h2"],
     ["none, before the first", 500, undefined],
   ])("is %s", (_, atMs, id) => {
     expect(chatHighlightAt(session, atMs)?.id).toBe(id);
+  });
+
+  // h1 was replaced by h2 without a hide edge, so it stays open; h2 is hidden.
+  const replaced = [highlight(1, 1000, null), highlight(2, 5000, 8000)];
+
+  it.each([
+    ["the later one, over one never hidden", 6000, "h2"],
+    ["none, once the later one is hidden", 9000, undefined],
+  ])("is %s", (_, atMs, id) => {
+    expect(chatHighlightAt(replaced, atMs)?.id).toBe(id);
   });
 });
 

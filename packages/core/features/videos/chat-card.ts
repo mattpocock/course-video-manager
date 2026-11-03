@@ -27,21 +27,23 @@ export type ChatCardSource = {
 };
 
 /**
- * The Chat Highlight at `atMs`: the one showing then
- * (`shownAtMs <= atMs < hiddenAtMs`, still showing when `hiddenAtMs` is null),
- * else the last one shown before it. Undefined when none was shown by then.
+ * The Chat Highlight showing at `atMs`: the LATEST one shown at or before it,
+ * if it is not yet hidden then (`atMs < hiddenAtMs`, or `hiddenAtMs` null).
+ * At most one shows, so a later one replaces any earlier, even one never given
+ * a hide. Undefined when none is showing.
  */
 export const chatHighlightAt = <H extends ChatCardSource>(
   highlights: ReadonlyArray<H>,
   atMs: number
 ): H | undefined => {
-  const before = [...highlights]
+  const latest = [...highlights]
     .filter((h) => h.shownAtMs <= atMs)
-    .sort((a, b) => a.shownAtMs - b.shownAtMs);
-  const showing = before.filter(
-    (h) => h.hiddenAtMs === null || atMs < h.hiddenAtMs
-  );
-  return showing.at(-1) ?? before.at(-1);
+    .sort((a, b) => a.shownAtMs - b.shownAtMs)
+    .at(-1);
+  if (!latest) return undefined;
+  return latest.hiddenAtMs === null || atMs < latest.hiddenAtMs
+    ? latest
+    : undefined;
 };
 
 /**
