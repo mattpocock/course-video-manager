@@ -44,6 +44,7 @@ export {
 export { compositeFiles, sceneOverrideScenes } from "./lib/composite-files";
 export { mapClipFrameFiles, mapClipSourceFiles } from "./lib/map-files";
 export {
+  drawsScene,
   isUntouched,
   footageLayers,
   footageLayerTime,
