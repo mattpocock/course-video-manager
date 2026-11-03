@@ -9,6 +9,7 @@ import { FFmpegCommandsService } from "@/services/ffmpeg-commands";
 import { FFmpegEncodeService } from "@/services/ffmpeg-encode-commands";
 import { SidecarContextTest } from "@/services/sidecar-context";
 import { makeVideoExportPasses } from "@/services/video-export-passes";
+import { idleGpuGate } from "@/test-utils/idle-gpu-gate";
 
 /**
  * What the export's ffmpeg tests share: the real export pass run over tiny
@@ -108,7 +109,7 @@ export const exportClips = async (
     program.pipe(
       Effect.provide(
         Layer.mergeAll(
-          FFmpegEncodeService.Default,
+          FFmpegEncodeService.Default.pipe(Layer.provide(idleGpuGate)),
           FFmpegCommandsService.Default,
           NodeContext.layer,
           SidecarContextTest

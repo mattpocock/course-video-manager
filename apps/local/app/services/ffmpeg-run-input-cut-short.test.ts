@@ -7,6 +7,7 @@ import path from "node:path";
 import { findCutShortInput } from "./ffmpeg-error";
 import { FFmpegEncodeService } from "./ffmpeg-encode-commands";
 import { SidecarContextTest } from "./sidecar-context";
+import { idleGpuGate } from "@/test-utils/idle-gpu-gate";
 
 // What ffmpeg printed in the real failure (Publish Job 43bfe48a, Video
 // "Solution", 104 Clips): the demuxer for input #40 ran out of memory, so that
@@ -87,7 +88,7 @@ exit 0
         Effect.either,
         Effect.provide(
           Layer.mergeAll(
-            FFmpegEncodeService.Default,
+            FFmpegEncodeService.Default.pipe(Layer.provide(idleGpuGate)),
             NodeContext.layer,
             SidecarContextTest
           )

@@ -7,6 +7,7 @@ import path from "node:path";
 import { FFmpegEncodeService } from "./ffmpeg-encode-commands";
 import { DEFAULT_ENCODE_PERMITS } from "./ffmpeg-permits";
 import { SidecarContextTest } from "./sidecar-context";
+import { idleGpuGate } from "@/test-utils/idle-gpu-gate";
 
 // Publish Job 859b8689 ran six 100-input concats at once and the machine ran
 // out of memory. The limit on heavy encodes is one per process, so it has to
@@ -99,7 +100,7 @@ exit 0
       program.pipe(
         Effect.provide(
           Layer.mergeAll(
-            FFmpegEncodeService.Default,
+            FFmpegEncodeService.Default.pipe(Layer.provide(idleGpuGate)),
             NodeContext.layer,
             SidecarContextTest,
             Logger.replace(Logger.defaultLogger, logger)

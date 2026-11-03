@@ -15,6 +15,7 @@ import {
 } from "./ffmpeg-error";
 import { runFfmpegWithProgress } from "./ffmpeg-run";
 import { FfmpegPermitsService } from "./ffmpeg-permits";
+import { GpuGate } from "./gpu-gate";
 import { SidecarContext } from "./sidecar-context";
 import { buildClipConcatArgs, type ConcatClip } from "./clip-concat-args";
 import { makeConcatenateClipSegments } from "./ffmpeg-encode-segments";
@@ -45,18 +46,22 @@ export class FFmpegEncodeService extends Effect.Service<FFmpegEncodeService>()(
       // Built once per process; every encode below draws its slot from it,
       // through `runFfmpegWithProgress`.
       const permits = yield* FfmpegPermitsService;
+      // No encode starts while a Recording Session records (#2644).
+      const gpu = yield* GpuGate;
       type RunOptions = Omit<
         Parameters<typeof runFfmpegWithProgress>[0],
         "permit"
       >;
       const runEncode = (opts: RunOptions) =>
         runFfmpegWithProgress({ ...opts, permit: "encode-slot" }).pipe(
-          Effect.provideService(FfmpegPermitsService, permits)
+          Effect.provideService(FfmpegPermitsService, permits),
+          Effect.provideService(GpuGate, gpu)
         );
       // A pass that stream-copies the video: a CPU permit, not an encode slot.
       const runCopyPass = (opts: RunOptions) =>
         runFfmpegWithProgress({ ...opts, permit: "cpu-permit" }).pipe(
-          Effect.provideService(FfmpegPermitsService, permits)
+          Effect.provideService(FfmpegPermitsService, permits),
+          Effect.provideService(GpuGate, gpu)
         );
 
       const createAndConcatenateVideoClipsSinglePass = Effect.fn(

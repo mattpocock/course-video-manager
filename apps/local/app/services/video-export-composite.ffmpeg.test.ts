@@ -28,6 +28,7 @@ import {
   flashes,
   beeps,
 } from "@/test-utils/video-export-ffmpeg";
+import { idleGpuGate } from "@/test-utils/idle-gpu-gate";
 
 /**
  * The export pass over a Video of CVM-recorder Clips, with the real ffmpeg on
@@ -220,7 +221,7 @@ describe.skipIf(!hasFfmpeg)(
         }).pipe(
           Effect.provide(
             Layer.mergeAll(
-              FFmpegEncodeService.Default,
+              FFmpegEncodeService.Default.pipe(Layer.provide(idleGpuGate)),
               NodeContext.layer,
               SidecarContextTest
             )
@@ -529,7 +530,7 @@ describe.skipIf(!hasFfmpeg)("encoding an Animatic", () => {
       }).pipe(
         Effect.provide(
           Layer.mergeAll(
-            FFmpegEncodeService.Default,
+            FFmpegEncodeService.Default.pipe(Layer.provide(idleGpuGate)),
             NodeContext.layer,
             SidecarContextTest
           )
