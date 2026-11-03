@@ -39,7 +39,9 @@ const ReconnectReason = Schema.Literal(
  * `liveChatMessages.streamList` connection (5 quota units each), `polling`
  * `liveChatMessages.list` at YouTube's interval only once a stream
  * connection that worked is refused mid-stream (asking for the stream again
- * meanwhile), `reconnecting` after a dropped connection, `refused` when the
+ * meanwhile), `reconnecting` after a connection failed (YouTube ending a
+ * stream connection's answer, as it does every few seconds, is still
+ * `streaming` while it is reopened), `refused` when the
  * stream connection was refused before it ever opened.
  */
 export const ChatConnection = Schema.Union(

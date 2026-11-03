@@ -216,7 +216,44 @@ describe("the Broadcast's live chat, owned by the app server", () => {
     ).toEqual(["streaming", "reconnecting", "streaming"]);
   });
 
-  it("reopens a stream YouTube keeps closing after a growing pause, and logs each change with the opens so far", async () => {
+  it("reopens a stream connection YouTube ends cleanly from where it left off, still streaming: an end isn't a drop", async () => {
+    await storeGrant();
+    // YouTube answers with a page, then ends its answer: it does so every
+    // few seconds on a healthy chat.
+    youtube.chatStreams.push((res) => {
+      sendPages(res, [
+        chatPage({ messages: [fakeViewerMessage(1)], nextPageToken: "t1" }),
+      ]);
+      setTimeout(() => res.end("]"), 5);
+    });
+    youtube.chatStreams.push((res) =>
+      sendPages(res, [
+        chatPage({ messages: [fakeViewerMessage(2)], nextPageToken: "t2" }),
+      ])
+    );
+    const chat = startChat();
+    const heard = listen(chat);
+
+    await pick(chat, {
+      broadcastId: "office-hours",
+      liveChatId: "chat-office-hours",
+    });
+
+    await vi.waitFor(() =>
+      expect(messagesHeard(heard)).toEqual([shown(1), shown(2)])
+    );
+    expect(chatRequests().map((r) => r.searchParams.get("pageToken"))).toEqual([
+      null,
+      "t1",
+    ]);
+    expect(
+      heard.flatMap((e) =>
+        e.type === "chat-connection-changed" ? [e.connection.state] : []
+      )
+    ).toEqual(["streaming"]);
+  });
+
+  it("reopens a stream YouTube keeps closing after a growing pause, and logs each open with the opens so far", async () => {
     await storeGrant();
     let page = 0;
     // YouTube answers every stream connection with one page, then closes it.
@@ -259,16 +296,13 @@ describe("the Broadcast's live chat, owned by the app server", () => {
       },
       {
         broadcastId: "office-hours",
-        connection: {
-          state: "reconnecting",
-          message: "YouTube closed the chat connection.",
-        },
-        streamOpens: 1,
+        connection: { state: "streaming" },
+        streamOpens: 2,
       },
       {
         broadcastId: "office-hours",
         connection: { state: "streaming" },
-        streamOpens: 2,
+        streamOpens: 3,
       },
     ]);
   });

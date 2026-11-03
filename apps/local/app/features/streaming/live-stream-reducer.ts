@@ -137,10 +137,13 @@ export const createInitialLiveStreamState = (): State => ({
 });
 
 /**
- * How long the chat may be reconnecting before the panel says so: YouTube
- * closes a stream connection now and then, and it is back within a second.
+ * How long the chat may be reconnecting before the panel quietly says so.
+ * YouTube ending a stream connection's answer is not reconnecting at all
+ * (`services/broadcast-chat.ts`); this covers a real failure, which the app
+ * server retries on its own within seconds, so only an outage that lasts
+ * shows.
  */
-export const RECONNECT_GRACE_MS = 3_000;
+export const RECONNECT_GRACE_MS = 10_000;
 
 /** As many chat messages as the app server keeps (`broadcast-chat-live.server.ts`). */
 const MAX_CHAT_MESSAGES = 500;
