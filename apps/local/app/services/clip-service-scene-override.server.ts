@@ -36,7 +36,10 @@ export const updateSceneOverride = (
 ) =>
   Effect.gen(function* () {
     const clip = yield* dbCall(() =>
-      db.query.clips.findFirst({ where: eq(clips.id, event.clipId) })
+      db.query.clips.findFirst({
+        where: eq(clips.id, event.clipId),
+        with: { layers: { columns: { kind: true } } },
+      })
     );
     if (!clip) {
       throw new Error(`Clip not found: ${event.clipId}`);
@@ -62,7 +65,7 @@ export const updateSceneOverride = (
       scene: clip.scene,
       sceneOverride: event.sceneOverride,
     });
-    const zoomType = canZoomClip(scene) ? clip.zoomType : "none";
+    const zoomType = canZoomClip(scene, clip.layers) ? clip.zoomType : "none";
 
     yield* dbCall(() =>
       db

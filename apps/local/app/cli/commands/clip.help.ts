@@ -57,15 +57,18 @@ At least one of --zoom / --start / --end / --layers-from is required.
 --layers-from <clip>: copy that Clip's Layers (see 'clip layer') onto every clip named, in one
 write: 'clip update --layers-from clip_src clip_a clip_b'. A copy each; nothing is linked, so
 editing one later changes no other. It goes alone (no --zoom / --start / --end), and is refused
-whole (exit 3) when any clip cannot take them (camera/screen on a clip with no Recording Session,
-a Landscape shape). --zoom / --start / --end update one clip at a time.
+whole (exit 3) when any clip cannot take them (camera/screen on a clip with no Recording Session).
+Layers with no Scene Layer drop each clip's Clip Zoom. --zoom / --start / --end update one clip at
+a time.
 
 --zoom <t>: "none" (as filmed) or "subtle", rendering the clip slightly tighter so a run of
 face-only camera clips has some visual change across its cuts. Only camera scenes can be zoomed —
 'Camera' and 'TikTok Face' — judged on the clip's 'effectiveScene' (its Scene Override if it has
 one, else its recorded scene). Anything else (a 'Code' clip, or a clip filmed before CVM recorded
-scenes) is refused with exit 3. A Scene Override that moves a zoomed clip off a camera scene drops
-its zoom. Reaches the Export Hash, so setting it marks the Video for re-export.
+scenes) is refused with exit 3. It zooms only the clip's Scene Layer (its Footage Layers keep their
+Placement), so a clip whose Layers have no Scene Layer is refused too (exit 3). A Scene Override
+that moves a zoomed clip off a camera scene drops its zoom, and so does removing its Scene Layer.
+Reaches the Export Hash, so setting it marks the Video for re-export.
 
 --start / --end <seconds>: move the in/out point into the source file. Either can be passed alone
 (the other keeps its current value) or both together. Rejected with exit 3 if the resulting range

@@ -202,18 +202,97 @@ describe("cvm clip layer", () => {
       span: { at: 1, duration: 2 },
     });
 
+    await run(["clip", "layer", "add", ...FACE_BAND, s.first]);
     const moved = await run([
       "clip",
       "layer",
       "move",
       "--to",
-      "0",
-      s.first,
       "1",
+      s.first,
+      "2",
     ]);
     expect(
-      ndjson(moved.stdout).map((l) => (l as { kind: string }).kind)
-    ).toEqual(["footage", "scene"]);
+      ndjson(moved.stdout).map(
+        (l) => (l as { source?: { file: string } }).source?.file ?? "scene"
+      )
+    ).toEqual(["scene", "camera", "screen"]);
+  });
+
+  it("puts an added Scene Layer at the bottom, on both formats", async () => {
+    for (const format of ["short", "landscape"] as const) {
+      const s = await seed(format);
+      await run(["clip", "layer", "add", ...FACE_BAND, s.first]);
+      await run(["clip", "layer", "remove", s.first, "0"]);
+      const added = await run(["clip", "layer", "add", "--scene", s.first]);
+      expect(added.exitCode).toBe(0);
+      expect(
+        ndjson(added.stdout).map((l) => (l as { kind: string }).kind)
+      ).toEqual(["scene", "footage"]);
+    }
+  });
+
+  it("takes any mix of Layers on a Landscape Video: Footage Layers only, and copied with --layers-from", async () => {
+    const s = await seed("landscape");
+    await run(["clip", "layer", "add", ...SCREEN_SQUARE, s.first]);
+    await run(["clip", "layer", "add", ...FACE_BAND, s.first]);
+    const removed = await run(["clip", "layer", "remove", s.first, "0"]);
+    expect(removed.exitCode).toBe(0);
+    expect(
+      ndjson(removed.stdout).map((l) => (l as { kind: string }).kind)
+    ).toEqual(["footage", "footage"]);
+
+    const copied = await run([
+      "clip",
+      "update",
+      "--layers-from",
+      s.first,
+      s.second,
+    ]);
+    expect(copied.exitCode).toBe(0);
+    expect(await layers(s.second)).toEqual(await layers(s.first));
+  });
+
+  describe("Clip Zoom zooms the Scene Layer only", () => {
+    const zoom = async (clipId: string) =>
+      (
+        JSON.parse((await run(["clip", "get", clipId])).stdout) as {
+          zoomType: string;
+        }
+      ).zoomType;
+
+    const cameraClip = async () => {
+      const s = await seed("landscape");
+      await testDb.update(schema.clips).set({ scene: "Camera" });
+      return s;
+    };
+
+    it("is refused (exit 3) on a Clip with no Scene Layer", async () => {
+      const s = await cameraClip();
+      await run(["clip", "layer", "add", ...FACE_BAND, s.first]);
+      await run(["clip", "layer", "remove", s.first, "0"]);
+      const result = await run(["clip", "update", "--zoom", "subtle", s.first]);
+      expect(result.exitCode).toBe(3);
+      expect(result.stderr).toContain("Scene Layer");
+      expect(await zoom(s.first)).toBe("none");
+    });
+
+    it("is dropped when the zoomed Clip's Scene Layer is removed, or copied away", async () => {
+      const s = await cameraClip();
+      for (const id of [s.first, s.second]) {
+        expect(
+          (await run(["clip", "update", "--zoom", "subtle", id])).exitCode
+        ).toBe(0);
+      }
+      await run(["clip", "layer", "add", ...FACE_BAND, s.first]);
+      expect(await zoom(s.first)).toBe("subtle");
+
+      await run(["clip", "layer", "remove", s.first, "0"]);
+      expect(await zoom(s.first)).toBe("none");
+
+      await run(["clip", "update", "--layers-from", s.first, s.second]);
+      expect(await zoom(s.second)).toBe("none");
+    });
   });
 
   it("reads back as untouched once only a full-volume Scene Layer is left", async () => {
@@ -264,6 +343,60 @@ describe("cvm clip layer", () => {
       source: { kind: "file", start: 10 },
       span: { at: 1.5, duration: 1 },
     });
+  });
+
+  it("refuses a write over Layers another command changed since it read them (exit 8), losing neither", async () => {
+    const s = await seed("short");
+    // The other command lands between this one's read and its write.
+    let raced = false;
+    const racing = makeRun(
+      buildWriteLayer(testDb, {
+        beforeRequest: async (url) => {
+          if (raced || !url.endsWith("/setClipLayers")) return;
+          raced = true;
+          await run(["clip", "layer", "add", ...FACE_BAND, s.first]);
+        },
+      })
+    );
+
+    const lost = await racing([
+      "clip",
+      "layer",
+      "add",
+      ...SCREEN_SQUARE,
+      s.first,
+    ]);
+
+    expect(lost.exitCode).toBe(8);
+    expect(JSON.parse(lost.stderr)).toMatchObject({
+      _tag: "ClipLayersChangedError",
+      clipId: s.first,
+    });
+    const afterRace = [
+      { index: 0, kind: "scene", volume: 1 },
+      expect.objectContaining({
+        index: 1,
+        source: { kind: "session", file: "camera" },
+      }),
+    ];
+    expect(await layers(s.first)).toEqual(afterRace);
+
+    // Run again, it reads the other command's Layer and keeps it.
+    const retried = await run([
+      "clip",
+      "layer",
+      "add",
+      ...SCREEN_SQUARE,
+      s.first,
+    ]);
+    expect(retried.exitCode).toBe(0);
+    expect(ndjson(retried.stdout)).toEqual([
+      ...afterRace,
+      expect.objectContaining({
+        index: 2,
+        source: { kind: "session", file: "screen" },
+      }),
+    ]);
   });
 
   describe("refuses with exit 3, writing nothing", () => {
@@ -345,13 +478,73 @@ describe("cvm clip layer", () => {
       expect(await layers(s.second)).toEqual(UNTOUCHED);
     });
 
-    it("a Landscape shape other than a Scene Layer at the bottom", async () => {
-      const s = await seed("landscape");
-      await run(["clip", "layer", "add", ...FACE_BAND, s.first]);
+    it("a Scene Layer anywhere but the bottom, on both formats, from move and from a whole write", async () => {
+      for (const format of ["short", "landscape"] as const) {
+        const s = await seed(format);
+        await run(["clip", "layer", "add", ...FACE_BAND, s.first]);
+        expect(
+          await refused(s.first, [
+            "clip",
+            "layer",
+            "move",
+            "--to",
+            "0",
+            s.first,
+            "1",
+          ])
+        ).toContain("bottom");
+        await refused(s.first, [
+          "clip",
+          "layer",
+          "move",
+          "--to",
+          "1",
+          s.first,
+          "0",
+        ]);
+      }
+    });
+
+    it("any write to a Short Clip stored with a Footage Layer below its Scene Layer, until the Scene Layer is moved to the bottom", async () => {
+      const s = await seed("short");
+      // Storable before #2604: the Footage Layer at 0, the Scene Layer above.
+      await testDb.insert(schema.clipLayers).values([
+        {
+          clipId: s.first,
+          position: 0,
+          kind: "footage",
+          sessionFile: "camera",
+          cropX: 0,
+          cropY: 0,
+          cropW: 1,
+          cropH: 1,
+          placeX: 0,
+          placeY: 0,
+          placeW: 1080,
+          placeH: 1920,
+          volume: 0,
+        },
+        { clipId: s.first, position: 1, kind: "scene", volume: 1 },
+      ]);
       expect(
-        await refused(s.first, ["clip", "layer", "remove", s.first, "0"])
-      ).toContain("Landscape");
-      await refused(s.first, [
+        await refused(s.first, [
+          "clip",
+          "layer",
+          "update",
+          "--volume",
+          "0.5",
+          s.first,
+          "0",
+        ])
+      ).toContain("bottom");
+      await refused(s.second, [
+        "clip",
+        "update",
+        "--layers-from",
+        s.first,
+        s.second,
+      ]);
+      const moved = await run([
         "clip",
         "layer",
         "move",
@@ -360,6 +553,10 @@ describe("cvm clip layer", () => {
         s.first,
         "1",
       ]);
+      expect(moved.exitCode).toBe(0);
+      expect(
+        ndjson(moved.stdout).map((l) => (l as { kind: string }).kind)
+      ).toEqual(["scene", "footage"]);
     });
 
     it("a Clip whose Version is not a Draft", async () => {

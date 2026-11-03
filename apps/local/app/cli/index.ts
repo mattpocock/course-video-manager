@@ -105,7 +105,9 @@ OUTPUT CONTRACT
   Errors => a JSON object on STDERR carrying the Effect error _tag. STDOUT is
   always pure data. Exit codes: 0 ok, 2 not-found, 3 invalid-input, 4 db/internal,
   5 authentication, 6 out-of-date checkout, 7 needs the author's machine (the
-  last three are explained in WHERE THE DATA LIVES and WHAT NEEDS A MACHINE).
+  last three are explained in WHERE THE DATA LIVES and WHAT NEEDS A MACHINE),
+  8 changed underneath you (another command edited the same thing between this
+  one's read and its write; nothing was written: run it again).
 
 WHERE THE DATA LIVES
   cvm does not hold a database connection. It talks to the deployed Course

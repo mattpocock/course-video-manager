@@ -9,7 +9,13 @@ import { clipComposite, clipLayers, clipSource } from "@/packages/clip-source";
 import { sceneFilterGraph } from "@/packages/scene-layout";
 import { DEFAULT_MIC_EQ } from "@cvm/core/features/videos/recorder";
 import { micEqFilters } from "@/packages/mic-eq";
+import type { ClipLayerRow } from "@cvm/core/features/videos/clip-layer";
+import {
+  overlayTransform,
+  overlayTransformProgressAt,
+} from "@/features/videos/overlay-transform";
 import { FFmpegEncodeService } from "./ffmpeg-encode-commands";
+import type { RenderedOverlay } from "./overlay-compositing";
 import { SidecarContextTest } from "./sidecar-context";
 import {
   hasFfmpeg,
@@ -115,6 +121,159 @@ describe.skipIf(!hasFfmpeg)("exporting a Video of CVM-recorder Clips", () => {
     expect(near(pixel(output, 1.2, 960, 540), [0, 255, 0])).toBe(true);
   });
 });
+
+/**
+ * A Bullet Panel over a Clip with a Footage Layer (#2606): the composite
+ * pass runs on the finished picture, so its Transform slides the Footage
+ * Layer with the Scene Layer. The Clip is all Camera (lime) with a blue
+ * Footage Layer over the frame's left quarter; the panel's own render is
+ * transparent, so only the move shows. The editor's playback is checked
+ * against this (`clipPlaybackStyles`).
+ */
+describe.skipIf(!hasFfmpeg)(
+  "a Bullet Panel's Transform over a Clip with a Footage Layer",
+  () => {
+    const dir = path.join(
+      os.tmpdir(),
+      `composite-transform-${process.pid}-${Date.now()}`
+    );
+    const layer = (o: Partial<ClipLayerRow>): ClipLayerRow => ({
+      position: 0,
+      kind: "scene",
+      footagePath: null,
+      footageStart: null,
+      sessionFile: null,
+      volume: 1,
+      spanAt: null,
+      spanDuration: null,
+      cropX: null,
+      cropY: null,
+      cropW: null,
+      cropH: null,
+      placeX: null,
+      placeY: null,
+      placeW: null,
+      placeH: null,
+      ...o,
+    });
+    const clip = exportClip({
+      ...sessionRow(dir, 0.5, 3.5, [{ fileTime: 0, scene: "Camera" }]),
+      layers: [
+        layer({}),
+        layer({
+          position: 1,
+          kind: "footage",
+          footagePath: path.join(dir, "broll.mkv"),
+          footageStart: 0,
+          volume: 0,
+          cropX: 0,
+          cropY: 0,
+          cropW: 1,
+          cropH: 1,
+          placeX: 0,
+          placeY: 0,
+          placeW: 480,
+          placeH: 1080,
+        }),
+      ],
+    });
+    const panel = {
+      startInSeconds: 0.5,
+      endInSeconds: 2.5,
+      kind: "bulletPanel",
+      disableEnterAnimation: false,
+      disableExitAnimation: false,
+    };
+    let output: string;
+
+    beforeAll(async () => {
+      fs.mkdirSync(dir, { recursive: true });
+      const h264 = ["-c:v", "libx264", "-pix_fmt", "yuv420p"];
+      lavfi(dir, "screen.mkv", "color=c=red:s=320x180:r=60:d=4", h264);
+      lavfi(dir, "camera.mkv", "color=c=lime:s=384x216:r=60:d=4", h264);
+      lavfi(dir, "broll.mkv", "color=c=blue:s=320x180:r=60:d=4", h264);
+      lavfi(dir, "mic.mkv", "sine=f=440:r=48000:d=4", [
+        "-c:a",
+        "aac",
+        "-ac",
+        "1",
+      ]);
+      // The panel's content: fully transparent, so the probes see the move.
+      lavfi(dir, "panel.mov", "color=c=black@0:s=64x64:r=60:d=2,format=rgba", [
+        "-c:v",
+        "png",
+      ]);
+      const exported = (await exportClips(dir, [clip])).output;
+      const overlays: RenderedOverlay[] = [
+        { ...panel, inputPath: path.join(dir, "panel.mov") },
+      ];
+      output = path.join(dir, "composited.mp4");
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const encode = yield* FFmpegEncodeService;
+          return yield* encode.compositeOverlaysAtOffsets(
+            exported,
+            overlays,
+            output,
+            { totalDurationSeconds: 3, onLog: () => {} }
+          );
+        }).pipe(
+          Effect.provide(
+            Layer.mergeAll(
+              FFmpegEncodeService.Default,
+              NodeContext.layer,
+              SidecarContextTest
+            )
+          )
+        )
+      );
+    }, 120_000);
+
+    afterAll(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+    // By colour: the encode leaves lime at about (0, 213, 0).
+    type Colour = (rgb: number[]) => boolean;
+    const BLUE: Colour = ([r, g, b]) => b! > 200 && r! < 60 && g! < 60;
+    const LIME: Colour = ([r, g, b]) => g! > 150 && r! < 60 && b! < 60;
+    // The Transform's ground: #101011.
+    const GROUND: Colour = (rgb) => rgb.every((v) => v < 40);
+    const near = (rgb: number[], colour: Colour) => colour(rgb);
+    // Just after a frame's start, so the probe decodes that frame.
+    const frameTime = (frame: number) => frame / 60 + 0.004;
+
+    it("draws the Footage Layer in its Placement before the panel", () => {
+      expect(near(pixel(output, frameTime(12), 400, 540), BLUE)).toBe(true);
+      expect(near(pixel(output, frameTime(12), 560, 540), LIME)).toBe(true);
+    });
+
+    it("slides the Footage Layer and the Scene Layer together mid-move", () => {
+      // 24 frames into the panel's 0.8 s ease: partway across.
+      const frame = 30 + 24;
+      const progress = overlayTransformProgressAt(panel, frame / 60);
+      const fullOffset = overlayTransform("bulletPanel")!.to.offsetX * 1920;
+      expect(progress).toBeGreaterThan(0);
+      expect(progress).toBeLessThan(1);
+      const offset = Math.round((fullOffset * progress) / 2) * 2;
+      const t = frameTime(frame);
+      // The ground in the space the picture left, then the Footage Layer
+      // moved by the offset, then the scene beside it, moved by the same.
+      expect(near(pixel(output, t, offset - 16, 540), GROUND)).toBe(true);
+      expect(near(pixel(output, t, offset + 16, 540), BLUE)).toBe(true);
+      expect(near(pixel(output, t, offset + 480 - 16, 540), BLUE)).toBe(true);
+      expect(near(pixel(output, t, offset + 480 + 16, 540), LIME)).toBe(true);
+    });
+
+    it("slides it by the Transform's whole offset once the move arrives", () => {
+      const offset = Math.round(
+        overlayTransform("bulletPanel")!.to.offsetX * 1920
+      );
+      const t = frameTime(100);
+      expect(near(pixel(output, t, offset - 16, 540), GROUND)).toBe(true);
+      expect(near(pixel(output, t, offset + 16, 540), BLUE)).toBe(true);
+      expect(near(pixel(output, t, offset + 480 + 16, 540), LIME)).toBe(true);
+    });
+  }
+);
 
 /**
  * Clips of an odd length (1.8137 s, not a whole number of 60 fps frames),
