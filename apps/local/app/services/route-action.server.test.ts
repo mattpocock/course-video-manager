@@ -77,6 +77,7 @@ class NotFoundError extends Data.TaggedError("NotFoundError")<{
 /** A tagged error no route maps to a status. */
 class SomethingBrokeError extends Data.TaggedError("SomethingBrokeError")<{
   message: string;
+  cause?: unknown;
 }> {}
 
 describe("makeAction", () => {
@@ -519,6 +520,48 @@ describe("makeLoader", () => {
       expect(dir).not.toHaveBeenCalled();
       dir.mockRestore();
       warn.mockRestore();
+    }
+  });
+
+  it("answers 503 telling the author to migrate when the database lacks a table this checkout reads", async () => {
+    // What drizzle throws for a table a pending migration adds: a "Failed
+    // query" wrapping Postgres's undefined_table, here wrapped once more by
+    // the service that ran it.
+    const pgError = Object.assign(
+      new Error('relation "course-video-manager_clip_layer" does not exist'),
+      { code: "42P01" }
+    );
+    const drizzleError = new Error("Failed query: select 1", {
+      cause: pgError,
+    });
+    const dir = vi.spyOn(console, "dir").mockImplementation(() => {});
+    const loader = makeLoader(
+      {
+        effect: () =>
+          Effect.fail(
+            new SomethingBrokeError({
+              message: `Could not read: ${drizzleError.message}`,
+              cause: drizzleError,
+            })
+          ),
+      },
+      makeTestRuntime()
+    );
+
+    try {
+      await loader({ request: dummyRequest, params: {} });
+      expect.unreachable("should have thrown");
+    } catch (error) {
+      const defect = extractDieDefect(error);
+      expect(defect.init.status).toBe(503);
+      expect(defect.data).toContain(
+        'relation "course-video-manager_clip_layer" does not exist'
+      );
+      expect(defect.data).toContain(
+        "git switch main && git pull --ff-only && pnpm db:migrate"
+      );
+    } finally {
+      dir.mockRestore();
     }
   });
 

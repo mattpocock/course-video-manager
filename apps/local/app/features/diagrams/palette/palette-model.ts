@@ -1,4 +1,4 @@
-import type { PageKey } from "./palette-nav";
+import type { PageKey } from "./palette-reducer";
 
 export type PaletteGroup = "Insert" | "Navigate" | "Snapshot" | "Diagram";
 

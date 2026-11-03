@@ -4,11 +4,7 @@ import { useContextSelector } from "use-context-selector";
 import { cn } from "@/lib/utils";
 import { VideoEditorContext } from "../video-editor-context";
 import type { ClipOnDatabase } from "../clip-state-reducer";
-import {
-  clipLayerFlags,
-  clipLayersShown,
-  shortClipsFlagged,
-} from "../short-clip-layers";
+import { clipLayerFlags, clipLayersShown, clipsFlagged } from "../clip-layers";
 
 const Field = (props: { label: string; value: string }) => (
   <div className="flex gap-2 min-w-0">
@@ -20,11 +16,12 @@ const Field = (props: { label: string; value: string }) => (
 );
 
 /**
- * The Portrait Studio's read-only list of the current Clip's Layers, bottom
- * to top, with what looks wrong with them, and the other Clips of the Short
- * that have a flag. Layers are edited with `cvm clip layer`.
+ * The editor's read-only list of the current Clip's Layers, bottom to top,
+ * beside the player on both Video Formats, with what looks wrong with them
+ * (a Placement checked against the Video's own frame), and the other Clips of
+ * the Video that have a flag. Layers are edited with `cvm clip layer`.
  */
-export const ShortClipLayersList = () => {
+export const ClipLayersList = () => {
   const clips = useContextSelector(VideoEditorContext, (ctx) => ctx.clips);
   const currentClip = useContextSelector(
     VideoEditorContext,
@@ -38,10 +35,20 @@ export const ShortClipLayersList = () => {
       ),
     [clips]
   );
-  const flagged = useMemo(() => shortClipsFlagged(saved), [saved]);
+  const videoFormat = useContextSelector(
+    VideoEditorContext,
+    (ctx) => ctx.videoFormat
+  );
+  const flagged = useMemo(
+    () => clipsFlagged(saved, videoFormat),
+    [saved, videoFormat]
+  );
   const clip = currentClip?.type === "on-database" ? currentClip : undefined;
   const layers = useMemo(() => (clip ? clipLayersShown(clip) : []), [clip]);
-  const flags = useMemo(() => (clip ? clipLayerFlags(clip) : []), [clip]);
+  const flags = useMemo(
+    () => (clip ? clipLayerFlags(clip, videoFormat) : []),
+    [clip, videoFormat]
+  );
 
   return (
     <aside

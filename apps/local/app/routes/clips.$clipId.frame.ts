@@ -2,16 +2,17 @@ import { FileSystem } from "@effect/platform";
 import { Effect } from "effect";
 import { makeLoader } from "@/services/route-action.server";
 import { ClipOperationsService } from "@/services/db-clip-operations.server";
-import { shortClipFrame } from "@/services/short-clip-frame";
-import { ShortOverlayFrameService } from "@/services/short-overlay-frame";
+import { clipFrame } from "@/services/clip-frame";
+import { OverlayFrameService } from "@/services/overlay-frame";
 import { removeBestEffort } from "@/services/remove-best-effort";
 import { assertUnderEffect } from "@/services/assert-under";
 import { FRAMES_DIRECTORY } from "@/services/frame-stills";
 
 /**
- * The Portrait Studio's preview (#2580): a Short's Clip `at` seconds in, as
- * its post shows it, drawn by the same code as `cvm clip frame`
- * (`shortClipFrame`). Like any still it is refused while anything records
+ * A Clip `at` seconds in, as its Video's render shows it, drawn by the same
+ * code as `cvm clip frame` (`clipFrame`), for the editor's paused preview on
+ * both Video Formats (`clip-frame-preview-reducer.ts`, #2580, #2609). Like any
+ * still it is refused while anything records
  * (the Still Gate, 503); the editor asks again after the Stop. The PNG is
  * sent and its file removed: the URL's `v` names what it was drawn from, so
  * the browser may keep it.
@@ -34,8 +35,8 @@ export const loader = makeLoader({
 
       const path = yield* assertUnderEffect(
         FRAMES_DIRECTORY,
-        yield* shortClipFrame(clip.id, at).pipe(
-          Effect.provide(ShortOverlayFrameService.Default)
+        yield* clipFrame(clip.id, at).pipe(
+          Effect.provide(OverlayFrameService.Default)
         )
       );
       const png = yield* fs.readFile(path);

@@ -40,12 +40,17 @@ import {
 } from "./overlay.bullets";
 import { requireNoClipZoomUnderTransform } from "./overlay.clip-zoom-guard";
 import { requireNoOverlappingOverlay } from "./overlay.overlap-guard";
+import { requireShortForKind } from "./overlay.short-guard";
 import {
   chatCardOpts,
   requireChatCardFlags,
   requireChatCardUnchanged,
   resolveChatCardColumns,
 } from "./overlay.chat-card";
+import {
+  requireCallToActionUnchanged,
+  resolveCallToActionWords,
+} from "./overlay.call-to-action";
 import {
   OVERLAY_HELP,
   LIST_HELP,
@@ -64,9 +69,10 @@ import {
  *   Clip's length, so an Overlay may run on across the Clips that follow. Its
  *   `kind` says which content-kind it carries — `definitionCard` (the default,
  *   and what every Overlay written before the discriminator existed is),
- *   `bulletPanel` or `chatCard`. Overlays are graphics only: footage over
- *   footage is a Footage Layer (`cvm clip layer`). A Definition Card's content is a `title` (the term) and a
- *   `description` (the definition), written inline on the Overlay itself;
+ *   `bulletPanel`, `chatCard` or `callToAction`. Overlays are graphics only:
+ *   footage over footage is a Footage Layer (`cvm clip layer`). A Definition
+ *   Card's content is a `title` (the term) and a `description` (the
+ *   definition), written inline on the Overlay itself;
  *   there is no shared glossary entity. A Bullet Panel's content is a `title`
  *   (the panel's heading) and up to four `bullets`, each an icon, a line of
  *   text and its own `revealAt` — seconds after the Overlay's own start.
@@ -77,8 +83,9 @@ import {
  *   `overlay.clip-zoom-guard.ts`.
  *
  *   At most ONE Overlay is visible at a given moment across the whole Video,
- *   so an Overlay whose window overlaps another's — of either kind, on any
- *   Clip of the same Video — is refused rather than authored.
+ *   so an Overlay whose window overlaps another's — of any kind, on any Clip
+ *   of the same Video — is refused rather than authored. The one exception
+ *   is a Call to Action beside a Chat Card (`overlay.overlap-guard.ts`).
  *
  *   Overlays are CHILDREN of a Clip, addressed only by id, with no version
  *   scoping. Unlike every other write noun here, delete is a HARD delete: an
@@ -300,8 +307,13 @@ const addCmd = Command.make(
         bulletsJson: Option.getOrUndefined(flags.bulletsJson),
         chatCard: { chatHighlight, noChatSpin },
       });
-      // A Chat Card's title is its Chat Highlight's author, copied.
-      if (willBeKind !== "chatCard" && Option.isNone(title)) {
+      // A Chat Card's title is its Chat Highlight's author, copied; a Call
+      // to Action's has a default.
+      if (
+        willBeKind !== "chatCard" &&
+        willBeKind !== "callToAction" &&
+        Option.isNone(title)
+      ) {
         return yield* parseError(
           `--title is required for a ${willBeKind} Overlay`,
           "overlay"
@@ -316,12 +328,14 @@ const addCmd = Command.make(
       });
 
       const anchor = yield* requireActiveClip(clip);
+      yield* requireShortForKind({ kind: willBeKind, videoId: anchor.videoId });
       yield* requireAtWithinClip(at, anchor);
       yield* requireNoOverlappingOverlay({
         videoId: anchor.videoId,
         clipId: clip,
         at,
         durationInSeconds: duration,
+        kind: willBeKind,
       });
       yield* requireNoClipZoomUnderTransform({
         videoId: anchor.videoId,
@@ -329,6 +343,11 @@ const addCmd = Command.make(
         at,
         durationInSeconds: duration,
         kind: Option.getOrUndefined(kind),
+      });
+      const callToAction = resolveCallToActionWords({
+        kind: willBeKind,
+        title: Option.getOrUndefined(title),
+        description: desc,
       });
       const chatCard = yield* resolveChatCardColumns({
         kind: willBeKind,
@@ -351,6 +370,8 @@ const addCmd = Command.make(
         bullets: panel.bullets ?? null,
         disableEnterAnimation: panel.disableEnterAnimation ?? false,
         disableExitAnimation: panel.disableExitAnimation ?? false,
+        // A Call to Action's words, its defaults filled in.
+        ...callToAction,
         // A Chat Card's author and text, copied over title and description.
         ...chatCard,
       });
@@ -404,6 +425,7 @@ const updateCmd = Command.make(
       // lands, so a switch of kind and its new content go in together.
       const wasKind = resolveOverlayKind(overlay.kind);
       const willBeKind = newKind ?? wasKind;
+      yield* requireCallToActionUnchanged({ wasKind, willBeKind });
       yield* requireChatCardUnchanged({
         wasKind,
         willBeKind,
@@ -473,6 +495,7 @@ const updateCmd = Command.make(
           clipId: anchor.id,
           at: newAt ?? overlay.at,
           durationInSeconds: nextDuration,
+          kind: willBeKind,
           exclude: id,
         });
       }

@@ -175,6 +175,20 @@ describe("on a box that is not the author's", () => {
     expect(result.stdout).toBe("");
   });
 
+  it("refuses cvm course publish discard", async () => {
+    const result = await run([
+      "course",
+      "publish",
+      "discard",
+      await courseIdOf(),
+    ]);
+
+    expect(result.exitCode).toBe(7);
+    expect(failureOf(result)._tag).toBe("LocalOnlyCommandError");
+    expect(failureOf(result).command).toBe("cvm course publish discard");
+    expect(result.stdout).toBe("");
+  });
+
   it("names the resource it would have needed", async () => {
     // An agent that reads "it reads the finished videos directory" reports
     // accurately why it stopped. One that reads ENOENT tries again.

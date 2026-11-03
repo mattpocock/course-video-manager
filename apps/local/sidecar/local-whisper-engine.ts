@@ -93,8 +93,8 @@ export const makeWorker = (config: WorkerConfig) => {
   };
 
   const start = (): Promise<void> => {
-    // Clips are transcribed while their take records (#2224): the worker and
-    // every thread it starts get CPU only when nothing else wants it.
+    // The worker and every thread it starts get CPU only when nothing else
+    // wants it (#2224). Its GPU waits for Stop in the GPU gate (#2631).
     const proc = spawn("nice", ["-n", "19", config.command, ...config.args], {
       stdio: ["pipe", "pipe", "pipe"],
     });

@@ -59,7 +59,8 @@ export function CommandPalette({
     listRef,
     columns: columns ?? 1,
     value: state.nav.value,
-    onValueChange: (value) => state.dispatch({ type: "setValue", value }),
+    onValueChange: (value) =>
+      state.dispatch({ type: "highlight-moved", value }),
     enabled: columns !== undefined,
   });
 
@@ -67,12 +68,12 @@ export function CommandPalette({
     (e: React.KeyboardEvent<HTMLDivElement>) => {
       if (e.key === "Escape") {
         e.preventDefault();
-        state.navigateBack({ type: "escape" });
+        state.dispatch({ type: "escape-pressed" });
         return;
       }
       if (e.key === "Backspace" && state.nav.query === "") {
         if (state.nav.stack.length > 1) e.preventDefault();
-        state.navigateBack({ type: "backspace" });
+        state.dispatch({ type: "backspace-pressed" });
         return;
       }
       gridNav(e);
@@ -120,7 +121,9 @@ export function CommandPalette({
         </DialogDescription>
         <Command
           value={state.nav.value}
-          onValueChange={(value) => state.dispatch({ type: "setValue", value })}
+          onValueChange={(value) =>
+            state.dispatch({ type: "highlight-moved", value })
+          }
           // Root filters through cmdk; every other page owns its own filtering,
           // for a different reason per page — mount cost for icons, substring
           // semantics for components, the server for diagrams.
@@ -139,7 +142,7 @@ export function CommandPalette({
               autoFocus
               value={state.nav.query}
               onValueChange={(query) =>
-                state.dispatch({ type: "setQuery", query })
+                state.dispatch({ type: "query-typed", query })
               }
               placeholder={placeholder}
               className="h-full w-full bg-transparent text-sm outline-none placeholder:text-zinc-500"
@@ -172,7 +175,9 @@ export function CommandPalette({
                         key={action.id}
                         value={action.id}
                         keywords={[action.label, action.hint]}
-                        onSelect={() => state.runAction(action)}
+                        onSelect={() =>
+                          state.dispatch({ type: "root-action-picked", action })
+                        }
                         className="gap-2 rounded px-2 py-1.5 text-sm text-zinc-200 data-[selected=true]:bg-zinc-700 data-[selected=true]:text-zinc-50"
                       >
                         <IconGlyph
@@ -215,9 +220,11 @@ export function CommandPalette({
                     key={name}
                     value={name}
                     onSelect={() =>
-                      replacing
-                        ? state.replaceIcon(name)
-                        : state.insertIcon(name)
+                      state.dispatch(
+                        replacing
+                          ? { type: "replacement-icon-picked", name }
+                          : { type: "icon-picked", name }
+                      )
                     }
                     title={name}
                     className={cn(
@@ -254,7 +261,9 @@ export function CommandPalette({
                   <CommandItem
                     key={component.id}
                     value={component.id}
-                    onSelect={() => void state.insertComponent(component)}
+                    onSelect={() =>
+                      state.dispatch({ type: "component-picked", component })
+                    }
                     title={component.name}
                     className="group relative flex flex-col items-stretch gap-0 overflow-hidden rounded border border-zinc-700 bg-zinc-800 p-0 data-[selected=true]:border-zinc-300 data-[selected=true]:bg-zinc-700"
                   >
@@ -266,10 +275,9 @@ export function CommandPalette({
                         title="Rename"
                         onClick={(e) => {
                           e.stopPropagation();
-                          state.setComponentUnderEdit(component);
                           state.dispatch({
-                            type: "push",
-                            page: "renameComponent",
+                            type: "rename-component-clicked",
+                            component,
                           });
                         }}
                         className="rounded bg-zinc-950/80 p-1 text-zinc-300 hover:text-zinc-50"
@@ -282,7 +290,10 @@ export function CommandPalette({
                         title="Delete permanently"
                         onClick={(e) => {
                           e.stopPropagation();
-                          void state.deleteComponent(component.id);
+                          state.dispatch({
+                            type: "delete-component-clicked",
+                            componentId: component.id,
+                          });
                         }}
                         className="rounded bg-zinc-950/80 p-1 text-zinc-300 hover:text-red-400"
                       >
@@ -318,7 +329,9 @@ export function CommandPalette({
                     <CommandItem
                       key={key}
                       value={key}
-                      onSelect={() => void state.goToDiagram(hit)}
+                      onSelect={() =>
+                        state.dispatch({ type: "diagram-picked", hit })
+                      }
                       className="flex flex-col items-stretch gap-0 overflow-hidden rounded border border-zinc-700 bg-zinc-800 p-0 data-[selected=true]:border-zinc-300 data-[selected=true]:bg-zinc-700"
                     >
                       <DiagramCard hit={hit} query={state.nav.query} />
@@ -332,7 +345,12 @@ export function CommandPalette({
               <NamePage
                 prompt="Press Enter to save the selection as"
                 value={state.nav.query}
-                onSubmit={() => void state.saveComponent(state.nav.query)}
+                onSubmit={() =>
+                  state.dispatch({
+                    type: "name-submitted",
+                    name: state.nav.query,
+                  })
+                }
               />
             )}
 
@@ -340,11 +358,12 @@ export function CommandPalette({
               <NamePage
                 prompt="Press Enter to rename this component to"
                 value={state.nav.query}
-                onSubmit={() => {
-                  const target = state.componentUnderEdit;
-                  if (target)
-                    void state.renameComponent(target.id, state.nav.query);
-                }}
+                onSubmit={() =>
+                  state.dispatch({
+                    type: "name-submitted",
+                    name: state.nav.query,
+                  })
+                }
               />
             )}
 
@@ -352,7 +371,12 @@ export function CommandPalette({
               <NamePage
                 prompt="Press Enter to rename this diagram to"
                 value={state.nav.query}
-                onSubmit={() => void state.renameDiagram(state.nav.query)}
+                onSubmit={() =>
+                  state.dispatch({
+                    type: "name-submitted",
+                    name: state.nav.query,
+                  })
+                }
               />
             )}
           </CommandList>

@@ -65,9 +65,9 @@ export { dependencyFailedMessage } from "./db-job-calls.server.js";
 /**
  * Job kinds held, queued, while any Recording Session is recording (#2214):
  * a whole Footage file is minutes of GPU and disk, so it waits for Stop.
- * A Clip's transcription is NOT held (#2224): the recording workflow needs
- * each Clip's text as it arrives. It reads only the Clip's span of the mic
- * file, at the lowest priority, from a Whisper the recorder keeps warm.
+ * A Clip's transcription is claimed at once and reads only the Clip's span
+ * of the mic file, but its Whisper pass waits for Stop too, in the Sidecar's
+ * GPU gate (#2631, `apps/local/app/services/gpu-gate.ts`).
  */
 export const HELD_WHILE_RECORDING_KINDS = ["transcribe-footage"] as const;
 
@@ -337,10 +337,18 @@ export const createJobOperations = (db: Database) => {
    * (`kind → message`). Safe to call at any time and from any process.
    * Never one in `stillRunning`, the caller's own live runs: a late
    * heartbeat can lapse a lease while the post goes on.
+   *
+   * Never one whose lease ran out less than `holderGoneAfterMs` ago (#2621).
+   * A sidecar that cannot reach the database keeps running its Jobs for its
+   * outage tolerance, heartbeats failing, and stops only after it; another
+   * sidecar that took the lease meanwhile must not run them a second time
+   * beside it. Past that, its holder has surely stopped.
    */
   const recoverExpiredJobs = Effect.fn("recoverExpiredJobs")(function* (input: {
     neverRetryKinds: { readonly [kind: string]: string };
     stillRunning: readonly string[];
+    /** How long a Job's holder may still run it after its lease ran out. */
+    holderGoneAfterMs: number;
     /** Kinds whose lost run resumes: back at the same attempt (#2167). */
     resumableKinds?: readonly string[];
   }) {
@@ -353,7 +361,10 @@ export const createJobOperations = (db: Database) => {
             .where(
               and(
                 eq(jobs.status, "running"),
-                lt(jobs.leaseUntil, sql`now()`),
+                lt(
+                  jobs.leaseUntil,
+                  sql`now() - (${input.holderGoneAfterMs} * interval '1 millisecond')`
+                ),
                 input.stillRunning.length === 0
                   ? undefined
                   : notInArray(jobs.id, [...input.stillRunning])

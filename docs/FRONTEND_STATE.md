@@ -110,8 +110,8 @@ session listener that fires on every pointer move, dispatches only when the
 value it reports has changed.
 
 A reducer that never needs effects can use plain `useReducer` (the
-teleprompter's `teleprompterSession.reducer`, the palette's `navReducer`). New
-code that needs effects declares them with `exec`.
+teleprompter's `teleprompterSession.reducer`). New code that needs effects
+declares them with `exec`.
 
 **A toast is a reducer decision, carried on its effect.** The reducer works
 out everything the toast needs and puts it on the effect; the handler only

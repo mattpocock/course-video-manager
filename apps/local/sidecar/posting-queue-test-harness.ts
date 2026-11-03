@@ -341,6 +341,7 @@ const TIMING: SidecarTiming = {
   recoverEveryMs: 1_000,
   lapseWaitMs: 200,
   postCheckTimeoutMs: 1_000,
+  outageToleranceMs: 1_000,
 };
 
 // The two posting kinds and the vertical render, run on the test's own

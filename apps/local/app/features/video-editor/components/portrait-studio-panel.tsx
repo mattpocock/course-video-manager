@@ -3,8 +3,8 @@ import { cn } from "@/lib/utils";
 import { LivePreviewFrame } from "./live-preview-frame";
 import { CvmRecorderControls } from "./cvm-recorder-controls";
 import { getHasLivePreview } from "../live-preview";
-import { ShortClipLayersList } from "./short-clip-layers-list";
-import { ShortFramePreviewOverlay } from "./short-frame-preview-overlay";
+import { ClipLayersList } from "./clip-layers-list";
+import { ClipFramePreviewOverlay } from "./clip-frame-preview-overlay";
 import { ActionsDropdown } from "./actions-dropdown";
 import { useEditorVideoMenu } from "../editor-video-menu";
 import { MissingWordTimingBadge } from "./transcript-word-actions";
@@ -93,8 +93,8 @@ export const PortraitStudioPanel = () => {
     VideoEditorContext,
     (ctx) => ctx.overlaysByClipId
   );
-  // A Short draws only its Chat Cards, as its render does.
-  const chatCardsByClipId = useMemo(
+  // A Short draws only its Chat Cards and Calls to Action, as its render does.
+  const shortOverlays = useMemo(
     () => shortOverlaysByClipId(overlaysByClipId),
     [overlaysByClipId]
   );
@@ -137,7 +137,7 @@ export const PortraitStudioPanel = () => {
                   !showVideoPlayer && "hidden"
                 )}
               >
-                <ShortFramePreviewOverlay />
+                <ClipFramePreviewOverlay overlaysByClipId={shortOverlays} />
                 <PreloadableClipManager
                   clipsToAggressivelyPreload={clipsToAggressivelyPreload}
                   clips={clips
@@ -152,7 +152,7 @@ export const PortraitStudioPanel = () => {
                   onUpdateCurrentTime={onUpdateCurrentTime}
                   playbackRate={playbackRate}
                   scrubSeekTime={scrubSeekTime}
-                  overlaysByClipId={chatCardsByClipId}
+                  overlaysByClipId={shortOverlays}
                   footageNotFound={footageNotFound}
                 />
               </div>
@@ -177,7 +177,7 @@ export const PortraitStudioPanel = () => {
           )}
         </div>
 
-        {clips.length > 0 && <ShortClipLayersList />}
+        {clips.length > 0 && <ClipLayersList />}
       </div>
 
       <div className="shrink-0">

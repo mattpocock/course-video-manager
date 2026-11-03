@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ClipLayerRow } from "@cvm/core/features/videos/clip-layer";
-import {
-  clipLayerFlags,
-  clipLayersShown,
-  shortClipsFlagged,
-} from "./short-clip-layers";
+import { clipLayerFlags, clipLayersShown, clipsFlagged } from "./clip-layers";
 
 const scene = (position: number, volume = 1): ClipLayerRow => ({
   position,
@@ -124,10 +120,11 @@ describe("clipLayersShown", () => {
 
 describe("clipLayerFlags", () => {
   it("flags nothing on an untouched Clip, or on Footage that fills the frame for the whole Clip", () => {
-    expect(clipLayerFlags(clip())).toEqual([]);
+    expect(clipLayerFlags(clip(), "short")).toEqual([]);
     expect(
       clipLayerFlags(
-        clip([footage(0, { placeW: 1080, placeH: 1920, cropW: 1 })])
+        clip([footage(0, { placeW: 1080, placeH: 1920, cropW: 1 })]),
+        "short"
       )
     ).toEqual([]);
   });
@@ -139,7 +136,8 @@ describe("clipLayerFlags", () => {
           scene(0),
           footage(1, { spanAt: 12, spanDuration: 2 }),
           footage(2, { spanAt: 8, spanDuration: 4 }),
-        ])
+        ]),
+        "short"
       )
     ).toEqual([
       {
@@ -155,18 +153,37 @@ describe("clipLayerFlags", () => {
     ]);
   });
 
-  it("flags a Placement partly or wholly outside the 1080x1920 frame", () => {
+  it("flags a Placement partly or wholly outside a Short's 1080x1920 frame", () => {
     expect(
       clipLayerFlags(
         clip([
           scene(0),
           footage(1, { placeX: 540 }),
           footage(2, { placeY: 1920 }),
-        ])
+        ]),
+        "short"
       )
     ).toEqual([
       { layer: 1, message: "Partly outside the 1080x1920 frame" },
       { layer: 2, message: "Never seen: its Placement is off the frame" },
+    ]);
+  });
+
+  it("flags a Placement partly or wholly outside a Landscape Video's 1920x1080 frame", () => {
+    const layers = [
+      scene(0),
+      footage(1, { placeX: 1440, placeW: 480, placeH: 270 }),
+      footage(2, { placeY: 960, placeW: 480, placeH: 270 }),
+      footage(3, { placeX: 1920, placeW: 480, placeH: 270 }),
+    ];
+    // Inside 1920x1080, though it would be off a Short's 1080 width.
+    expect(clipLayerFlags(clip(layers), "landscape")).toEqual([
+      { layer: 2, message: "Partly outside the 1920x1080 frame" },
+      { layer: 3, message: "Never seen: its Placement is off the frame" },
+    ]);
+    expect(clipLayerFlags(clip(layers), "short")).toEqual([
+      { layer: 1, message: "Never seen: its Placement is off the frame" },
+      { layer: 3, message: "Never seen: its Placement is off the frame" },
     ]);
   });
 
@@ -176,7 +193,8 @@ describe("clipLayerFlags", () => {
         clip([
           footage(0, { spanAt: 2, spanDuration: 3 }),
           footage(1, { spanAt: 4, spanDuration: 2 }),
-        ])
+        ]),
+        "short"
       )
     ).toEqual([
       { layer: null, message: "Black from 0s to 2s: no Layer draws there" },
@@ -185,14 +203,17 @@ describe("clipLayerFlags", () => {
   });
 
   it("flags a Clip whose every Layer is muted, and a Layer it could not export", () => {
-    expect(clipLayerFlags(clip([scene(0, 0), footage(1)]))).toEqual([
+    expect(clipLayerFlags(clip([scene(0, 0), footage(1)]), "short")).toEqual([
       { layer: null, message: "Silent: every Layer's volume is 0" },
     ]);
     expect(
-      clipLayerFlags({
-        ...clip([footage(0, { sessionFile: "screen", footagePath: null })]),
-        recordingSession: { screenCaptured: false },
-      })
+      clipLayerFlags(
+        {
+          ...clip([footage(0, { sessionFile: "screen", footagePath: null })]),
+          recordingSession: { screenCaptured: false },
+        },
+        "short"
+      )
     ).toEqual([
       {
         layer: null,
@@ -203,10 +224,10 @@ describe("clipLayerFlags", () => {
   });
 });
 
-describe("shortClipsFlagged", () => {
+describe("clipsFlagged", () => {
   it("names only the Clips with a flag, numbered from 1", () => {
     const silent = clip([scene(0, 0)]);
-    expect(shortClipsFlagged([clip(), silent, clip()])).toEqual([
+    expect(clipsFlagged([clip(), silent, clip()], "short")).toEqual([
       {
         clip: silent,
         number: 2,

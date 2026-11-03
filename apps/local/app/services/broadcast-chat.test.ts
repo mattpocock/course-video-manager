@@ -1,4 +1,5 @@
 import { describe, it, expect } from "@effect/vitest";
+import { Clock, Duration, Effect } from "effect";
 import { afterEach, vi } from "vitest";
 import type http from "node:http";
 import {
@@ -81,6 +82,56 @@ const chatRequests = () =>
   youtube.requests
     .filter((r) => r.path.startsWith("/youtube/v3/liveChat/"))
     .map((r) => new URL(r.path, "http://fake"));
+
+/**
+ * A clock the test moves by hand, so pauses are measured in its time, not
+ * the wall clock's. `whenAsleep` resolves once the chat waits on it.
+ */
+const handClock = () => {
+  let now = Date.now();
+  const sleepers: { at: number; wake: () => void }[] = [];
+  let asleep: (() => void) | null = null;
+  const clock: Clock.Clock = {
+    [Clock.ClockTypeId]: Clock.ClockTypeId,
+    unsafeCurrentTimeMillis: () => now,
+    currentTimeMillis: Effect.sync(() => now),
+    unsafeCurrentTimeNanos: () => BigInt(now) * 1_000_000n,
+    currentTimeNanos: Effect.sync(() => BigInt(now) * 1_000_000n),
+    sleep: (duration) =>
+      Effect.async<void>((resume) => {
+        const sleeper = {
+          at: now + Duration.toMillis(duration),
+          wake: () => resume(Effect.void),
+        };
+        sleepers.push(sleeper);
+        asleep?.();
+        return Effect.sync(() => {
+          sleepers.splice(sleepers.indexOf(sleeper), 1);
+        });
+      }),
+  };
+  return {
+    clock,
+    now: () => now,
+    /** Resolves once something sleeps on this clock. */
+    whenAsleep: () =>
+      sleepers.length > 0
+        ? Promise.resolve()
+        : new Promise<void>((resolve) => {
+            asleep = () => {
+              asleep = null;
+              resolve();
+            };
+          }),
+    /** Moves time on to the next sleeper's wake-up, and wakes it. */
+    wakeNext: () => {
+      sleepers.sort((a, b) => a.at - b.at);
+      const next = sleepers.shift()!;
+      now = Math.max(now, next.at);
+      next.wake();
+    },
+  };
+};
 
 /** The app server's chat, talking to the fake YouTube. */
 let chats: BroadcastChat[] = [];
@@ -216,18 +267,92 @@ describe("the Broadcast's live chat, owned by the app server", () => {
     ).toEqual(["streaming", "reconnecting", "streaming"]);
   });
 
-  it("reopens a stream YouTube keeps closing after a growing pause, and logs each change with the opens so far", async () => {
+  it("reopens a stream connection YouTube ends cleanly from where it left off, still streaming: an end isn't a drop", async () => {
     await storeGrant();
-    let page = 0;
-    // YouTube answers every stream connection with one page, then closes it.
-    const flap = (res: http.ServerResponse) => {
-      page += 1;
+    // YouTube answers with a page, then ends its answer: it does so every
+    // few seconds on a healthy chat.
+    youtube.chatStreams.push((res) => {
       sendPages(res, [
-        chatPage({
-          messages: [fakeViewerMessage(page)],
-          nextPageToken: `t${page}`,
-        }),
+        chatPage({ messages: [fakeViewerMessage(1)], nextPageToken: "t1" }),
       ]);
+      setTimeout(() => res.end("]"), 5);
+    });
+    youtube.chatStreams.push((res) =>
+      sendPages(res, [
+        chatPage({ messages: [fakeViewerMessage(2)], nextPageToken: "t2" }),
+      ])
+    );
+    const chat = startChat();
+    const heard = listen(chat);
+
+    await pick(chat, {
+      broadcastId: "office-hours",
+      liveChatId: "chat-office-hours",
+    });
+
+    await vi.waitFor(() =>
+      expect(messagesHeard(heard)).toEqual([shown(1), shown(2)])
+    );
+    expect(chatRequests().map((r) => r.searchParams.get("pageToken"))).toEqual([
+      null,
+      "t1",
+    ]);
+    expect(
+      heard.flatMap((e) =>
+        e.type === "chat-connection-changed" ? [e.connection.state] : []
+      )
+    ).toEqual(["streaming"]);
+  });
+
+  it("reopens at once each time YouTube ends an answer after pages, so chat is never held back by a pause", async () => {
+    await storeGrant();
+    // A healthy chat: YouTube answers each connection with a page and ends
+    // the answer, five times; the sixth connection it holds open.
+    for (let page = 1; page <= 6; page++) {
+      youtube.chatStreams.push((res) => {
+        sendPages(res, [
+          chatPage({
+            messages: [fakeViewerMessage(page)],
+            nextPageToken: `t${page}`,
+          }),
+        ]);
+        if (page < 6) res.end("]");
+      });
+    }
+    // Every pause is a minute: one pause before a reopen and the chat
+    // stalls far past the wait below, so hearing all six proves none.
+    const chat = startChat({
+      reconnectMs: 60_000,
+      maxReconnectMs: 60_000,
+      steadyMs: 60_000,
+    });
+    const heard = listen(chat);
+
+    await pick(chat, {
+      broadcastId: "office-hours",
+      liveChatId: "chat-office-hours",
+    });
+
+    await vi.waitFor(
+      () => expect(messagesHeard(heard)).toEqual([1, 2, 3, 4, 5, 6].map(shown)),
+      { timeout: 5_000 }
+    );
+    expect(chatRequests().map((r) => r.searchParams.get("pageToken"))).toEqual([
+      null,
+      "t1",
+      "t2",
+      "t3",
+      "t4",
+      "t5",
+    ]);
+    expect(chat.snapshot().connection).toEqual({ state: "streaming" });
+  });
+
+  it("reopens a stream YouTube keeps ending with no chat after a growing pause, and logs each open with the opens so far", async () => {
+    await storeGrant();
+    // YouTube opens every stream connection, then ends it with no page.
+    const flap = (res: http.ServerResponse) => {
+      holdOpen(res);
       setTimeout(() => res.end("]"), 5);
       youtube.chatStreams.push(flap);
     };
@@ -259,16 +384,13 @@ describe("the Broadcast's live chat, owned by the app server", () => {
       },
       {
         broadcastId: "office-hours",
-        connection: {
-          state: "reconnecting",
-          message: "YouTube closed the chat connection.",
-        },
-        streamOpens: 1,
+        connection: { state: "streaming" },
+        streamOpens: 2,
       },
       {
         broadcastId: "office-hours",
         connection: { state: "streaming" },
-        streamOpens: 2,
+        streamOpens: 3,
       },
     ]);
   });
@@ -390,54 +512,66 @@ describe("the Broadcast's live chat, owned by the app server", () => {
 
   it("while polling, asks for the stream connection again after a pause that doubles up to a cap, and stops polling the moment it's back", async () => {
     await storeGrant();
+    const time = handClock();
     const askedAt: number[] = [];
+    let first: http.ServerResponse | undefined;
     youtube.chatStreams.push((res) => {
+      first = res;
       sendPages(res, [
         chatPage({ messages: [fakeViewerMessage(1)], nextPageToken: "t1" }),
       ]);
-      setTimeout(() => res.destroy(), 20);
     });
     // Refused as it breaks down, then five more times, then back.
     for (let i = 0; i < 6; i++) {
       youtube.chatStreams.push((res) => {
-        askedAt.push(Date.now());
+        askedAt.push(time.now());
         refuseStream(res);
       });
     }
-    youtube.chatStreams.push((res) => {
-      askedAt.push(Date.now());
-      sendPages(res, [chatPage({ messages: [fakeViewerMessage(9)] })]);
+    let backNow = () => {};
+    const back = new Promise<"back">((resolve) => {
+      backNow = () => resolve("back");
     });
+    youtube.chatStreams.push((res) => {
+      askedAt.push(time.now());
+      sendPages(res, [chatPage({ messages: [fakeViewerMessage(9)] })]);
+      backNow();
+    });
+    // Every pause is a whole number of polls, so each ask lands on time.
     for (let i = 0; i < 200; i++) {
       youtube.chatPolls.push({
         status: 200,
-        body: chatPage({ messages: [], pollingIntervalMillis: 5 }),
+        body: chatPage({ messages: [], pollingIntervalMillis: 20 }),
       });
     }
     const chat = startChat();
-
-    await pick(chat, {
-      broadcastId: "office-hours",
-      liveChatId: "chat-office-hours",
+    // It breaks down mid-stream once its first message is heard.
+    chat.subscribe((e) => {
+      if (e.type === "chat-message-received" && e.messages[0]?.id === "msg-1")
+        first!.destroy();
     });
 
-    await vi.waitFor(
-      () => expect(chat.snapshot().messages).toEqual([shown(1), shown(9)]),
-      { timeout: 3000 }
+    await runWithFakeYouTube(
+      Effect.withClock(
+        chat.pick({
+          broadcastId: "office-hours",
+          liveChatId: "chat-office-hours",
+        }),
+        time.clock
+      )
     );
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    // Time moves only while the chat waits on it, until the stream is back.
+    while ((await Promise.race([back, time.whenAsleep()])) !== "back") {
+      time.wakeNext();
+    }
+
+    await vi.waitFor(() =>
+      expect(chat.snapshot().messages).toEqual([shown(1), shown(9)])
+    );
     expect(chat.snapshot().connection).toEqual({ state: "streaming" });
-    const pauses = askedAt.slice(1).map((at, i) => at - askedAt[i]!);
     // 20, 40, 80, then the cap of 100 (doubling on would give 160, 320).
-    expect(pauses.map((p, i) => p >= [20, 40, 80, 100, 100, 100][i]!)).toEqual([
-      true,
-      true,
-      true,
-      true,
-      true,
-      true,
-    ]);
-    expect(pauses.slice(3).every((p) => p < 150)).toBe(true);
+    const pauses = askedAt.slice(1).map((at, i) => at - askedAt[i]!);
+    expect(pauses).toEqual([20, 40, 80, 100, 100, 100]);
     // Not one poll once the stream connection is back.
     const paths = chatRequests().map((r) => r.pathname);
     expect(paths.at(-1)).toBe("/youtube/v3/liveChat/messages/stream");

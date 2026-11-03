@@ -138,7 +138,7 @@ WHAT NEEDS A MACHINE
     cvm course readiness    the finished videos directory (exportedness)
     cvm course publish      the same, plus ffmpeg
     cvm short render        the Sidecar's ffmpeg and finished-videos/ (the vertical file)
-    cvm clip frame          raw footage and the overlay renderer (a Short's composed frame)
+    cvm clip frame          raw footage and the overlay renderer (a Clip's composed frame)
   Anywhere else they are refused before doing any work — exit 7, _tag
   "LocalOnlyCommandError", with the reason in the message. That is a STOP, not
   a retry: no token, no pull and no repeat will make them work, and nothing is
@@ -165,10 +165,11 @@ WRITES
     chapter add/update/move/delete   author a Video's Chapters (timeline
                                      dividers that group its Clips)
     overlay add/update/delete        place a Definition Card, Bullet Panel
-                                     or (Shorts only) Chat Card on top of the
-                                     footage, anchored to a Clip at an offset
-                                     in seconds ('delete' is a HARD delete
-                                     — no archive, no restore; footage over
+                                     or (Shorts only) Chat Card or Call to
+                                     Action on top of the footage, anchored
+                                     to a Clip at an offset in seconds
+                                     ('delete' is a HARD delete — no
+                                     archive, no restore; footage over
                                      footage is 'clip layer')
     clip-mockup
             add/update/move/delete   author a Video's Animatic: one still image

@@ -65,6 +65,19 @@ own picture ('cvm clip layer --help').
     Video but a Short, and is drawn only in the Shorts editor and the Short's
     render, never on the Live Stream. 'update' cannot change its content or
     turn anything into or out of one.
+  callToAction: a Call to Action, SHORTS ONLY — a branded card centred in the
+    lower half of the Short: '--title' is its headline (e.g. a URL),
+    '--description' its subline, both optional. With NEITHER given it says
+    the old AI Hero card's words, "AIhero.dev" / "Go from Zero To AI Hero";
+    with only one given, the other is empty and the card draws that line
+    alone. It fades in, drifts up and fades out (the Animation Toggles cut
+    either end). A Short has none unless one is added. To recreate the old
+    call to action, add one with '--at 0 --duration 5' on the Short's first
+    Clip. It takes no --bullets-json or Chat Card flags, is refused on any
+    Video but a Short, and 'update' may edit its words, anchor, duration and
+    toggles but cannot turn anything into or out of one. It may share the
+    screen with a Chat Card (see ONE AT A TIME), never with another Call to
+    Action or any other Kind.
 
 'revealAt' is SECONDS AFTER THE OVERLAY'S OWN START, so an authoring agent
 derives it straight from the transcript as 'wordStartTime - overlayAt'. Bullets
@@ -93,7 +106,7 @@ footage underneath it MOVES. A 'bulletPanel' SLIDES the footage right — by
 exactly the panel's own width, so the shot ends up beside the panel rather than
 behind it — for the Overlay's window, then slides it back. There is no flag for
 the move and no keyframes to write: making it a 'bulletPanel' is what gets it.
-A 'definitionCard' or 'chatCard' moves nothing.
+A 'definitionCard', 'chatCard' or 'callToAction' moves nothing.
 
 The slide NEVER ZOOMS. The footage keeps the scale it was filmed at and only
 travels sideways; the frame it vacates is filled with the panel's own ground
@@ -105,8 +118,12 @@ Overlay off it.
 
 ONE AT A TIME. At most one Overlay is ever on screen at a given moment across
 the whole Video — there are no tracks and no layering. An 'add' or an 'update'
-whose window would overlap another Overlay's is refused (exit 3), whatever the
-two kinds are and whichever Clips they are anchored to. The comparison is on
+whose window would overlap another Overlay's is refused (exit 3), whichever
+Clips they are anchored to. ONE EXCEPTION: a 'callToAction' and a 'chatCard'
+may overlap, because on a Short the Chat Card sits at the top and the Call to
+Action in the lower half, and the Short's render, 'cvm clip frame' and the
+Portrait Studio draw both. Two Calls to Action, two Chat Cards, or a Call to
+Action and any other kind are still refused. The comparison is on
 the VIDEO's flattened timeline, because an Overlay's duration is free to outrun
 its anchor Clip. Windows that merely touch — one Overlay starting exactly where
 the last one ended — are fine.
@@ -131,6 +148,8 @@ Verbs (flags come BEFORE the positional <id> — a flag after it exits 3):
          (--description <d> | --bullets-json <path|->)
   add    --clip <id> --at <s> --duration <s> --kind chatCard
          [--chat-highlight <id>] [--no-chat-spin]
+  add    --clip <id> --at <s> --duration <s> --kind callToAction
+         [--title <headline>] [--description <subline>]
   update [flags] <id>                 re-anchor and/or edit in place
   delete <id>                         hard-delete (no archive, no restore)
 
@@ -140,6 +159,7 @@ Examples:
     --title "Hydration" --description "Attaching event handlers to server HTML."
   cvm overlay add --clip clip_9 --at 12 --duration 9 --kind bulletPanel \\
     --title "Three checks" --bullets-json ./bullets.json
+  cvm overlay add --clip clip_1 --at 0 --duration 5 --kind callToAction
   cvm overlay update --at 6 ovl_456
   cvm overlay update --clip clip_10 --at 0 ovl_456
   cvm overlay delete ovl_456`;
@@ -204,13 +224,17 @@ thing worth having. Which CONTENT flag is required depends on '--kind'.
   --kind <kind>        which content-kind to carry: 'definitionCard' (the
                        default, applied when the flag is omitted),
                        'bulletPanel', which also moves the camera for the
-                       Overlay's own window, or 'chatCard'.
-  --title <text>       the heading — the term being defined, or the Bullet
-                       Panel's own title. Required, except refused for a
-                       chatCard.
-  --description <text> the definition itself — the card's body. REQUIRED for a
-                       definitionCard, refused for a bulletPanel or a
-                       chatCard.
+                       Overlay's own window, 'chatCard' or 'callToAction'.
+  --title <text>       the heading — the term being defined, the Bullet
+                       Panel's own title, or a callToAction's headline.
+                       Required, except optional for a callToAction and
+                       refused for a chatCard.
+  --description <text> the definition itself — the card's body, or a
+                       callToAction's subline. REQUIRED for a definitionCard,
+                       optional for a callToAction, refused for a bulletPanel
+                       or a chatCard. A callToAction with neither --title nor
+                       --description says "AIhero.dev" / "Go from Zero To AI
+                       Hero"; with one, the other is empty.
   --bullets-json <path|->
                        the Bullet Panel's bullets, as a JSON file ('-' reads
                        STDIN). REQUIRED for a bulletPanel, refused for a
@@ -242,11 +266,12 @@ thing worth having. Which CONTENT flag is required depends on '--kind'.
                        unknown id is refused (exit 3). chatCard only.
   --no-chat-spin       a chatCard with no Chat Spin. chatCard only.
 
-A chatCard is refused (exit 3) on any Video but a Short.
+A chatCard or a callToAction is refused (exit 3) on any Video but a Short.
 
 Refused (exit 3) if the Overlay's window would overlap one already on this
-Video, of either kind and on any Clip — only one Overlay is ever on screen at a
-time. 'cvm overlay list --video <id>' shows what is already placed. Also refused
+Video, of any kind and on any Clip — only one Overlay is ever on screen at a
+time, bar a callToAction beside a chatCard (see ONE AT A TIME in 'cvm overlay
+--help'). 'cvm overlay list --video <id>' shows what is already placed. Also refused
 (exit 3) if a camera-moving kind's window lands on a Clip that already has a
 Clip Zoom: the two crops compound rather than compose.
 
@@ -257,7 +282,10 @@ Examples:
     --title "Hydration" --description "Attaching event handlers to server HTML."
   cvm overlay add --clip clip_9 --at 12 --duration 9 --kind bulletPanel \\
     --title "Three checks" --bullets-json ./bullets.json
-  cvm overlay add --clip clip_9 --at 0 --duration 20 --kind chatCard`;
+  cvm overlay add --clip clip_9 --at 0 --duration 20 --kind chatCard
+  cvm overlay add --clip clip_1 --at 0 --duration 5 --kind callToAction
+  cvm overlay add --clip clip_9 --at 3 --duration 4 --kind callToAction \\
+    --title "example.com" --description "Free newsletter"`;
 
 export const UPDATE_HELP = `Patch a single Overlay by id. At least one flag is required (an update with no
 fields is an invalid-input error, exit 3). Only the flags you pass change.
@@ -280,14 +308,16 @@ fields is an invalid-input error, exit 3). Only the flags you pass change.
                        command, or leave the duration alone. Nothing is
                        clamped.
   --kind <kind>        new content-kind: 'definitionCard' or 'bulletPanel'
-                       (never to or from 'chatCard': delete it and 'add'
-                       instead). Changing it must bring the NEW kind's
+                       (never to or from 'chatCard' or 'callToAction':
+                       delete it and 'add' instead). Changing it must bring the NEW kind's
                        content with it in the same command, and the old
                        kind's content is dropped.
                        Changing TO a camera-moving kind is refused (exit 3) if
                        the Overlay's window lands on a zoomed Clip.
-  --title <text>       new heading (the term, or the Bullet Panel's title).
-  --description <text> new card body (the definition). definitionCard only.
+  --title <text>       new heading (the term, the Bullet Panel's title, or a
+                       callToAction's headline).
+  --description <text> new card body (the definition, or a callToAction's
+                       subline). Refused for a bulletPanel.
                        A chatCard takes neither --title nor --description:
                        its content is copied from its Chat Highlight.
   --bullets-json <path|->

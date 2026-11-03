@@ -9,6 +9,7 @@ import {
   useMatches,
   type ShouldRevalidateFunction,
 } from "react-router";
+import { errorBoundaryCopy } from "@/lib/error-boundary-copy";
 import {
   AlertTriangle,
   CheckIcon,
@@ -165,30 +166,13 @@ export default function App() {
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   const [isCopied, setIsCopied] = useState(false);
-  let status = 500;
-  let title = "Something went wrong";
-  let description = "An unexpected error occurred. Please try again.";
-  let stack: string | undefined;
-
-  if (isRouteErrorResponse(error)) {
-    status = error.status;
-    if (error.status === 404) {
-      title = "Page not found";
-      description =
-        "The page you're looking for doesn't exist or has been moved.";
-    } else if (error.status === 500) {
-      title = "Server error";
-      description = "Something went wrong on our end. Please try again later.";
-    } else {
-      title = `Error ${error.status}`;
-      description = error.statusText || description;
-    }
-  } else if (error && error instanceof Error) {
-    description = error.message;
-    if (import.meta.env.DEV) {
-      stack = error.stack;
-    }
-  }
+  const { status, title, description } = errorBoundaryCopy(error);
+  const stack =
+    !isRouteErrorResponse(error) &&
+    error instanceof Error &&
+    import.meta.env.DEV
+      ? error.stack
+      : undefined;
 
   const Icon = status === 404 ? AlertTriangle : ServerCrash;
 

@@ -302,6 +302,7 @@ describe("recoverExpiredJobs", () => {
         yield* lapse;
 
         const recovered = yield* ops.recoverExpiredJobs({
+          holderGoneAfterMs: 0,
           neverRetryKinds: {},
           stillRunning: [],
         });
@@ -336,6 +337,7 @@ describe("a kind that must never run again on its own (a post)", () => {
         }
         yield* lapse;
         yield* ops.recoverExpiredJobs({
+          holderGoneAfterMs: 0,
           neverRetryKinds: {
             post: "the post may have gone out",
             publish: "Promote or Discard it on the publish page",
@@ -382,6 +384,7 @@ describe("a kind that must never run again on its own (a post)", () => {
         });
         yield* lapse;
         const recovered = yield* ops.recoverExpiredJobs({
+          holderGoneAfterMs: 0,
           neverRetryKinds: { noop: INTERRUPTED_POST_MESSAGE },
           stillRunning: [],
         });
@@ -501,6 +504,7 @@ describe("a kind that must never run again on its own (a post)", () => {
         });
         yield* lapse;
         yield* ops.recoverExpiredJobs({
+          holderGoneAfterMs: 0,
           neverRetryKinds: { noop: INTERRUPTED_POST_MESSAGE },
           stillRunning: [],
         });

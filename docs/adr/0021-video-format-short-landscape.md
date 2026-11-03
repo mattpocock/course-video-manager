@@ -52,6 +52,7 @@ Migration `0004_video_format_landscape.sql` sets the column default to
 - The `cvm video` CLI reads `format`, filters `list --format <landscape|short>`,
   and writes it on `create --format` / `update --format`. Setting format via
   `update` calls `updateVideoFormat`, which also NULLs `lessonId` (a Short is
-  always Standalone).
+  always Standalone), and moves each Clip's Footage Layers into the new frame
+  (Placement by fractions, Source Crop narrowed to the box's new aspect; #2608).
 - Genuine TikTok-the-platform references (OBS profile, Buffer labels) are left
   unchanged.

@@ -43,6 +43,10 @@ const EXIT_CODES: Record<string, number> = {
   // A Publish Job succeeded but its `published` Job Event was never written,
   // so its ids are unknown. The release is out; the result is what failed.
   PublishResultLostError: 4,
+  // `cvm course publish discard` left the Pending Version alone: its Publish
+  // is still running, or its receipt landed or cannot be read. A state the
+  // caller must change first, like PublishValidationError.
+  PendingDiscardRefusedError: 3,
   // A write refused because it targeted a non-Draft (Pending/Published)
   // version — invalid input, like PublishValidationError.
   VersionNotDraftError: 3,
@@ -51,7 +55,7 @@ const EXIT_CODES: Record<string, number> = {
   // Invalid input: `reasons` says what to fix.
   AgentSessionUploadRefusedError: 3,
   // A Clip's Layers refused (a Source Crop outside the frame, a Placement
-  // with no area, a disallowed Landscape shape): invalid input.
+  // with no area, a Scene Layer off the bottom): invalid input.
   ClipLayersRefusedError: 3,
   // `cvm footage frame` / `cvm clip frame` asked for while the recorder
   // records: the Still Gate's "ask again after the Stop". Not a failure of

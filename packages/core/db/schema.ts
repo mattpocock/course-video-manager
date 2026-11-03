@@ -966,7 +966,8 @@ export const overlays = createTable(
     durationInSeconds: doublePrecision("duration_in_seconds").notNull(),
     /**
      * Which content-kind this Overlay carries — "definitionCard",
-     * "bulletPanel" or "chatCard". Read through `resolveOverlayKind`, never raw.
+     * "bulletPanel", "chatCard" or "callToAction". Read through
+     * `resolveOverlayKind`, never raw.
      */
     kind: varchar("kind", { length: 255 }).notNull().default("definitionCard"),
     /**

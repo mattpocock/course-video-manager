@@ -1,13 +1,17 @@
 import { type Database } from "./drizzle-service.server.js";
-import { lessons, videos } from "../db/schema.js";
+import { clipLayers, clips, lessons, videos } from "../db/schema.js";
 import {
   NotFoundError,
   UnknownDBServiceError,
   VideoTitleTakenError,
 } from "./db-service-errors.js";
-import { and, eq, ne } from "drizzle-orm";
+import { and, asc, eq, inArray, ne } from "drizzle-orm";
 import { Effect } from "effect";
-import type { VideoFormat } from "../features/videos/video-format.js";
+import {
+  resolveVideoFormat,
+  type VideoFormat,
+} from "../features/videos/video-format.js";
+import { layerRowInVideoFormat } from "../features/videos/clip-layer.js";
 import {
   requireDraftVersionForLesson,
   requireDraftVersionForVideo,
@@ -305,11 +309,81 @@ export const createVideoWriteOps = (db: Database) => {
     return updated;
   });
 
+  /**
+   * Move every stored Footage Layer of a Video's Clips from one format's
+   * frame into another's. The Clip rows are locked `FOR UPDATE` (sorted, after
+   * the Draft guard), as a `clip layer` write locks them, so the two never
+   * lose each other's edit (#2598).
+   */
+  const moveFootageLayers = Effect.fn("moveFootageLayers")(function* (
+    videoId: string,
+    from: VideoFormat,
+    to: VideoFormat
+  ) {
+    const clipIds = (yield* makeDbCall(() =>
+      db
+        .select({ id: clips.id })
+        .from(clips)
+        .where(eq(clips.videoId, videoId))
+        .orderBy(asc(clips.id))
+        .for("update")
+    )).map((clip) => clip.id);
+    if (clipIds.length === 0) return;
+    const rows = yield* makeDbCall(() =>
+      db
+        .select()
+        .from(clipLayers)
+        .where(
+          and(
+            inArray(clipLayers.clipId, clipIds),
+            eq(clipLayers.kind, "footage")
+          )
+        )
+    );
+    for (const row of rows) {
+      const moved = layerRowInVideoFormat(row, from, to);
+      yield* makeDbCall(() =>
+        db
+          .update(clipLayers)
+          .set({
+            placeX: moved.placeX,
+            placeY: moved.placeY,
+            placeW: moved.placeW,
+            placeH: moved.placeH,
+            cropX: moved.cropX,
+            cropY: moved.cropY,
+            cropW: moved.cropW,
+            cropH: moved.cropH,
+          })
+          .where(eq(clipLayers.id, row.id))
+      );
+    }
+  });
+
+  /**
+   * Set a Video's format, re-homing it to standalone. Each stored Footage
+   * Layer of its Clips moves into the new frame by the rule `short create`
+   * uses (`layerRowInVideoFormat`), in the same transaction; Scene Layers and
+   * Clips with no stored Layers are untouched.
+   */
   const updateVideoFormat = Effect.fn("updateVideoFormat")(function* (opts: {
     videoId: string;
     format: VideoFormat;
   }) {
     yield* requireDraftVersionForVideo(db, opts.videoId);
+    const before = yield* makeDbCall(() =>
+      db.query.videos.findFirst({
+        where: eq(videos.id, opts.videoId),
+        columns: { format: true },
+      })
+    );
+    if (before && resolveVideoFormat(before.format) !== opts.format) {
+      yield* moveFootageLayers(
+        opts.videoId,
+        resolveVideoFormat(before.format),
+        opts.format
+      );
+    }
     const [updated] = yield* makeDbCall(() =>
       db
         .update(videos)

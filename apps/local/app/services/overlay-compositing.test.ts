@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildOverlayCompositeArgs,
   buildOverlayCompositeFilterGraph,
   placeOverlaysOnTimeline,
 } from "./overlay-compositing";
+import { buildOverlayCompositeArgs } from "./overlay-composite-args";
 import {
   LONG_PAUSE_DURATION_IN_SECONDS,
   type ExportClipDuration,

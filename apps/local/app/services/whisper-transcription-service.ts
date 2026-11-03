@@ -11,6 +11,7 @@ import {
 } from "./footage-transcription";
 import { SidecarContext } from "./sidecar-context";
 import { LocalWhisperEngine } from "./local-whisper-engine";
+import { GpuGate } from "./gpu-gate";
 import { removeBestEffort } from "@/services/remove-best-effort";
 import { copyMkvSpan } from "./mkv-span";
 import { assertUnderEffect } from "./assert-under";
@@ -129,6 +130,7 @@ export class WhisperTranscriptionService extends Effect.Service<WhisperTranscrip
       const effectFs = yield* FileSystem.FileSystem;
       const ffmpegCommands = yield* FFmpegCommandsService;
       const localWhisper = yield* LocalWhisperEngine;
+      const gpu = yield* GpuGate;
 
       /** ffmpeg writes `inputVideo`'s audio (or a range of it) as an mp3. */
       const extractAudio = Effect.fn("extractAudio")(function* (
@@ -224,9 +226,13 @@ export class WhisperTranscriptionService extends Effect.Service<WhisperTranscrip
         return outputFile;
       });
 
-      /** One audio file through Local Whisper. Every caller below goes through here. */
+      /**
+       * One audio file through Local Whisper. Every caller below goes
+       * through here, and so through the GPU gate (#2631): no pass starts
+       * while a Recording Session or Live Stream is live.
+       */
       const transcribeAudioFile = (audioPath: string) =>
-        localWhisper.transcribe(audioPath).pipe(
+        gpu.run(localWhisper.transcribe(audioPath)).pipe(
           Effect.mapError(
             (error) =>
               new CouldNotTranscribeError({

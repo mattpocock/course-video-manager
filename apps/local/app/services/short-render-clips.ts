@@ -17,7 +17,7 @@ import { verticalOverlayProps } from "./vertical-overlay-props";
  * A Short's Clips as its render draws them, and the props of its one overlay
  * (captions and Chat Cards). Shared by the vertical render
  * (`render-vertical-video-service.ts`) and `cvm clip frame`
- * (`short-clip-frame.ts`), so a composed frame is drawn from the same plan as
+ * (`clip-frame.ts`), so a composed frame is drawn from the same plan as
  * the post.
  */
 

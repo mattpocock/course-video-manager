@@ -1,7 +1,10 @@
 import { Layer, ManagedRuntime } from "effect";
 import { makeStillGate, StillGate } from "./still-gate";
 import { existingRecorderClient } from "./recorder-client/existing-client.server";
-import { DrizzleService } from "@/services/drizzle-service.server";
+import {
+  DrizzleService,
+  type GitWorktreeProbe,
+} from "@/services/drizzle-service.server";
 import { GitWorktreeProbeLive } from "@cvm/core/git-worktree";
 import { NodeContext } from "@effect/platform-node";
 import { VideoProcessingService } from "./video-processing-service";
@@ -47,66 +50,70 @@ const CloudinaryMarkdownLayer = CloudinaryMarkdownService.Default.pipe(
   Layer.provide(CloudinaryService.Default)
 );
 
-const coreLayer = Layer.mergeAll(
-  ClipOperationsService.Default,
-  CourseOperationsService.Default,
-  VideoOperationsService.Default,
-  VersionOperationsService.Default,
-  LessonSectionOperationsService.Default,
-  DiagramOperationsService.Default,
-  DiagramComponentOperationsService.Default,
-  PitchOperationsService.Default,
-  // Global Search's API route; the same search `cvm search` runs.
-  SearchOperationsService.Default,
-  BeatOperationsService.Default,
-  ClipMockupOperationsService.Default,
-  ClipMockupChapterOperationsService.Default,
-  ClipMockupCommentOperationsService.Default,
-  OverlayOperationsService.Default,
-  DeliverableOperationsService.Default,
-  ThumbnailOperationsService.Default,
-  LinkAuthOperationsService.Default,
-  ApiTokenOperationsService.Default,
-  // Background Jobs: the app enqueues them; the Sidecar runs them.
-  JobOperationsService.Default,
-  VideoPostOperationsService.Default,
-  PostingQueueOperationsService.Default,
-  BufferApiService.Default,
-  ObjectStoreService.Default,
-  TextGenerationService.Default,
-  VideoProcessingService.Default,
-  BackgroundRemovalService.Default,
-  VideoEditorLoggerService.Default,
-  OpenFolderService.Default,
-  SpacedeskService.Default,
-  CloudinaryService.Default,
-  CloudinaryMarkdownLayer,
-  CourseWriteService.Default,
-  FFmpegCommandsService.Default,
-  NodeContext.layer
-).pipe(
-  Layer.provideMerge(
-    DrizzleService.Default.pipe(Layer.provide(GitWorktreeProbeLive))
-  ),
-  // The Diagram operations store thumbnails through a port `@cvm/core` declares
-  // but cannot implement — it has no filesystem. On this machine it is the
-  // on-disk store.
-  Layer.provide(DiagramThumbnailStoreLive)
-);
+/**
+ * Every service, on the database client `drizzle` gives. The app server's is
+ * `DrizzleService.Default`, which fails on the first try; the Sidecar's Jobs
+ * can wait, so theirs is `DrizzleService.Patient` (#2621).
+ */
+const coreLayerOn = (
+  drizzle: Layer.Layer<DrizzleService, never, GitWorktreeProbe>
+) =>
+  Layer.mergeAll(
+    ClipOperationsService.Default,
+    CourseOperationsService.Default,
+    VideoOperationsService.Default,
+    VersionOperationsService.Default,
+    LessonSectionOperationsService.Default,
+    DiagramOperationsService.Default,
+    DiagramComponentOperationsService.Default,
+    PitchOperationsService.Default,
+    // Global Search's API route; the same search `cvm search` runs.
+    SearchOperationsService.Default,
+    BeatOperationsService.Default,
+    ClipMockupOperationsService.Default,
+    ClipMockupChapterOperationsService.Default,
+    ClipMockupCommentOperationsService.Default,
+    OverlayOperationsService.Default,
+    DeliverableOperationsService.Default,
+    ThumbnailOperationsService.Default,
+    LinkAuthOperationsService.Default,
+    ApiTokenOperationsService.Default,
+    // Background Jobs: the app enqueues them; the Sidecar runs them.
+    JobOperationsService.Default,
+    VideoPostOperationsService.Default,
+    PostingQueueOperationsService.Default,
+    BufferApiService.Default,
+    ObjectStoreService.Default,
+    TextGenerationService.Default,
+    VideoProcessingService.Default,
+    BackgroundRemovalService.Default,
+    VideoEditorLoggerService.Default,
+    OpenFolderService.Default,
+    SpacedeskService.Default,
+    CloudinaryService.Default,
+    CloudinaryMarkdownLayer,
+    CourseWriteService.Default,
+    FFmpegCommandsService.Default,
+    NodeContext.layer
+  ).pipe(
+    Layer.provideMerge(drizzle.pipe(Layer.provide(GitWorktreeProbeLive))),
+    // The Diagram operations store thumbnails through a port `@cvm/core` declares
+    // but cannot implement — it has no filesystem. On this machine it is the
+    // on-disk store.
+    Layer.provide(DiagramThumbnailStoreLive)
+  );
 
 // The read side of Publish — export addresses and the publish gate. The
 // export and the Publish themselves, the vertical render and the Overlay
 // renderer are the Sidecar's alone (`sidecar/sidecar-layer.ts`): nothing in
 // this layer spawns an encode, so no route can reach one.
-const publishReadLayer = CoursePublishReadService.Default.pipe(
-  Layer.provide(coreLayer)
-);
+const publishReadLayerOn = (coreLayer: ReturnType<typeof coreLayerOn>) =>
+  CoursePublishReadService.Default.pipe(Layer.provide(coreLayer));
 
 // The Autofill is a job of its own, not a stage of a Publish (ADR 0024), so
 // it sits beside the publish layer rather than inside it.
-const autofillLayer = AutofillService.DefaultWithoutDependencies.pipe(
-  Layer.provide(coreLayer)
-);
+const autofillLayerOn = (coreLayer: ReturnType<typeof coreLayerOn>) =>
+  AutofillService.DefaultWithoutDependencies.pipe(Layer.provide(coreLayer));
 
 // Before any service is built: a base-URL override in .env that names a host
 // other than the service's own (or loopback) would send it the real token.
@@ -127,12 +134,20 @@ const stillGateLayer = Layer.sync(StillGate, () => ({
   }),
 }));
 
-export const layerLive = Layer.mergeAll(
-  coreLayer,
-  publishReadLayer,
-  autofillLayer,
-  stillGateLayer
-);
+/** `layerLive` on another database client: the Sidecar's patient one. */
+export const layerLiveOn = (
+  drizzle: Layer.Layer<DrizzleService, never, GitWorktreeProbe>
+) => {
+  const coreLayer = coreLayerOn(drizzle);
+  return Layer.mergeAll(
+    coreLayer,
+    publishReadLayerOn(coreLayer),
+    autofillLayerOn(coreLayer),
+    stillGateLayer
+  );
+};
+
+export const layerLive = layerLiveOn(DrizzleService.Default);
 
 /**
  * Every service `runtimeLive` can hand out.
