@@ -46,10 +46,6 @@ export const UNTOUCHED_CLIP_LAYERS: readonly Layer[] = [
   { kind: "scene", volume: SCENE_LAYER_VOLUME },
 ];
 
-/** Whether the Layers draw the Clip's own source in its scene layout. */
-export const drawsScene = (layers: readonly Layer[]): boolean =>
-  layers.some((layer) => layer.kind === "scene");
-
 /**
  * Whether the Layers are an untouched Clip's: exactly one Scene Layer at full
  * volume. Such a Clip adds nothing to the Export Hash and takes the export

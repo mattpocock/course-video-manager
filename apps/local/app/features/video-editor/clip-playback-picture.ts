@@ -1,9 +1,6 @@
 import { clipZoomCssStyle } from "@/features/videos/clip-zoom";
-import {
-  clipLayers,
-  drawsScene,
-  type ClipSource,
-} from "@/packages/clip-source";
+import { hasSceneLayer } from "@cvm/core/features/videos/clip-layer";
+import { clipLayers, type ClipSource } from "@/packages/clip-source";
 import { overlayTransformStyle, type ClipOverlay } from "./overlay-preview";
 
 /**
@@ -16,7 +13,7 @@ import { overlayTransformStyle, type ClipOverlay } from "./overlay-preview";
 export type ClipPlaybackBase = "scene" | "black";
 
 export const clipPlaybackBase = (source: ClipSource): ClipPlaybackBase =>
-  drawsScene(clipLayers(source)) ? "scene" : "black";
+  hasSceneLayer(clipLayers(source)) ? "scene" : "black";
 
 type Style = { transform: string; transformOrigin?: string };
 

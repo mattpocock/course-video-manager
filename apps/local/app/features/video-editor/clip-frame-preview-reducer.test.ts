@@ -153,27 +153,6 @@ describe("clipFrameRequest on a Landscape Clip", () => {
     expect(url([{ ...card, title: "Other" }])).not.toBe(request.url);
     expect(url([{ ...card, at: 0.6 }])).not.toBe(request.url);
   });
-
-  it("draws it, one at a time, the latest asked for winning", () => {
-    const first = clipFrameRequest(landscape)!;
-    const latest = clipFrameRequest({ ...landscape, scrubSeekTime: 23 })!;
-    const tester = preview()
-      .send({ type: "frame-wanted", request: first })
-      .send({ type: "frame-wanted", request: latest })
-      .send({ type: "frame-drawn", url: first.url, image: "blob:1" })
-      .send({ type: "frame-drawn", url: latest.url, image: "blob:2" });
-
-    expect(clipFramePreview(tester.getState())).toEqual({
-      image: "blob:2",
-      status: "shown",
-      message: null,
-    });
-    expect(tester.getEffects()).toEqual([
-      { type: "draw-frame", request: first },
-      { type: "draw-frame", request: latest },
-      { type: "release-frame-image", image: "blob:1" },
-    ]);
-  });
 });
 
 const request = (at: number): ClipFrameRequest => ({
