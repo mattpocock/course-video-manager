@@ -61,6 +61,7 @@ const ERROR_CONSTRUCTORS: Record<
   ClipLayersChangedError: DomainErrors.ClipLayersChangedError,
   AgentSessionUploadRefusedError: DomainErrors.AgentSessionUploadRefusedError,
   ShortPostRefusedError: DomainErrors.ShortPostRefusedError,
+  PostingQueueChangeRefusedError: DomainErrors.PostingQueueChangeRefusedError,
 };
 
 /**

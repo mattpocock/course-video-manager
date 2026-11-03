@@ -222,3 +222,16 @@ export class ShortPostRefusedError extends Data.TaggedError(
   refusals: ReadonlyArray<{ videoId: string; reason: string }>;
   message: string;
 }> {}
+
+/**
+ * `cvm short move` or `cvm short unqueue` refused: a Short named is not in
+ * the Posting Queue in a state the verb can change (it is Posting, or not in
+ * the queue at all). Nothing is changed, not even the Shorts that were fine;
+ * `refusals` names each refused Short and why.
+ */
+export class PostingQueueChangeRefusedError extends Data.TaggedError(
+  "PostingQueueChangeRefusedError"
+)<{
+  refusals: ReadonlyArray<{ videoId: string; reason: string }>;
+  message: string;
+}> {}

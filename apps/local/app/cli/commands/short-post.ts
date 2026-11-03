@@ -60,13 +60,15 @@ export const postCmd = Command.make(
 // short queue
 // ---------------------------------------------------------------------------
 
-export const queueCmd = Command.make("queue", {}, () =>
-  Effect.gen(function* () {
-    const now = yield* Clock.currentTimeMillis;
-    const listing = yield* Effect.flatMap(
-      PostingQueueOperationsService,
-      (svc) => svc.listPostingQueue(now)
-    );
-    yield* emitObject(postingQueueView(listing));
-  })
-).pipe(Command.withDescription(detail(QUEUE_HELP)));
+/** Print the Posting Queue as it stands, the one object `cvm short queue` prints. */
+export const emitPostingQueue = Effect.gen(function* () {
+  const now = yield* Clock.currentTimeMillis;
+  const listing = yield* Effect.flatMap(PostingQueueOperationsService, (svc) =>
+    svc.listPostingQueue(now)
+  );
+  yield* emitObject(postingQueueView(listing));
+});
+
+export const queueCmd = Command.make("queue", {}, () => emitPostingQueue).pipe(
+  Command.withDescription(detail(QUEUE_HELP))
+);

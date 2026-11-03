@@ -64,6 +64,9 @@ const EXIT_CODES: Record<string, number> = {
   // description, already queued, already Posted): invalid input. Nothing
   // was queued; `refusals` names each Short and why.
   ShortPostRefusedError: 3,
+  // `cvm short move` / `cvm short unqueue` refused a Short (Posting, or not
+  // in the Posting Queue): invalid input. Nothing changed.
+  PostingQueueChangeRefusedError: 3,
   // Defensive: domain error tags that could leak through a command.
   UnknownDBServiceError: 4,
   // The deployed API rejected the token — unknown, expired or revoked; it

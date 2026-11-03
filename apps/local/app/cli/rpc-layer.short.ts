@@ -11,4 +11,8 @@ export const postingQueueService = (client: RpcClient) =>
     listPostingQueue: rpcMethod((json) =>
       client.rpc.short.listPostingQueue.$post({ json })
     ),
+    moveShort: rpcMethod((json) => client.rpc.short.moveShort.$post({ json })),
+    unqueueShorts: rpcMethod((json) =>
+      client.rpc.short.unqueueShorts.$post({ json })
+    ),
   }) satisfies RemoteService<PostingQueueOperationsService>;

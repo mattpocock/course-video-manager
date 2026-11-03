@@ -17,6 +17,7 @@ import {
   ShortPostRefusedError,
   UnknownDBServiceError,
 } from "./db-service-errors.js";
+import { createPostingQueueChanges } from "./db-posting-queue-changes.server.js";
 import { DrizzleService, type Database } from "./drizzle-service.server.js";
 
 const makeDbCall = <T>(fn: () => Promise<T>) =>
@@ -329,7 +330,11 @@ export const createPostingQueueOperations = (db: Database) => {
     return listing;
   });
 
-  return { postShorts, listPostingQueue };
+  return {
+    postShorts,
+    listPostingQueue,
+    ...createPostingQueueChanges(db),
+  };
 };
 
 export class PostingQueueOperationsService extends Effect.Service<PostingQueueOperationsService>()(
