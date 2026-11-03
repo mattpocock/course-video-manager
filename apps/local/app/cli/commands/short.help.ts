@@ -28,7 +28,8 @@ THE STREAM-TO-SHORT LOOP:
   4. 'cvm clip layer add' on one Clip, then 'cvm clip update --layers-from' for
      the rest;
   5. optionally 'cvm overlay add --kind chatCard' (a copied stream Clip keeps
-     its Recording Session, so its Chat Highlights are found);
+     its Recording Session, so its Chat Highlights are found) and
+     'cvm overlay add --kind callToAction' (none is added for you);
   6. 'cvm clip frame' to check;
   7. 'cvm short render', then post it.`;
 

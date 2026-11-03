@@ -40,6 +40,7 @@ import {
 } from "./overlay.bullets";
 import { requireNoClipZoomUnderTransform } from "./overlay.clip-zoom-guard";
 import { requireNoOverlappingOverlay } from "./overlay.overlap-guard";
+import { requireShortForKind } from "./overlay.short-guard";
 import {
   chatCardOpts,
   requireChatCardFlags,
@@ -327,6 +328,7 @@ const addCmd = Command.make(
       });
 
       const anchor = yield* requireActiveClip(clip);
+      yield* requireShortForKind({ kind: willBeKind, videoId: anchor.videoId });
       yield* requireAtWithinClip(at, anchor);
       yield* requireNoOverlappingOverlay({
         videoId: anchor.videoId,
@@ -342,9 +344,8 @@ const addCmd = Command.make(
         durationInSeconds: duration,
         kind: Option.getOrUndefined(kind),
       });
-      const callToAction = yield* resolveCallToActionWords({
+      const callToAction = resolveCallToActionWords({
         kind: willBeKind,
-        videoId: anchor.videoId,
         title: Option.getOrUndefined(title),
         description: desc,
       });

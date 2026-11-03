@@ -6,17 +6,18 @@ import {
   ChatCardPreview,
   DefinitionCardPreview,
   type BulletPanel as BulletPanelInputProps,
-  type CallToAction as CallToActionInputProps,
   type DefinitionCard as DefinitionCardInputProps,
 } from "@cvm/overlay-renderer/preview";
 import { VIDEO_FORMAT_DIMENSIONS } from "@/features/videos/video-format";
 import type { BulletPanelBullet } from "@/features/videos/bullet-panel";
 import {
+  isShortOnlyOverlayKind,
   overlayKindsMayShareTheScreen,
   resolveOverlayKind,
 } from "@/features/videos/overlay-kind";
 import { overlayTransformCssStyleAt } from "@/features/videos/overlay-transform";
 import type { ChatSpinCell } from "@cvm/core/features/videos/chat-card";
+import { callToActionInputProps } from "./call-to-action-input-props";
 import { chatCardInputProps } from "./chat-card-input-props";
 
 /**
@@ -165,10 +166,8 @@ const filterOverlaysByClipId = (
   );
 
 /** A Kind only a Short's render draws: a Chat Card or a Call to Action. */
-const isShortOnly = (overlay: ClipOverlay) => {
-  const kind = resolveOverlayKind(overlay.kind);
-  return kind === "chatCard" || kind === "callToAction";
-};
+const isShortOnly = (overlay: ClipOverlay) =>
+  isShortOnlyOverlayKind(resolveOverlayKind(overlay.kind));
 
 /**
  * The Overlays a Short draws, by Clip: its Chat Cards and Calls to Action
@@ -394,14 +393,10 @@ const ActiveOverlayPlayer = (props: {
           case "callToAction": {
             // A Short's Call to Action, on the Short's own 1080x1920 frame, as
             // the Short's render draws it (`vertical-overlay-props`).
-            const inputProps: CallToActionInputProps = {
-              title: active.title,
-              description: active.description,
+            const inputProps = callToActionInputProps(active, {
               startFrame: 0,
               durationInFrames,
-              disableEnterAnimation: active.disableEnterAnimation,
-              disableExitAnimation: active.disableExitAnimation,
-            };
+            });
             return (
               <Player
                 key={active.id}

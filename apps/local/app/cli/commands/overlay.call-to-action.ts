@@ -1,7 +1,6 @@
 import { Effect } from "effect";
 import { parseError } from "@/cli/helpers";
 import type { OverlayKind } from "@/features/videos/overlay-kind";
-import { requireShort } from "./overlay.chat-card";
 
 /**
  * The Call to Action half of `cvm overlay add` and `update`: its default
@@ -40,24 +39,22 @@ export const requireCallToActionUnchanged = (p: {
     : Effect.void;
 
 /**
- * The words a new Call to Action stores, on a Short only. With neither line
- * given it says the old card's words; with one given, the other is empty.
- * Every other kind's words are left as the caller gave them.
+ * The words a new Call to Action stores (`requireShortForKind` has already
+ * checked it is on a Short). With neither line given it says the old card's
+ * words; with one given, the other is empty. Every other kind's words are
+ * left as the caller gave them.
  */
 export const resolveCallToActionWords = (params: {
   kind: OverlayKind;
-  videoId: string;
   title: string | undefined;
   description: string | undefined;
-}) =>
-  Effect.gen(function* () {
-    if (params.kind !== "callToAction") return {};
-    yield* requireShort(params.videoId, "a Call to Action");
-    if (params.title === undefined && params.description === undefined) {
-      return { ...CALL_TO_ACTION_DEFAULT_WORDS };
-    }
-    return {
-      title: params.title ?? "",
-      description: params.description ?? "",
-    };
-  });
+}): { title?: string; description?: string } => {
+  if (params.kind !== "callToAction") return {};
+  if (params.title === undefined && params.description === undefined) {
+    return { ...CALL_TO_ACTION_DEFAULT_WORDS };
+  }
+  return {
+    title: params.title ?? "",
+    description: params.description ?? "",
+  };
+};

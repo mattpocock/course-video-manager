@@ -189,8 +189,9 @@ export const createShortOperationsUnwrapped = (db: Database) => {
         }
         const { video: from, ...source } = sourceById.get(part.clipId)!;
         // One copy per Part (a Clip may be in two ranges), Overlays left behind:
-        // a Short draws only Chat Cards, added afterwards. Footage Layers placed
-        // in a Landscape frame are carried into the Short's.
+        // a Short draws only Chat Cards and Calls to Action, added afterwards.
+        // Footage Layers placed in a Landscape frame are carried into the
+        // Short's.
         const layers = source.layers.map((row) =>
           layerRowInVideoFormat(row, resolveVideoFormat(from.format), "short")
         );
