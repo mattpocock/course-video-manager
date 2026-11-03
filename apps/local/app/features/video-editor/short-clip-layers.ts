@@ -141,7 +141,6 @@ const uncovered = (layers: readonly FootageLayerSpec[], duration: number) => {
 export const clipLayerFlags = (clip: ShortClipLayersInput): ClipLayerFlag[] => {
   const layers = layersOf(clip);
   const invalid = clipLayersProblem(layers, {
-    format: "short",
     session: clip.recordingSession ?? null,
   });
   if (invalid !== null) return [{ layer: null, message: invalid }];
