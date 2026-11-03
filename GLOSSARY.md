@@ -470,9 +470,9 @@ A rendered effect at the boundary between two **Clips** that replaces footage at
 _Avoid_: Effect Clip (see that entry), Bumper, Wipe (a specific Transition style, not the category)
 
 **Transform**:
-An **Overlay**'s pan or zoom move on the footage under it: a sequence of framings, moved through in order across the Overlay's length. It does not depend on the Overlay's content: it can move the frame with nothing on top, or make room for a card or panel. Supersedes **Clip Zoom**, which was a single fixed zoom that could not cross Clips. Until that change happens, the two cannot be used together: an Overlay over a Clip with a Clip Zoom is refused.
+An **Overlay**'s pan or zoom move on the Clip's whole picture under it, every **Layer** included (with the black base when the Clip has no **Scene Layer**): a sequence of framings, moved through in order across the Overlay's length. It does not depend on the Overlay's content: it can move the frame with nothing on top, or make room for a card or panel. Supersedes **Clip Zoom**, which was a single fixed zoom that could not cross Clips. Until that change happens, the two cannot be used together: an Overlay over a Clip with a Clip Zoom is refused.
 
-What exists today is the narrowest form: not a sequence the author writes, but a fixed move that comes from the **Overlay Kind**. A Definition Card has none. A Bullet Panel slides the footage to the right by the panel's width, to clear the left of the frame for the panel. It is a SLIDE, never a zoom. It eases in and back out, unless the **Animation Toggles** make that end a cut. The panel and the footage move at one speed, because they are one move seen twice.
+What exists today is the narrowest form: not a sequence the author writes, but a fixed move that comes from the **Overlay Kind**. A Definition Card has none. A Bullet Panel slides the picture, every Layer together, to the right by the panel's width, to clear the left of the frame for the panel. It is a SLIDE, never a zoom. It eases in and back out, unless the **Animation Toggles** make that end a cut. The panel and the picture move at one speed, because they are one move seen twice.
 _Avoid_: Framing, Clip Zoom (see that entry), Ken Burns, Pan
 
 ### Pitches
