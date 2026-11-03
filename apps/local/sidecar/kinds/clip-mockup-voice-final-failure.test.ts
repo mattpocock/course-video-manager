@@ -37,6 +37,7 @@ const registry = { "clip-mockup-voice": clipMockupVoiceJobKind } as const;
 
 const TIMING: SidecarTiming = {
   leaseMs: 2_000,
+  outageToleranceMs: 4_000,
   leaseRenewMs: 500,
   jobLeaseMs: 2_000,
   jobHeartbeatMs: 500,

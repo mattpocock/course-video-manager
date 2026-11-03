@@ -495,9 +495,9 @@ export const runSidecar = <R>(opts: {
         }
       }).pipe(logCause("sidecar: the job heartbeat failed"));
 
-      // A sidecar that cannot reach its database for longer than the lease
-      // has lost it — another may hold it by now — so it stops rather than run
-      // Jobs on a lease it cannot prove.
+      // A renewal answered `false` proves a takeover (it matches on `holder`
+      // alone): stop at once. One that cannot reach the database proves
+      // nothing, so run on, and stop only after `outageToleranceMs` (#2621).
       let lastRenewed = Date.now();
       const renewLease = ops
         .renewSidecarLease({
@@ -517,9 +517,9 @@ export const runSidecar = <R>(opts: {
           Effect.catchAllCause((cause) =>
             Effect.logError("sidecar: could not renew the lease", cause).pipe(
               Effect.zipRight(
-                Date.now() - lastRenewed > timing.leaseMs
+                Date.now() - lastRenewed > timing.outageToleranceMs
                   ? Effect.logError(
-                      "sidecar: the lease lapsed while the database was unreachable; stopping"
+                      "sidecar: the database has been unreachable for longer than the outage tolerance; stopping"
                     ).pipe(
                       Effect.zipRight(Deferred.succeed(stop, "lease lapsed"))
                     )

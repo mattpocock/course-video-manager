@@ -85,6 +85,7 @@ beforeAll(async () => {
       registry: { "render-vertical": renderVerticalJobKind },
       timing: {
         leaseMs: 5_000,
+        outageToleranceMs: 10_000,
         leaseRenewMs: 1_000,
         jobLeaseMs: 5_000,
         jobHeartbeatMs: 1_000,
