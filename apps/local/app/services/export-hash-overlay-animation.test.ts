@@ -105,3 +105,22 @@ describe("a Chat Card in the address", () => {
     );
   });
 });
+
+describe("a Call to Action in the address", () => {
+  const callToAction = (overrides: Partial<ExportOverlay> = {}) =>
+    card({
+      kind: "callToAction",
+      title: "example.com",
+      description: "A fake subline",
+      ...overrides,
+    });
+
+  it("changes when its headline or subline changes", () => {
+    expect(withOverlays(callToAction({ title: "example.org" }))).not.toBe(
+      withOverlays(callToAction())
+    );
+    expect(withOverlays(callToAction({ description: "Another" }))).not.toBe(
+      withOverlays(callToAction())
+    );
+  });
+});

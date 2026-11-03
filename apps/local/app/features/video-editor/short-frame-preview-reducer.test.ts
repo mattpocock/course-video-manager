@@ -23,6 +23,7 @@ const paused: Parameters<typeof shortFrameRequest>[0] = {
   runningState: "paused",
   scrubSeekTime: undefined,
   currentTimeInClip: 0,
+  overlays: [],
   round: "",
 };
 
@@ -55,13 +56,32 @@ describe("shortFrameRequest", () => {
     });
   });
 
-  it("asks afresh when the Clip's Layers or words change, or after a Stop, but not otherwise", () => {
+  it("asks afresh when the Clip's Layers, words or Overlays change, or after a Stop, but not otherwise", () => {
     const url = (over: Partial<typeof paused>) =>
       shortFrameRequest({ ...paused, ...over })!.url;
     const before = url({});
     expect(url({})).toBe(before);
     expect(url({ round: "session-2" })).not.toBe(before);
     expect(url({ clip: { ...clip, text: "hello there" } })).not.toBe(before);
+    expect(
+      url({
+        overlays: [
+          {
+            id: "o1",
+            clipId: "c1",
+            at: 0,
+            durationInSeconds: 5,
+            kind: "callToAction",
+            bullets: null,
+            disableEnterAnimation: false,
+            disableExitAnimation: false,
+            title: "example.com",
+            description: "A fake subline",
+            chatSpin: null,
+          },
+        ],
+      })
+    ).not.toBe(before);
     expect(
       url({
         clip: {

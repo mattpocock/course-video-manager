@@ -12,7 +12,7 @@
  * DEFAULT and a `resolve` coercion, so a raw column value — including the
  * `null`/absent one every Overlay written before this column existed has —
  * lands on the reading that renders what the footage already looked like.
- * Adding a third kind is a one-line edit to {@link OVERLAY_KINDS}, which then
+ * Adding a kind is a one-line edit to {@link OVERLAY_KINDS}, which then
  * makes every `Record<OverlayKind, …>` lookup keyed off it a compile error
  * until the new kind is answered for.
  *
@@ -26,6 +26,7 @@ export const OVERLAY_KINDS = [
   "definitionCard",
   "bulletPanel",
   "chatCard",
+  "callToAction",
 ] as const;
 
 export type OverlayKind = (typeof OVERLAY_KINDS)[number];
@@ -54,13 +55,14 @@ export const resolveOverlayKind = (
  * naming an Overlay's Kind to the author says "Bullet Panel" and never
  * `bulletPanel`.
  *
- * A `Record<OverlayKind, …>` keyed off {@link OVERLAY_KINDS}, so a third kind
+ * A `Record<OverlayKind, …>` keyed off {@link OVERLAY_KINDS}, so a new kind
  * is a compile error here until somebody says what to call it.
  */
 const OVERLAY_KIND_LABELS: Record<OverlayKind, string> = {
   definitionCard: "Definition Card",
   bulletPanel: "Bullet Panel",
   chatCard: "Chat Card",
+  callToAction: "Call to Action",
 };
 
 /**
@@ -69,3 +71,37 @@ const OVERLAY_KIND_LABELS: Record<OverlayKind, string> = {
  */
 export const overlayKindLabel = (kind: string | null | undefined): string =>
   OVERLAY_KIND_LABELS[resolveOverlayKind(kind)];
+
+/**
+ * Whether Overlays of these two Kinds may be on screen at the same moment.
+ * At most one Overlay is visible at a time (GLOSSARY.md, **Overlay**), with
+ * ONE exception: a Call to Action and a Chat Card. On a Short the Chat Card
+ * sits at the top and the Call to Action in the lower half, so the two never
+ * collide. Two of either may not, and nothing else may share with either.
+ *
+ * `cvm overlay add`/`update` refuse any other overlap, and the editor's
+ * playing preview draws both of the pair, as the Short's render does.
+ */
+export const overlayKindsMayShareTheScreen = (
+  a: OverlayKind,
+  b: OverlayKind
+): boolean =>
+  (a === "callToAction" && b === "chatCard") ||
+  (a === "chatCard" && b === "callToAction");
+
+/**
+ * Which Kinds only a Short's render draws: a Chat Card and a Call to Action.
+ * `cvm overlay add` refuses them on any other Video, and the editor's preview
+ * of a Short draws only these. A `Record<OverlayKind, …>`, so a new kind must
+ * say whether it is one.
+ */
+const SHORT_ONLY_OVERLAY_KINDS: Record<OverlayKind, boolean> = {
+  definitionCard: false,
+  bulletPanel: false,
+  chatCard: true,
+  callToAction: true,
+};
+
+/** Whether only a Short's render draws Overlays of this Kind. */
+export const isShortOnlyOverlayKind = (kind: OverlayKind): boolean =>
+  SHORT_ONLY_OVERLAY_KINDS[kind];

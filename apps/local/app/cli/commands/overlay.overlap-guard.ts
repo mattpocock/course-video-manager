@@ -3,6 +3,11 @@ import { OverlayOperationsService } from "@/services/db-overlay-operations.serve
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { notFound, parseError } from "@/cli/helpers";
 import { clipTimelineStarts } from "@/services/clip-timeline";
+import {
+  overlayKindsMayShareTheScreen,
+  resolveOverlayKind,
+  type OverlayKind,
+} from "@/features/videos/overlay-kind";
 
 // Split out of overlay.ts so that module stays under the repo's per-file token
 // budget; `overlay add` and `overlay update` both ask it.
@@ -16,6 +21,10 @@ import { clipTimelineStarts } from "@/services/clip-timeline";
  * Clips can still be on screen together. Touching windows are fine — one
  * Overlay ending exactly where the next begins shows only ever one at a time.
  *
+ * ONE EXCEPTION: a Call to Action and a Chat Card may overlap
+ * (`overlayKindsMayShareTheScreen`). Two of either still may not, and a Call
+ * to Action still may not overlap any other Kind.
+ *
  * `exclude` is the Overlay being updated: it may of course overlap itself.
  */
 export const requireNoOverlappingOverlay = (params: {
@@ -23,6 +32,8 @@ export const requireNoOverlappingOverlay = (params: {
   clipId: string;
   at: number;
   durationInSeconds: number;
+  /** The Kind the Overlay will BE once this write lands. */
+  kind: OverlayKind;
   exclude?: string;
 }) =>
   Effect.gen(function* () {
@@ -52,6 +63,13 @@ export const requireNoOverlappingOverlay = (params: {
 
     for (const sibling of siblings) {
       if (sibling.id === params.exclude) continue;
+      if (
+        overlayKindsMayShareTheScreen(
+          params.kind,
+          resolveOverlayKind(sibling.kind)
+        )
+      )
+        continue;
       const siblingClipStart = starts.get(sibling.clipId);
       if (siblingClipStart === undefined) continue;
       const siblingStart = siblingClipStart + sibling.at;
@@ -61,7 +79,8 @@ export const requireNoOverlappingOverlay = (params: {
           `this Overlay would be on screen from ${startInSeconds}s to ` +
             `${endInSeconds}s on the Video's timeline, where Overlay ` +
             `${sibling.id} is already showing (${siblingStart}s to ` +
-            `${siblingEnd}s). At most one Overlay is visible at a time — ` +
+            `${siblingEnd}s). At most one Overlay is visible at a time (only a ` +
+            `Call to Action and a Chat Card may share the screen) — ` +
             `move or shorten one of them, or delete ${sibling.id}.`,
           "overlay"
         );

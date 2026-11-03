@@ -51,7 +51,7 @@ const bundleOverlayRenderer = (): Promise<string> =>
   });
 
 /**
- * Render an overlay — subtitles, CTA and/or Definition Cards — to a
+ * Render an overlay — subtitles, Calls to Action and/or Definition Cards — to a
  * transparent ProRes 4444 `.mov`.
  *
  * The overlay carries an alpha channel (pixel format `yuva444p10le`) so CVM can
@@ -128,7 +128,7 @@ export {
   overlayPropsSchema,
   parseOverlayProps,
   subtitleSchema,
-  ctaSchema,
+  callToActionSchema,
   definitionCardSchema,
   bulletPanelSchema,
   bulletPanelBulletSchema,
@@ -137,7 +137,7 @@ export type {
   OverlayProps,
   OverlayPropsInput,
   Subtitle,
-  Cta,
+  CallToAction,
   DefinitionCard,
   BulletPanel,
   BulletPanelBullet,
