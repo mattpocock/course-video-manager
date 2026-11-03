@@ -302,6 +302,79 @@ describe("cvm short create from Video ranges", () => {
     expect(copy.clips.flatMap((c) => c.overlays)).toEqual([]);
   });
 
+  it("from a Short, keeps its Overlays at the same moment of footage, leaving out any outside the range", async () => {
+    const stream = await seedStream();
+    const [c0] = stream.clipIds;
+    const { short: first, clips: firstClips } = await created(
+      await create("--video", stream.videoId, "--range", `${c0}..${c0}`)
+    );
+    const source = firstClips[0]!.id;
+    const chatCard = {
+      kind: "chatCard",
+      title: "@fake_viewer",
+      description: "Fake question",
+    };
+    await testDb.insert(schema.overlays).values([
+      {
+        clipId: source,
+        kind: "callToAction",
+        at: 6,
+        durationInSeconds: 3,
+        title: "Subscribe",
+        description: "for more",
+        disableEnterAnimation: true,
+      },
+      {
+        clipId: source,
+        ...chatCard,
+        at: 4,
+        durationInSeconds: 2,
+        chatSpin: [],
+      },
+      // Before the new range, and at its very end: neither is copied.
+      { clipId: source, ...chatCard, at: 1, durationInSeconds: 2 },
+      { clipId: source, ...chatCard, at: 8, durationInSeconds: 1 },
+    ]);
+    const before = await snapshot(first.id);
+
+    const { short } = await created(
+      await create("--video", first.id, "--range", `${source}+3..${source}+8`)
+    );
+
+    const [clip] = (await snapshot(short.id)).clips;
+    expect(
+      clip!.overlays
+        .map((o) => ({
+          kind: o.kind,
+          at: o.at,
+          durationInSeconds: o.durationInSeconds,
+          title: o.title,
+          description: o.description,
+          disableEnterAnimation: o.disableEnterAnimation,
+          chatSpin: o.chatSpin,
+        }))
+        .sort((a, b) => a.at - b.at)
+    ).toEqual([
+      {
+        ...chatCard,
+        at: 1,
+        durationInSeconds: 2,
+        disableEnterAnimation: false,
+        chatSpin: [],
+      },
+      {
+        kind: "callToAction",
+        at: 3,
+        durationInSeconds: 3,
+        title: "Subscribe",
+        description: "for more",
+        disableEnterAnimation: true,
+        chatSpin: null,
+      },
+    ]);
+    expect(await snapshot(first.id)).toEqual(before);
+  });
+
   it("joins several ranges in the order given, the same Clip twice if asked", async () => {
     const stream = await seedStream();
     const [c0, , c2] = stream.clipIds;

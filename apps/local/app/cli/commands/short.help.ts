@@ -29,7 +29,8 @@ THE STREAM-TO-SHORT LOOP:
      the rest;
   5. optionally 'cvm overlay add --kind chatCard' (a copied stream Clip keeps
      its Recording Session, so its Chat Highlights are found) and
-     'cvm overlay add --kind callToAction' (none is added for you);
+     'cvm overlay add --kind callToAction' (none is added for you; a Short
+     cut from a Short keeps the ones its range holds);
   6. 'cvm clip frame' to check;
   7. 'cvm short render', then post it.`;
 
@@ -72,8 +73,10 @@ SOURCES AND RANGE SYNTAX:
       the first Clip's start, +<e> to the last Clip's end). The range takes a
       COPY of every Clip it covers, in timeline order, and trims the first and
       last. A copy keeps its Recording Session, text, Transcript Words
-      (trimmed with it), Scene Override, Clip Zoom and Layers; Chapters and
-      Overlays are left behind. A Landscape Clip's Footage Layers (its B-roll)
+      (trimmed with it), Scene Override, Clip Zoom and Layers; Chapters are
+      left behind. A Landscape Video's Overlays are left behind too; from a
+      Short, its Chat Cards and Calls to Action come along at the same moment
+      of footage, except any whose start falls outside the range. A Landscape Clip's Footage Layers (its B-roll)
       move into the Short's frame by fractions, their Source Crop narrowed
       about its centre so nothing stretches. Clip Origin: copy.
   --recording-session <id>   --range <s>-<e>
