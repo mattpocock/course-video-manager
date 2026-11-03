@@ -3,8 +3,8 @@ import { cn } from "@/lib/utils";
 import { LivePreviewFrame } from "./live-preview-frame";
 import { CvmRecorderControls } from "./cvm-recorder-controls";
 import { getHasLivePreview } from "../live-preview";
-import { ShortClipLayersList } from "./short-clip-layers-list";
-import { ShortFramePreviewOverlay } from "./short-frame-preview-overlay";
+import { ClipLayersList } from "./clip-layers-list";
+import { ClipFramePreviewOverlay } from "./clip-frame-preview-overlay";
 import { ActionsDropdown } from "./actions-dropdown";
 import { useEditorVideoMenu } from "../editor-video-menu";
 import { MissingWordTimingBadge } from "./transcript-word-actions";
@@ -148,7 +148,7 @@ export const PortraitStudioPanel = () => {
                   !showVideoPlayer && "hidden"
                 )}
               >
-                <ShortFramePreviewOverlay overlaysByClipId={shortOverlays} />
+                <ClipFramePreviewOverlay overlaysByClipId={shortOverlays} />
                 <PreloadableClipManager
                   clipsToAggressivelyPreload={clipsToAggressivelyPreload}
                   clips={clips
@@ -188,7 +188,7 @@ export const PortraitStudioPanel = () => {
           )}
         </div>
 
-        {clips.length > 0 && <ShortClipLayersList />}
+        {clips.length > 0 && <ClipLayersList />}
       </div>
 
       <div className="shrink-0">

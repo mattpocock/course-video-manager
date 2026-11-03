@@ -190,8 +190,9 @@ export const landscapeOverlaysByClipId = (
 
 /**
  * The camera Transform in force over this Clip at `currentTime`, as CSS for
- * the Clip's own `<video>` — `null` when no Overlay covers the playhead, and
- * when the one that does carries no move (every Definition Card).
+ * the Clip's whole picture, every Layer (`clipPlaybackStyles`) — `null`
+ * when no Overlay covers the playhead, and when the one that does carries no
+ * move (every Definition Card).
  *
  * The preview half of the contract `overlayTransformVideoFilter` is the export
  * half of, read at exactly the Overlay `OverlayPreview` draws, so the footage
@@ -243,7 +244,7 @@ export const overlayTransformStyle = (
  * has on the export side, so the two cannot come to draw different things.
  *
  * This draws the CONTENT only. The camera move a Kind may also ask for belongs
- * to the footage underneath, so it is applied to the `<video>` itself from
+ * to the footage underneath, so it is applied to the Clip's picture from
  * `overlayTransformStyle` above; applied here it would move the graphic and
  * leave the footage still.
  *

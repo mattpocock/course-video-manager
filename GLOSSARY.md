@@ -377,7 +377,7 @@ A marker on a **Clip** (none or long) that adds a short held pause after it in t
 _Avoid_: Beat (former name), Silence Length, Gap, Hold
 
 **Clip Zoom**:
-A marker on a **Clip** (none or subtle) that shows the Clip slightly zoomed in, so a run of camera-only clips has some visual change across its cuts. It is allowed only on Clips in a camera scene: the Clip's **Scene Override** if it has one, else the scene it was recorded in. An override that moves a zoomed Clip off a camera scene drops its zoom. It has values rather than on/off, so more levels can be added later. What the author sees in the editor is what the **Publish** will ship. It is part of the **Export Hash**. Superseded by **Transform**, which can move across Clips; kept until that change ships.
+A marker on a **Clip** (none or subtle) that shows the Clip slightly zoomed in, so a run of camera-only clips has some visual change across its cuts. It zooms only the Clip's **Scene Layer**; its **Footage Layers** keep their **Placement**. It is allowed only on Clips in a camera scene (the Clip's **Scene Override** if it has one, else the scene it was recorded in) whose **Layers** have a Scene Layer. An override that moves a zoomed Clip off a camera scene drops its zoom, and so does removing its Scene Layer. It has values rather than on/off, so more levels can be added later. What the author sees in the editor is what the **Publish** will ship. It is part of the **Export Hash**. Superseded by **Transform**, which can move across Clips; kept until that change ships.
 _Avoid_: Punch-in, Ken Burns (implies an animated move; this one is static — reserved as an informal synonym for **Transform** instead), Scale, Crop
 
 **Insertion Point**:
@@ -399,7 +399,7 @@ _Avoid_: transcribedAt (only says when text last landed, not whether one is comi
 ### Layers
 
 **Layer**:
-One piece of a **Clip**'s picture. A Clip's picture is its **Layers**, drawn bottom to top; there is no collective noun for them, they are just "the Clip's Layers". Each Layer has a Kind (a **Scene Layer** or a **Footage Layer**) and a volume. A Clip with no Layers stored is exactly one Scene Layer, and draws, plays, stills and hashes as it always has. Layers are set per Clip, explicitly: copying one Clip's Layers to another is a copy, and nothing is linked. On a **Short** any mix is allowed: a Scene Layer alone, a Scene Layer with Footage Layers above it, or Footage Layers only. On a **Landscape** Video only a Scene Layer at the bottom with Footage Layers above it. **Overlays** and captions always draw above every Layer (ADR 0056).
+One piece of a **Clip**'s picture. A Clip's picture is its **Layers**, drawn bottom to top; there is no collective noun for them, they are just "the Clip's Layers". Each Layer has a Kind (a **Scene Layer** or a **Footage Layer**) and a volume. A Clip with no Layers stored is exactly one Scene Layer, and draws, plays, stills and hashes as it always has. Layers are set per Clip, explicitly: copying one Clip's Layers to another is a copy, and nothing is linked. On both **Video Formats** any mix is allowed: a Scene Layer alone, a Scene Layer with Footage Layers above it, or Footage Layers only. A Clip has at least one Layer and at most one Scene Layer, which is always its bottom Layer, so the stored order is the order drawn (#2604). **Overlays** and captions always draw above every Layer (ADR 0056).
 _Avoid_: Track, Stack, Composition, Layout (that is the scene layout a Scene Layer draws)
 
 **Scene Layer**:
@@ -474,9 +474,9 @@ A rendered effect at the boundary between two **Clips** that replaces footage at
 _Avoid_: Effect Clip (see that entry), Bumper, Wipe (a specific Transition style, not the category)
 
 **Transform**:
-An **Overlay**'s pan or zoom move on the footage under it: a sequence of framings, moved through in order across the Overlay's length. It does not depend on the Overlay's content: it can move the frame with nothing on top, or make room for a card or panel. Supersedes **Clip Zoom**, which was a single fixed zoom that could not cross Clips. Until that change happens, the two cannot be used together: an Overlay over a Clip with a Clip Zoom is refused.
+An **Overlay**'s pan or zoom move on the Clip's whole picture under it, every **Layer** included (with the black base when the Clip has no **Scene Layer**): a sequence of framings, moved through in order across the Overlay's length. It does not depend on the Overlay's content: it can move the frame with nothing on top, or make room for a card or panel. Supersedes **Clip Zoom**, which was a single fixed zoom that could not cross Clips. Until that change happens, the two cannot be used together: an Overlay over a Clip with a Clip Zoom is refused.
 
-What exists today is the narrowest form: not a sequence the author writes, but a fixed move that comes from the **Overlay Kind**. A Definition Card has none. A Bullet Panel slides the footage to the right by the panel's width, to clear the left of the frame for the panel. It is a SLIDE, never a zoom. It eases in and back out, unless the **Animation Toggles** make that end a cut. The panel and the footage move at one speed, because they are one move seen twice.
+What exists today is the narrowest form: not a sequence the author writes, but a fixed move that comes from the **Overlay Kind**. A Definition Card has none. A Bullet Panel slides the picture, every Layer together, to the right by the panel's width, to clear the left of the frame for the panel. It is a SLIDE, never a zoom. It eases in and back out, unless the **Animation Toggles** make that end a cut. The panel and the picture move at one speed, because they are one move seen twice.
 _Avoid_: Framing, Clip Zoom (see that entry), Ken Burns, Pan
 
 ### Pitches

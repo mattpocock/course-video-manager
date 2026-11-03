@@ -3,22 +3,22 @@ import { Loader2 } from "lucide-react";
 import { useContextSelector } from "use-context-selector";
 import { VideoEditorContext } from "../video-editor-context";
 import { stillRound } from "../cvm-recorder-reducer";
-import { shortFrameRequest } from "../short-frame-preview-reducer";
+import { clipFrameRequest } from "../clip-frame-preview-reducer";
 import type { ClipOverlay } from "../overlay-preview";
-import { useShortFramePreview } from "../hooks/use-short-frame-preview";
+import { useClipFramePreview } from "../hooks/use-clip-frame-preview";
 
 const NO_OVERLAYS: readonly ClipOverlay[] = [];
 
 /**
- * Over the Portrait Studio's player: paused or scrubbing, the frame the
- * Short's post shows there, drawn by the export's own code (the same as
- * `cvm clip frame`). Playing, nothing: the player draws the Clip, its
- * Footage Layers, its Chat Cards and its Calls to Action. While a frame
- * draws, or when it is refused, a note says so over the player. The frame is
- * asked for afresh when an Overlay over its Clip changes.
+ * Over the editor's player, on both Video Formats: paused or scrubbing, the
+ * frame the Video's render shows there (a Short's post, a Landscape Video's
+ * course export), drawn by the export's own code (the same as
+ * `cvm clip frame`). Playing, nothing: the player draws the Clip, its Layers
+ * and its Overlays (a Short's Chat Cards and Calls to Action). While a frame draws, or when it is refused, a note says
+ * so over the player. `overlaysByClipId` is what the player draws, by Clip;
+ * the frame is asked for afresh when an Overlay over its Clip changes.
  */
-export const ShortFramePreviewOverlay = (props: {
-  /** The Overlays the Short draws, by Clip (`shortOverlaysByClipId`). */
+export const ClipFramePreviewOverlay = (props: {
   overlaysByClipId: ReadonlyMap<string, ClipOverlay[]>;
 }) => {
   const currentClip = useContextSelector(
@@ -42,29 +42,28 @@ export const ShortFramePreviewOverlay = (props: {
   );
 
   const clip = currentClip?.type === "on-database" ? currentClip : undefined;
-  const overlays = clip
-    ? props.overlaysByClipId.get(clip.databaseId)
-    : undefined;
+  const overlays =
+    (clip && props.overlaysByClipId.get(clip.databaseId)) ?? NO_OVERLAYS;
   const request = useMemo(
     () =>
-      shortFrameRequest({
+      clipFrameRequest({
         clip,
+        overlays,
         runningState,
         scrubSeekTime,
         currentTimeInClip,
-        overlays: overlays ?? NO_OVERLAYS,
         round,
       }),
-    [clip, runningState, scrubSeekTime, currentTimeInClip, overlays, round]
+    [clip, overlays, runningState, scrubSeekTime, currentTimeInClip, round]
   );
-  const preview = useShortFramePreview(request);
+  const preview = useClipFramePreview(request);
 
   return (
     <>
       {preview.image && (
         <img
           src={preview.image}
-          alt="The frame the post shows here"
+          alt="The frame the export shows here"
           className="absolute inset-0 z-20 h-full w-full object-contain pointer-events-none"
         />
       )}
@@ -77,7 +76,7 @@ export const ShortFramePreviewOverlay = (props: {
               <Loader2 className="size-3 animate-spin" />
             )}
             {preview.status === "drawing"
-              ? "Drawing the post's frame…"
+              ? "Drawing the export's frame…"
               : preview.message}
           </span>
         </div>

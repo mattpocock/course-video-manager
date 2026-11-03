@@ -34,8 +34,8 @@ import {
 /**
  * `cvm clip layer`: a Clip's Layers (ADR 0056), addressed by their index,
  * bottom (0) to top. Each verb reads the Clip's Layers, changes the list and
- * writes it back whole (`setClipLayers`), which judges it against the Clip's
- * Video Format and Recording Session. The write carries the Layers it read,
+ * writes it back whole (`setClipLayers`), which judges it against the one
+ * Layer shape rule and the Clip's Recording Session. The write carries the Layers it read,
  * so a concurrent edit in between is refused (exit 8), never lost (#2598).
  */
 
@@ -289,10 +289,16 @@ const addCmd = Command.make(
   ({ clip, scene, ...flags }) =>
     Effect.gen(function* () {
       const { layers, frame } = yield* loadClip(clip);
-      const layer = scene
-        ? yield* sceneLayer(flags, SCENE_LAYER_VOLUME)
-        : yield* footageLayer(flags, null, frame);
-      yield* write(clip, layers, [...layers, layer]);
+      // A Scene Layer is always the bottom Layer; a Footage Layer goes on top.
+      yield* scene
+        ? write(clip, layers, [
+            yield* sceneLayer(flags, SCENE_LAYER_VOLUME),
+            ...layers,
+          ])
+        : write(clip, layers, [
+            ...layers,
+            yield* footageLayer(flags, null, frame),
+          ]);
     })
 ).pipe(Command.withDescription(detail(LAYER_ADD_HELP)));
 

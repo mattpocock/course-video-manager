@@ -138,7 +138,7 @@ WHAT NEEDS A MACHINE
     cvm course readiness    the finished videos directory (exportedness)
     cvm course publish      the same, plus ffmpeg
     cvm short render        the Sidecar's ffmpeg and finished-videos/ (the vertical file)
-    cvm clip frame          raw footage and the overlay renderer (a Short's composed frame)
+    cvm clip frame          raw footage and the overlay renderer (a Clip's composed frame)
   Anywhere else they are refused before doing any work — exit 7, _tag
   "LocalOnlyCommandError", with the reason in the message. That is a STOP, not
   a retry: no token, no pull and no repeat will make them work, and nothing is
