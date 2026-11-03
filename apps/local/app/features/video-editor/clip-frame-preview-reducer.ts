@@ -69,8 +69,8 @@ export const clipFrameRequest = (input: {
   clip: ClipFrameClip | undefined;
   /**
    * The Overlays the render draws over the Clip, `at` from its start (one
-   * spilling in from an earlier Clip included): a Short's Chat Cards, a
-   * Landscape Video's Definition Cards and Bullet Panels.
+   * spilling in from an earlier Clip included): a Short's Chat Cards and
+   * Calls to Action, a Landscape Video's Definition Cards and Bullet Panels.
    */
   overlays: readonly ClipOverlay[];
   runningState: RunningState;

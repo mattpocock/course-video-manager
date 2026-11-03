@@ -96,8 +96,8 @@ export const PortraitStudioPanel = () => {
     VideoEditorContext,
     (ctx) => ctx.overlaysByClipId
   );
-  // A Short draws only its Chat Cards, as its render does.
-  const chatCardsByClipId = useMemo(
+  // A Short draws only its Chat Cards and Calls to Action, as its render does.
+  const shortOverlays = useMemo(
     () => shortOverlaysByClipId(overlaysByClipId),
     [overlaysByClipId]
   );
@@ -148,7 +148,7 @@ export const PortraitStudioPanel = () => {
                   !showVideoPlayer && "hidden"
                 )}
               >
-                <ClipFramePreviewOverlay overlaysByClipId={chatCardsByClipId} />
+                <ClipFramePreviewOverlay overlaysByClipId={shortOverlays} />
                 <PreloadableClipManager
                   clipsToAggressivelyPreload={clipsToAggressivelyPreload}
                   clips={clips
@@ -163,7 +163,7 @@ export const PortraitStudioPanel = () => {
                   onUpdateCurrentTime={onUpdateCurrentTime}
                   playbackRate={playbackRate}
                   scrubSeekTime={scrubSeekTime}
-                  overlaysByClipId={chatCardsByClipId}
+                  overlaysByClipId={shortOverlays}
                   footageNotFound={footageNotFound}
                 />
               </div>

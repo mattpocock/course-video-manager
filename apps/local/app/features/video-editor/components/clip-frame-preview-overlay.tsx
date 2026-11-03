@@ -14,8 +14,9 @@ const NO_OVERLAYS: readonly ClipOverlay[] = [];
  * frame the Video's render shows there (a Short's post, a Landscape Video's
  * course export), drawn by the export's own code (the same as
  * `cvm clip frame`). Playing, nothing: the player draws the Clip, its Layers
- * and its Overlays. While a frame draws, or when it is refused, a note says
- * so over the player. `overlaysByClipId` is what the player draws, by Clip.
+ * and its Overlays (a Short's Chat Cards and Calls to Action). While a frame draws, or when it is refused, a note says
+ * so over the player. `overlaysByClipId` is what the player draws, by Clip;
+ * the frame is asked for afresh when an Overlay over its Clip changes.
  */
 export const ClipFramePreviewOverlay = (props: {
   overlaysByClipId: ReadonlyMap<string, ClipOverlay[]>;

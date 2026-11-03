@@ -161,6 +161,17 @@ export const requireContentForKind = (params: {
   // A Chat Card's content flags, and its refusal of these, are
   // overlay.chat-card.ts's.
   if (params.kind === "chatCard") return Effect.void;
+  // A Call to Action's words are --title and --description, both optional
+  // (overlay.call-to-action.ts); it has no bullets.
+  if (params.kind === "callToAction") {
+    return params.bulletsJson === undefined
+      ? Effect.void
+      : parseError(
+          "--bullets-json is Bullet Panel content; a callToAction Overlay's " +
+            "words are --title (the headline) and --description (the subline)",
+          "overlay"
+        );
+  }
   if (params.kind === "bulletPanel") {
     if (params.description !== undefined) {
       return parseError(

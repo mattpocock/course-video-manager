@@ -84,8 +84,8 @@ export const withRenderedContent = (
 
 /**
  * The Overlays the export composites, placed by {@link placeOnTimeline}. A
- * Chat Card is not one of them: it is drawn only in a Short's render
- * (`vertical-overlay-props.ts`).
+ * Chat Card and a Call to Action are not among them: they are drawn only in a
+ * Short's render (`vertical-overlay-props.ts`).
  */
 export const placeOverlaysOnTimeline = (
   clips: ReadonlyArray<{ overlays: ReadonlyArray<ExportOverlay> }>,
@@ -122,6 +122,7 @@ export const placeOverlaysOnTimeline = (
 const overlayContent = (overlay: ExportOverlay): OverlayContent | null => {
   switch (resolveOverlayKind(overlay.kind)) {
     case "chatCard":
+    case "callToAction":
       // Shorts only: never composited by the export.
       return null;
     case "bulletPanel":

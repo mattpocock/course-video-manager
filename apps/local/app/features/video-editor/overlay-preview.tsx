@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
 import {
   BulletPanelPreview,
+  CallToActionPreview,
   ChatCardPreview,
   DefinitionCardPreview,
   type BulletPanel as BulletPanelInputProps,
@@ -9,9 +10,14 @@ import {
 } from "@cvm/overlay-renderer/preview";
 import { VIDEO_FORMAT_DIMENSIONS } from "@/features/videos/video-format";
 import type { BulletPanelBullet } from "@/features/videos/bullet-panel";
-import { resolveOverlayKind } from "@/features/videos/overlay-kind";
+import {
+  isShortOnlyOverlayKind,
+  overlayKindsMayShareTheScreen,
+  resolveOverlayKind,
+} from "@/features/videos/overlay-kind";
 import { overlayTransformCssStyleAt } from "@/features/videos/overlay-transform";
 import type { ChatSpinCell } from "@cvm/core/features/videos/chat-card";
+import { callToActionInputProps } from "./call-to-action-input-props";
 import { chatCardInputProps } from "./chat-card-input-props";
 
 /**
@@ -116,6 +122,38 @@ export const findActiveOverlay = (
   return undefined;
 };
 
+/**
+ * Every Overlay the preview draws at `currentTime`, in timeline order so the
+ * later one draws on top, as the export composites them.
+ *
+ * Usually at most one: where two overlap, the later wins, as in
+ * {@link findActiveOverlay}. The exception is the one pair of Kinds that may
+ * share the screen (`overlayKindsMayShareTheScreen`): a Call to Action and a
+ * Chat Card, which a Short's render draws together, so the preview does too.
+ */
+export const findActiveOverlays = (
+  overlays: ClipOverlay[],
+  currentTime: number
+): ClipOverlay[] => {
+  const drawn: ClipOverlay[] = [];
+  for (let index = overlays.length - 1; index >= 0; index--) {
+    const overlay = overlays[index]!;
+    const active =
+      currentTime >= overlay.at &&
+      currentTime < overlay.at + overlay.durationInSeconds;
+    const kind = resolveOverlayKind(overlay.kind);
+    if (
+      active &&
+      drawn.every((d) =>
+        overlayKindsMayShareTheScreen(kind, resolveOverlayKind(d.kind))
+      )
+    ) {
+      drawn.unshift(overlay);
+    }
+  }
+  return drawn;
+};
+
 /** The Overlays `keep` keeps, by Clip; a Clip left with none is left out. */
 const filterOverlaysByClipId = (
   overlaysByClipId: ReadonlyMap<string, ClipOverlay[]>,
@@ -127,26 +165,28 @@ const filterOverlaysByClipId = (
       .filter(([, overlays]) => overlays.length > 0)
   );
 
-const isChatCard = (overlay: ClipOverlay) =>
-  resolveOverlayKind(overlay.kind) === "chatCard";
+/** A Kind only a Short's render draws: a Chat Card or a Call to Action. */
+const isShortOnly = (overlay: ClipOverlay) =>
+  isShortOnlyOverlayKind(resolveOverlayKind(overlay.kind));
 
 /**
- * The Overlays a Short draws, by Clip: its Chat Cards only, as its render
- * draws them (`vertical-overlay-props.ts`). Every other Kind stays undrawn
- * in a Short.
+ * The Overlays a Short draws, by Clip: its Chat Cards and Calls to Action
+ * only, as its render draws them (`vertical-overlay-props.ts`). Every other
+ * Kind stays undrawn in a Short.
  */
 export const shortOverlaysByClipId = (
   overlaysByClipId: ReadonlyMap<string, ClipOverlay[]>
-) => filterOverlaysByClipId(overlaysByClipId, isChatCard);
+) => filterOverlaysByClipId(overlaysByClipId, isShortOnly);
 
 /**
- * The Overlays any other Video draws, by Clip: everything but its Chat Cards,
- * which its export drops (`placeOverlaysOnTimeline`). A Chat Card is left
- * behind only when a Short's format is changed after one was added.
+ * The Overlays any other Video draws, by Clip: everything but its Chat Cards
+ * and Calls to Action, which its export drops (`placeOverlaysOnTimeline`).
+ * One is left behind only when a Short's format is changed after it was
+ * added.
  */
 export const landscapeOverlaysByClipId = (
   overlaysByClipId: ReadonlyMap<string, ClipOverlay[]>
-) => filterOverlaysByClipId(overlaysByClipId, (o) => !isChatCard(o));
+) => filterOverlaysByClipId(overlaysByClipId, (o) => !isShortOnly(o));
 
 /**
  * The camera Transform in force over this Clip at `currentTime`, as CSS for
@@ -209,8 +249,9 @@ export const overlayTransformStyle = (
  * leave the footage still.
  *
  * Read-only — there is no in-UI authoring here, only a preview of what `cvm
- * overlay` has already created. At most one Overlay is drawn at a time: where
- * two overlap, the later one wins (see `findActiveOverlay`), which is the one
+ * overlay` has already created. At most one Overlay is drawn at a time, bar
+ * the one exception (a Call to Action and a Chat Card): where two others
+ * overlap, the later one wins (see `findActiveOverlays`), which is the one
  * the export puts on top.
  *
  * `overlays` is not only the Overlays anchored to this Clip — it is every
@@ -224,8 +265,8 @@ export const overlayTransformStyle = (
  * Overlay's `at`, and would then drift away from the footage on pause, on
  * scrub and at any playback rate other than 1x.
  *
- * Keyed by the active Overlay's `id` so switching from one Overlay to another
- * remounts the `<Player>` on the new content, rather than trying to reuse a
+ * Each drawn Overlay gets its own `<Player>`, keyed by its `id`, so switching
+ * from one Overlay to another remounts the `<Player>` on the new content, rather than trying to reuse a
  * `<Player>` already mounted on a different composition — which now also
  * covers switching between the two Kinds' components.
  */
@@ -234,27 +275,33 @@ export const OverlayPreview = (props: {
   /** This Clip's own current playback position, in seconds. */
   currentTime: number;
 }) => {
-  const playerRef = useRef<PlayerRef>(null);
-  const active = useMemo(
-    () => findActiveOverlay(props.overlays, props.currentTime),
+  const drawn = useMemo(
+    () => findActiveOverlays(props.overlays, props.currentTime),
     [props.overlays, props.currentTime]
   );
+  return drawn.map((active) => (
+    <ActiveOverlayPlayer
+      key={active.id}
+      active={active}
+      currentTime={props.currentTime}
+    />
+  ));
+};
 
-  // The frame of the content that `currentTime` names. `undefined` when no
-  // Overlay covers the playhead — computed before the early return below so
-  // the seek effect keeps a stable hook order.
-  const frame = active ? overlayFrameAt(active, props.currentTime) : undefined;
+/** One Overlay `OverlayPreview` draws, on its own held `<Player>`. */
+const ActiveOverlayPlayer = (props: {
+  active: ClipOverlay;
+  currentTime: number;
+}) => {
+  const { active } = props;
+  const playerRef = useRef<PlayerRef>(null);
+
+  // The frame of the content that `currentTime` names.
+  const frame = overlayFrameAt(active, props.currentTime);
 
   useEffect(() => {
-    if (frame === undefined) {
-      return;
-    }
     playerRef.current?.seekTo(frame);
   }, [frame]);
-
-  if (!active || frame === undefined) {
-    return null;
-  }
 
   const durationInFrames = Math.ceil(
     active.durationInSeconds * OVERLAY_RENDER_FPS
@@ -337,6 +384,25 @@ export const OverlayPreview = (props: {
                 key={active.id}
                 ref={playerRef}
                 component={ChatCardPreview}
+                inputProps={inputProps}
+                {...chrome}
+                compositionWidth={VIDEO_FORMAT_DIMENSIONS.short.width}
+                compositionHeight={VIDEO_FORMAT_DIMENSIONS.short.height}
+              />
+            );
+          }
+          case "callToAction": {
+            // A Short's Call to Action, on the Short's own 1080x1920 frame, as
+            // the Short's render draws it (`vertical-overlay-props`).
+            const inputProps = callToActionInputProps(active, {
+              startFrame: 0,
+              durationInFrames,
+            });
+            return (
+              <Player
+                key={active.id}
+                ref={playerRef}
+                component={CallToActionPreview}
                 inputProps={inputProps}
                 {...chrome}
                 compositionWidth={VIDEO_FORMAT_DIMENSIONS.short.width}
