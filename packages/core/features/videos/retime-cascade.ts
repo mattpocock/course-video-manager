@@ -14,9 +14,10 @@
  * point of this module:
  *
  *   - A Transcript Word is read-side data, reproducible at any time by
- *     re-transcribing the Clip. One that no longer fits is DROPPED, because a
- *     word claiming a moment that no longer exists inside the Clip is worse
- *     than no word at all.
+ *     re-transcribing the Clip. One the new cut leaves mostly outside is
+ *     DROPPED, because a word claiming a moment that no longer exists inside
+ *     the Clip is worse than no word at all. One on the edge but mostly
+ *     inside is kept, clamped, so a Short cut there still captions it.
  *   - An Overlay carries hand-authored content (a Definition Card's title and
  *     description). One that no longer fits is CLAMPED back inside the Clip,
  *     never deleted — an unrelated trim must not be able to destroy writing
@@ -72,12 +73,41 @@ export interface ShiftableWord {
 }
 
 /**
- * Shift every word, keeping only the ones the recut Clip still contains.
+ * How far past a range's edge a word may run and still be kept: Whisper's
+ * word edges are about this loose, so a cut this close to a word's edge is a
+ * cut at its edge.
+ */
+export const WORD_EDGE_TOLERANCE_SECONDS = 0.15;
+
+/**
+ * Whether a Clip of `duration` holds a Clip-relative word that overlaps it (#2670).
  *
- * "Contains" is judged on the WHOLE word, both ends: a word half outside the
- * new cut is half unspoken in the footage, and there is no honest offset to
- * give it. A word ending exactly at `newDuration` is kept — its last instant
- * is the Clip's last instant, which is inside the Clip, not past it.
+ * A word on a range's edge is held, and so captioned in a Short, when MOST of
+ * it is inside (more than half its length), or when the part outside is no
+ * more than {@link WORD_EDGE_TOLERANCE_SECONDS}. Otherwise it is mostly
+ * unspoken in the footage and is not. A word wholly outside is never held.
+ */
+export const clipHoldsWord = (
+  word: ShiftableWord,
+  duration: number
+): boolean => {
+  if (word.start >= 0 && word.start < duration && word.end <= duration) {
+    return true;
+  }
+  const inside = Math.min(word.end, duration) - Math.max(word.start, 0);
+  const outside = word.end - word.start - inside;
+  // The epsilon keeps a cut exactly at the tolerance inside it despite floats.
+  return (
+    inside > 0 &&
+    (inside > outside || outside <= WORD_EDGE_TOLERANCE_SECONDS + 1e-9)
+  );
+};
+
+/**
+ * Shift every word, keeping only the ones the recut Clip still holds
+ * ({@link clipHoldsWord}). A kept word that ran past an edge is clamped to
+ * it, so every offset is a moment inside the Clip. A word ending exactly at
+ * `newDuration` is wholly inside: its last instant is the Clip's last.
  *
  * The word's own fields (`text`, and whatever else the caller's row carries)
  * ride through untouched; only `start`/`end` move.
@@ -92,12 +122,12 @@ export const shiftTranscriptWords = <W extends ShiftableWord>(
       start: word.start + shift.delta,
       end: word.end + shift.delta,
     }))
-    .filter(
-      (word) =>
-        word.start >= 0 &&
-        word.start < shift.newDuration &&
-        word.end <= shift.newDuration
-    );
+    .filter((word) => clipHoldsWord(word, shift.newDuration))
+    .map((word) => ({
+      ...word,
+      start: Math.max(word.start, 0),
+      end: Math.min(word.end, shift.newDuration),
+    }));
 
 /**
  * Shift one Overlay's anchor, clamping it back inside the recut Clip rather

@@ -133,6 +133,7 @@ _Avoid_: TikTok (reserved for the actual TikTok platform, and NOT the name for a
 
 **Clip**:
 A segment of **Footage** within a Video, defined by a start time and an end time in one source file. A Clip with no **Recording Session** (an OBS Clip, or one cut from **Imported Footage**) is drawn from that one file, picture and sound. Deleting a Clip is an **Archive**, but unlike most archived nouns it can be reviewed and restored, so a Clip deleted by mistake can be found again. So an archived Clip is never left behind by a copy: a new Draft (**Submit**), a duplicated Course and a copied Video carry it, still archived. A Clip is what was FILMED; a **Clip Mockup** is its PRE-IMAGE: the still and the line that stood in for it before filming. Clip Mockups are kept after filming, so the plan can be compared with the Clips really cut.
+A Clip can be split in two at a word boundary (`cvm clip split`): the original becomes the left Clip, a new one right after it the right, each keeping its own Layers, words and the Overlays on its side; the right one keeps the Clip Origin, since it is the same filming.
 _Avoid_: Segment, Cut, Take (a **Take** is the speech that leaves a Clip, before it is saved)
 
 **Clip Origin**:
@@ -475,7 +476,7 @@ Two settings on an **Overlay**: no enter animation and no exit animation. Each t
 _Avoid_: Instant, No-animate, Hard cut (the effect, not the field)
 
 **Retiming Cascade**:
-What recutting a **Clip** does to everything placed relative to that Clip's start. Moving the Clip's start moves the footage under every stored time, so each **Transcript Word** and each **Overlay** on the Clip moves by the same amount, at the same time as the recut. They differ on what happens to one pushed outside the Clip's new range, and the reason is whether it can be recovered. A Transcript Word can be made again by transcribing, so one outside the range is DROPPED. An Overlay holds content the author wrote, which nothing can make again, so it is moved back inside the range and never deleted. An Overlay in the wrong place is a visible problem that can be fixed; a deleted one is just gone.
+What recutting a **Clip** does to everything placed relative to that Clip's start. Moving the Clip's start moves the footage under every stored time, so each **Transcript Word** and each **Overlay** on the Clip moves by the same amount, at the same time as the recut. They differ on what happens to one pushed outside the Clip's new range, and the reason is whether it can be recovered. A Transcript Word can be made again by transcribing, so one outside the range is DROPPED; one the new range cuts into is kept, held to the range's edge, when most of it is inside or the cut is within 0.15 s of its edge (#2670), so a **Short** cut there still captions it. An Overlay holds content the author wrote, which nothing can make again, so it is moved back inside the range and never deleted. An Overlay in the wrong place is a visible problem that can be fixed; a deleted one is just gone.
 
 **Overlay Template** (not yet implemented):
 A named, reusable Overlay (or small group of them) that an agent picks and applies to a run of Clips, rather than designing one from scratch each time. It would own its own **Transform**, if any. Today a Transform comes from the **Overlay Kind** instead.

@@ -57,6 +57,9 @@ const EXIT_CODES: Record<string, number> = {
   // A Clip's Layers refused (a Source Crop outside the frame, a Placement
   // with no area, a Scene Layer off the bottom): invalid input.
   ClipLayersRefusedError: 3,
+  // `cvm clip split` refused its cut (outside the Clip, a word it lacks, a
+  // side left with no Layer): invalid input. Nothing was written.
+  ClipSplitRefusedError: 3,
   // `cvm footage frame` / `cvm clip frame` asked for while the recorder
   // records: the Still Gate's "ask again after the Stop". Not a failure of
   // this machine; the same command succeeds once the take stops.

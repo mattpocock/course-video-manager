@@ -37,6 +37,7 @@ import {
 import { createClipRetimeOperationsUnwrapped } from "./db-clip-retime.server.js";
 import { createClipMoveOperationsUnwrapped } from "./db-clip-move.server.js";
 import { createClipLayerOperationsUnwrapped } from "./db-clip-layers.server.js";
+import { createClipSplitOperationsUnwrapped } from "./db-clip-split.server.js";
 
 const makeDbCall = <T>(fn: () => Promise<T>) => {
   return Effect.tryPromise({
@@ -643,6 +644,7 @@ const createClipOperationsUnwrapped = (db: Database) => {
     ...transcriptWordOps,
     ...retimeOps,
     ...createClipLayerOperationsUnwrapped(db),
+    ...createClipSplitOperationsUnwrapped(db),
   };
 };
 
@@ -674,6 +676,7 @@ export const createClipOperations = (db: Database) =>
     "setClipText",
     "retimeClip",
     "setClipLayers",
+    "splitClip",
   ]);
 
 export class ClipOperationsService extends Effect.Service<ClipOperationsService>()(

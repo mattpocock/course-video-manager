@@ -186,6 +186,17 @@ export class ClipLayersRefusedError extends Data.TaggedError(
 }> {}
 
 /**
+ * `splitClip` refused: the cut leaves a side empty, names a word the Clip
+ * does not have, or leaves a side with no Layer. Nothing is written.
+ */
+export class ClipSplitRefusedError extends Data.TaggedError(
+  "ClipSplitRefusedError"
+)<{
+  clipId: string;
+  message: string;
+}> {}
+
+/**
  * A Clip's Layers write refused because they are no longer the Layers the
  * writer read: another command changed them in between. Nothing is written;
  * reading them again and redoing the edit is the fix (a lost update, #2598).

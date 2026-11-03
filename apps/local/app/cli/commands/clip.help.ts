@@ -37,6 +37,7 @@ Verbs:
   clip add --video <id> --source <p> --start <t> --end <t>
                                              cut a new clip, text sliced from <source>'s cached transcript
   clip update <id> [flags]                   set --zoom and/or retime --start/--end
+  clip split --at <t|word:n> <id>            split into two adjacent clips at a word boundary
   clip move <id> --before/--after <id>       reposition within the timeline
   clip move <id> --video <id> [--before/--after <id>]   move onto another Video's timeline
   clip delete <id>                           archive the clip (soft delete; see 'clip restore')
@@ -86,10 +87,11 @@ transaction as the recut itself, because moving the in-point moves the footage o
 every stored offset (and a Footage Layer of a file keeps showing the same Footage at the same
 moment: its start and span move with the cut):
 
-  Transcript Words ('cvm clip words') are shifted by the same delta as the recut. A word the new,
-  shorter range no longer contains — either end outside [0, duration] — is DROPPED. Words are
-  read-side data, reproducible by re-transcribing, and one claiming a moment the clip no longer
-  holds is worse than no word at all.
+  Transcript Words ('cvm clip words') are shifted by the same delta as the recut. A word the new
+  range cuts into is KEPT, clamped to the edge, when most of it (over half) is inside or the cut
+  is within 0.15s of its edge, so a Short cut there still captions it; otherwise it is DROPPED, as
+  is a word wholly outside. Words are read-side data, reproducible by re-transcribing, and one
+  claiming a moment the clip no longer holds is worse than no word at all.
 
   Overlays ('cvm overlay list') anchored to the clip have their 'at' shifted by that same delta,
   and an anchor pushed out of the new range is CLAMPED back inside it — to 0, or to the clip's new
@@ -256,6 +258,31 @@ Examples:
   cvm clip get --archived clip_abc
   cvm clip get clip_abc clip_def clip_ghi
   cvm clip get clip_abc | jq '{id, text, start: .sourceStartTime, end: .sourceEndTime}'`;
+
+export const SPLIT_HELP = `Split a Clip into two adjacent Clips, in the same Video and place.
+
+  cvm clip split --at 15.3 clip_abc       # at source second 15.3
+  cvm clip split --at word:12 clip_abc    # the right side starts at Transcript Word 12
+
+--at <seconds>: a moment on the clip's SOURCE clock (the seconds of sourceStartTime/sourceEndTime,
+what 'clip update --start/--end' take), strictly inside the clip. A moment inside a Transcript Word
+snaps to that word's nearer edge; one in the silence between two words stays put. A clip with no
+words is cut where asked.
+--at word:<n>: cut midway through the silence before word n (0-based, the order 'clip words'
+prints), n from 1 to (words - 1).
+
+The original clip keeps its id and becomes the LEFT side; a new clip after it is the RIGHT side.
+Each must be at least ${MINIMUM_CLIP_LENGTH_SECONDS}s long. What each side keeps:
+  - Layers: copied to both. A Footage Layer of a file keeps showing the same Footage at the same
+    moment; a span goes to the side(s) it covers, trimmed at the cut. A side left with no Layer is
+    refused.
+  - Overlays anchored at or after the cut move to the right side, at the same moment of footage.
+  - Transcript Words and text are split at the cut word, each word to one side; with no words the
+    text is shared out by letter count.
+  - Agent Session Entries at or after the cut move right; Clip Web Links go to both. The Pause goes
+    right; Recording Session, scene, Scene Override, Clip Zoom and Clip Origin go to both.
+
+Prints both clips (NDJSON, left then right). A refused split (exit 3) writes nothing.`;
 
 export const WORDS_HELP = `A Clip's Transcript Words — the per-word timing of its spoken audio.
 
