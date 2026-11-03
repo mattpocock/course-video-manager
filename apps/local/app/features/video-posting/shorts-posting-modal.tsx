@@ -12,57 +12,61 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { LinkIcon, Loader2Icon, SendIcon, SparklesIcon } from "lucide-react";
 import {
+  LinkIcon,
+  ListPlusIcon,
+  Loader2Icon,
+  SparklesIcon,
+} from "lucide-react";
+import {
+  selectCanAdd,
   selectDescriptionRequest,
   selectMetadataProblem,
-  selectShowsDescription,
-  type ShortsPostingMode,
 } from "./shorts-posting-reducer";
 import { useShortsPostingReducer } from "./use-shorts-posting-reducer";
 
-export type { ShortsPostingMode };
-
+/**
+ * Add to Posting Queue (#2617): the Short goes in the Posting Queue the way
+ * `cvm short post` puts it there, and the Sidecar posts it at its Posting
+ * Slot, to YouTube and to TikTok through Buffer.
+ */
 export function ShortsPostingModal({
   open,
   onOpenChange,
+  onQueued,
   videoId,
   videoTitle,
-  mode = "both",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** The Short went in the Posting Queue. */
+  onQueued?: (videoId: string) => void;
   videoId: string;
   videoTitle: string;
-  mode?: ShortsPostingMode;
 }) {
-  const { state, dispatch, description, editDescription } =
-    useShortsPostingReducer({ open, onOpenChange, videoId, videoTitle, mode });
+  const { state, dispatch } = useShortsPostingReducer({
+    open,
+    onOpenChange,
+    onQueued,
+    videoId,
+    videoTitle,
+  });
 
-  const { title, postedStatus } = state;
-  const showDescription = selectShowsDescription(mode);
-  const metadataProblem = selectMetadataProblem(state, mode, description);
+  const { title, description, postedStatus, verdict } = state;
+  const metadataProblem = selectMetadataProblem(state);
+  const isLoading = state.savedDescription === null;
   const isGeneratingDescription = state.fields.generating !== null;
   const isConvertingShortLinks = state.convertingShortLinks !== null;
-  const isCheckingExport = state.checkingExport !== null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>
-            {mode === "youtube"
-              ? "Post to YouTube"
-              : mode === "tiktok"
-                ? "Post to TikTok"
-                : "Post Short"}
-          </DialogTitle>
+          <DialogTitle>Add to Posting Queue</DialogTitle>
           <DialogDescription>
-            {mode === "youtube"
-              ? "Post to YouTube Shorts. The exported vertical video will be used."
-              : mode === "tiktok"
-                ? "Post to TikTok via Buffer. The title is used as the caption."
-                : "Post to YouTube Shorts and Buffer (TikTok / X / Bluesky). The exported vertical video will be used."}
+            At its Posting Slot, CVM posts this Short to YouTube Shorts and to
+            TikTok (through Buffer), exporting it first if its export is missing
+            or out of date.
           </DialogDescription>
         </DialogHeader>
 
@@ -87,7 +91,7 @@ export function ShortsPostingModal({
               htmlFor="shorts-title"
               className="text-muted-foreground text-xs"
             >
-              {mode === "tiktok" ? "Title / Caption" : "Title"}
+              Title
             </Label>
             <Input
               id="shorts-title"
@@ -105,62 +109,77 @@ export function ShortsPostingModal({
             )}
           </div>
 
-          {showDescription && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="shorts-description">YouTube Description</Label>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() =>
-                    dispatch({
-                      type: "generate-clicked",
-                      field: "description",
-                      currentText: description,
-                      askToReplace: false,
-                      request: selectDescriptionRequest(videoId),
-                    })
-                  }
-                  disabled={isGeneratingDescription}
-                >
-                  {isGeneratingDescription ? (
-                    <Loader2Icon className="h-3 w-3 animate-spin" />
-                  ) : (
-                    <SparklesIcon className="h-3 w-3" />
-                  )}
-                </Button>
-              </div>
-              <Textarea
-                id="shorts-description"
-                value={description}
-                onChange={(e) => editDescription(e.target.value)}
-                placeholder="YouTube description..."
-                className="min-h-[80px] resize-y"
-              />
-              {metadataProblem?.field === "description" && (
-                <p className="text-sm text-destructive">
-                  {metadataProblem.message}
-                </p>
-              )}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="shorts-description">YouTube Description</Label>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() =>
+                  dispatch({
+                    type: "generate-clicked",
+                    field: "description",
+                    currentText: description,
+                    askToReplace: false,
+                    request: selectDescriptionRequest(videoId),
+                  })
+                }
+                disabled={isGeneratingDescription}
+              >
+                {isGeneratingDescription ? (
+                  <Loader2Icon className="h-3 w-3 animate-spin" />
+                ) : (
+                  <SparklesIcon className="h-3 w-3" />
+                )}
+              </Button>
             </div>
-          )}
-
-          {showDescription && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                dispatch({ type: "convert-short-links-clicked", description })
+            <Textarea
+              id="shorts-description"
+              value={description}
+              onChange={(e) =>
+                dispatch({
+                  type: "description-edited",
+                  description: e.target.value,
+                })
               }
-              disabled={isConvertingShortLinks || !description.trim()}
+              onBlur={() => dispatch({ type: "description-blurred", videoId })}
+              disabled={isLoading}
+              placeholder={isLoading ? "Loading..." : "YouTube description..."}
+              className="min-h-[80px] resize-y"
+            />
+            {metadataProblem?.field === "description" && (
+              <p className="text-sm text-destructive">
+                {metadataProblem.message}
+              </p>
+            )}
+          </div>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => dispatch({ type: "convert-short-links-clicked" })}
+            disabled={isConvertingShortLinks || !description.trim()}
+          >
+            {isConvertingShortLinks ? (
+              <Loader2Icon className="h-3 w-3 animate-spin" />
+            ) : (
+              <LinkIcon className="h-3 w-3" />
+            )}
+            Convert to short links
+          </Button>
+
+          {verdict && (
+            <p
+              className={
+                verdict.verdict === "refused"
+                  ? "text-sm text-destructive"
+                  : "text-sm text-muted-foreground"
+              }
             >
-              {isConvertingShortLinks ? (
-                <Loader2Icon className="h-3 w-3 animate-spin" />
-              ) : (
-                <LinkIcon className="h-3 w-3" />
-              )}
-              Convert to short links
-            </Button>
+              {verdict.verdict === "refused"
+                ? `Can't be queued: ${verdict.reason}`
+                : `Goes out ${verdict.goesOutAt} (UK time)`}
+            </p>
           )}
         </div>
 
@@ -169,27 +188,15 @@ export function ShortsPostingModal({
             Cancel
           </Button>
           <Button
-            onClick={() =>
-              dispatch({ type: "post-clicked", videoId, mode, description })
-            }
-            disabled={
-              (showDescription && !description.trim()) ||
-              !title.trim() ||
-              !!metadataProblem ||
-              isCheckingExport
-            }
+            onClick={() => dispatch({ type: "add-to-queue-clicked", videoId })}
+            disabled={!selectCanAdd(state)}
           >
-            {isCheckingExport ? (
-              <>
-                <Loader2Icon className="w-4 h-4 mr-2 animate-spin" />
-                Checking export...
-              </>
+            {state.adding ? (
+              <Loader2Icon className="w-4 h-4 mr-2 animate-spin" />
             ) : (
-              <>
-                <SendIcon className="w-4 h-4 mr-2" />
-                Post Short
-              </>
+              <ListPlusIcon className="w-4 h-4 mr-2" />
             )}
+            Add to Posting Queue
           </Button>
         </DialogFooter>
       </DialogContent>

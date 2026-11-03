@@ -9,15 +9,15 @@ import {
 } from "@/features/list-search/list-search";
 import { useVideoDialogs } from "@/features/video-menu/video-dialogs";
 import { videoMenuGroups } from "@/features/video-menu/video-menu";
-import {
-  ShortsPostingModal,
-  type ShortsPostingMode,
-} from "@/features/video-posting/shorts-posting-modal";
+import { ShortsPostingModal } from "@/features/video-posting/shorts-posting-modal";
+import { PostingQueuePanel } from "@/features/video-posting/posting-queue-panel";
+import { loadPostingQueuePanel } from "@/features/video-posting/shorts-posting-queue.server";
 import { useUploadActions } from "@/features/upload-manager/upload-context";
 import { useFocusRevalidate } from "@/hooks/use-focus-revalidate";
 import { useUploadRevalidate } from "@/hooks/use-upload-revalidate";
 import {
   getPostedPlatforms,
+  getShortQueueStates,
   getShortStatus,
   STATUS_META,
   type PostedPlatforms,
@@ -35,6 +35,7 @@ import { useState } from "react";
 import {
   Link,
   useFetcher,
+  useRevalidator,
   useSearchParams,
   type ShouldRevalidateFunction,
 } from "react-router";
@@ -61,10 +62,12 @@ export const loader = makeLoader({
 
       // One query for every Short's Video Posts (not one per Short), while
       // the Exported Video checks run alongside it, a few at a time so a
-      // slow Storage Root is not sent every stat at once.
-      const [posts] = yield* Effect.all(
+      // slow Storage Root is not sent every stat at once. The Queue panel
+      // reads the Posting Queue as `cvm short queue` does.
+      const [posts, postingQueue] = yield* Effect.all(
         [
           videoPostOps.listByVideoIds(shorts.map((video) => video.id)),
+          loadPostingQueuePanel(),
           Effect.forEach(
             shorts,
             (video) =>
@@ -87,7 +90,7 @@ export const loader = makeLoader({
         );
       }
 
-      return { shorts, exportedMap, postedMap };
+      return { shorts, exportedMap, postedMap, postingQueue };
     }),
 });
 
@@ -132,24 +135,23 @@ export const shouldRevalidate: ShouldRevalidateFunction = ({
     : defaultShouldRevalidate;
 
 export default function ShortsIndex(props: Route.ComponentProps) {
-  const { exportedMap, postedMap } = props.loaderData;
+  const { exportedMap, postedMap, postingQueue } = props.loaderData;
+  const queueStates = getShortQueueStates(postingQueue.entries);
   const [searchParams] = useSearchParams();
   const query = searchQueryOf(searchParams);
   const shorts = searchVideos(props.loaderData.shorts, query);
   const [videoToPost, setVideoToPost] = useState<{
     id: string;
     title: string;
-    mode: ShortsPostingMode;
   } | null>(null);
   const revealFetcher = useFetcher();
+  const revalidator = useRevalidator();
   const dialogs = useVideoDialogs();
   const { startExportUpload } = useUploadActions();
 
   useFocusRevalidate({ enabled: true });
-  const post = (
-    video: { id: string; title: string },
-    mode: ShortsPostingMode
-  ) => setVideoToPost({ id: video.id, title: video.title, mode });
+  const post = (video: { id: string; title: string }) =>
+    setVideoToPost({ id: video.id, title: video.title });
   useUploadRevalidate([
     "buffer",
     "youtube-shorts",
@@ -170,6 +172,8 @@ export default function ShortsIndex(props: Route.ComponentProps) {
 
           {dialogs.dialogs}
 
+          <PostingQueuePanel queue={postingQueue} />
+
           <div className="mb-6">
             <ListSearchBox placeholder="Search Shorts by title" />
           </div>
@@ -182,14 +186,19 @@ export default function ShortsIndex(props: Route.ComponentProps) {
               }}
               videoId={videoToPost.id}
               videoTitle={videoToPost.title}
-              mode={videoToPost.mode}
+              onQueued={() => void revalidator.revalidate()}
             />
           )}
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             <RecordTile />
             {shorts.map((video) => {
-              const status = getShortStatus(video.id, exportedMap, postedMap);
+              const status = getShortStatus(
+                video.id,
+                exportedMap,
+                postedMap,
+                queueStates
+              );
               const StatusIcon = STATUS_META[status].icon;
               const posted = postedMap[video.id];
               const totalDuration = video.clips.reduce(
@@ -267,9 +276,7 @@ export default function ShortsIndex(props: Route.ComponentProps) {
                         ),
                       rename: () => dialogs.rename(video),
                       export: () => startExportUpload(video.id, video.title),
-                      postShort: () => post(video, "both"),
-                      postToYouTube: () => post(video, "youtube"),
-                      postToTikTok: () => post(video, "tiktok"),
+                      postShort: () => post(video),
                       archive: () => dialogs.archive(video),
                     })}
                   />
