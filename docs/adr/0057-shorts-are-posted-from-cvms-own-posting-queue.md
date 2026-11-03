@@ -31,7 +31,7 @@ Matt wants to "live stream for an hour and end up with content for a week". A Sh
    - marks Posted every Posting entry whose Short has a posted `youtube-shorts` AND a posted `buffer` Video Post written since it claimed its slot ("Posted" is derived, never set by a Job);
    - asks the Slot Schedule what is due, and claims it in ONE transaction, under a lock every claim takes, asking the Slot Schedule again inside it: the entry becomes Posting with its slot, and one `youtube-shorts` and one `buffer` Job are enqueued, each carrying the entry id. A crash before the commit did nothing; after it, the slot is claimed and the Jobs exist, so no tick claims it again, and the Slot Schedule claims nothing while an entry is Posting.
    - The posting Jobs read the Short's title and description from the Video when they run (TikTok's caption is the title), so an edit after queueing is what goes out. They stay posting kinds: one attempt, never re-run on their own.
-   - A Short with no vertical export does not claim: it waits, saying why on its entry, until the Sidecar renders at the slot (#2615).
+   - A Short whose vertical export is stale is rendered just in time (#2615): stale means no export, no Short Export Hash file beside it (`{videoId}.mp4.export-hash`, written by the render), or a different hash. The claim's transaction then also enqueues a `render-vertical` Job, and both posting Jobs wait on it (`dependsOn`), so a render that fails for good posts nothing. Until #2618 counts that as a failure per channel, the entry stays Posting and the tick writes the render's reason on it.
 
 ## Considered
 

@@ -1,8 +1,6 @@
-import { Clock, Effect, Option, Schedule } from "effect";
-import { formatLondon } from "@cvm/core/features/time/london-time";
+import { Clock, Effect, Schedule } from "effect";
 import { PostingQueueSidecarService } from "@/services/db-posting-queue-sidecar.server";
-import { findExportedVideo } from "@/services/finished-videos.server";
-import { storageRootsConfig } from "@/services/storage-roots";
+import { isShortExportStale } from "@/services/short-export-hash";
 import { isMainCheckout } from "../live-desk/live-desk";
 
 /**
@@ -16,33 +14,28 @@ import { isMainCheckout } from "../live-desk/live-desk";
  * and `buffer` posting Jobs; the lanes run them. The Slot Schedule makes no
  * claim while another is still Posting, so missed slots go out one at a time.
  *
- * Until the Sidecar renders a Short at its slot (#2615), a Short with no
- * vertical export does not claim: it waits, saying why on its entry, where
- * `cvm short queue` shows it.
+ * A Short whose vertical export is stale (no export, no Short Export Hash
+ * beside it, or a different one) is rendered just in time: the claim also
+ * enqueues a `render-vertical` Job, and both posting Jobs wait on it. A
+ * render that fails for good posts nothing; its reason is written on the
+ * entry, where `cvm short queue` shows it.
  */
 export const postingQueueTick = Effect.gen(function* () {
   const now = yield* Clock.currentTimeMillis;
   const queue = yield* PostingQueueSidecarService;
   yield* queue.settlePosted();
+  yield* queue.noteRenderFailures();
   const due = yield* queue.due(now);
   if (!due) return;
 
-  const roots = yield* storageRootsConfig;
-  const exported = yield* findExportedVideo(roots, `${due.videoId}.mp4`);
-  if (Option.isNone(exported)) {
-    yield* queue.noteWaiting({
-      entryId: due.entryId,
-      reason: `It waits for its vertical export: its Posting Slot at ${formatLondon(due.slot)} is due, but it has not been rendered. Render it with 'cvm short render ${due.videoId}'.`,
-    });
-    return;
-  }
-
-  const claimed = yield* queue.claim({ claim: due, now });
+  const render = yield* isShortExportStale(due.videoId);
+  const claimed = yield* queue.claim({ claim: due, now, render });
   if (claimed) {
     yield* Effect.logInfo("posting queue: claimed a Posting Slot", {
       entryId: due.entryId,
       videoId: due.videoId,
       slot: new Date(due.slot).toISOString(),
+      render,
     });
   }
 });
