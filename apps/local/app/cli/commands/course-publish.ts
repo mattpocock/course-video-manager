@@ -161,11 +161,11 @@ LOCAL-ONLY
 
 CONCURRENCY
   Export and upload are separate pools with separate budgets, connected by a
-  per-Video handoff: encoding stays six-way concurrent (GPU-bound) while
-  uploads run at DROPBOX_UPLOAD_CONCURRENCY (default 8, network-bound). A
-  Publish therefore costs roughly the longer of the two phases rather than
-  their sum. Export garbage collection runs only once every upload has
-  finished, so it can never unlink a file mid-transfer.
+  per-Video handoff: the export pool holds six Videos at once, of which ffmpeg
+  encodes two at a time (FFMPEG_ENCODE_PERMITS, default 2, bounded by RAM),
+  while uploads run at DROPBOX_UPLOAD_CONCURRENCY (default 8, network-bound). A Publish therefore costs roughly the longer of
+  the two phases rather than their sum. Export garbage collection runs only
+  once every upload has finished, so it can never unlink a file mid-transfer.
 
 ADDRESSING
   The positional argument is the COURSE id (find it via 'cvm course list'). The
@@ -236,8 +236,14 @@ FAILURE HANDLING
   A Publish cut off mid-run (its Sidecar stopped or died) ends "interrupted"
   and is NEVER re-run on its own. If it got past Submit it strands a Pending
   Version; the web publish page reconciles it on load (Promote if the receipt
-  committed, else one-click Discard). No CLI recovery verb exists: with --wait
-  this ends PublishInterruptedError, exit 4.
+  committed, else one-click Discard). From the CLI, 'cvm course publish
+  discard <courseId>' Discards it, refusing one whose receipt landed or whose
+  Publish is still running. With --wait the cut-off run ends
+  PublishInterruptedError, exit 4.
+
+  A short network drop is not a cut-off: the Sidecar keeps the Publish running
+  while its database is unreachable, for up to five minutes, and the Publish's
+  queries wait for the database to answer again.
 
 FLAGS
   --name <vX.Y.Z>     (required) the Published Version name.

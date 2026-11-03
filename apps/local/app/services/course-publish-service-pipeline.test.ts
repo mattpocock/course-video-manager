@@ -79,7 +79,7 @@ describe("CoursePublishService — export/upload pipelining", () => {
     expect(remoteBundleVideoPaths()).toHaveLength(2);
   }, 30_000);
 
-  it("keeps export six-way concurrent even when only one Video may upload at a time", async () => {
+  it("keeps six Videos in the export pool even when only one Video may upload at a time", async () => {
     const processing = createControllableVideoProcessing({
       outputDirectory: () => finishedVideosDir,
     });
@@ -94,7 +94,7 @@ describe("CoursePublishService — export/upload pipelining", () => {
     const publishing = run(publish(course.id));
 
     // The two pools have independent budgets: a one-at-a-time upload limit
-    // must not throttle encoding below its own six-way concurrency.
+    // must not shrink the export pool below its six Videos in flight.
     await Promise.all(videos.map((video) => processing.waitForStart(video.id)));
     expect(processing.encodingCount()).toBe(6);
 
