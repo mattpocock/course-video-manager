@@ -43,6 +43,10 @@ const EXIT_CODES: Record<string, number> = {
   // A Publish Job succeeded but its `published` Job Event was never written,
   // so its ids are unknown. The release is out; the result is what failed.
   PublishResultLostError: 4,
+  // `cvm course publish discard` left the Pending Version alone: its Publish
+  // is still running, or its receipt landed or cannot be read. A state the
+  // caller must change first, like PublishValidationError.
+  PendingDiscardRefusedError: 3,
   // A write refused because it targeted a non-Draft (Pending/Published)
   // version — invalid input, like PublishValidationError.
   VersionNotDraftError: 3,

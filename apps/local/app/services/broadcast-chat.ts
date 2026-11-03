@@ -37,9 +37,16 @@ import {
  * own, from the last page heard, after a pause that doubles from
  * `reconnectMs` up to `maxReconnectMs` (`Schedule.exponential`). A
  * connection that heard a page and stayed open `steadyMs` starts the pause
- * over; one YouTube closes sooner, though it heard pages, is reopened after a
+ * over; one that breaks sooner, though it heard pages, is reopened after a
  * pause that doubles too, so a stream that flaps can't spend the quota at 5
  * units a reopen (#2558).
+ *
+ * YouTube ends a healthy stream connection's answer every few seconds. That
+ * end is no drop: the chat stays `streaming` while it is reopened from the
+ * last page, at once if the answer carried a page (Google's streamList
+ * sample reconnects in a loop with no pause; its docs give no wait), after
+ * the growing pause if it carried none. Only a connection that fails (a
+ * network error, a 5xx, a rate limit, a read that breaks) is `reconnecting`.
  *
  * A stream connection YouTube refuses before one has ever opened for the
  * Broadcast reads no chat at all (`refused`): it never polls, to spare the
@@ -158,8 +165,29 @@ export const createBroadcastChat = (o: {
         return "again";
       });
 
+    /**
+     * The pause before reopening a stream that heard chat: it starts over if
+     * the connection was steady, and grows if YouTube keeps closing it soon.
+     */
+    const reopenPause = Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis;
+      const steady = now - streamOpenedAt >= o.steadyMs;
+      const pauseMs = steady ? o.reconnectMs : reopenPauseMs;
+      reopenPauseMs = steady
+        ? o.reconnectMs
+        : Math.min(pauseMs * 2, o.maxReconnectMs);
+      yield* Effect.sleep(Duration.millis(pauseMs));
+      return "again" as Next;
+    });
     const setConnection = (next: ChatConnection) => {
-      if (sameConnection(next, connection)) return;
+      if (sameConnection(next, connection)) {
+        // A stream reopened while it still streams: logged, so a run's log
+        // still counts the opens.
+        if (next.state === "streaming") {
+          o.log?.({ broadcastId: id, connection, streamOpens });
+        }
+        return;
+      }
       connection = next;
       o.log?.({ broadcastId: id, connection, streamOpens });
       emit({ type: "chat-connection-changed", broadcastId: id, connection });
@@ -246,7 +274,17 @@ export const createBroadcastChat = (o: {
               heard = true;
               hear(page.value);
             }
-            return yield* dropped("YouTube closed the chat connection.", heard);
+            // YouTube ended its answer: it does so every few seconds on a
+            // healthy chat, so this is no drop. The chat still streams while
+            // it is reopened from the last page heard: at once, as Google's
+            // streamList sample does, since a pause would hold chat back. An
+            // answer that ended with no page reopens after a growing pause,
+            // so a stream that flaps can't spend the quota.
+            if (heard) {
+              reopenPauseMs = o.reconnectMs;
+              return "again" satisfies Next;
+            }
+            return yield* reopenPause;
           }
           case "page":
             setConnection({ state: "polling" });
@@ -278,18 +316,7 @@ export const createBroadcastChat = (o: {
       Effect.retry({ schedule: reconnects, while: (e) => !e.heard }),
       // It heard chat before it dropped: the pause starts over if it was
       // steady, and grows if YouTube keeps closing it.
-      Effect.catchTag("ChatDropped", () =>
-        Effect.gen(function* () {
-          const now = yield* Clock.currentTimeMillis;
-          const steady = now - streamOpenedAt >= o.steadyMs;
-          const pauseMs = steady ? o.reconnectMs : reopenPauseMs;
-          reopenPauseMs = steady
-            ? o.reconnectMs
-            : Math.min(pauseMs * 2, o.maxReconnectMs);
-          yield* Effect.sleep(Duration.millis(pauseMs));
-          return "again" as Next;
-        })
-      )
+      Effect.catchTag("ChatDropped", () => reopenPause)
     );
 
     return Effect.gen(function* () {

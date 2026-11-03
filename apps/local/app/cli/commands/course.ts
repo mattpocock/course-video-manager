@@ -286,6 +286,8 @@ VERBS
                        Lessons).
   publish <id>         WRITE: mirror the Draft to Dropbox and freeze it as a
                        named Published Version (--name vX.Y.Z required).
+  publish discard <id> WRITE: Discard the course's stranded Pending Version
+                       (refused while its Publish runs, or once it landed).
   search <id> <query>  Case-insensitive substring search down this course's
                        Draft subtree (--type course|section|lesson|video|beat).
 

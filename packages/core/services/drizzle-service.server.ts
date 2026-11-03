@@ -1,7 +1,7 @@
 import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import type { NodePgTransaction } from "drizzle-orm/node-postgres";
 import type { ExtractTablesWithRelations } from "drizzle-orm";
-import { Pool } from "pg";
+import pg, { Pool } from "pg";
 import * as schema from "../db/schema.js";
 import { resolveDatabaseUrl } from "../db/database-url.js";
 import {
@@ -9,6 +9,9 @@ import {
   judgeConnection,
 } from "../db/connection-guard.js";
 import { sqlStatementLogger } from "../db/sql-statement-log.js";
+import { makePatient, type DbPatience } from "../db/connection-patience.js";
+
+export type { DbPatience };
 import { countSqlStatement } from "../db/sql-statement-tally.js";
 import { Context, Effect, Layer } from "effect";
 
@@ -47,8 +50,23 @@ export class GitWorktreeProbe extends Context.Tag("GitWorktreeProbe")<
  * already dropped the dead connection; the next query opens a fresh one, and
  * fails as a query (a tagged error) while the database is still away.
  */
-export const makeConnectionPool = (url: string): Pool => {
-  const pool = new Pool({ connectionString: url });
+export const makeConnectionPool = (
+  url: string,
+  opts: {
+    /**
+     * For a caller that can wait: ride out a network drop (`DbPatience`,
+     * #2621). Omitted, the pool fails on the first try, as interactive
+     * callers want.
+     */
+    readonly patience?: DbPatience;
+    /** The `pg` client class. A test passes one that fails on cue. */
+    readonly Client?: typeof pg.Client;
+  } = {}
+): Pool => {
+  const pool = new Pool({
+    connectionString: url,
+    ...(opts.Client ? { Client: opts.Client } : {}),
+  });
   pool.on("error", (error) => {
     console.error(
       `[db] a pooled connection dropped (${error.message}); the next query opens a new one`
@@ -68,42 +86,55 @@ export const makeConnectionPool = (url: string): Pool => {
       );
     });
   });
-  return pool;
+  return opts.patience ? makePatient(pool, opts.patience) : pool;
 };
+
+/** The guarded client: `patience` for a caller that can wait (#2621). */
+const makeDrizzle = (patience?: DbPatience) =>
+  Effect.gen(function* () {
+    // The pooled connection string. Migrations use the direct one instead —
+    // see @/db/database-url.
+    const url = resolveDatabaseUrl();
+    if (!url) {
+      return yield* Effect.die(
+        new Error("DATABASE_URL is not set in environment variables")
+      );
+    }
+    // A worktree never opens a writable connection to a remote database.
+    const probe = yield* GitWorktreeProbe;
+    const verdict = judgeConnection({
+      url,
+      env: process.env,
+      insideGitWorktree: probe.insideGitWorktree,
+    });
+    if (!verdict.allowed) {
+      return yield* Effect.die(new Error(formatConnectionRefusal(verdict)));
+    }
+    const sqlLog = sqlStatementLogger();
+    return drizzle(makeConnectionPool(url, { patience }), {
+      schema,
+      // Always on: the slow-request log's statement count rides on it.
+      logger: {
+        logQuery: (query, params) => {
+          countSqlStatement();
+          sqlLog?.logQuery(query, params);
+        },
+      },
+    }) as DrizzleDB;
+  });
 
 export class DrizzleService extends Effect.Service<DrizzleService>()(
   "DrizzleService",
-  {
-    effect: Effect.gen(function* () {
-      // The pooled connection string. Migrations use the direct one instead —
-      // see @/db/database-url.
-      const url = resolveDatabaseUrl();
-      if (!url) {
-        return yield* Effect.die(
-          new Error("DATABASE_URL is not set in environment variables")
-        );
-      }
-      // A worktree never opens a writable connection to a remote database.
-      const probe = yield* GitWorktreeProbe;
-      const verdict = judgeConnection({
-        url,
-        env: process.env,
-        insideGitWorktree: probe.insideGitWorktree,
-      });
-      if (!verdict.allowed) {
-        return yield* Effect.die(new Error(formatConnectionRefusal(verdict)));
-      }
-      const sqlLog = sqlStatementLogger();
-      return drizzle(makeConnectionPool(url), {
-        schema,
-        // Always on: the slow-request log's statement count rides on it.
-        logger: {
-          logQuery: (query, params) => {
-            countSqlStatement();
-            sqlLog?.logQuery(query, params);
-          },
-        },
-      }) as DrizzleDB;
-    }),
-  }
-) {}
+  { effect: makeDrizzle() }
+) {
+  /**
+   * The same guarded client on a patient pool (`DbPatience`): for callers that
+   * can wait out a network drop, the Sidecar's Jobs. Interactive callers
+   * keep `Default`, which fails on the first try.
+   */
+  static readonly Patient = (patience: DbPatience) =>
+    Layer.effect(
+      DrizzleService,
+      Effect.map(makeDrizzle(patience), DrizzleService.make)
+    );
+}
