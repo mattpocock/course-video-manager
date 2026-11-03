@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isDefaultShortTitle } from "./short-title";
+import { isDefaultShortTitle } from "./short-title.js";
 
 describe("isDefaultShortTitle", () => {
   it("returns true for default-format titles", () => {

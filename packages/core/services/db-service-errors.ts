@@ -209,3 +209,16 @@ export class AgentSessionUploadRefusedError extends Data.TaggedError(
   reasons: ReadonlyArray<string>;
   message: string;
 }> {}
+
+/**
+ * `cvm short post` refused: at least one Short named cannot be added to the
+ * Posting Queue (a Landscape Video, a default title, no description, already
+ * live in the queue, already Posted). Nothing is queued, not even the Shorts
+ * that were fine; `refusals` names each refused Short and why.
+ */
+export class ShortPostRefusedError extends Data.TaggedError(
+  "ShortPostRefusedError"
+)<{
+  refusals: ReadonlyArray<{ videoId: string; reason: string }>;
+  message: string;
+}> {}

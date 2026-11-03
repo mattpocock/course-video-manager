@@ -74,6 +74,9 @@ const overrides = (ctx: {
   "clip_mockup.voiceError": () => null,
   // CHECK clip_scene_override_valid.
   "clip.sceneOverride": () => "Code",
+  // CHECK posting_queue_entry_state_valid; an ended state, so a Short's two
+  // rows don't break its one-live-entry index. Never copied.
+  "posting_queue_entry.state": () => "posted",
   // CHECKs on a Layer's kind and session file; one position per Clip.
   "clip_layer.kind": () => "footage",
   "clip_layer.sessionFile": () => "screen",

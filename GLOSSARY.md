@@ -564,6 +564,20 @@ _Avoid_: Checkpoint, Commit list, Course Version commit state (release state, un
 A published AI Hero entry that bundles an article and a newsletter draft for one **Video**. It is published at once and creates a newsletter draft, which is never sent automatically. The newsletter is required. Its public page links back to the skills page.
 _Avoid_: Changelog (ambiguous with course publish changelog), Skill post, Changelog entry
 
+### Posting Shorts
+
+**Posting Queue**:
+CVM's ordered list of **Shorts** waiting to be posted, oldest queued first unless moved (ADR 0057). A Short joins it through `cvm short post`, and the Sidecar of the author's main checkout posts its head at each **Posting Slot**: to YouTube, public and direct, and to TikTok through Buffer with "share now". Each time a Short is queued is one entry. An entry is **Queued**, then **Posting** once it has claimed a slot, then **Posted** once both YouTube and TikTok have it, or it ends **Failed** (a channel failed 3 times). It is **Held** when a channel's outcome is unknown: check before retrying. Queued, Posting and Held entries are live, and a Short has at most one live entry. A removed entry has been taken off the queue. Entries are kept after they end, because the **Slot Schedule** reads past days from them.
+_Avoid_: Queue, unqualified (the Sidecar's Job queue is the queue), Buffer Queue (Buffer holds at most one post)
+
+**Posting Slot**:
+One time on one UK (Europe/London) day when the head of the **Posting Queue** is posted. The times are UK wall-clock times and stay so across the clock changes. A slot missed earlier in the day is taken at the Sidecar's next check, one at a time, by a Short queued before it; one not taken by the end of its day is dropped.
+_Avoid_: Schedule slot, Time slot
+
+**Slot Schedule**:
+The rule that turns the **Posting Queue**'s length, the date and the queue's history into a day's **Posting Slots**. Every day has at least one slot (13:00), even when its queue was empty at 00:00. The count beyond that comes from how many Shorts were in the queue at 00:00 UK time, so Shorts queued later that day never change it: on a weekday 2 when more than 14 are queued (09:00, 18:00), 3 when more than 21 are (09:00, 13:00, 18:00); Saturday and Sunday always 1. A slot posts the oldest Short in the queue at the slot, so a Short queued at 10:00 on a quiet day goes out at 13:00, and one queued after 13:00 waits for the next day's slot. Catch-up: a weekday after a day that had a Short to post and posted nothing takes the next pattern up (3 stays 3), and Monday looks back over Friday and the weekend; the weekend never catches up. One pure function answers both "what is due now?" and "when does each Queued Short go out?", so the Sidecar, `cvm short queue` and the Shorts page agree.
+_Avoid_: Posting schedule, Buffer schedule
+
 ### Deliverables and scheduling
 
 **Deliverable**:

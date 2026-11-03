@@ -32,6 +32,7 @@ import type {
   RecordingSessionStatus,
   VideoRecorder,
 } from "../features/videos/recorder.js";
+import type { PostingQueueEntryState } from "../features/posting-queue/slot-schedule.js";
 export { createTable } from "./table-creator.js";
 
 const varcharCollateC = customType<{
@@ -1029,6 +1030,59 @@ export const videoPosts = createTable("video_post", {
     .notNull()
     .default(sql`CURRENT_TIMESTAMP`),
 });
+
+/**
+ * A Posting Queue entry: one time a Short was added to the Posting Queue
+ * (ADR 0057). Its state is one of POSTING_QUEUE_ENTRY_STATES
+ * (features/posting-queue/slot-schedule.ts); Queued, Posting and Held are
+ * live, and a Short has at most one live entry. Rows are never deleted: the
+ * Slot Schedule reads past days' queue lengths and claims from them. Like a
+ * Video Post, it belongs to that Video row only and no copy carries it.
+ */
+export const postingQueueEntries = createTable(
+  "posting_queue_entry",
+  {
+    id: varchar("id", { length: 255 })
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    videoId: varchar("video_id", { length: 255 })
+      .references(() => videos.id, { onDelete: "cascade" })
+      .notNull(),
+    queuedAt: timestamp("queued_at", { mode: "date", withTimezone: true })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    /** Fractional Index: oldest first unless moved. */
+    order: varcharCollateC("order").notNull(),
+    state: text("state")
+      .$type<PostingQueueEntryState>()
+      .notNull()
+      .default("queued"),
+    /** The Posting Slot it claimed (a UK wall-clock time, as an instant). */
+    claimedSlot: timestamp("claimed_slot", {
+      mode: "date",
+      withTimezone: true,
+    }),
+    claimedAt: timestamp("claimed_at", { mode: "date", withTimezone: true }),
+    youtubeFailures: integer("youtube_failures").notNull().default(0),
+    tiktokFailures: integer("tiktok_failures").notNull().default(0),
+    lastFailureReason: text("last_failure_reason"),
+    /** When it left the queue: Posted, Failed or removed. */
+    endedAt: timestamp("ended_at", { mode: "date", withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("posting_queue_entry_one_live_per_video_uniq")
+      .on(table.videoId)
+      .where(sql`${table.state} IN ('queued', 'posting', 'held')`),
+    uniqueIndex("posting_queue_entry_claimed_slot_uniq").on(table.claimedSlot),
+    index("posting_queue_entry_ended_at_idx").on(table.endedAt),
+    // Mirrors POSTING_QUEUE_ENTRY_STATES.
+    check(
+      "posting_queue_entry_state_valid",
+      sql`${table.state} IN ('queued', 'posting', 'posted', 'held', 'failed', 'removed')`
+    ),
+  ]
+);
 
 export const chapters = createTable(
   "chapter",

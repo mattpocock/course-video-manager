@@ -1,4 +1,5 @@
 import { effectiveClipScene } from "../videos/effective-scene.js";
+import { LONDON_TIME_ZONE, zonedToEpochMs } from "../time/london-time.js";
 
 /**
  * Where an Agent Session Entry is stored: on a Clip, at a Footage time. An
@@ -32,54 +33,13 @@ export const isScreenClip = (clip: {
  * OBS file's name says when it started, and the deployed API runs in UTC, so
  * the zone is stated rather than taken from the machine.
  */
-export const OBS_FILENAME_TIME_ZONE = "Europe/London";
+export const OBS_FILENAME_TIME_ZONE = LONDON_TIME_ZONE;
 
 /** OBS names a file at the whole second it began: take the middle of it. */
 const OBS_START_WITHIN_SECOND_MS = 500;
 
 const OBS_FILENAME =
   /(?:^|[/\\])(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})\.[A-Za-z0-9]+$/;
-
-/** How far `zone` is ahead of UTC at the instant `utcMs`, in ms. */
-const zoneOffsetMs = (utcMs: number, zone: string): number => {
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: zone,
-    hourCycle: "h23",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  }).formatToParts(new Date(utcMs));
-  const n = (type: string) =>
-    Number(parts.find((part) => part.type === type)!.value);
-  const asUtc = Date.UTC(
-    n("year"),
-    n("month") - 1,
-    n("day"),
-    n("hour"),
-    n("minute"),
-    n("second")
-  );
-  return asUtc - Math.floor(utcMs / 1000) * 1000;
-};
-
-/** A wall-clock reading in `zone` → epoch ms. */
-const zonedToEpochMs = (fields: number[], zone: string): number => {
-  const [y, mo, d, h, mi, s] = fields as [
-    number,
-    number,
-    number,
-    number,
-    number,
-    number,
-  ];
-  const naive = Date.UTC(y, mo - 1, d, h, mi, s);
-  const first = naive - zoneOffsetMs(naive, zone);
-  // Recheck at the result: the offset differs across a clock change.
-  return naive - zoneOffsetMs(first, zone);
-};
 
 /**
  * When a Clip's Footage file started, in epoch ms, or null when nothing says:
