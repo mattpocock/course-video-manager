@@ -1,11 +1,12 @@
 /**
- * Backup first, then migrate: the only way an agent migrates production
- * (`pnpm db:migrate:prod`, #2653).
+ * Backup first, then migrate: the only way production is migrated — by the
+ * `apps/remote` production build (`migrate-on-deploy.ts`, #2655) and by the
+ * break-glass `pnpm db:migrate:prod` (#2653).
  *
- * 1. Read the PlanetScale service token from its file. The file holds one
- *    line, `<SERVICE_TOKEN_ID>:<SERVICE_TOKEN>`, which is PlanetScale's
- *    `Authorization` header value as-is. It must not be readable by group or
- *    others. The token never reaches a log line, an error message or argv.
+ * 1. Take the PlanetScale service token, `<SERVICE_TOKEN_ID>:<SERVICE_TOKEN>`,
+ *    which is PlanetScale's `Authorization` header value as-is. The caller
+ *    reads it (an env var in the build, a `chmod 600` file by hand). It never
+ *    reaches a log line, an error message or argv.
  * 2. Create an on-demand backup of the production branch.
  * 3. Poll it until its state is `success`. `failed`, `canceled` and `ignored`
  *    are terminal; so is running out of time.
@@ -19,8 +20,6 @@
  * API: https://planetscale.com/docs/api/reference/create_backup and
  * https://planetscale.com/docs/api/reference/get_backup.
  */
-import fs from "node:fs";
-
 export const PLANETSCALE_API = "https://api.planetscale.com/v1";
 
 export interface PlanetScaleTarget {
@@ -28,6 +27,13 @@ export interface PlanetScaleTarget {
   readonly database: string;
   readonly branch: string;
 }
+
+/** Not secret, so committed. Matt confirmed the three names (#2653). */
+export const PRODUCTION_TARGET: PlanetScaleTarget = {
+  organization: "mattpocockvoice",
+  database: "course-video-manager",
+  branch: "main",
+};
 
 export class BackupFirstMigrateError extends Error {
   override readonly name = "BackupFirstMigrateError";
@@ -42,25 +48,15 @@ interface BackupResponse {
   readonly state: BackupState;
 }
 
-/** The `Authorization` header value, read from a file only its owner can read. */
-export const readServiceToken = (tokenPath: string): string => {
-  let stat: fs.Stats;
-  try {
-    stat = fs.statSync(tokenPath);
-  } catch {
-    throw new BackupFirstMigrateError(
-      `No PlanetScale service token at ${tokenPath}. Matt creates it (read_backups + write_backups only) — see the deploy-migration skill.`
-    );
-  }
-  if ((stat.mode & 0o077) !== 0) {
-    throw new BackupFirstMigrateError(
-      `${tokenPath} is readable by group or others. Run: chmod 600 ${tokenPath}`
-    );
-  }
-  const token = fs.readFileSync(tokenPath, "utf8").trim();
+/**
+ * The `Authorization` header value, checked for shape. `source` names where it
+ * came from (a file path, an env var name) — the value itself is never echoed.
+ */
+export const parseServiceToken = (raw: string, source: string): string => {
+  const token = raw.trim();
   if (!/^[^\s:]+:[^\s:]+$/.test(token)) {
     throw new BackupFirstMigrateError(
-      `${tokenPath} must hold one line, <SERVICE_TOKEN_ID>:<SERVICE_TOKEN>.`
+      `${source} must hold one line, <SERVICE_TOKEN_ID>:<SERVICE_TOKEN>.`
     );
   }
   return token;
@@ -145,7 +141,8 @@ const isReady = (backup: BackupResponse): boolean => {
 export interface BackupThenMigrateOptions {
   /** `PLANETSCALE_API`, or a loopback fake in tests. */
   readonly apiBase: string;
-  readonly tokenPath: string;
+  /** From {@link parseServiceToken}. */
+  readonly authorization: string;
   readonly target: PlanetScaleTarget;
   readonly backupName: string;
   readonly retentionDays: number;
@@ -185,7 +182,7 @@ const waitUntilReady = async (
 export const backupThenMigrate = async (
   opts: BackupThenMigrateOptions
 ): Promise<{ readonly backupId: string }> => {
-  const authorization = readServiceToken(opts.tokenPath);
+  const { authorization } = opts;
   const { organization, database, branch } = opts.target;
 
   opts.log(

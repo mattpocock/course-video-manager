@@ -1,14 +1,11 @@
-import fs from "node:fs";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
-import os from "node:os";
-import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   BackupFirstMigrateError,
   backupThenMigrate,
   type BackupThenMigrateOptions,
-} from "./planetscale-backup";
+} from "./planetscale-backup.js";
 
 const TOKEN = "pscale_tkn_id123:pscale_tkn_SECRETVALUE";
 const TARGET = { organization: "org", database: "cvm", branch: "main" };
@@ -66,14 +63,6 @@ const fakePlanetScale = async (api: {
   return { apiBase: `http://127.0.0.1:${port}/v1`, seen };
 };
 
-const tokenFile = (mode = 0o600, contents = `${TOKEN}\n`): string => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ps-token-"));
-  const file = path.join(dir, "planetscale-backup-token");
-  fs.writeFileSync(file, contents, { mode });
-  fs.chmodSync(file, mode);
-  return file;
-};
-
 const run = (
   apiBase: string,
   overrides: Partial<BackupThenMigrateOptions> = {}
@@ -82,7 +71,7 @@ const run = (
   const events: string[] = [];
   const result = backupThenMigrate({
     apiBase,
-    tokenPath: tokenFile(),
+    authorization: TOKEN,
     target: TARGET,
     backupName: "pre-migrate-0050",
     retentionDays: 30,
@@ -172,30 +161,5 @@ describe("backupThenMigrate", () => {
 
     await expect(result).rejects.toThrow("Could not reach the PlanetScale API");
     expect(events).toEqual([]);
-  });
-
-  it("refuses a token file others can read, before any request", async () => {
-    const api = await fakePlanetScale({
-      create: { status: 201, body: { id: "bk_1", state: "success" } },
-    });
-    const { result, events } = run(api.apiBase, {
-      tokenPath: tokenFile(0o644),
-    });
-
-    await expect(result).rejects.toThrow("readable by group or others");
-    expect(api.seen).toEqual([]);
-    expect(events).toEqual([]);
-  });
-
-  it("refuses a missing token file, before any request", async () => {
-    const api = await fakePlanetScale({
-      create: { status: 201, body: { id: "bk_1", state: "success" } },
-    });
-    const { result } = run(api.apiBase, {
-      tokenPath: path.join(os.tmpdir(), "no-such-dir-cvm", "token"),
-    });
-
-    await expect(result).rejects.toThrow("No PlanetScale service token");
-    expect(api.seen).toEqual([]);
   });
 });
