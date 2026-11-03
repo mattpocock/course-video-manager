@@ -78,7 +78,11 @@ const runAsSidecar = (
       });
     } else {
       yield* Effect.sleep(5);
-      yield* ops.recoverExpiredJobs({ neverRetryKinds: {}, stillRunning: [] });
+      yield* ops.recoverExpiredJobs({
+        holderGoneAfterMs: 0,
+        neverRetryKinds: {},
+        stillRunning: [],
+      });
     }
   });
 

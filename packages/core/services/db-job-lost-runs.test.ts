@@ -52,6 +52,7 @@ describe("a resumable kind's lost run (#2167)", () => {
       yield* ops.claimNextJob({ lane: "default", holder, leaseMs: 1 });
       yield* lapse;
       return yield* ops.recoverExpiredJobs({
+        holderGoneAfterMs: 0,
         neverRetryKinds: {},
         stillRunning: [],
         resumableKinds: ["storage-move"],
