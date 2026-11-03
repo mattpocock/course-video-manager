@@ -12,7 +12,7 @@ import {
   BROADCAST_CHAT_EVENT_TYPES,
   BroadcastChatEvent,
 } from "./broadcast-chat";
-import { chatView, type ChatView } from "./chat-view";
+import { chatView, popoutChatView, type ChatView } from "./chat-view";
 import { streamChatBridgeStep } from "./stream-chat-bridge";
 
 /** Where the app server relays the chat (`routes/api.streaming.chat.events.ts`). */
@@ -130,8 +130,13 @@ export const BroadcastChatView = (props: {
     () => chatView(state, props.highlightsUnavailable),
     [state, props.highlightsUnavailable]
   );
-  const latestView = useRef(view);
-  latestView.current = view;
+  // The pop-out is shown to the audience: it hears no connection trouble.
+  const popoutView = useMemo(
+    () => popoutChatView(state, props.highlightsUnavailable),
+    [state, props.highlightsUnavailable]
+  );
+  const latestView = useRef(popoutView);
+  latestView.current = popoutView;
 
   // Bridges the pop-out window: its clicks in, the chat out.
   useEffect(
@@ -150,8 +155,8 @@ export const BroadcastChatView = (props: {
     [dispatch, videoId]
   );
   useEffect(() => {
-    streamChatChannel.sendToChild({ type: "chat-view", view });
-  }, [view]);
+    streamChatChannel.sendToChild({ type: "chat-view", view: popoutView });
+  }, [popoutView]);
 
   const onMessageClicked = (messageId: string) =>
     dispatch({ type: "chat-message-clicked", videoId, messageId });

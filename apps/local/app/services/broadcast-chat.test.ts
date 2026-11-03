@@ -216,11 +216,50 @@ describe("the Broadcast's live chat, owned by the app server", () => {
     ).toEqual(["streaming", "reconnecting", "streaming"]);
   });
 
-  it("reopens a stream YouTube keeps closing after a growing pause, and logs each change with the opens so far", async () => {
+  it("reopens a stream connection YouTube ends cleanly from where it left off, still streaming: an end isn't a drop", async () => {
     await storeGrant();
+    // YouTube answers with a page, then ends its answer: it does so every
+    // few seconds on a healthy chat.
+    youtube.chatStreams.push((res) => {
+      sendPages(res, [
+        chatPage({ messages: [fakeViewerMessage(1)], nextPageToken: "t1" }),
+      ]);
+      setTimeout(() => res.end("]"), 5);
+    });
+    youtube.chatStreams.push((res) =>
+      sendPages(res, [
+        chatPage({ messages: [fakeViewerMessage(2)], nextPageToken: "t2" }),
+      ])
+    );
+    const chat = startChat();
+    const heard = listen(chat);
+
+    await pick(chat, {
+      broadcastId: "office-hours",
+      liveChatId: "chat-office-hours",
+    });
+
+    await vi.waitFor(() =>
+      expect(messagesHeard(heard)).toEqual([shown(1), shown(2)])
+    );
+    expect(chatRequests().map((r) => r.searchParams.get("pageToken"))).toEqual([
+      null,
+      "t1",
+    ]);
+    expect(
+      heard.flatMap((e) =>
+        e.type === "chat-connection-changed" ? [e.connection.state] : []
+      )
+    ).toEqual(["streaming"]);
+  });
+
+  it("reopens at once each time YouTube ends an answer after pages, so chat is never held back by a pause", async () => {
+    await storeGrant();
+    const endedAt: number[] = [];
     let page = 0;
-    // YouTube answers every stream connection with one page, then closes it.
-    const flap = (res: http.ServerResponse) => {
+    // A healthy chat: YouTube answers each connection with a page, then
+    // ends the answer, over and over.
+    const answer = (res: http.ServerResponse) => {
       page += 1;
       sendPages(res, [
         chatPage({
@@ -228,6 +267,50 @@ describe("the Broadcast's live chat, owned by the app server", () => {
           nextPageToken: `t${page}`,
         }),
       ]);
+      setTimeout(() => {
+        endedAt.push(Date.now());
+        res.end("]");
+      }, 5);
+      if (page < 6) youtube.chatStreams.push(answer);
+    };
+    youtube.chatStreams.push(answer);
+    const heardAt: number[] = [];
+    // Pauses this long would hold each message back hundreds of ms.
+    const chat = startChat({
+      reconnectMs: 200,
+      maxReconnectMs: 1_000,
+      steadyMs: 10_000,
+    });
+    chat.subscribe((e) => {
+      if (e.type === "chat-message-received") heardAt.push(Date.now());
+    });
+
+    await pick(chat, {
+      broadcastId: "office-hours",
+      liveChatId: "chat-office-hours",
+    });
+
+    await vi.waitFor(() => expect(heardAt).toHaveLength(6), {
+      timeout: 3000,
+    });
+    // From YouTube ending one answer to the next message heard.
+    const latencies = heardAt.slice(1).map((at, i) => at - endedAt[i]!);
+    expect(latencies.every((ms) => ms < 100)).toBe(true);
+    expect(chatRequests().map((r) => r.searchParams.get("pageToken"))).toEqual([
+      null,
+      "t1",
+      "t2",
+      "t3",
+      "t4",
+      "t5",
+    ]);
+  });
+
+  it("reopens a stream YouTube keeps ending with no chat after a growing pause, and logs each open with the opens so far", async () => {
+    await storeGrant();
+    // YouTube opens every stream connection, then ends it with no page.
+    const flap = (res: http.ServerResponse) => {
+      holdOpen(res);
       setTimeout(() => res.end("]"), 5);
       youtube.chatStreams.push(flap);
     };
@@ -259,16 +342,13 @@ describe("the Broadcast's live chat, owned by the app server", () => {
       },
       {
         broadcastId: "office-hours",
-        connection: {
-          state: "reconnecting",
-          message: "YouTube closed the chat connection.",
-        },
-        streamOpens: 1,
+        connection: { state: "streaming" },
+        streamOpens: 2,
       },
       {
         broadcastId: "office-hours",
         connection: { state: "streaming" },
-        streamOpens: 2,
+        streamOpens: 3,
       },
     ]);
   });

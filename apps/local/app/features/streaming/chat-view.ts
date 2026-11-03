@@ -6,8 +6,9 @@ import type { liveStreamReducer } from "./live-stream-reducer";
 /**
  * THE CHAT VIEW (#2558): everything the live chat panel draws, as plain data,
  * so the Streaming tab and its pop-out window (`lib/stream-chat-protocol.ts`)
- * draw the same thing. The Streaming tab works it out from the Live Stream
- * surface; the pop-out only receives it.
+ * draw the same chat. The Streaming tab works it out from the Live Stream
+ * surface; the pop-out only receives it (`popoutChatView`), without a word of
+ * the connection's trouble, since Matt shows it to his audience.
  */
 export const ChatView = z.object({
   /** A line about the chat connection, or `null` while it simply streams. */
@@ -55,11 +56,9 @@ const connectionLine = (
         warn: false,
       };
     case "reconnecting":
+      // Quiet: it retries on its own, and it only shows once it has lasted.
       if (!reconnectShown) return null;
-      return {
-        text: `Chat connection dropped, reconnecting: ${connection.message}`,
-        warn: true,
-      };
+      return { text: "Reconnecting to chat…", warn: false };
     case "refused":
       return {
         text: `YouTube refused the chat connection, so no chat is shown: ${connection.message}`,
@@ -74,6 +73,13 @@ const connectionLine = (
       };
   }
 };
+
+/** What the pop-out says of the connection: never its trouble. */
+const POPOUT_LINES: ReadonlySet<ChatConnection["state"]> = new Set([
+  "idle",
+  "connecting",
+  "over",
+]);
 
 export const chatView = (
   state: liveStreamReducer.State,
@@ -95,4 +101,19 @@ export const chatView = (
       pending,
     })),
   };
+};
+
+/**
+ * The chat view for the pop-out window, which Matt shows his audience: the
+ * same chat, but no word of the connection's trouble (reconnecting, polling,
+ * refused, Google to reconnect). The Streaming tab still says it.
+ */
+export const popoutChatView = (
+  state: liveStreamReducer.State,
+  highlightsUnavailable: string | null
+): ChatView => {
+  const view = chatView(state, highlightsUnavailable);
+  return POPOUT_LINES.has(state.chat.connection.state)
+    ? view
+    : { ...view, line: null };
 };
