@@ -123,13 +123,8 @@ const addChatCard = (extra: string[] = [], { clip = "", at = "2" } = {}) =>
     ...extra,
   ]);
 
-const cell = (n: number) => ({
-  author: `@fake_viewer_${n}`,
-  text: `Fake question ${n}`,
-});
-
 describe("a Chat Card", () => {
-  it("defaults to the Chat Highlight at the anchor point, with its spin on", async () => {
+  it("defaults to the Chat Highlight at the anchor point", async () => {
     // --at 2 on a Clip from file time 4s: 6s in, while the second shows.
     const result = await addChatCard();
 
@@ -138,22 +133,19 @@ describe("a Chat Card", () => {
       kind: "chatCard",
       title: "@fake_viewer_2",
       description: "Fake question 2",
-      chatSpin: [cell(1), cell(3)],
     });
   });
 
-  it("takes --chat-highlight and --no-chat-spin", async () => {
+  it("takes --chat-highlight", async () => {
     const result = await addChatCard([
       "--chat-highlight",
       short.highlightIds[0]!,
-      "--no-chat-spin",
     ]);
 
     expect(result.exitCode).toBe(0);
     expect(one(result.stdout)).toMatchObject({
       title: "@fake_viewer_1",
       description: "Fake question 1",
-      chatSpin: [],
     });
   });
 
@@ -214,7 +206,6 @@ describe("a Chat Card", () => {
 
   it.each<[string, string[]]>([
     ["--chat-highlight", ["--chat-highlight", "h"]],
-    ["--no-chat-spin", ["--no-chat-spin"]],
   ])("lends %s to no other kind", async (_, extra) => {
     const { exitCode, stderr } = await run([
       "overlay",
@@ -233,7 +224,7 @@ describe("a Chat Card", () => {
     ]);
 
     expect(exitCode).toBe(3);
-    expect(stderr).toContain("are Chat Card flags");
+    expect(stderr).toContain("is a Chat Card flag");
   });
 
   it("cannot have its content edited, or be made by update", async () => {

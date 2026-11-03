@@ -17,7 +17,6 @@ import {
 } from "drizzle-orm/pg-core";
 import { createTable } from "./table-creator.js";
 import type { BulletPanelBullet } from "../features/videos/bullet-panel.js";
-import type { ChatSpinCell } from "../features/videos/chat-card.js";
 import type { BeatKind } from "../features/beats/beat-kinds.js";
 import type { VideoFormat } from "../features/videos/video-format.js";
 import type { TranscriptionStatus } from "../features/videos/transcription-status.js";
@@ -991,11 +990,10 @@ export const overlays = createTable(
      */
     bullets: jsonb("bullets").$type<BulletPanelBullet[]>(),
     /**
-     * A Chat Card's Chat Spin: the cells that fly past before it lands on its
-     * own message (`title`, `description`), in fly-past order — `[]` when its
-     * spin is off, null for every other content-kind. Copied, never linked.
+     * UNUSED since #2669, which removed the Chat Spin from Shorts: nothing
+     * reads or writes it. #2671 drops the column.
      */
-    chatSpin: jsonb("chat_spin").$type<ChatSpinCell[]>(),
+    chatSpin: jsonb("chat_spin").$type<{ author: string; text: string }[]>(),
   },
   (table) => [
     // "Every Overlay on this Video" resolves Clip-by-Clip, so this FK column is

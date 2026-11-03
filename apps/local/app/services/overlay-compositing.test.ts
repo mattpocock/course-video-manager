@@ -28,7 +28,6 @@ const card = (overrides?: Partial<ExportOverlay>): ExportOverlay => ({
   title: "Monomorphism",
   description: "A function that never collapses two inputs into one output.",
   bullets: null,
-  chatSpin: null,
   ...overrides,
 });
 
@@ -43,7 +42,7 @@ describe("placeOverlaysOnTimeline", () => {
       [
         {
           overlays: [
-            card({ kind: "chatCard", chatSpin: [] }),
+            card({ kind: "chatCard" }),
             card({ at: 6, durationInSeconds: 2 }),
           ],
         },

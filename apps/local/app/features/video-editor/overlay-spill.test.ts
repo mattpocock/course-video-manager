@@ -43,7 +43,6 @@ const overlay = (props: {
   disableExitAnimation: false,
   title: "A Definition Card",
   description: "What it means.",
-  chatSpin: null,
 });
 
 describe("groupOverlaysByClip", () => {

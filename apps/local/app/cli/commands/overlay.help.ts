@@ -53,16 +53,16 @@ own picture ('cvm clip layer --help').
     'revealAt'. The panel is drawn down the LEFT of frame — the side is fixed,
     not a choice — while the footage slides right to clear room for it.
   chatCard: a Chat Card, SHORTS ONLY — one Chat Highlight (a chat message
-    shown on a Live Stream) at the top of the Short, opening with its Chat
-    Spin: the same Recording Session's other Chat Highlights fly past and it
-    lands on the pick. Its author and text are COPIED into title and
-    description, and the spin's cells into chatSpin, so it outlives the
-    stream. '--chat-highlight <id>' picks it ('cvm chat-highlight list');
-    omitted, it is the one showing at the anchor point of a Clip from a
-    Streamed Recording Session: the latest shown by then, if not yet
-    hidden. '--no-chat-spin' turns the spin off (it eases in;
-    so does one with fewer than 2 other Chat Highlights). It takes no
-    --title, --description or bullets, is refused on any
+    shown on a Live Stream), fading in and out. It is drawn at the top of
+    the Short, or below the captions when Matt's face is at the top: it is
+    never drawn over his face (the Face Area of every camera picture under
+    it). When neither place is clear, the render and 'cvm clip frame'
+    refuse; move it, or change the Clips' camera Layers. Its author and
+    text are COPIED into title and description, so it outlives the stream.
+    '--chat-highlight <id>' picks it ('cvm chat-highlight list'); omitted,
+    it is the one showing at the anchor point of a Clip from a Streamed
+    Recording Session: the latest shown by then, if not yet hidden. It
+    takes no --title, --description or bullets, is refused on any
     Video but a Short, and is drawn only in the Shorts editor and the Short's
     render, never on the Live Stream. 'update' cannot change its content or
     turn anything into or out of one.
@@ -74,7 +74,7 @@ own picture ('cvm clip layer --help').
     alone. It fades in, drifts up and fades out (the Animation Toggles cut
     either end). A Short has none unless one is added. To recreate the old
     call to action, add one with '--at 0 --duration 5' on the Short's first
-    Clip. It takes no --bullets-json or Chat Card flags, is refused on any
+    Clip. It takes no --bullets-json or Chat Card flag, is refused on any
     Video but a Short, and 'update' may edit its words, anchor, duration and
     toggles but cannot turn anything into or out of one. It may share the
     screen with a Chat Card (see ONE AT A TIME), never with another Call to
@@ -139,8 +139,7 @@ title and description are gone with it.
 
 Output fields: id, clipId (the anchor Clip), at (Clip-relative seconds),
 durationInSeconds, kind, title, description, bullets, disableEnterAnimation,
-disableExitAnimation, chatSpin (a Chat Card's spin cells, [] when off; null
-for other kinds).
+disableExitAnimation.
 
 Verbs (flags come BEFORE the positional <id> — a flag after it exits 3):
   list   --video <id> [--clip <id>]   every Overlay on a Video, timeline order
@@ -148,7 +147,7 @@ Verbs (flags come BEFORE the positional <id> — a flag after it exits 3):
   add    --clip <id> --at <s> --duration <s> [--kind <k>] --title <t>
          (--description <d> | --bullets-json <path|->)
   add    --clip <id> --at <s> --duration <s> --kind chatCard
-         [--chat-highlight <id>] [--no-chat-spin]
+         [--chat-highlight <id>]
   add    --clip <id> --at <s> --duration <s> --kind callToAction
          [--title <headline>] [--description <subline>]
   update [flags] <id>                 re-anchor and/or edit in place
@@ -178,8 +177,7 @@ listed — an archived Clip is off the timeline and so are its Overlays.
                  nothing (empty output, exit 0).
 
 Each line carries: id, clipId, at, durationInSeconds, kind, title,
-description, bullets, disableEnterAnimation, disableExitAnimation, chatSpin
-(null unless it is a chatCard).
+description, bullets, disableEnterAnimation, disableExitAnimation.
 
 An unknown --video id is a not-found (exit 2). Find a video id with
 'cvm video list'; find its clip ids with 'cvm clip list --video <id>'.
@@ -199,8 +197,7 @@ still emitted on STDOUT and the MISSING ids are reported on STDERR with exit 2,
 so a partly-stale list of ids still tells you everything it can.
 
 Fields: id, clipId, at, durationInSeconds, kind, title, description, bullets,
-disableEnterAnimation, disableExitAnimation, chatSpin (null unless it is a
-chatCard).
+disableEnterAnimation, disableExitAnimation.
 
 Examples:
   cvm overlay get ovl_456
@@ -265,7 +262,6 @@ thing worth having. Which CONTENT flag is required depends on '--kind'.
                        Clip; with none showing, refused (exit 3) naming that
                        session's Chat Highlights (id, time in, author). An
                        unknown id is refused (exit 3). chatCard only.
-  --no-chat-spin       a chatCard with no Chat Spin. chatCard only.
 
 A chatCard or a callToAction is refused (exit 3) on any Video but a Short.
 

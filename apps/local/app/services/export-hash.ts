@@ -25,7 +25,7 @@ import {
   type BulletPanelBullet,
 } from "@/features/videos/bullet-panel";
 import { toRootRelative } from "@/packages/storage";
-import type { ChatSpinCell } from "@cvm/core/features/videos/chat-card";
+import { CHAT_CARD_VERSION } from "@/features/video-editor/chat-card-input-props";
 
 /**
  * Bump this constant to force re-export of all videos (e.g., after changing
@@ -52,8 +52,6 @@ export type ExportOverlay = {
   description: string;
   /** A Bullet Panel's bullets; null for every other content-kind. */
   bullets: BulletPanelBullet[] | null;
-  /** A Chat Card's spin cells ([] = off); null for every other kind. */
-  chatSpin: ChatSpinCell[] | null;
 };
 
 /**
@@ -100,7 +98,6 @@ export const toExportClips = (
         title: string;
         description: string;
         bullets: BulletPanelBullet[] | null;
-        chatSpin: ChatSpinCell[] | null;
       }>;
     }
   >
@@ -118,7 +115,6 @@ export const toExportClips = (
       title: o.title,
       description: o.description,
       bullets: o.bullets,
-      chatSpin: o.chatSpin,
     })),
   }));
 
@@ -167,11 +163,13 @@ const toOverlayPayload = (overlays: ExportOverlay[]) =>
       ...(o.bullets && o.bullets.length > 0
         ? { b: bulletPanelHashPayload(o.bullets) }
         : {}),
-      // A Chat Card's author and text are already `t` and `x`; its spin's
-      // cells join them ONLY for a Chat Card, so no other Overlay's payload
-      // is re-addressed.
+      // A Chat Card's author and text are already `t` and `x`. How it is
+      // drawn (its look, motion, slots and the Face Area that picks one) is
+      // code, so its version joins them ONLY for a Chat Card, and no other
+      // Overlay's payload is re-addressed. The Layers that decide its slot
+      // are already in the Clip's entry.
       ...(resolveOverlayKind(o.kind) === "chatCard"
-        ? { cs: o.chatSpin ?? [] }
+        ? { cc: CHAT_CARD_VERSION }
         : {}),
     }))
     .sort((left, right) =>

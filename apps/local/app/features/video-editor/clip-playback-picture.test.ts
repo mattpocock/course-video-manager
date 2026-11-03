@@ -108,7 +108,6 @@ const bulletPanel: ClipOverlay = {
   title: "A fixture panel",
   description: "",
   bullets: [],
-  chatSpin: null,
 };
 
 describe("clipPlaybackStyles", () => {

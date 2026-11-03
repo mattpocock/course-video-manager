@@ -87,7 +87,6 @@ describe("a Call to Action", () => {
       title: "AIhero.dev",
       description: "Go from Zero To AI Hero",
       bullets: null,
-      chatSpin: null,
     });
   });
 
@@ -141,7 +140,6 @@ describe("a Call to Action", () => {
   it.each<[string, string[]]>([
     ["bullets", ["--bullets-json", "-"]],
     ["a Chat Highlight", ["--chat-highlight", "h"]],
-    ["--no-chat-spin", ["--no-chat-spin"]],
   ])("is refused with %s", async (_, extra) => {
     const { exitCode, stdout } = await addCallToAction(extra);
 

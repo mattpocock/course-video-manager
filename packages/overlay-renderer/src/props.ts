@@ -147,41 +147,43 @@ export const bulletPanelSchema = z.object({
 
 export type BulletPanel = z.infer<typeof bulletPanelSchema>;
 
-/** A Chat Card on one frame: how opaque, how far below its place, how far its reel has scrolled (in cells). */
+/** A Chat Card on one frame: how opaque, and how many px below its place. */
 export const chatCardPoseSchema = z.object({
   opacity: z.number(),
   offsetY: z.number(),
-  scroll: z.number(),
 });
 
 export type ChatCardPose = z.infer<typeof chatCardPoseSchema>;
 
 /**
- * Where a Short's Chat Card sits on the 1080x1920 frame: centred, its top
- * `top` px down (inside the platforms' safe area, above the centred captions
- * and the Call to Action), `width` px wide.
+ * Where a Short's Chat Card may sit on the 1080x1920 frame (#2669): centred,
+ * `width` px wide, its top at one of two slots. `top` is inside the
+ * platforms' safe area, above the centred captions; `bottom` is just below
+ * the captions. Which one is decided from the Face Areas under it, by the
+ * app (`chat-card-input-props.ts`): the renderer draws where it is told.
  */
-export const CHAT_CARD_PLACEMENT = { top: 240, width: 960 } as const;
+export const CHAT_CARD_PLACEMENT = {
+  slots: { top: 240, bottom: 1240 },
+  width: 960,
+} as const;
 
 /**
- * One Chat Card in a Short: a Chat Highlight's author and text, opening with
- * its Chat Spin, whose `cells` fly past before it lands on the pick.
+ * One Chat Card in a Short: one Chat Highlight's author and text, drawn as
+ * the Chat Highlight card, `top` px down.
  *
  * Its motion arrives frame by frame (`enter`, `exit`), worked out by the
- * domain's own Chat Spin and Chat Highlight motion, which this package cannot
- * import: every frame between the two is the landed card. Empty `enter` is a
- * hard cut in, empty `exit` a hard cut out.
+ * domain's Chat Card motion, which this package cannot import: every frame
+ * between the two is the settled card. Empty `enter` is a hard cut in, empty
+ * `exit` a hard cut out.
  */
 export const chatCardSchema = z.object({
   author: z.string(),
   text: z.string(),
-  /** The spin's cells, in fly-past order, the pick NOT among them. */
-  cells: z.array(z.object({ author: z.string(), text: z.string() })),
   startFrame: z.number().default(0),
   durationInFrames: z.number(),
   enter: z.array(chatCardPoseSchema).default([]),
   exit: z.array(chatCardPoseSchema).default([]),
-  top: z.number().default(CHAT_CARD_PLACEMENT.top),
+  top: z.number(),
   width: z.number().default(CHAT_CARD_PLACEMENT.width),
 });
 

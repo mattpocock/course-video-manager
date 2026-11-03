@@ -63,7 +63,7 @@ const shortChatCardFrame = async (card: { author: string; text: string }) => {
     {
       fps: 60,
       durationInFrames: 2,
-      chatCards: [{ ...card, cells: [], startFrame: 0, durationInFrames: 2 }],
+      chatCards: [{ ...card, startFrame: 0, durationInFrames: 2, top: 240 }],
     },
     { frame: 1, outputLocation }
   );

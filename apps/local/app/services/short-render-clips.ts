@@ -1,6 +1,7 @@
 import { Effect } from "effect";
 import {
   clipComposite,
+  clipFaceAreas,
   clipFfmpegInput,
   clipLayers,
   clipSource,
@@ -11,7 +12,10 @@ import { clipExportDurationInSeconds } from "./export-duration-check";
 import type { ExportOverlay } from "./export-hash";
 import { resolveClipSourceFiles } from "./clip-source-files.server";
 import { loadShortSubtitles } from "./short-subtitles";
-import { verticalOverlayProps } from "./vertical-overlay-props";
+import {
+  ChatCardCoversFaceError,
+  verticalOverlayProps,
+} from "./vertical-overlay-props";
 
 /**
  * A Short's Clips as its render draws them, and the props of its one overlay
@@ -41,10 +45,8 @@ export const shortRenderClips = (
 ) =>
   Effect.forEach(clips, (clip) =>
     Effect.gen(function* () {
-      const source = yield* resolveClipSourceFiles(
-        clipSource(clip, { videoFormat: "short" }),
-        storageRoots
-      );
+      const shown = clipSource(clip, { videoFormat: "short" });
+      const source = yield* resolveClipSourceFiles(shown, storageRoots);
       const input = {
         ...clipFfmpegInput(source),
         pauseType: clip.pauseType as "none" | "long",
@@ -59,6 +61,8 @@ export const shortRenderClips = (
         // Session, over everything it outputs (long Pause included).
         composite: clipComposite(source, { durationSeconds: duration }),
         layers: clipLayers(source),
+        // Where Matt's face can be: no Chat Card is drawn over it (#2669).
+        faceAreas: clipFaceAreas(shown, clip.zoomType),
       };
     })
   );
@@ -70,7 +74,9 @@ export type ShortRenderClip = Effect.Effect.Success<
 /**
  * The overlay's props: the subtitles, from the Clips' own text and Transcript
  * Words (#2172), never a second transcription, and the Chat Cards. Each Clip
- * takes the seconds the concat is asked for, so the timelines match.
+ * takes the seconds the concat is asked for, so the timelines match. Fails
+ * with `ChatCardCoversFaceError` when a Chat Card has no slot clear of
+ * Matt's face.
  */
 export const shortOverlayProps = (p: {
   readonly renderClips: ReadonlyArray<ShortRenderClip>;
@@ -86,13 +92,24 @@ export const shortOverlayProps = (p: {
       })),
       p.fps
     );
-    return verticalOverlayProps({
-      fps: p.fps,
-      durationInFrames,
-      subtitles,
-      clips: p.clips,
-      clipDurations: p.renderClips,
-    });
+    return yield* Effect.sync(() =>
+      verticalOverlayProps({
+        fps: p.fps,
+        durationInFrames,
+        subtitles,
+        clips: p.clips.map((clip, index) => ({
+          overlays: clip.overlays,
+          faceAreas: p.renderClips[index]?.faceAreas ?? [],
+        })),
+        clipDurations: p.renderClips,
+      })
+    ).pipe(
+      Effect.catchAllDefect((defect) =>
+        defect instanceof ChatCardCoversFaceError
+          ? Effect.fail(defect)
+          : Effect.die(defect)
+      )
+    );
   });
 
 export type ShortOverlayProps = Effect.Effect.Success<

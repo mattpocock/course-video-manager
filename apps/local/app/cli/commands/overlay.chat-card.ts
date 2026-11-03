@@ -3,17 +3,13 @@ import { Effect, Option } from "effect";
 import { parseError } from "@/cli/helpers";
 import { OverlayOperationsService } from "@/services/db-overlay-operations.server";
 import type { OverlayKind } from "@/features/videos/overlay-kind";
-import {
-  chatHighlightAt,
-  chatSpinReel,
-  type ChatSpinCell,
-} from "@cvm/core/features/videos/chat-card";
+import { chatHighlightAt } from "@cvm/core/features/videos/chat-card";
 
 /**
- * The Chat Card half of `cvm overlay add`: its two flags, the rule that says
+ * The Chat Card half of `cvm overlay add`: its flag, the rule that says
  * which flags go with `--kind chatCard`, and the copy of its Chat Highlight
- * into the Overlay's columns (author into `title`, text into `description`,
- * the Chat Spin's cells into `chatSpin`). Content is copied, never linked.
+ * into the Overlay's columns (author into `title`, text into `description`).
+ * Content is copied, never linked.
  *
  * Split out of overlay.ts so that module stays under the repo's per-file token
  * budget, as `overlay.bullets.ts` holds the Bullet Panel's.
@@ -29,17 +25,10 @@ export const chatCardOpts = {
     ),
     Options.optional
   ),
-  noChatSpin: Options.boolean("no-chat-spin").pipe(
-    Options.withDescription(
-      "Turn a Chat Card's Chat Spin off: it just eases in. Only with --kind " +
-        "chatCard."
-    )
-  ),
 };
 
 export type ChatCardFlags = {
   chatHighlight: Option.Option<string>;
-  noChatSpin: boolean;
 };
 
 const refuse = (message: string) => parseError(message, "overlay");
@@ -48,7 +37,7 @@ const refuse = (message: string) => parseError(message, "overlay");
  * Which flags go with the kind the Overlay will BE. A Chat Card's content is
  * its Chat Highlight's, so it takes no `--title`, `--description` or
  * `--bullets-json`.
- * Every other kind refuses the Chat Card's two flags.
+ * Every other kind refuses the Chat Card's flag.
  */
 export const requireChatCardFlags = (params: {
   kind: OverlayKind;
@@ -58,11 +47,10 @@ export const requireChatCardFlags = (params: {
   chatCard: ChatCardFlags;
 }) => {
   if (params.kind !== "chatCard") {
-    return Option.isSome(params.chatCard.chatHighlight) ||
-      params.chatCard.noChatSpin
+    return Option.isSome(params.chatCard.chatHighlight)
       ? refuse(
-          "--chat-highlight and --no-chat-spin are Chat Card flags; pass " +
-            "--kind chatCard to author one"
+          "--chat-highlight is a Chat Card flag; pass --kind chatCard to " +
+            "author one"
         )
       : Effect.void;
   }
@@ -130,10 +118,7 @@ const pickChatHighlight = (params: {
       if (!pick) {
         return yield* refuse(`no Chat Highlight ${params.chatHighlight}`);
       }
-      const session = yield* overlayOps.getRecordingSessionChatHighlights(
-        pick.recordingSessionId
-      );
-      return { pick, session: session?.highlights ?? [pick] };
+      return pick;
     }
 
     const sessionId = params.anchor.recordingSessionId;
@@ -164,15 +149,13 @@ const pickChatHighlight = (params: {
           `its Chat Highlights ('cvm chat-highlight list'): ${listed}`
       );
     }
-    return { pick, session: session.highlights };
+    return pick;
   });
 
 /**
- * The Chat Card columns this write leaves behind: for every other kind only a
- * null `chatSpin`; for a Chat Card (`requireShortForKind` has already checked
- * it is on a Short) its Chat Highlight's author and text, and its spin's
- * cells (`[]` with `--no-chat-spin`, or with fewer than two other Chat
- * Highlights in that Recording Session).
+ * The Chat Card columns this write leaves behind: none for every other kind;
+ * for a Chat Card (`requireShortForKind` has already checked it is on a
+ * Short) its Chat Highlight's author and text.
  */
 export const resolveChatCardColumns = (params: {
   kind: OverlayKind;
@@ -181,15 +164,12 @@ export const resolveChatCardColumns = (params: {
   flags: ChatCardFlags;
 }) =>
   Effect.gen(function* () {
-    if (params.kind !== "chatCard") return { chatSpin: null };
+    if (params.kind !== "chatCard") return {};
 
-    const { pick, session } = yield* pickChatHighlight({
+    const pick = yield* pickChatHighlight({
       anchor: params.anchor,
       at: params.at,
       chatHighlight: Option.getOrUndefined(params.flags.chatHighlight),
     });
-    const chatSpin: ChatSpinCell[] = params.flags.noChatSpin
-      ? []
-      : chatSpinReel(pick, session);
-    return { title: pick.author, description: pick.text, chatSpin };
+    return { title: pick.author, description: pick.text };
   });
