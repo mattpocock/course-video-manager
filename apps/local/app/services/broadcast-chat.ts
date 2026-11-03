@@ -37,14 +37,16 @@ import {
  * own, from the last page heard, after a pause that doubles from
  * `reconnectMs` up to `maxReconnectMs` (`Schedule.exponential`). A
  * connection that heard a page and stayed open `steadyMs` starts the pause
- * over; one YouTube closes sooner, though it heard pages, is reopened after a
+ * over; one that breaks sooner, though it heard pages, is reopened after a
  * pause that doubles too, so a stream that flaps can't spend the quota at 5
  * units a reopen (#2558).
  *
  * YouTube ends a healthy stream connection's answer every few seconds. That
- * end is no drop: the chat stays `streaming` while it is reopened, after the
- * same pause. Only a connection that fails (a network error, a 5xx, a read
- * that breaks) is `reconnecting`.
+ * end is no drop: the chat stays `streaming` while it is reopened from the
+ * last page, at once if the answer carried a page (Google's streamList
+ * sample reconnects in a loop with no pause; its docs give no wait), after
+ * the growing pause if it carried none. Only a connection that fails (a
+ * network error, a 5xx, a rate limit, a read that breaks) is `reconnecting`.
  *
  * A stream connection YouTube refuses before one has ever opened for the
  * Broadcast reads no chat at all (`refused`): it never polls, to spare the
@@ -274,7 +276,14 @@ export const createBroadcastChat = (o: {
             }
             // YouTube ended its answer: it does so every few seconds on a
             // healthy chat, so this is no drop. The chat still streams while
-            // it is reopened from the last page heard.
+            // it is reopened from the last page heard: at once, as Google's
+            // streamList sample does, since a pause would hold chat back. An
+            // answer that ended with no page reopens after a growing pause,
+            // so a stream that flaps can't spend the quota.
+            if (heard) {
+              reopenPauseMs = o.reconnectMs;
+              return "again" satisfies Next;
+            }
             return yield* reopenPause;
           }
           case "page":
