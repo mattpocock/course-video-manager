@@ -172,3 +172,51 @@ that its slot came and it has no vertical export yet (render it with
 Posting, Held or Failed Short it is the slot it claimed. The projection is the
 same one 'cvm short post --dry-run' and the Shorts page use, from the same
 Slot Schedule, so they always agree.`;
+
+export const MOVE_HELP = `Move a Queued Short in the Posting Queue, then print the queue as
+'cvm short queue' does, with every Short's new slot. The flag comes before
+the Short's id. Exactly one of:
+  --top            to the head of the queue: it takes the next open slot
+  --before <id>    just before another Queued Short
+  --after <id>     just after another Queued Short
+The Shorts behind it each move back one slot. A Short can't take a slot from
+before it was queued, so one queued after today's slot still goes out on a
+later day.
+
+REFUSED (exit 3, _tag "PostingQueueChangeRefusedError", 'refusals' names each
+Short and why; nothing moves):
+  a Short that is Posting or Held (it has claimed its slot); a Short not in
+  the Posting Queue; a --before / --after Short that is not Queued, or is the
+  Short being moved. None of --top / --before / --after, or more than one, is
+  a ParseError (exit 3). An unknown Video id is a not-found (exit 2).
+
+LOCAL-ONLY
+  Only this machine's Sidecar posts from the Posting Queue, so on any other
+  box it is refused before anything happens — _tag "LocalOnlyCommandError",
+  exit 7. Stop rather than retry.
+
+EXAMPLES:
+  cvm short move --top vid_3
+  cvm short move --before vid_1 vid_3
+  cvm short move --after vid_3 vid_1`;
+
+export const UNQUEUE_HELP = `Take Shorts off the Posting Queue, then print the queue as 'cvm short
+queue' does, with every Short's new slot. Takes a Short that is Queued, Held
+(take it off instead of retrying) or Failed (it leaves the list). Nothing is
+deleted from YouTube or TikTok. A Short taken off can be added again with
+'cvm short post', which puts it at the back of the queue.
+
+REFUSED (exit 3, _tag "PostingQueueChangeRefusedError", 'refusals' names each
+Short and why). If ANY Short named is refused, NONE is taken off:
+  a Short that is Posting (it is being posted now: wait for it to settle);
+  a Short not in the Posting Queue. An unknown Video id is a not-found
+  (exit 2).
+
+LOCAL-ONLY
+  Only this machine's Sidecar posts from the Posting Queue, so on any other
+  box it is refused before anything happens — _tag "LocalOnlyCommandError",
+  exit 7. Stop rather than retry.
+
+EXAMPLES:
+  cvm short unqueue vid_2
+  cvm short unqueue vid_2 vid_5`;

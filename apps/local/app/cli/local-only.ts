@@ -43,6 +43,8 @@ export const NEEDS_THE_SIDECAR_TO_RENDER =
   "it queues a vertical render for this machine's Sidecar, which reads raw footage with ffmpeg and writes the finished videos directory on this machine's disk";
 export const NEEDS_THE_SIDECAR_TO_POST =
   "it adds Shorts to the Posting Queue, which only this machine's Sidecar posts from: it renders each Short with ffmpeg at its Posting Slot and uploads it";
+export const NEEDS_THE_SIDECAR_TO_CHANGE_THE_QUEUE =
+  "it changes the Posting Queue, which only this machine's Sidecar posts from";
 export const NEEDS_FOOTAGE_ON_DISK =
   "it reads raw footage files on this machine's disk (with ffmpeg) and caches their transcripts beside them";
 
