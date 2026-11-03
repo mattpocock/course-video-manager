@@ -988,10 +988,6 @@ export const overlays = createTable(
      * the time a row is written the array is already validated.
      */
     bullets: jsonb("bullets").$type<BulletPanelBullet[]>(),
-    // `footage_path` and `footage_start` held a B-roll's Footage until
-    // migration 0049 turned every B-roll into Footage Layers. Nothing reads
-    // or writes them; they are dropped in a follow-up migration (contract
-    // first: the deploy-migration skill).
     /**
      * A Chat Card's Chat Spin: the cells that fly past before it lands on its
      * own message (`title`, `description`), in fly-past order — `[]` when its
