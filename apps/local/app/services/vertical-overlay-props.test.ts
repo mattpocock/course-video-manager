@@ -115,6 +115,15 @@ describe("a Short's render props", () => {
     });
   });
 
+  it("send both a Call to Action and a Chat Card on screen at the same moment", () => {
+    const sent = props([[overlay(), callToAction()]]);
+
+    expect([sent.chatCards, sent.callsToAction]).toMatchObject([
+      [{ author: "@fake_viewer_1", startFrame: 120, durationInFrames: 300 }],
+      [{ title: "example.com", startFrame: 120, durationInFrames: 300 }],
+    ]);
+  });
+
   it("send no Call to Action, and nothing but captions, for a Short with no Overlays", () => {
     expect(props([[]])).toEqual({
       width: 1080,
