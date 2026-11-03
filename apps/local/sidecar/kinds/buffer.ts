@@ -2,6 +2,7 @@ import { Effect } from "effect";
 import { JOB_PARAMS } from "../job-params";
 import { VideoPostOperationsService } from "@/services/db-video-post-operations.server";
 import { bufferPostProgram } from "@/services/buffer-posting-orchestration.server";
+import { PostingQueueSidecarService } from "@/services/db-posting-queue-sidecar.server";
 import { definePostingJobKind, type PostCheck } from "../job-kind";
 import { reportPost } from "./post-events";
 import { PostNotStartedError } from "./youtube";
@@ -22,9 +23,15 @@ export const bufferJobKind = definePostingJobKind({
       // The program reports as it did to its stream; a stream `error` that
       // was not a failure (no exported file) is the Job failing here.
       let notStarted: string | null = null;
+      // A Posting Queue post's caption is the Short's title, read now.
+      const caption =
+        "postingQueueEntryId" in params
+          ? (yield* (yield* PostingQueueSidecarService).shortToPost(params))
+              .title
+          : params.caption;
       yield* bufferPostProgram({
         videoId: params.videoId,
-        caption: params.caption,
+        caption,
         sendEvent: (event, data) => {
           const d = (data ?? {}) as { percentage?: number; message?: string };
           if (event === "uploading-blob") {

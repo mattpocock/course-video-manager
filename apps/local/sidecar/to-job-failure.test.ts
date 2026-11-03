@@ -1,7 +1,7 @@
 import { SystemError } from "@effect/platform/Error";
 import { Cause } from "effect";
 import { describe, expect, it } from "vitest";
-import { toJobFailure } from "./sidecar";
+import { toJobFailure } from "./to-job-failure";
 
 describe("toJobFailure", () => {
   it("fails a Job that needs an Offline Storage Root naming the drive, not ENODEV", () => {

@@ -1,4 +1,5 @@
 import { Schema } from "effect";
+import type { QueuedShortPostParams } from "@cvm/core/features/posting-queue/posting-jobs";
 import {
   ANNOUNCE_NOTHING_BAND,
   PLACEHOLDER_FLOOR_BANDS,
@@ -48,6 +49,12 @@ const youtubeMetadataAccepted = <
       (metadata) => findYouTubeMetadataProblem(metadata)?.message ?? true
     )
   );
+
+/** A posting Job the Posting Queue enqueued: `QueuedShortPostParams`. */
+const QUEUED_SHORT_POST_PARAMS = Schema.Struct({
+  videoId: Schema.String,
+  postingQueueEntryId: Schema.String,
+}) satisfies Schema.Schema<QueuedShortPostParams>;
 
 export const JOB_PARAMS = {
   noop: Schema.Struct({
@@ -204,17 +211,26 @@ export const JOB_PARAMS = {
       thumbnailId: Schema.String,
     })
   ),
-  "youtube-shorts": youtubeMetadataAccepted(
+  // The Shorts page modal's post names its words; a Posting Queue post
+  // names its entry and reads the Short's words from the Video when it runs
+  // (ADR 0057). The modal's shape goes when it queues instead (#2617).
+  "youtube-shorts": Schema.Union(
+    youtubeMetadataAccepted(
+      Schema.Struct({
+        videoId: Schema.String,
+        title: Schema.Trim.pipe(Schema.nonEmptyString()),
+        description: Schema.Trim.pipe(Schema.nonEmptyString()),
+      })
+    ),
+    QUEUED_SHORT_POST_PARAMS
+  ),
+  buffer: Schema.Union(
     Schema.Struct({
       videoId: Schema.String,
-      title: Schema.Trim.pipe(Schema.nonEmptyString()),
-      description: Schema.Trim.pipe(Schema.nonEmptyString()),
-    })
+      caption: Schema.Trim.pipe(Schema.nonEmptyString()),
+    }),
+    QUEUED_SHORT_POST_PARAMS
   ),
-  buffer: Schema.Struct({
-    videoId: Schema.String,
-    caption: Schema.Trim.pipe(Schema.nonEmptyString()),
-  }),
   "ai-hero": Schema.Struct({
     videoId: Schema.String,
     title: Schema.Trim.pipe(Schema.nonEmptyString()),

@@ -5,10 +5,22 @@ import { storageRootsConfig } from "@/services/storage-roots";
 import { VideoPostOperationsService } from "@/services/db-video-post-operations.server";
 import { getValidAccessToken } from "@/services/youtube-auth-service";
 import { uploadVideoToYouTube } from "@/services/youtube-upload-service";
+import { PostingQueueSidecarService } from "@/services/db-posting-queue-sidecar.server";
 import { definePostingJobKind } from "../job-kind";
 import { reportPost } from "./post-events";
 import { PostNotStartedError } from "./youtube";
 import { checkYouTubePost } from "./youtube-post-check";
+
+/**
+ * The title and description a Short goes out with: the ones the modal's
+ * post named, or — for a Posting Queue post — the Video's own, read now.
+ */
+const shortWords = (params: (typeof JOB_PARAMS)["youtube-shorts"]["Type"]) =>
+  "postingQueueEntryId" in params
+    ? Effect.flatMap(PostingQueueSidecarService, (queue) =>
+        queue.shortToPost(params)
+      )
+    : Effect.succeed({ title: params.title, description: params.description });
 
 export const shortUrl = (youtubeVideoId: string) =>
   `https://youtube.com/shorts/${youtubeVideoId}`;
@@ -17,7 +29,7 @@ export const shortUrl = (youtubeVideoId: string) =>
  * **YouTube Shorts post** (#3 in docs/plans/background-jobs-sidecar.md): the
  * rendered vertical Short, uploaded public without notifying subscribers,
  * and recorded as a `video_post` — the same steps the `post-youtube-shorts`
- * route ran. A POSTING kind (decision 5): one attempt, never re-queued, and
+ * route ran. The Posting Queue enqueues it at a Posting Slot (ADR 0057). A POSTING kind (decision 5): one attempt, never re-queued, and
  * only the author's Retry runs it again.
  */
 export const youtubeShortsJobKind = definePostingJobKind({
@@ -35,6 +47,7 @@ export const youtubeShortsJobKind = definePostingJobKind({
         });
       }
       const filePath = found.value;
+      const { title, description } = yield* shortWords(params);
       const videoPosts = yield* VideoPostOperationsService;
       const post = yield* videoPosts.createVideoPost({
         videoId: params.videoId,
@@ -47,8 +60,8 @@ export const youtubeShortsJobKind = definePostingJobKind({
       const uploaded = yield* uploadVideoToYouTube({
         accessToken,
         filePath,
-        title: params.title,
-        description: params.description,
+        title,
+        description,
         privacyStatus: "public",
         notifySubscribers: false,
         onProgress: (percent) => reports.onProgress("uploading", percent),
@@ -73,5 +86,7 @@ export const youtubeShortsJobKind = definePostingJobKind({
       yield* Effect.logInfo("youtube-shorts: done", { remoteUrl });
     }),
   checkPosted: (params, post) =>
-    checkYouTubePost({ title: params.title, post, linkTo: shortUrl }),
+    Effect.flatMap(shortWords(params), ({ title }) =>
+      checkYouTubePost({ title, post, linkTo: shortUrl })
+    ),
 });

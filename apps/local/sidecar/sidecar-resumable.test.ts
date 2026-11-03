@@ -73,6 +73,7 @@ const TIMING: SidecarTiming = {
   recoverEveryMs: 500,
   lapseWaitMs: 200,
   postCheckTimeoutMs: 1_000,
+  postingQueueTickMs: 60_000,
 };
 
 describe("a resumable kind's lost run", () => {

@@ -27,6 +27,12 @@ Matt wants to "live stream for an hour and end up with content for a week". A Sh
 6. **Order is oldest first**, by a Fractional Index that moving a Short changes.
 7. **`cvm short post` checks every Short before it queues any**: a Landscape Video, a default title, no description, a live entry and a Short already Posted on both channels are each refused (exit 3), and one refusal queues none of the batch. It is local-only, because only this machine's Sidecar posts.
 
+8. **The Posting Queue tick posts it** (#2614). It is a Sidecar loop of its own, every `postingQueueTickMs` (2 minutes), reading the time from Effect's `Clock`. It runs only in the author's MAIN CHECKOUT, detected as the live desk detects it (`isMainCheckout`): a worktree's or a verify-cvm clone's Sidecar never posts. Each tick:
+   - marks Posted every Posting entry whose Short has a posted `youtube-shorts` AND a posted `buffer` Video Post written since it claimed its slot ("Posted" is derived, never set by a Job);
+   - asks the Slot Schedule what is due, and claims it in ONE transaction, under a lock every claim takes, asking the Slot Schedule again inside it: the entry becomes Posting with its slot, and one `youtube-shorts` and one `buffer` Job are enqueued, each carrying the entry id. A crash before the commit did nothing; after it, the slot is claimed and the Jobs exist, so no tick claims it again, and the Slot Schedule claims nothing while an entry is Posting.
+   - The posting Jobs read the Short's title and description from the Video when they run (TikTok's caption is the title), so an edit after queueing is what goes out. They stay posting kinds: one attempt, never re-run on their own.
+   - A Short with no vertical export does not claim: it waits, saying why on its entry, until the Sidecar renders at the slot (#2615).
+
 ## Considered
 
 - **Buffer's own queue (spec #2564).** Rejected: 10 scheduled posts per channel on the free plan, and a file uploaded days ahead is deleted by the 1-day lifecycle rule before Buffer fetches it.
@@ -39,4 +45,4 @@ Matt wants to "live stream for an hour and end up with content for a week". A Sh
 - An entry is never deleted while it can matter to the schedule: past days' queue lengths and claims are read from it.
 - A Short queued before 13:00 on a quiet day goes out the same day; the day's slot COUNT is still fixed at 00:00, so a stream queued at lunchtime only raises the day after's count.
 - A day whose queue stayed empty claimed nothing but missed nothing: it never triggers catch-up.
-- How a failed channel is retried, Held and Failed, and their amendment to ADR 0032's "a post never runs again on its own", are decided by the tickets that build the posting (#2614, #2618).
+- How a failed channel is retried, Held and Failed, and their amendment to ADR 0032's "a post never runs again on its own", are decided by #2618. Until then a posting Job that fails leaves its entry Posting, which holds the queue.
