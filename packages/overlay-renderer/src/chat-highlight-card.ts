@@ -20,23 +20,30 @@ import {
 /** The Remotion composition id of the card, in the card server's own entry. */
 export const CHAT_HIGHLIGHT_COMPOSITION_ID = "ChatHighlightCard";
 
+/**
+ * How much larger than the Definition Card's body type the card draws its
+ * type and box (#2558): Matt found the first card too small on the stream.
+ */
+export const CHAT_HIGHLIGHT_SCALE = 1.25;
+
 /** The message text is clamped to this many lines, ending in an ellipsis. */
 export const CHAT_HIGHLIGHT_MAX_LINES = 4;
 
 /**
- * The author line: body size, so the message stays the main thing, in the
+ * The author line: the message's size, so the message stays the main thing, in the
  * title's weight and the brand accent colour.
  */
 export const CHAT_HIGHLIGHT_AUTHOR_TYPE = {
-  fontSize: BODY_TYPE.fontSize,
+  fontSize: BODY_TYPE.fontSize * CHAT_HIGHLIGHT_SCALE,
   fontWeight: TITLE_TYPE.fontWeight,
   lineHeight: BODY_TYPE.lineHeight,
   color: COLORS.underline,
 } as const;
 
-/** The message: body type, in the title's white. */
+/** The message: body type, scaled, in the title's white. */
 export const CHAT_HIGHLIGHT_MESSAGE_TYPE = {
   ...BODY_TYPE,
+  fontSize: BODY_TYPE.fontSize * CHAT_HIGHLIGHT_SCALE,
   color: COLORS.title,
 } as const;
 
@@ -50,10 +57,10 @@ export const CHAT_HIGHLIGHT_MESSAGE_TYPE = {
  * so the drop shadow is never cut off.
  */
 export const CHAT_HIGHLIGHT_GEOMETRY = {
-  cardWidth: 640,
-  padding: 32,
+  cardWidth: 640 * CHAT_HIGHLIGHT_SCALE,
+  padding: 32 * CHAT_HIGHLIGHT_SCALE,
   /** Between the author line and the message. */
-  gap: 4,
+  gap: 4 * CHAT_HIGHLIGHT_SCALE,
   /** Room for the drop shadow (its blur and offset) on every side. */
   shadowMargin: 48,
 } as const;
