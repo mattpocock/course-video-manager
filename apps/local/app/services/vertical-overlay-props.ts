@@ -17,7 +17,7 @@ type Subtitle = { startFrame: number; endFrame: number; text: string };
 /**
  * The props a Short's render hands its one Remotion composition: the
  * captions and the Short's Chat Cards. Pure, so what a Short draws is tested
- * without a render. A Short draws no call to action: `cta` is always null.
+ * without a render. It sends no Call to Action yet: `callsToAction` is empty.
  *
  * Chat Cards are the only Overlays a Short draws. Each is placed with the
  * export's own placement (`placeOnTimeline`), on the same Clip durations the
@@ -36,8 +36,8 @@ export const verticalOverlayProps = (p: {
   fps: p.fps,
   durationInFrames: p.durationInFrames,
   subtitles: p.subtitles,
-  cta: null,
   chatCards: chatCardProps(p.clips, p.clipDurations, p.fps),
+  callsToAction: [],
 });
 
 /** A Short's Chat Cards, in frames on its timeline. */
