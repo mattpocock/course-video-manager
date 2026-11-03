@@ -17,21 +17,25 @@ A Clip with no Layers set is one Scene Layer at volume 1, and renders exactly as
 Overlays and captions always draw above every Layer. The Source Crop is scaled to the
 Placement's size as it is, so give them the same aspect ratio or the picture stretches.
 
-Where: on a Short any mix (a Scene Layer alone, Footage Layers over it, or Footage Layers
-only). On a Landscape Video only a Scene Layer at the bottom with Footage Layers above it.
-Anything else is refused (exit 3), as are a Source Crop outside 0-1, a Placement with no
-area, a volume outside 0-1, camera/screen on a Clip with no Recording Session, an unknown
+Shape, the same on a Short and on Landscape: any mix (a Scene Layer alone, Footage Layers
+over it, or Footage Layers only). A Clip has at least one Layer and at most one Scene Layer,
+and the Scene Layer is always the bottom Layer (index 0). Anything else is refused (exit 3),
+as are a Source Crop outside 0-1, a Placement with no area, a volume outside 0-1, camera/screen on a Clip with no Recording Session, an unknown
 Footage path, and a Clip whose Version is not a Draft. Every Layer field is in the Export
-Hash: changing one marks the Video for re-export.
+Hash: changing one marks the Video for re-export. A Clip Zoom zooms only the Scene Layer:
+a Clip with none can't take one, and removing a zoomed Clip's Scene Layer drops its zoom.
 
 Verbs (flags go BEFORE the positionals):
   clip layer list <clip>                      its Layers, bottom to top (NDJSON, with 'index')
-  clip layer add [flags] <clip>               add a Footage Layer on top (--scene: a Scene Layer)
+  clip layer add [flags] <clip>               add a Footage Layer on top (--scene: a Scene Layer, at the bottom)
   clip layer update [flags] <clip> <index>    change a Layer's fields
   clip layer move --to <i> <clip> <index>     move a Layer to index <i>
   clip layer remove <clip> <index>            remove a Layer (a Clip keeps at least one)
   clip update --layers-from <clip> <clip...>  copy one Clip's Layers onto others (a copy; nothing linked)
-Each write prints the Clip's Layers after it (NDJSON).
+Each write prints the Clip's Layers after it (NDJSON). Two edits of one Clip's Layers at
+once never lose either: a write whose Layers another command changed after it read them
+is refused (exit 8, _tag "ClipLayersChangedError") and writes nothing. Run it again; it
+reads the Layers as they are now, so re-check the index you meant.
 
 Recipe — a stream Clip on a Short: the screen's left square on top, the face below.
   cvm footage frame <camera-file> --at <t>      # look at the frames to choose crops
@@ -64,7 +68,8 @@ A Footage Layer needs --footage <path|camera|screen>. Its other fields default t
 Footage frame (--crop 0,0,1,1) over the whole of the Video's frame (--place), volume 0 (muted)
 and the whole Clip (no --at/--duration). --from <s> is where in a Footage file it starts
 (default 0). A path is Footage on this machine (root-relative or absolute), stored
-root-relative, so it is local-only. --scene adds a Scene Layer instead (only --volume).
+root-relative, so it is local-only. --scene adds a Scene Layer at the bottom (index 0) instead
+(only --volume), to a Clip that has none.
 
 Examples:
   cvm clip layer add --footage screen --crop 0,0,0.5625,1 --place 0,0,1080,1080 clip_abc
@@ -82,15 +87,16 @@ Examples:
 
 export const LAYER_MOVE_HELP = `Move a Clip's Layer <index> to --to <i> (0 is the bottom).
 
-On a Landscape Video the Scene Layer must stay at the bottom.
+The Scene Layer must stay at the bottom (index 0): a move that takes it off the bottom, or puts
+a Footage Layer under it, is refused (exit 3).
 
 Example:
-  cvm clip layer move --to 0 clip_abc 2`;
+  cvm clip layer move --to 1 clip_abc 2`;
 
 export const LAYER_REMOVE_HELP = `Remove a Clip's Layer <index>.
 
-A Clip keeps at least one Layer. Removing a Short Clip's Scene Layer leaves Footage Layers
-only; a Landscape Clip keeps its Scene Layer.
+A Clip keeps at least one Layer. Removing a Clip's Scene Layer leaves Footage Layers only,
+drawn on black (the Clip's own sound plays on), and drops its Clip Zoom.
 
 Example:
   cvm clip layer remove clip_abc 0`;

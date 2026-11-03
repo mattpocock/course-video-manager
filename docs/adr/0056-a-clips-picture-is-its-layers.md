@@ -18,7 +18,7 @@ A Short cut from a live stream needs a picture the scene layout can't draw: the 
 4. **Layers are set per Clip, explicitly.** Copying another Clip's Layers is a copy; nothing is linked. Layers are copied with their Clip on every copy path.
 5. **Overlays are graphics only, and always draw above every Layer**, with the captions above them.
 6. **The B-roll Overlay Kind is removed.** Every B-roll becomes Footage Layers (full-frame Placement, whole-frame Source Crop, volume 0, start carried across the Clips its window covers), on Landscape Videos too (#2576). Its picture stays identical; the Export Hash of a migrated Video may change once.
-7. **On a Short any mix of Layers is allowed**, including no Scene Layer. **On a Landscape Video only a Scene Layer at the bottom with Footage Layers above it**, until the follow-up spec for full custom Layers on Landscape (#2582). Anything else is refused.
+7. ~~**On a Short any mix of Layers is allowed**, including no Scene Layer. **On a Landscape Video only a Scene Layer at the bottom with Footage Layers above it**, until the follow-up spec for full custom Layers on Landscape (#2582). Anything else is refused.~~ _Superseded by #2604:_ one rule on every Video Format. Any mix of Layers is allowed, Footage Layers only included; a Clip has at most one Scene Layer, and it is the bottom Layer. A Clip Zoom zooms only the Scene Layer, so a Clip with none can't take one, and removing a zoomed Clip's Scene Layer drops its zoom. A Short Clip stored before #2604 with a Footage Layer below its Scene Layer draws and hashes as before; its next Layer write must put the Scene Layer at the bottom.
 
 ## Considered
 
