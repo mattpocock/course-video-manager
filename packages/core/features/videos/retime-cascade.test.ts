@@ -89,6 +89,47 @@ describe("shiftTranscriptWords", () => {
     expect(shifted.map((w) => w.text)).toEqual(["the", "quick"]);
   });
 
+  it("keeps a word mostly inside the new bounds, clamped to the edge", () => {
+    // A Short's range ending at 5.6 cuts into "brown" (5-6), but 60% of it is
+    // said inside the range, so it is captioned (#2670).
+    const shifted = shiftTranscriptWords(words, { delta: 0, newDuration: 5.6 });
+
+    expect(shifted.at(-1)).toEqual(word(5, 5.6, "brown"));
+  });
+
+  it("keeps a word the in-point cuts into by most of it, from 0", () => {
+    // In-point moved to source 15.4: "brown" (source 15-16) is 60% inside.
+    const shifted = shiftTranscriptWords(words, {
+      delta: -5.4,
+      newDuration: 4.6,
+    });
+
+    expect(shifted[0]!.text).toBe("brown");
+    expect(shifted[0]!.start).toBe(0);
+    expect(shifted[0]!.end).toBeCloseTo(0.6);
+  });
+
+  it("keeps a word the cut lands within the edge tolerance of", () => {
+    // "a" spans 5-5.2; a range ending at 5.05 holds only a quarter of it,
+    // but cuts within 0.15s of its end, inside Whisper's slop.
+    const short = [word(4, 4.8, "is"), word(5, 5.2, "a")];
+
+    const shifted = shiftTranscriptWords(short, {
+      delta: 0,
+      newDuration: 5.05,
+    });
+
+    expect(shifted.map((w) => w.text)).toEqual(["is", "a"]);
+  });
+
+  it("drops a word wholly outside, however short", () => {
+    const short = [word(4, 4.8, "is"), word(5, 5.1, "a")];
+
+    const shifted = shiftTranscriptWords(short, { delta: 0, newDuration: 5 });
+
+    expect(shifted.map((w) => w.text)).toEqual(["is"]);
+  });
+
   it("keeps a word ending exactly at the Clip's last instant", () => {
     const shifted = shiftTranscriptWords(words, { delta: 0, newDuration: 6 });
 

@@ -20,6 +20,7 @@ import { footageOnDisk, footagePathToStore } from "./footage-on-disk";
 import { resolveBeforeItemId } from "./timeline-position";
 import { requireActiveClip, withEffectiveScene } from "./clip.shared";
 import { updateCmd } from "./clip.update";
+import { splitCmd } from "./clip.split";
 import { clipLayerCommand } from "./clip.layer";
 import { clipFrameCmd } from "./clip-frame";
 import { editTranscriptCmd } from "./clip.edit-transcript";
@@ -441,6 +442,7 @@ export const clipCommand = Command.make("clip").pipe(
     getCmd,
     addCmd,
     updateCmd,
+    splitCmd,
     moveCmd,
     deleteCmd,
     restoreCmd,

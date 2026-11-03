@@ -4,7 +4,7 @@ import { forward } from "../rpc.js";
 import type { RemoteRuntime } from "../runtime.js";
 
 /**
- * The `clip` verb group: `cvm clip list | get | add | update | move | delete |
+ * The `clip` verb group: `cvm clip list | get | add | update | split | move | delete |
  * restore | words | edit-transcript | layer`.
  *
  * `listTimelineOrder` is what `move` and `add` position against — Clips and
@@ -24,6 +24,7 @@ export const clipRoutes = (runtime: RemoteRuntime) =>
     )
     .post("/updateClip", forward(runtime, ClipOperationsService, "updateClip"))
     .post("/retimeClip", forward(runtime, ClipOperationsService, "retimeClip"))
+    .post("/splitClip", forward(runtime, ClipOperationsService, "splitClip"))
     .post(
       "/setClipZoom",
       forward(runtime, ClipOperationsService, "setClipZoom")

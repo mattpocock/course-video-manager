@@ -19,6 +19,7 @@ export const clipService = (client: RpcClient) =>
     createClip: rpcMethod((json) => client.rpc.clip.createClip.$post({ json })),
     updateClip: rpcMethod((json) => client.rpc.clip.updateClip.$post({ json })),
     retimeClip: rpcMethod((json) => client.rpc.clip.retimeClip.$post({ json })),
+    splitClip: rpcMethod((json) => client.rpc.clip.splitClip.$post({ json })),
     setClipZoom: rpcMethod((json) =>
       client.rpc.clip.setClipZoom.$post({ json })
     ),

@@ -59,6 +59,7 @@ const ERROR_CONSTRUCTORS: Record<
   ClipCarriesOverlaysError: DomainErrors.ClipCarriesOverlaysError,
   ClipLayersRefusedError: DomainErrors.ClipLayersRefusedError,
   ClipLayersChangedError: DomainErrors.ClipLayersChangedError,
+  ClipSplitRefusedError: DomainErrors.ClipSplitRefusedError,
   AgentSessionUploadRefusedError: DomainErrors.AgentSessionUploadRefusedError,
   ShortPostRefusedError: DomainErrors.ShortPostRefusedError,
   PostingQueueChangeRefusedError: DomainErrors.PostingQueueChangeRefusedError,
