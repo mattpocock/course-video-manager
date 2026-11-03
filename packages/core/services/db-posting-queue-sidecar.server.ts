@@ -1,10 +1,13 @@
-import { and, eq, gte, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
+import { and, eq, gte, isNotNull, sql } from "drizzle-orm";
 import { Effect } from "effect";
-import { postingQueueEntries, videoPosts, videos } from "../db/schema.js";
+import { alias } from "drizzle-orm/pg-core";
+import { jobs, postingQueueEntries, videoPosts, videos } from "../db/schema.js";
 import {
   SHORT_POSTING_JOB_KINDS,
   SHORT_POSTING_JOB_POLICY,
+  SHORT_RENDER_JOB,
   type QueuedShortPostParams,
+  type ShortRenderParams,
 } from "../features/posting-queue/posting-jobs.js";
 import {
   dueNow,
@@ -125,12 +128,16 @@ export const createPostingQueueSidecarOperations = (db: Database) => {
    * the slot is claimed and no tick claims it again. The Slot Schedule is
    * asked again inside the transaction, under a lock every tick takes, so a
    * claim that is no longer due (another tick took it) claims nothing.
-   * Answers whether it claimed.
+   * A Short whose vertical export is stale (`render`) also gets a
+   * `render-vertical` Job in the same transaction, and both posting Jobs
+   * wait on it. Answers whether it claimed.
    */
   const claim = Effect.fn("claim")(function* (input: {
     readonly claim: DueClaim;
     /** Epoch ms: the tick's clock. */
     readonly now: number;
+    /** Whether the Short's vertical export is stale, so it renders first. */
+    readonly render: boolean;
   }) {
     return yield* withDbTransaction(db, (tx) =>
       Effect.gen(function* () {
@@ -162,7 +169,36 @@ export const createPostingQueueSidecarOperations = (db: Database) => {
           videoId: input.claim.videoId,
           postingQueueEntryId: input.claim.entryId,
         };
-        const enqueue = createEnqueueJobOperations(tx).enqueueJob;
+        // Only a caller-chosen Job id can be taken; these are fresh.
+        const enqueue = (
+          job: Parameters<
+            ReturnType<typeof createEnqueueJobOperations>["enqueueJob"]
+          >[0]
+        ) =>
+          createEnqueueJobOperations(tx)
+            .enqueueJob(job)
+            .pipe(
+              Effect.catchTag(
+                "JobIdTakenError",
+                (e) => new UnknownDBServiceError({ cause: e })
+              )
+            );
+        const subject = { type: "video", id: input.claim.videoId };
+        const renderParams: ShortRenderParams = {
+          videoId: input.claim.videoId,
+        };
+        const render = input.render
+          ? yield* enqueue({
+              id: null,
+              kind: SHORT_RENDER_JOB.kind,
+              title: input.claim.title,
+              lane: SHORT_RENDER_JOB.lane,
+              params: renderParams,
+              maxAttempts: SHORT_RENDER_JOB.maxAttempts,
+              dependsOn: null,
+              subject,
+            })
+          : undefined;
         for (const kind of SHORT_POSTING_JOB_KINDS) {
           yield* enqueue({
             id: null,
@@ -171,15 +207,9 @@ export const createPostingQueueSidecarOperations = (db: Database) => {
             lane: SHORT_POSTING_JOB_POLICY.lane,
             params,
             maxAttempts: SHORT_POSTING_JOB_POLICY.maxAttempts,
-            dependsOn: null,
-            subject: { type: "video", id: input.claim.videoId },
-          }).pipe(
-            // Only a caller-chosen Job id can be taken; these are fresh.
-            Effect.catchTag(
-              "JobIdTakenError",
-              (e) => new UnknownDBServiceError({ cause: e })
-            )
-          );
+            dependsOn: render?.id ?? null,
+            subject,
+          });
         }
         return true;
       })
@@ -187,28 +217,42 @@ export const createPostingQueueSidecarOperations = (db: Database) => {
   });
 
   /**
-   * Say on a Queued entry why it did not take its due slot, for
-   * `cvm short queue` to show. Cleared when it claims.
+   * Say on each Posting entry whose render failed for good why it posts
+   * nothing: the render's own reason, for `cvm short queue` to show. The
+   * entry stays Posting (#2618 counts the failure against each channel).
    */
-  const noteWaiting = Effect.fn("noteWaiting")(function* (input: {
-    readonly entryId: string;
-    readonly reason: string;
-  }) {
-    yield* makeDbCall(() =>
+  const noteRenderFailures = Effect.fn("noteRenderFailures")(function* () {
+    const render = alias(jobs, "render");
+    const failed = yield* makeDbCall(() =>
       db
-        .update(postingQueueEntries)
-        .set({ lastFailureReason: input.reason })
+        .selectDistinct({
+          entryId: postingQueueEntries.id,
+          error: render.error,
+        })
+        .from(postingQueueEntries)
+        .innerJoin(
+          jobs,
+          sql`${jobs.params}->>'postingQueueEntryId' = ${postingQueueEntries.id}`
+        )
+        .innerJoin(render, eq(render.id, jobs.dependsOn))
         .where(
           and(
-            eq(postingQueueEntries.id, input.entryId),
-            eq(postingQueueEntries.state, "queued"),
-            or(
-              isNull(postingQueueEntries.lastFailureReason),
-              ne(postingQueueEntries.lastFailureReason, input.reason)
-            )
+            eq(postingQueueEntries.state, "posting"),
+            eq(render.kind, SHORT_RENDER_JOB.kind),
+            eq(render.status, "failed")
           )
         )
     );
+    for (const { entryId, error } of failed) {
+      const message =
+        (error as { message?: unknown } | null)?.message ?? "no reason given";
+      yield* makeDbCall(() =>
+        db
+          .update(postingQueueEntries)
+          .set({ lastFailureReason: `Its render failed: ${String(message)}` })
+          .where(eq(postingQueueEntries.id, entryId))
+      );
+    }
   });
 
   /**
@@ -243,7 +287,13 @@ export const createPostingQueueSidecarOperations = (db: Database) => {
     };
   });
 
-  return { settlePosted, due, claim, noteWaiting, shortToPost };
+  return {
+    settlePosted,
+    due,
+    claim,
+    noteRenderFailures,
+    shortToPost,
+  };
 };
 
 export class PostingQueueSidecarService extends Effect.Service<PostingQueueSidecarService>()(

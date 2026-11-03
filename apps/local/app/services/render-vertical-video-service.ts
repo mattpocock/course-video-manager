@@ -20,6 +20,11 @@ import { formatFailureCause } from "./format-failure-cause";
 import { SidecarContext } from "./sidecar-context";
 import { storageRootsConfig } from "./storage-roots";
 import { STORAGE_FOLDERS, writeFolder } from "@/packages/storage";
+import {
+  removeShortExportHash,
+  shortExportHashOf,
+  writeShortExportHash,
+} from "./short-export-hash";
 
 export type RenderVerticalStage =
   "concatenating-clips" | "rendering-overlay" | "compositing";
@@ -119,6 +124,14 @@ export class RenderVerticalVideoService extends Effect.Service<RenderVerticalVid
                 `short:${stage}`
               );
 
+            // The Short Export Hash of what this render is asked to draw,
+            // taken before it starts, so an edit made while it runs leaves
+            // the export stale.
+            const shortExportHash = yield* shortExportHashOf(
+              video,
+              storageRoots
+            ).pipe(Effect.provideService(ClipOperationsService, clipOps));
+
             // Step 1: Concatenate clips → temp file (not the final output path,
             // since the composite step will write the final .mp4)
             enterStage("concatenating-clips");
@@ -215,12 +228,21 @@ export class RenderVerticalVideoService extends Effect.Service<RenderVerticalVid
               recursive: true,
             });
 
+            yield* removeShortExportHash(storageRoots, outputPath);
             yield* ffmpegEncode.compositeOverlay(
               concatenatedPath,
               overlayPath,
               outputPath,
               logCliOutput("composite-overlay")
             );
+
+            if (shortExportHash) {
+              yield* writeShortExportHash(
+                storageRoots,
+                outputPath,
+                shortExportHash
+              );
+            }
 
             // Clean up intermediate files
             yield* removeBestEffort(effectFs, overlayPath);
