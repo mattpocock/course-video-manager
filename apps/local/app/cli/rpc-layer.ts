@@ -12,10 +12,12 @@ import { DiagramOperationsService } from "@/services/db-diagram-operations.serve
 import { DiagramComponentOperationsService } from "@/services/db-diagram-component-operations.server";
 import { diagramComponentService, diagramService } from "./rpc-layer.diagram";
 import { clipService } from "./rpc-layer.clip";
+import { postingQueueService } from "./rpc-layer.short";
 import { LearningGoalOperationsService } from "@/services/db-learning-goal-operations.server";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { OverlayOperationsService } from "@/services/db-overlay-operations.server";
 import { PitchOperationsService } from "@/services/db-pitch-operations.server";
+import { PostingQueueOperationsService } from "@/services/db-posting-queue-operations.server";
 import { SearchOperationsService } from "@/services/db-search-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
@@ -485,6 +487,7 @@ export type RemoteServices =
   | AgentSessionOperationsService
   | PitchOperationsService
   | DeliverableOperationsService
+  | PostingQueueOperationsService
   | DiagramOperationsService
   | DiagramComponentOperationsService
   | CourseWriteService;
@@ -536,6 +539,7 @@ export const makeRemoteLayer = (
     remoteLayer(AgentSessionOperationsService, agentSessionService, client),
     remoteLayer(PitchOperationsService, pitchService, client),
     remoteLayer(DeliverableOperationsService, deliverableService, client),
+    remoteLayer(PostingQueueOperationsService, postingQueueService, client),
     remoteLayer(DiagramOperationsService, diagramService, client),
     remoteLayer(
       DiagramComponentOperationsService,

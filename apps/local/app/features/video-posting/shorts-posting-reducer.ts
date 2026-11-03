@@ -1,5 +1,5 @@
 import type { EffectReducer } from "use-effect-reducer";
-import { isDefaultShortTitle } from "@/lib/short-title";
+import { isDefaultShortTitle } from "@cvm/core/features/videos/short-title";
 import type { PostedPlatforms } from "@/lib/short-status";
 import { findYouTubeMetadataProblem } from "@/lib/youtube-metadata";
 import { findConvertibleAiHeroUrls, replaceUrls } from "./convert-short-links";

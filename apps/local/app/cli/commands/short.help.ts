@@ -13,6 +13,8 @@ finished-videos/<videoId>.mp4 on a Storage Root.
     --footage <path>) --range <r> [--range <r>…]
                                        # cut a new Short from ranges of a source
   cvm short render <videoId>           # render the vertical file and print its path
+  cvm short post [--dry-run] <videoId…> # add Shorts to the Posting Queue
+  cvm short queue                      # list the Posting Queue and when each goes out
 
 Find a Short's id with 'cvm video list --format short'.
 
@@ -30,7 +32,18 @@ THE STREAM-TO-SHORT LOOP:
   5. optionally 'cvm overlay add --kind chatCard' (a copied stream Clip keeps
      its Recording Session, so its Chat Highlights are found);
   6. 'cvm clip frame' to check;
-  7. 'cvm short render', then post it.`;
+  7. 'cvm short render' to check the file;
+  8. 'cvm video update --name … --description …', then 'cvm short post'.
+
+THE POSTING QUEUE:
+  A Short is posted from CVM's own Posting Queue, never at once. Each UK day
+  (Europe/London) gets its Posting Slots from how many Shorts were queued at
+  00:00: on weekdays 1 (13:00), 2 when more than 14 are queued (09:00, 18:00),
+  3 when more than 21 are queued (09:00, 13:00, 18:00); Saturday and Sunday
+  always 1. A weekday after a day that had a slot and posted nothing takes
+  the next pattern up (catch-up; Monday looks back over the weekend). At a
+  slot this machine's Sidecar posts the oldest Queued Short to YouTube
+  (public, direct) and to TikTok (through Buffer, "share now").`;
 
 export const RENDER_HELP = `Render a Short's vertical file into finished-videos/ and print its path.
 
@@ -104,3 +117,52 @@ EXAMPLES:
 
   # Any Footage file, Imported Footage included:
   cvm short create --name "Demo" --footage raw-footage/imported/demo.mp4 --range 10-52`;
+
+export const POST_HELP = `Add Shorts to the Posting Queue, oldest first in the order given, and print
+when each goes out. Prints one NDJSON line per Short:
+  { videoId, title, verdict: "queued" | "refused", reason, slot, goesOutAt }
+'slot' is the ISO instant, 'goesOutAt' the UK wall-clock time ("Wed
+2026-11-04 13:00"). A slot already missed today shows as now: it goes out at
+the Sidecar's next check.
+
+Nothing is posted here: the Sidecar posts each Short at its Posting Slot. A
+Short is checked before it is queued; it needs a title of its own and a
+description (the Video's description, set with 'cvm video update --name …
+--description …'), which become its YouTube title and description.
+
+REFUSED (exit 3, _tag "ShortPostRefusedError", 'refusals' names each Short and
+why). If ANY Short of the batch is refused, NONE is queued:
+  a Landscape Video; a Short still on its default title ("Short 11/3/2026");
+  a Short with no description; a Short already in the Posting Queue (Queued,
+  Posting or Held); a Short already Posted on both YouTube and TikTok.
+An unknown Video id is a not-found (exit 2).
+
+--dry-run prints every verdict, refusals included, and writes nothing. It
+exits as the real run would: 0 when all would be queued, 3 when any would be
+refused.
+
+LOCAL-ONLY
+  Only this machine's Sidecar posts from the Posting Queue, so on any other
+  box it is refused before anything happens — _tag "LocalOnlyCommandError",
+  exit 7. Stop rather than retry.
+
+EXAMPLES:
+  cvm short post --dry-run vid_1 vid_2 vid_3
+  cvm short post vid_1 vid_2 vid_3`;
+
+export const QUEUE_HELP = `List the Posting Queue and when each Short goes out. Prints one object:
+  { days, entries: [{ entryId, videoId, title, state, slot, goesOutAt,
+                      lastFailureReason }] }
+in posting order: Shorts being posted first, then the Queued ones by when they
+go out (oldest queued first, unless moved), then any that Failed recently.
+'days' is how many UK days the Queued Shorts' slots fall on — how many days
+of content the queue holds.
+
+States: Queued (waiting for its slot), Posting (claimed a slot, being
+posted), Held (a channel's outcome is unknown: check before retrying),
+Failed (a channel failed 3 times).
+
+'slot' is the ISO instant, 'goesOutAt' the UK wall-clock time; for a
+Posting, Held or Failed Short it is the slot it claimed. The projection is the
+same one 'cvm short post --dry-run' and the Shorts page use, from the same
+Slot Schedule, so they always agree.`;

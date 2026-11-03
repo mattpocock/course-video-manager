@@ -60,6 +60,10 @@ const EXIT_CODES: Record<string, number> = {
   // A frame refused for its input: a t outside the Footage or the Clip, or a
   // Video whose frame cannot be drawn yet.
   FrameRefusedError: 3,
+  // `cvm short post` refused a Short (a Landscape Video, a default title, no
+  // description, already queued, already Posted): invalid input. Nothing
+  // was queued; `refusals` names each Short and why.
+  ShortPostRefusedError: 3,
   // Defensive: domain error tags that could leak through a command.
   UnknownDBServiceError: 4,
   // The deployed API rejected the token — unknown, expired or revoked; it

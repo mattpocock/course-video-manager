@@ -17,6 +17,7 @@ import { overlayRoutes } from "./routes/overlay.js";
 import { pitchRoutes } from "./routes/pitch.js";
 import { searchRoutes } from "./routes/search.js";
 import { sectionRoutes } from "./routes/section.js";
+import { shortRoutes } from "./routes/short.js";
 import { versionRoutes } from "./routes/version.js";
 import { videoRoutes } from "./routes/video.js";
 import { remoteRuntime, type RemoteRuntime } from "./runtime.js";
@@ -67,6 +68,7 @@ export const createApp = (runtime: RemoteRuntime) =>
     .route("/rpc/beat", beatRoutes(runtime))
     .route("/rpc/pitch", pitchRoutes(runtime))
     .route("/rpc/deliverable", deliverableRoutes(runtime))
+    .route("/rpc/short", shortRoutes(runtime))
     .route("/rpc/diagram", diagramRoutes(runtime))
     .route("/rpc/diagram-component", diagramComponentRoutes(runtime));
 

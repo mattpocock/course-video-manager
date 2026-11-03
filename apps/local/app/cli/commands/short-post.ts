@@ -1,0 +1,78 @@
+import { Args, Command, Options } from "@effect/cli";
+import { Clock, Effect } from "effect";
+import { formatLondon } from "@cvm/core/features/time/london-time";
+import { PostingQueueOperationsService } from "@/services/db-posting-queue-operations.server";
+import { ShortPostRefusedError } from "@/services/db-service-errors";
+import {
+  NEEDS_THE_SIDECAR_TO_POST,
+  requireLocalMachine,
+} from "@/cli/local-only";
+import { detail, emitNdjson, emitObject } from "@/cli/helpers";
+import { draftIdArg } from "../entity-id";
+import { POST_HELP, QUEUE_HELP } from "./short.help";
+
+/** An ISO slot, with the UK wall-clock reading beside it. */
+const withUkTime = <T extends { slot: string | null }>(row: T) => ({
+  ...row,
+  goesOutAt: row.slot === null ? null : formatLondon(Date.parse(row.slot)),
+});
+
+// ---------------------------------------------------------------------------
+// short post
+// ---------------------------------------------------------------------------
+
+const dryRunOption = Options.boolean("dry-run").pipe(
+  Options.withDescription(
+    "print each Short's verdict and when it would go out, and write nothing"
+  )
+);
+
+export const postCmd = Command.make(
+  "post",
+  {
+    dryRun: dryRunOption,
+    ids: draftIdArg("video").pipe(Args.atLeast(1)),
+  },
+  ({ dryRun, ids: refs }) =>
+    Effect.gen(function* () {
+      yield* requireLocalMachine("cvm short post", NEEDS_THE_SIDECAR_TO_POST);
+      const videoIds = yield* Effect.all(refs);
+      const now = yield* Clock.currentTimeMillis;
+      const verdicts = yield* Effect.flatMap(
+        PostingQueueOperationsService,
+        (svc) => svc.postShorts({ videoIds, dryRun, now })
+      );
+      yield* emitNdjson(verdicts.map(withUkTime));
+
+      // A dry run exits as the real run would: 3 if any Short is refused.
+      const refusals = verdicts.flatMap((v) =>
+        v.verdict === "refused"
+          ? [{ videoId: v.videoId, reason: v.reason! }]
+          : []
+      );
+      if (refusals.length > 0) {
+        return yield* new ShortPostRefusedError({
+          refusals,
+          message: `Dry run: ${refusals.length} of ${verdicts.length} Shorts would be refused, so a real run would queue none of them`,
+        });
+      }
+    })
+).pipe(Command.withDescription(detail(POST_HELP)));
+
+// ---------------------------------------------------------------------------
+// short queue
+// ---------------------------------------------------------------------------
+
+export const queueCmd = Command.make("queue", {}, () =>
+  Effect.gen(function* () {
+    const now = yield* Clock.currentTimeMillis;
+    const listing = yield* Effect.flatMap(
+      PostingQueueOperationsService,
+      (svc) => svc.listPostingQueue(now)
+    );
+    yield* emitObject({
+      days: listing.days,
+      entries: listing.entries.map(withUkTime),
+    });
+  })
+).pipe(Command.withDescription(detail(QUEUE_HELP)));
