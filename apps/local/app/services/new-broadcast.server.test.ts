@@ -2,6 +2,10 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, it, expect } from "@effect/vitest";
+import { fromPartial } from "@total-typescript/shoehorn";
+import { Effect } from "effect";
+import { ThumbnailOperationsService } from "@/services/db-thumbnail-operations.server";
+import { UnknownDBServiceError } from "@/services/db-service-errors";
 import {
   createNewBroadcast,
   setThumbnailOnBroadcast,
@@ -302,6 +306,32 @@ describe("a picked Broadcast's thumbnail, set later", () => {
     );
 
     expect(answer).toMatchObject({ status: "failed" });
+    expect(youtube.requests).toEqual([]);
+  });
+
+  it("answers failed, saying the thumbnail could not be read, when the database fails", async () => {
+    await storeGrant();
+
+    const answer = await runWithFakeYouTube(
+      setThumbnailOnBroadcast({
+        broadcastId: "picked-one",
+        videoId: "video-1",
+        thumbnailId: "thumb-1",
+      }).pipe(
+        Effect.provideService(
+          ThumbnailOperationsService,
+          fromPartial({
+            getThumbnailById: () =>
+              Effect.fail(new UnknownDBServiceError({ cause: "gone" })),
+          })
+        )
+      )
+    );
+
+    expect(answer).toEqual({
+      status: "failed",
+      reason: "the thumbnail could not be read from the database: try again.",
+    });
     expect(youtube.requests).toEqual([]);
   });
 });

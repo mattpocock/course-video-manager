@@ -79,6 +79,20 @@ export const createBroadcast = (
     })
   );
 
+/** Any failure to reach YouTube, a missing grant included, as a `YouTubeLiveError`. */
+const asLiveError = {
+  NotAuthenticatedError: () =>
+    Effect.fail(new YouTubeLiveError({ message: "Google is not connected." })),
+  LiveAccessMissing: () =>
+    Effect.fail(
+      new YouTubeLiveError({
+        message: "the Google grant has no live-streaming access.",
+      })
+    ),
+  YouTubeAuthError: (e: { message: string }) =>
+    Effect.fail(new YouTubeLiveError({ message: e.message })),
+};
+
 /**
  * Turns the Broadcast's ads monetization off (`liveBroadcasts.update`, only
  * the `monetizationDetails` part, so nothing else on it is overwritten).
@@ -97,29 +111,14 @@ export const turnMonetizationOff = (broadcastId: string) =>
     what: "turning the Broadcast's monetization off",
   }).pipe(
     Effect.map((): MonetizationResult => ({ status: "off" })),
-    Effect.catchTags({
-      YouTubeLiveError: (e) =>
-        Effect.succeed<MonetizationResult>(
-          e.reasons?.includes("monetizationDetailsModificationNotAllowed")
-            ? { status: "not-eligible" }
-            : { status: "failed", message: e.message }
-        ),
-      NotAuthenticatedError: () =>
-        Effect.succeed<MonetizationResult>({
-          status: "failed",
-          message: "Google is not connected.",
-        }),
-      LiveAccessMissing: () =>
-        Effect.succeed<MonetizationResult>({
-          status: "failed",
-          message: "the Google grant has no live-streaming access.",
-        }),
-      YouTubeAuthError: (e) =>
-        Effect.succeed<MonetizationResult>({
-          status: "failed",
-          message: e.message,
-        }),
-    })
+    Effect.catchTags(asLiveError),
+    Effect.catchTag("YouTubeLiveError", (e) =>
+      Effect.succeed<MonetizationResult>(
+        e.reasons?.includes("monetizationDetailsModificationNotAllowed")
+          ? { status: "not-eligible" }
+          : { status: "failed", message: e.message }
+      )
+    )
   );
 
 /**
@@ -159,29 +158,28 @@ export const setBroadcastThumbnail = (
     })
   );
 
-/** Any failure to reach YouTube, a missing grant included, as a `YouTubeLiveError`. */
-const asLiveError = {
-  NotAuthenticatedError: () =>
-    Effect.fail(new YouTubeLiveError({ message: "Google is not connected." })),
-  LiveAccessMissing: () =>
-    Effect.fail(
-      new YouTubeLiveError({
-        message: "the Google grant has no live-streaming access.",
-      })
-    ),
-  YouTubeAuthError: (e: { message: string }) =>
-    Effect.fail(new YouTubeLiveError({ message: e.message })),
-};
-
 type VideoStatusBody = {
   items?: { status?: Record<string, unknown> }[];
 } | null;
 
 /**
+ * The writable `status` fields `videos.update` resets when not sent, as read
+ * back. `selfDeclaredMadeForKids` and `containsSyntheticMedia` only change
+ * when sent, so they are left out; the rest (`uploadStatus`, `madeForKids`…)
+ * are read-only.
+ */
+const RESET_WHEN_UNSENT = [
+  "embeddable",
+  "license",
+  "publicStatsViewable",
+  "publishAt",
+] as const;
+
+/**
  * **Unlist When Ended**: makes the Broadcast's video Unlisted
  * (`videos.list part=status`, then `videos.update part=status`: 51 quota
- * units). The update deletes any `status` property it isn't sent, so the
- * status read back is sent whole, only `privacyStatus` changed. Any failure
+ * units). The update resets the writable `status` fields it isn't sent, so
+ * those read back are sent again, with `privacyStatus` unlisted. Any failure
  * is a `YouTubeLiveError`.
  */
 export const unlistBroadcast = (broadcastId: string) =>
@@ -203,7 +201,14 @@ export const unlistBroadcast = (broadcastId: string) =>
       query: { part: "status" },
       body: {
         id: broadcastId,
-        status: { ...status, privacyStatus: "unlisted" },
+        status: {
+          privacyStatus: "unlisted",
+          ...Object.fromEntries(
+            RESET_WHEN_UNSENT.filter((f) => status[f] !== undefined).map(
+              (f) => [f, status[f]]
+            )
+          ),
+        },
       },
       what: "making the Broadcast Unlisted",
     });

@@ -12,18 +12,22 @@ const { storeGrant, runWithFakeYouTube } = useFakeYouTube();
 
 const unlist = () => runWithFakeYouTube(Effect.either(unlistBroadcast("b-1")));
 
-/** A video's status as `videos.list` answers it. */
+/** A video's status as `videos.list` answers it, read-only fields and all. */
 const status = {
   uploadStatus: "processed",
+  failureReason: "conversion",
+  rejectionReason: "claim",
   privacyStatus: "public",
   license: "youtube",
   embeddable: true,
   publicStatsViewable: false,
+  madeForKids: false,
   selfDeclaredMadeForKids: false,
+  containsSyntheticMedia: false,
 };
 
 describe("unlistBroadcast", () => {
-  it("reads the Broadcast's video status, then sends it back with only privacyStatus changed to unlisted", async () => {
+  it("reads the Broadcast's video status, then sends back only its writable fields, made unlisted", async () => {
     await storeGrant();
     youtube.videos = [
       { status: 200, body: { items: [{ id: "b-1", status }] } },
@@ -44,7 +48,15 @@ describe("unlistBroadcast", () => {
       {
         method: "PUT",
         path: "/youtube/v3/videos?part=status",
-        body: { id: "b-1", status: { ...status, privacyStatus: "unlisted" } },
+        body: {
+          id: "b-1",
+          status: {
+            privacyStatus: "unlisted",
+            embeddable: true,
+            license: "youtube",
+            publicStatsViewable: false,
+          },
+        },
       },
     ]);
   });

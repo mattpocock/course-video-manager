@@ -13,7 +13,7 @@ import {
   broadcastThumbnailReport,
   canSetThumbnail,
 } from "./broadcast-thumbnail-reducer";
-import { ReportRow } from "./new-broadcast-form";
+import { ReportRow } from "./report-row";
 import type { NewBroadcastVideo } from "./new-stream-video";
 import { useBroadcastThumbnailReducer } from "./use-new-broadcast-reducer";
 

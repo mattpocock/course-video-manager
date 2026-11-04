@@ -27,7 +27,7 @@ const videoCalls = () =>
   youtube.calls.filter((c) => c.includes("/youtube/v3/videos"));
 
 describe("End Stream with Unlist When Ended", () => {
-  it("makes the Broadcast Unlisted once it has completed it, changing nothing else on it", async () => {
+  it("makes the Broadcast Unlisted once it has completed it, and reports it", async () => {
     const r = await live();
 
     expect(await r.endStream({ unlistWhenEnded: true })).toEqual(
@@ -38,12 +38,6 @@ describe("End Stream with Unlist When Ended", () => {
       expect.stringMatching(/liveBroadcasts\/transition\?.*complete/),
       "GET /youtube/v3/videos?part=status&id=office-hours",
       "PUT /youtube/v3/videos?part=status",
-    ]);
-    expect(youtube.videoUpdates).toEqual([
-      {
-        id: "office-hours",
-        status: { ...youtube.videoStatus, privacyStatus: "unlisted" },
-      },
     ]);
   });
 

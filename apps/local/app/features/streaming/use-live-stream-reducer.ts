@@ -1,12 +1,13 @@
 import { toastError } from "@/components/ui/toast";
 import { useEffectReducer } from "@/hooks/use-effect-reducer";
 import { readStored, writeStored } from "@/hooks/use-local-storage";
-import type { BroadcastListAnswer, UnlistResult } from "./broadcast";
+import type { BroadcastListAnswer } from "./broadcast";
 import {
   createInitialLiveStreamState,
   liveStreamReducer,
   RECONNECT_GRACE_MS,
 } from "./live-stream-reducer";
+import { messageOf, reasonOf, unlistOfEndStreamAnswer } from "./route-answer";
 import { unlistPreferenceKey } from "./unlist-when-ended";
 
 /** Where the Broadcast picker lists from (`routes/api.streaming.broadcasts.ts`). */
@@ -19,17 +20,6 @@ const postJson = (body: unknown): RequestInit => ({
   body: JSON.stringify(body),
 });
 
-/** The reason a route refused with: its message, a JSON string or plain text. */
-const reasonOf = (body: string) => {
-  try {
-    const parsed: unknown = JSON.parse(body);
-    if (typeof parsed === "string") return parsed;
-  } catch {
-    // Plain text: the reason as it is.
-  }
-  return body;
-};
-
 /** Rejects with the app server's reason when it refused. */
 const answered = async (response: Response) => {
   if (!response.ok)
@@ -37,8 +27,6 @@ const answered = async (response: Response) => {
       reasonOf(await response.text()) || `HTTP ${response.status}`
     );
 };
-
-const messageOf = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 /** The Live Stream surface's effect runner: it only does the I/O asked for. */
 export function useLiveStreamReducer() {
@@ -140,9 +128,7 @@ export function useLiveStreamReducer() {
       )
         .then(async (response) => {
           await answered(response);
-          const { unlist } = (await response.json()) as {
-            unlist: UnlistResult;
-          };
+          const unlist = unlistOfEndStreamAnswer(await response.json());
           dispatch({ type: "end-stream-answered", unlist });
         })
         .catch((e: unknown) =>
