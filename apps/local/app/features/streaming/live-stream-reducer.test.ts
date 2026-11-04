@@ -497,18 +497,20 @@ describe("Go Live and End Stream on the Live Stream surface", () => {
         broadcastId: "office-hours",
         silenceLength: "short",
       },
-      { type: "end-stream", videoId: VIDEO },
+      { type: "end-stream", videoId: VIDEO, unlistWhenEnded: false },
     ]);
     expect(goLiveControl(tester.getState(), VIDEO).busy).toBe(true);
 
-    tester.send({ type: "end-stream-answered" }).send({
-      type: "live-stream-heard",
-      stream: {
-        videoId: VIDEO,
-        status: { kind: "ended", reason: "End Stream." },
-        liveSince: null,
-      },
-    });
+    tester
+      .send({ type: "end-stream-answered", unlist: { status: "not-asked" } })
+      .send({
+        type: "live-stream-heard",
+        stream: {
+          videoId: VIDEO,
+          status: { kind: "ended", reason: "End Stream." },
+          liveSince: null,
+        },
+      });
 
     expect(goLiveControl(tester.getState(), VIDEO)).toEqual({
       press: "go-live",

@@ -173,3 +173,7 @@ export const newBroadcastReport = (
         monetization: MONETIZATION_WORDS(state.created.monetization),
         bind: BIND_WORDS(state.created.bind),
       };
+
+/** The form's Unlist When Ended checkbox shows only for a Public Broadcast. */
+export const showsUnlistWhenEnded = (state: State) =>
+  state.draft.privacyStatus === "public";
