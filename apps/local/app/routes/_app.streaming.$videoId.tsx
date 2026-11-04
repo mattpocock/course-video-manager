@@ -57,6 +57,11 @@ const StreamingStudio = (props: Route.ComponentProps) => {
     [props.loaderData]
   );
   const wiring = useVideoEditorWiring(loaderData);
+  const { title, description } = props.loaderData.video;
+  const newBroadcastVideo = useMemo(
+    () => ({ title, description }),
+    [title, description]
+  );
 
   return (
     <VideoEditor
@@ -65,6 +70,7 @@ const StreamingStudio = (props: Route.ComponentProps) => {
       layout={() => (
         <StreamingLayout
           highlightsUnavailable={props.loaderData.highlightsUnavailable}
+          video={newBroadcastVideo}
         />
       )}
     />

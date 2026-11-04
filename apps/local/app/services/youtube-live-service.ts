@@ -5,6 +5,7 @@ import type {
   Broadcast,
   BroadcastListAnswer,
   LatencyPreference,
+  PrivacyStatus,
   ReconnectReason,
 } from "@/features/streaming/broadcast";
 import type {
@@ -16,7 +17,9 @@ import type {
  * The YouTube Live service: what CVM asks YouTube about **Broadcasts**. It
  * reads with the stored Google grant (`getValidAccessToken`) and honours the
  * YouTube API URL override, so a test fakes YouTube at the HTTP boundary.
- * CVM never creates a Broadcast, and YouTube's auto-start starts it. End
+ * CVM creates one for **New Broadcast**
+ * (`youtube-live-broadcast-writes.ts`), always with auto-start and auto-stop
+ * on, and never starts one: YouTube's auto-start starts it. End
  * Stream completes it (`completeBroadcast`), so it ends at once rather than
  * a minute later by auto-stop, which stays on as the backstop.
  *
@@ -28,10 +31,14 @@ import type {
 
 export class YouTubeLiveError extends Data.TaggedError("YouTubeLiveError")<{
   message: string;
+  /** Google's error reasons (`error.errors[].reason`), when it gave any. */
+  reasons?: readonly string[];
 }> {}
 
 /** The stored grant was given before CVM asked for `youtube.force-ssl`. */
-class LiveAccessMissing extends Data.TaggedError("LiveAccessMissing")<{}> {}
+export class LiveAccessMissing extends Data.TaggedError(
+  "LiveAccessMissing"
+)<{}> {}
 
 /** Google's 403 for a token granted without the scope the call needs. */
 const isInsufficientScope = (status: number, body: unknown): boolean => {
@@ -51,7 +58,7 @@ type GoogleError = {
   details?: { reason?: string }[];
 };
 
-type LiveBroadcastItem = {
+export type LiveBroadcastItem = {
   id: string;
   snippet?: {
     title?: string;
@@ -64,6 +71,7 @@ type LiveBroadcastItem = {
     boundStreamId?: string;
     latencyPreference?: string;
   };
+  status?: { privacyStatus?: string };
 };
 
 const LATENCY_PREFERENCES: readonly LatencyPreference[] = [
@@ -75,7 +83,16 @@ const LATENCY_PREFERENCES: readonly LatencyPreference[] = [
 const toLatencyPreference = (value: string | undefined) =>
   LATENCY_PREFERENCES.find((p) => p === value) ?? null;
 
-const toBroadcast = (item: LiveBroadcastItem): Broadcast => ({
+const PRIVACY_STATUSES: readonly PrivacyStatus[] = [
+  "public",
+  "unlisted",
+  "private",
+];
+
+const toPrivacyStatus = (value: string | undefined) =>
+  PRIVACY_STATUSES.find((p) => p === value) ?? null;
+
+export const toBroadcast = (item: LiveBroadcastItem): Broadcast => ({
   id: item.id,
   title: item.snippet?.title ?? "",
   scheduledStartTime: item.snippet?.scheduledStartTime ?? null,
@@ -86,6 +103,7 @@ const toBroadcast = (item: LiveBroadcastItem): Broadcast => ({
   latencyPreference: toLatencyPreference(
     item.contentDetails?.latencyPreference
   ),
+  privacyStatus: toPrivacyStatus(item.status?.privacyStatus),
 });
 
 /** One page (50) of the channel's Broadcasts in one `broadcastStatus`. */
@@ -97,7 +115,7 @@ const fetchBroadcasts = (opts: {
   Effect.tryPromise({
     try: async (signal) => {
       const response = await fetch(
-        `${opts.apiUrl}/youtube/v3/liveBroadcasts?part=snippet,contentDetails&broadcastStatus=${opts.broadcastStatus}&broadcastType=all&maxResults=50`,
+        `${opts.apiUrl}/youtube/v3/liveBroadcasts?part=snippet,contentDetails,status&broadcastStatus=${opts.broadcastStatus}&broadcastType=all&maxResults=50`,
         { headers: { Authorization: `Bearer ${opts.accessToken}` }, signal }
       );
       const body = (await response.json().catch(() => null)) as {
@@ -170,7 +188,7 @@ export const listBroadcasts = Effect.gen(function* () {
 );
 
 /** No grant: answered as "reconnect"; any other auth failure fails. */
-const needsConnecting = {
+export const needsConnecting = {
   NotAuthenticatedError: () =>
     Effect.succeed({
       status: "needs-reconnect" as const,
@@ -194,10 +212,12 @@ type LiveStreamItem = {
  * `what` names the call in a failure, which never holds the answer's body
  * (a stream's ingest name is the Stream Key).
  */
-const liveApiCall = (opts: {
-  method: "GET" | "POST";
+export const liveApiCall = (opts: {
+  method: "GET" | "POST" | "PUT";
   path: string;
   query: Record<string, string>;
+  /** Sent as JSON. */
+  body?: unknown;
   what: string;
 }) =>
   Effect.gen(function* () {
@@ -209,7 +229,13 @@ const liveApiCall = (opts: {
           `${apiUrl}/youtube/v3/${opts.path}?${new URLSearchParams(opts.query)}`,
           {
             method: opts.method,
-            headers: { Authorization: `Bearer ${accessToken}` },
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              ...(opts.body !== undefined && {
+                "Content-Type": "application/json",
+              }),
+            },
+            ...(opts.body !== undefined && { body: JSON.stringify(opts.body) }),
             signal,
           }
         );
@@ -220,16 +246,21 @@ const liveApiCall = (opts: {
           return { accessMissing: true as const };
         }
         if (!response.ok) {
-          throw new Error(
-            `YouTube answered ${response.status} ${opts.what}: ${body?.error?.message ?? "no message"}`
-          );
+          throw new YouTubeLiveError({
+            message: `YouTube answered ${response.status} ${opts.what}: ${body?.error?.message ?? "no message"}`,
+            reasons: (body?.error?.errors ?? []).flatMap((e) =>
+              e.reason ? [e.reason] : []
+            ),
+          });
         }
         return { body: body as unknown };
       },
       catch: (e) =>
-        new YouTubeLiveError({
-          message: e instanceof Error ? e.message : String(e),
-        }),
+        e instanceof YouTubeLiveError
+          ? e
+          : new YouTubeLiveError({
+              message: e instanceof Error ? e.message : String(e),
+            }),
     });
     if ("accessMissing" in body) return yield* new LiveAccessMissing();
     return body.body;

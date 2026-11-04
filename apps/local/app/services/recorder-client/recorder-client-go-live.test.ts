@@ -210,6 +210,7 @@ describe("Go Live and End Stream", () => {
         liveChatId: null,
         boundStreamId: null,
         latencyPreference: null,
+        privacyStatus: null,
       }),
       GO_LIVE_REFUSALS.recording,
     ]);

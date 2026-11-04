@@ -86,6 +86,8 @@ export namespace liveStreamReducer {
     | { type: "broadcast-listing-failed"; message: string }
     | { type: "broadcast-clicked"; broadcastId: string }
     | { type: "change-broadcast-clicked" }
+    /** New Broadcast created this Broadcast on YouTube (`new-broadcast-reducer.ts`). */
+    | { type: "broadcast-created"; broadcast: Broadcast }
     /** Heard from the app server's chat (`GET /api/streaming/chat/events`). */
     | BroadcastChatEvent
     /** A reconnect's grace (`RECONNECT_GRACE_MS`) is over. */
@@ -222,6 +224,29 @@ const broadcastClicked = (
 };
 
 /**
+ * A Broadcast New Broadcast created joins the list (in place of any listed
+ * copy) and is picked, as a click on it would.
+ */
+const broadcastCreated = (
+  state: State,
+  broadcast: Broadcast,
+  exec: Exec
+): State => {
+  const listed =
+    state.broadcastList.status === "listed"
+      ? state.broadcastList.broadcasts.filter((b) => b.id !== broadcast.id)
+      : [];
+  return broadcastClicked(
+    {
+      ...state,
+      broadcastList: { status: "listed", broadcasts: [...listed, broadcast] },
+    },
+    broadcast.id,
+    exec
+  );
+};
+
+/**
  * A chat now reconnecting that wasn't starts its grace; any other state ends
  * the last reconnect.
  */
@@ -334,6 +359,8 @@ export const liveStreamReducer: EffectReducer<State, Action, Effect> = (
       return broadcastClicked(state, action.broadcastId, exec);
     case "change-broadcast-clicked":
       return { ...state, changingBroadcast: true };
+    case "broadcast-created":
+      return broadcastCreated(state, action.broadcast, exec);
     case "chat-attached":
     case "chat-message-received":
     case "chat-connection-changed":

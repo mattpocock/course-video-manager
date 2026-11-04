@@ -25,12 +25,21 @@ export type Answer = { status: number; body: unknown };
  * hands each `liveChat/messages/stream` connection to the next scripted
  * handler (holding it open when none is left), each `liveChat/messages`
  * poll to the next scripted answer, and each `videos` read to the next
- * scripted answer (a 404 when none is left).
+ * scripted answer (a 404 when none is left). Any other call answers the next
+ * of its `calls` script, keyed `METHOD /path` (a 404 when none is left).
  */
 export const youtube: {
   url: string;
-  requests: { path: string; authorization: string | undefined }[];
+  requests: {
+    method: string;
+    path: string;
+    authorization: string | undefined;
+    /** The JSON body sent, or null for none. */
+    body: unknown;
+  }[];
   answers: Record<string, Answer>;
+  /** Scripted answers per call, keyed `METHOD /path` (`POST /youtube/v3/liveBroadcasts`). */
+  calls: Record<string, Answer[]>;
   chatStreams: ((res: http.ServerResponse) => void)[];
   chatPolls: Answer[];
   videos: Answer[];
@@ -40,6 +49,7 @@ export const youtube: {
   url: "",
   requests: [],
   answers: {},
+  calls: {},
   chatStreams: [],
   chatPolls: [],
   videos: [],
@@ -52,6 +62,20 @@ export function holdOpen(res: http.ServerResponse) {
   res.write("[");
   youtube.openStreams.push(res);
 }
+
+/** The scripted answer to a call that isn't a chat stream, if any. */
+const answerFor = (method: string, url: URL): Answer | undefined => {
+  const scripted = youtube.calls[`${method} ${url.pathname}`]?.shift();
+  if (scripted) return scripted;
+  switch (url.pathname) {
+    case "/youtube/v3/liveBroadcasts":
+      return youtube.answers[url.searchParams.get("broadcastStatus") ?? ""];
+    case "/youtube/v3/liveChat/messages":
+      return youtube.chatPolls.shift();
+    case "/youtube/v3/videos":
+      return youtube.videos.shift();
+  }
+};
 
 export const useFakeYouTube = () => {
   let testDb: TestDb;
@@ -74,27 +98,29 @@ export const useFakeYouTube = () => {
   beforeAll(async () => {
     server = http.createServer((req, res) => {
       const url = new URL(req.url ?? "/", "http://fake");
-      youtube.requests.push({
+      // Heard as it arrives, so a call CVM abandoned is still counted.
+      const request = {
+        method: req.method ?? "GET",
         path: url.pathname + url.search,
         authorization: req.headers.authorization,
+        body: null as unknown,
+      };
+      youtube.requests.push(request);
+      let text = "";
+      req.on("data", (chunk) => (text += String(chunk)));
+      req.on("end", () => {
+        if (text) request.body = JSON.parse(text) as unknown;
+        if (url.pathname === "/youtube/v3/liveChat/messages/stream") {
+          const script = youtube.chatStreams.shift() ?? holdOpen;
+          script(res);
+          return;
+        }
+        const answer = answerFor(request.method, url);
+        res.writeHead(answer?.status ?? 404, {
+          "Content-Type": "application/json",
+        });
+        res.end(JSON.stringify(answer?.body ?? { error: { code: 404 } }));
       });
-      if (url.pathname === "/youtube/v3/liveChat/messages/stream") {
-        const script = youtube.chatStreams.shift() ?? holdOpen;
-        script(res);
-        return;
-      }
-      const answer =
-        url.pathname === "/youtube/v3/liveBroadcasts"
-          ? youtube.answers[url.searchParams.get("broadcastStatus") ?? ""]
-          : url.pathname === "/youtube/v3/liveChat/messages"
-            ? youtube.chatPolls.shift()
-            : url.pathname === "/youtube/v3/videos"
-              ? youtube.videos.shift()
-              : undefined;
-      res.writeHead(answer?.status ?? 404, {
-        "Content-Type": "application/json",
-      });
-      res.end(JSON.stringify(answer?.body ?? { error: { code: 404 } }));
     });
     await new Promise<void>((resolve) =>
       server.listen(0, "127.0.0.1", resolve)
@@ -105,6 +131,7 @@ export const useFakeYouTube = () => {
   afterEach(() => {
     youtube.requests = [];
     youtube.answers = {};
+    youtube.calls = {};
     youtube.chatStreams = [];
     youtube.chatPolls = [];
     youtube.videos = [];
