@@ -20,8 +20,8 @@ export const armedWriter = (
   let graphUp = false;
   setTimeout(() => (graphUp = true), o.writerGraphMs ?? 20);
   p.onStdin = (text) => {
-    if (!text.startsWith("Call ") || !graphUp) return;
-    if (text.startsWith("Call -1 "))
+    if (!text.startsWith("C") || !graphUp) return;
+    if (/^C\S+ -1 /.test(text))
       return p.stderr("Command reply for stream 0: ret:0 res:\n");
     p.begun = true;
     if (o.recordingCamera !== "silent")

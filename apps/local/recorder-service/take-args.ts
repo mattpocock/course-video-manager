@@ -146,14 +146,21 @@ export const cameraWriterArgs = (o: {
  * own unarmed clocks again, now, which changes nothing. ffmpeg 8 drops any
  * command sent before its filter graph is up, without a word; its answer
  * says the graph is up, so Record's T0 will be heard (#2482).
+ *
+ * Sent now (`-1`), so it goes to `setpts@t0` alone: sent to every filter,
+ * it also reset the CFR's own `setpts` (`CAMERA_CFR`) to the unarmed clock,
+ * and camera.mkv got no frame (#2442). `asetpts@t0` already runs this.
  */
-export const graphUpCommand = `Call -1 expr PTS-${UNARMED_T0}/TB\n`;
+export const graphUpCommand = `Csetpts@t0 -1 expr PTS-${UNARMED_T0}/TB\n`;
 
 /**
  * What Record writes to an armed writer's stdin: ffmpeg's `C` (queue a
  * command for every filter that takes it, from a time on) sets both clocks
- * to wall time less T0 from the first frame stamped T0 or later. Only
- * `setpts@t0` and `asetpts@t0` take `expr` in the writer.
+ * to wall time less T0 from the first frame stamped T0 or later. It stays
+ * one command to every filter, so both clocks hear it in one keyboard
+ * period: each filter applies it only from a frame stamped T0 there, and
+ * only `setpts@t0` and `asetpts@t0` see wall time; the CFR's `setpts`
+ * after them sees file time, which never reaches T0 (#2442).
  */
 export const takeStartCommand = (t0Ms: number) => {
   const t0 = (t0Ms / 1000).toFixed(3);
