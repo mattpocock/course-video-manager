@@ -46,7 +46,6 @@
   "apps/local/app/features/video-editor/preloadable-clip.tsx": 1,
   "apps/local/app/features/video-editor/recorder-session-reducer.ts": 1,
   "apps/local/app/features/video-editor/suggestions-reducer.ts": 1,
-  "apps/local/app/features/video-editor/video-state-reducer.ts": 1,
   "apps/local/app/features/video-posting/ai-hero-page.tsx": 1,
   "apps/local/app/features/video-posting/newsletter-page.tsx": 1,
   "apps/local/app/features/video-posting/post-page.tsx": 1,
