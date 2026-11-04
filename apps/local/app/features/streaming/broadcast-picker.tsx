@@ -21,6 +21,7 @@ import {
   type ReconnectReason,
 } from "./broadcast";
 import { NewBroadcastButton, NewBroadcastForm } from "./new-broadcast-form";
+import { BroadcastThumbnailControl } from "./broadcast-thumbnail-control";
 import type { NewBroadcastVideo } from "./new-stream-video";
 import { useNewBroadcastReducer } from "./use-new-broadcast-reducer";
 import { unlistWhenEndedBesidePick } from "./unlist-when-ended";
@@ -96,6 +97,10 @@ export const BroadcastPicker = (props: {
             </p>
           </div>
           <div className="ml-auto flex shrink-0 items-center gap-1">
+            <BroadcastThumbnailControl
+              broadcastId={view.broadcast.id}
+              video={props.video}
+            />
             <NewBroadcastButton dispatch={newBroadcastDispatch} />
             <Button
               variant="ghost"

@@ -5,7 +5,9 @@ import type {
   LatencyPreference,
   MonetizationResult,
   NewBroadcastAnswer,
+  NewBroadcastDraft,
   NewBroadcastSettings,
+  ThumbnailResult,
 } from "./broadcast";
 import {
   newBroadcastDefaults,
@@ -23,13 +25,14 @@ export namespace newBroadcastReducer {
     broadcast: Broadcast;
     monetization: MonetizationResult;
     bind: BindResult;
+    thumbnail: ThumbnailResult;
   };
 
   export type State = {
     /** The Video the form is for: its defaults come from it. */
     video: NewBroadcastVideo;
     open: boolean;
-    draft: NewBroadcastSettings;
+    draft: NewBroadcastDraft;
     /** The create is out. */
     submitting: boolean;
     /** What the app server answered once the Broadcast was created. */
@@ -48,12 +51,14 @@ export namespace newBroadcastReducer {
         privacyStatus: NewBroadcastSettings["privacyStatus"];
       }
     | { type: "latency-picked"; latencyPreference: LatencyPreference }
+    /** One of the Video's thumbnails, or null for none. */
+    | { type: "thumbnail-picked"; thumbnailId: string | null }
     | { type: "create-clicked" }
     | { type: "create-answered"; answer: NewBroadcastAnswer }
     | { type: "create-failed"; message: string };
 
   export type Effect =
-    | { type: "create-broadcast"; settings: NewBroadcastSettings }
+    | { type: "create-broadcast"; settings: NewBroadcastDraft }
     /** Hand the new Broadcast to the Live Stream surface, which picks it. */
     | { type: "pick-created-broadcast"; broadcast: Broadcast };
 }
@@ -82,7 +87,7 @@ export const canCreate = (state: State) =>
   state.created === null &&
   state.draft.title.trim() !== "";
 
-const edited = (state: State, draft: Partial<NewBroadcastSettings>): State =>
+const edited = (state: State, draft: Partial<NewBroadcastDraft>): State =>
   state.submitting || state.created !== null
     ? state
     : { ...state, draft: { ...state.draft, ...draft } };
@@ -107,6 +112,8 @@ export const newBroadcastReducer: EffectReducer<State, Action, Effect> = (
       return edited(state, { privacyStatus: action.privacyStatus });
     case "latency-picked":
       return edited(state, { latencyPreference: action.latencyPreference });
+    case "thumbnail-picked":
+      return edited(state, { thumbnailId: action.thumbnailId });
     case "create-clicked":
       if (!canCreate(state)) return state;
       exec({ type: "create-broadcast", settings: state.draft });
@@ -125,6 +132,7 @@ export const newBroadcastReducer: EffectReducer<State, Action, Effect> = (
           broadcast: answer.broadcast,
           monetization: answer.monetization,
           bind: answer.bind,
+          thumbnail: answer.thumbnail,
         },
       };
     }
@@ -163,15 +171,37 @@ const BIND_WORDS = (b: BindResult): ReportLine =>
         words: `Not bound to the Stream Key's stream: ${b.reason}`,
       };
 
+const THUMBNAIL_WORDS = (t: ThumbnailResult): ReportLine => {
+  switch (t.status) {
+    case "set":
+      return { ok: true, words: "Thumbnail set." };
+    case "none":
+      return {
+        ok: true,
+        words: "No thumbnail: set one beside the picked Broadcast.",
+      };
+    case "failed":
+      return {
+        ok: false,
+        words: `The thumbnail could not be set (${t.reason}): set it beside the picked Broadcast, or in YouTube Studio.`,
+      };
+  }
+};
+
 /** What the form says of a created Broadcast's later steps, or null before. */
 export const newBroadcastReport = (
   state: State
-): { monetization: ReportLine; bind: ReportLine } | null =>
+): {
+  monetization: ReportLine;
+  bind: ReportLine;
+  thumbnail: ReportLine;
+} | null =>
   state.created === null
     ? null
     : {
         monetization: MONETIZATION_WORDS(state.created.monetization),
         bind: BIND_WORDS(state.created.bind),
+        thumbnail: THUMBNAIL_WORDS(state.created.thumbnail),
       };
 
 /** The form's Unlist When Ended checkbox shows only for a Public Broadcast. */

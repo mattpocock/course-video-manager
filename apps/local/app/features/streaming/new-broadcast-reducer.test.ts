@@ -6,13 +6,16 @@ import {
   newBroadcastReducer,
   newBroadcastReport,
 } from "./new-broadcast-reducer";
+import type { NewBroadcastVideo } from "./new-stream-video";
 
-const video = {
+const video: NewBroadcastVideo = {
+  id: "video-1",
   title: "Office hours #12",
   description: "Questions answered live.",
+  thumbnails: [],
 };
 
-const start = (v: { title: string; description: string | null } = video) =>
+const start = (v: NewBroadcastVideo = video) =>
   new ReducerTester(newBroadcastReducer, createInitialNewBroadcastState(v));
 
 const newOne: Broadcast = {
@@ -34,6 +37,7 @@ const created = (
   broadcast: newOne,
   monetization: { status: "off" },
   bind: { status: "bound" },
+  thumbnail: { status: "none" },
   ...o,
 });
 
@@ -47,11 +51,39 @@ describe("the New Broadcast form", () => {
       description: "Questions answered live.",
       privacyStatus: "unlisted",
       latencyPreference: "ultraLow",
+      thumbnailId: null,
     });
   });
 
+  it("preselects the Video's thumbnail selected for upload, else its only one, else none", () => {
+    const thumbnailOf = (thumbnails: NewBroadcastVideo["thumbnails"]) =>
+      start({ ...video, thumbnails })
+        .send({ type: "new-broadcast-clicked" })
+        .getState().draft.thumbnailId;
+
+    expect(
+      thumbnailOf([
+        { id: "newest", selectedForUpload: false },
+        { id: "chosen", selectedForUpload: true },
+      ])
+    ).toBe("chosen");
+    expect(thumbnailOf([{ id: "only", selectedForUpload: false }])).toBe(
+      "only"
+    );
+    expect(
+      thumbnailOf([
+        { id: "a", selectedForUpload: false },
+        { id: "b", selectedForUpload: false },
+      ])
+    ).toBeNull();
+  });
+
   it("defaults the description to empty for a Video that has none", () => {
-    const state = start({ title: "Stream 04/11/2026", description: null })
+    const state = start({
+      ...video,
+      title: "Stream 04/11/2026",
+      description: null,
+    })
       .send({ type: "new-broadcast-clicked" })
       .getState();
 
@@ -65,6 +97,7 @@ describe("the New Broadcast form", () => {
       .send({ type: "description-edited", description: "" })
       .send({ type: "privacy-picked", privacyStatus: "public" })
       .send({ type: "latency-picked", latencyPreference: "low" })
+      .send({ type: "thumbnail-picked", thumbnailId: "thumb-2" })
       .send({ type: "create-clicked" })
       .send({ type: "create-clicked" });
 
@@ -77,6 +110,7 @@ describe("the New Broadcast form", () => {
           description: "",
           privacyStatus: "public",
           latencyPreference: "low",
+          thumbnailId: "thumb-2",
         },
       },
     ]);
@@ -101,7 +135,7 @@ describe("the New Broadcast form", () => {
     expect(tester.getEffects()).toEqual([]);
   });
 
-  it("shows how monetization and the bind went once created", () => {
+  it("shows how monetization, the bind and the thumbnail went once created", () => {
     const report = (answer: NewBroadcastAnswer) =>
       newBroadcastReport(
         start()
@@ -114,6 +148,27 @@ describe("the New Broadcast form", () => {
     expect(report(created())).toEqual({
       monetization: { ok: true, words: "Monetization: off" },
       bind: { ok: true, words: "Bound to the Stream Key's stream." },
+      thumbnail: {
+        ok: true,
+        words: "No thumbnail: set one beside the picked Broadcast.",
+      },
+    });
+    expect(
+      report(created({ thumbnail: { status: "set" } }))?.thumbnail
+    ).toEqual({ ok: true, words: "Thumbnail set." });
+    expect(
+      report(
+        created({
+          thumbnail: {
+            status: "failed",
+            reason: "Custom thumbnails not allowed",
+          },
+        })
+      )?.thumbnail
+    ).toEqual({
+      ok: false,
+      words:
+        "The thumbnail could not be set (Custom thumbnails not allowed): set it beside the picked Broadcast, or in YouTube Studio.",
     });
     expect(
       report(
@@ -122,7 +177,7 @@ describe("the New Broadcast form", () => {
           bind: { status: "not-bound", reason: "No Stream Key: add it." },
         })
       )
-    ).toEqual({
+    ).toMatchObject({
       monetization: {
         ok: true,
         words:

@@ -130,8 +130,10 @@ describe("the Unlist When Ended checkbox", () => {
     const form = new ReducerTester(
       newBroadcastReducer,
       createInitialNewBroadcastState({
+        id: "video-1",
         title: "Office hours",
         description: null,
+        thumbnails: [],
       })
     ).send({ type: "new-broadcast-clicked" });
     expect(showsUnlistWhenEnded(form.getState())).toBe(false);

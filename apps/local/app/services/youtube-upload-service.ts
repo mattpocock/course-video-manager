@@ -228,6 +228,9 @@ export const uploadVideoToYouTube = (opts: {
 /**
  * Set a custom thumbnail on a YouTube video using the thumbnails.set endpoint.
  * Reads the PNG file from disk and uploads it as the video's thumbnail.
+ * The one `thumbnails.set` call: the Sidecar's YouTube post sets an upload's
+ * thumbnail with it, and the app server a **Broadcast**'s
+ * (`setBroadcastThumbnail`), a single quick call Matt waits on.
  */
 export const setYouTubeThumbnail = (opts: {
   accessToken: string;
@@ -235,7 +238,6 @@ export const setYouTubeThumbnail = (opts: {
   thumbnailFilePath: string;
 }) =>
   Effect.gen(function* () {
-    yield* SidecarContext;
     const apiUrl = yield* youtubeApiUrl;
     const fileBuffer = yield* Effect.tryPromise({
       try: () => fs.promises.readFile(opts.thumbnailFilePath),
