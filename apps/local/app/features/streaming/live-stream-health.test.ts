@@ -30,7 +30,7 @@ const health = (o: Partial<StreamHealth> = {}): StreamHealth => ({
 const heard = (kind: "connecting" | "live" | "reconnecting") =>
   ({
     type: "live-stream-heard",
-    stream: { videoId: VIDEO, status: { kind } },
+    stream: { videoId: VIDEO, status: { kind }, liveSince: null },
   }) as const;
 
 const liveOn = (kind: "connecting" | "live" | "reconnecting" = "live") =>
@@ -109,6 +109,7 @@ describe("the Live Stream's health line", () => {
       stream: {
         videoId: VIDEO,
         status: { kind: "ended", reason: "End Stream." },
+        liveSince: null,
       },
     });
     expect(streamHealthLine(tester.getState(), VIDEO, last)).toBeNull();

@@ -11,6 +11,7 @@ const view: ChatView = {
   notices: [],
   waiting: false,
   viewers: null,
+  liveSince: null,
   rows: [
     {
       id: "m1",

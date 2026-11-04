@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { EyeIcon, MessageSquareIcon, RadioIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ChatView } from "./chat-view";
+import { LiveTimer } from "./live-timer";
 import {
   BADGE_LABELS,
   authorColor,
@@ -164,6 +165,10 @@ export const StreamChatPresenter = (props: {
         <h1 className="text-[clamp(1rem,1.2vw,1.25rem)] font-semibold text-white/80">
           Live chat
         </h1>
+        <LiveTimer
+          liveSince={props.view?.liveSince ?? null}
+          className="shrink-0 font-mono text-[clamp(0.75rem,1vw,1rem)] text-red-400 tabular-nums"
+        />
         {props.view?.viewers && (
           <span
             className="flex shrink-0 items-center gap-1.5 text-[clamp(0.75rem,1vw,1rem)] text-white/50 tabular-nums"
