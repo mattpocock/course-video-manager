@@ -21,6 +21,14 @@ const { storeGrant, runWithFakeYouTube } = useFakeYouTube();
 
 const runList = () => runWithFakeYouTube(listBroadcasts);
 
+/**
+ * A failed list gives up on its other call, which, unless aborted before it
+ * went, still reaches the fake YouTube a moment later: let it land here,
+ * never in the next test.
+ */
+const otherListSettled = () =>
+  new Promise((resolve) => setTimeout(resolve, 100));
+
 const broadcastItem = (o: {
   id: string;
   title: string;
@@ -175,6 +183,7 @@ describe("listBroadcasts", () => {
       status: "needs-reconnect",
       reason: "missing-live-access",
     });
+    await otherListSettled();
   });
 
   it("asks to connect when there is no stored grant, and calls YouTube not at all", async () => {
@@ -194,6 +203,7 @@ describe("listBroadcasts", () => {
     youtube.answers.upcoming = { status: 200, body: { items: [] } };
 
     await expect(runList()).rejects.toThrow(/Backend Error/);
+    await otherListSettled();
   });
 });
 
