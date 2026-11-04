@@ -33,10 +33,11 @@ export const BroadcastThumbnailControl = (props: {
       <Button
         variant="ghost"
         size="sm"
+        aria-label="Broadcast thumbnail"
+        title="Broadcast thumbnail"
         onClick={() => dispatch({ type: "thumbnail-clicked" })}
       >
-        <ImageIcon className="size-4 mr-1" />
-        Thumbnail
+        <ImageIcon className="size-4" />
       </Button>
       <Dialog
         open={state.open}

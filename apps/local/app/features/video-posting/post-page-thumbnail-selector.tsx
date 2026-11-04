@@ -56,6 +56,7 @@ export function ThumbnailSelector({
                 <ContextMenu key={thumbnail.id}>
                   <ContextMenuTrigger asChild>
                     <button
+                      type="button"
                       onClick={() => handleToggle(thumbnail.id)}
                       className={`cursor-context-menu relative aspect-video rounded-lg overflow-hidden border-2 transition-all ${
                         isSelected
