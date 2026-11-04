@@ -10,10 +10,12 @@ import { untilRecordingIs, type RecordingSignal } from "./still-gate";
  * stream's Clips beside it, the GPU at 100%. Raw Footage and the stream win
  * over transcription latency.
  *
- * So each Whisper pass (one Clip, or one chunk of a Footage file) starts only
- * while nothing records. A Live Stream always records (ADR 0055), so one
- * signal covers both. A pass asked for during a Recording Session waits for
- * the Stop, then runs. A pass already on the GPU when Record is pressed
+ * So each Footage file's Whisper pass (one chunk) starts only while nothing
+ * records. A Clip's pass does not wait (Matt, 2026-11-04): his recording
+ * workflow needs each Clip's text as it arrives, a Live Stream's too, and a
+ * Clip's pass is short (`whisper-transcription-service.ts`). A Live Stream always records (ADR 0055), so one
+ * signal covers both. A gated pass asked for during a Recording Session
+ * waits for the Stop, then runs. A pass already on the GPU when Record is pressed
  * finishes: the worker cannot be told to stop mid-file without unloading
  * the model. A Footage transcription is a run of chunks, so it yields at
  * its next chunk (~15 s at most) and resumes after the Stop.

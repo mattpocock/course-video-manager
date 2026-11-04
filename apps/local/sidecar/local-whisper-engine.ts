@@ -94,7 +94,8 @@ export const makeWorker = (config: WorkerConfig) => {
 
   const start = (): Promise<void> => {
     // The worker and every thread it starts get CPU only when nothing else
-    // wants it (#2224). Its GPU waits for Stop in the GPU gate (#2631).
+    // wants it (#2224). A Footage chunk's GPU waits for Stop in the GPU
+    // gate (#2631); a Clip's does not.
     const proc = spawn("nice", ["-n", "19", config.command, ...config.args], {
       stdio: ["pipe", "pipe", "pipe"],
     });

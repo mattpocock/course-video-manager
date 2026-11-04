@@ -1,6 +1,6 @@
 import { CANVASES, type Scene } from "@/packages/scene-layout";
 import type { VideoFormat } from "@/features/videos/video-format";
-import type { cvmRecorderReducer } from "./cvm-recorder-reducer";
+import { holdsStillsOf, type cvmRecorderReducer } from "./cvm-recorder-reducer";
 
 /**
  * The editor's live frame: the CVM recorder's composite drawn from its H.264
@@ -50,3 +50,22 @@ export const getCvmRecorderLivePreview = (
 export const getHasLivePreview = (
   cvmRecorder: cvmRecorderReducer.State
 ): boolean => getCvmRecorderLivePreview(cvmRecorder) !== null;
+
+/**
+ * Where the live preview's last-frame overlay (the previous Clip's last
+ * frame at half opacity, to match position between takes) comes from:
+ * - `still`: the Clip's saved last-frame still, decoded by the app server.
+ * - `take-end`: its Recording Session is still recording, so its still is
+ *   held (`holdsStillsOf`, #2560: decoding the growing take cost the
+ *   camera frames). The editor shows the live preview's own picture from
+ *   the moment that take's speech ended instead: the browser already has
+ *   it, so the capture pays nothing (Matt, 2026-11-04).
+ * - `none`: a Live Stream (a streamed Recording Session) shows no overlay.
+ */
+export const lastFrameSource = (
+  state: cvmRecorderReducer.State,
+  clip: { recordingSession?: { id: string } | null }
+): "still" | "take-end" | "none" => {
+  if (state.streamed) return "none";
+  return holdsStillsOf(state, clip) ? "take-end" : "still";
+};

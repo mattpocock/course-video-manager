@@ -410,7 +410,7 @@ A next line the author could say, with a title of two to four words naming where
 _Avoid_: Autofill (a different feature that writes a Video's description and Chapters), Prompt
 
 **Transcription**:
-The process of getting a clip's text from its audio, by Local Whisper in the **Sidecar**. A **Clip** is queued for it as soon as it is saved, but Whisper never runs while any **Recording Session** records (a **Live Stream** always does): the GPU is the capture's and the stream's first. A Transcription asked for mid-take waits for the Stop, then runs; one already running finishes the file it is on and waits before the next (a **Footage** file's next chunk). A Footage file's Transcription does not even start until the Recording Session stops (#2631).
+The process of getting a clip's text from its audio, by Local Whisper in the **Sidecar**. A **Clip** is queued for it as soon as it is saved and transcribed at once, mid-take too, in a **Recording Session** and in a **Live Stream**: the recording workflow needs each Clip's text as it arrives. A **Footage** file's Transcription is heavier, so it waits for the GPU: it does not start until the Recording Session stops, and one already running finishes the chunk it is on and waits before the next (#2631).
 _Avoid_: Caption, Subtitle
 
 **Transcription Status**:
@@ -480,7 +480,7 @@ The fourth **Overlay Kind** (`callToAction`), for a **Short** only: a branded ca
 _Avoid_: CTA (as the term), Advert, Promo, Pill
 
 **Chat Spin**:
-Superseded (#2669): it was a **Chat Card**'s slot-machine intro, with the same Recording Session's other **Chat Highlights** flying past before it landed on the pick. Matt preferred "a single chat message displayed in a nice way", so a Chat Card now just fades in. Its old `overlay.chat_spin` column is unused, and is waiting to be dropped.
+Superseded (#2669): it was a **Chat Card**'s slot-machine intro, with the same Recording Session's other **Chat Highlights** flying past before it landed on the pick. Matt preferred "a single chat message displayed in a nice way", so a Chat Card now just fades in. Its old `overlay.chat_spin` column was dropped in #2671.
 _Avoid_: Slot machine, Spinner, reel
 
 **Animation Toggles**:
