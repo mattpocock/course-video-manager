@@ -329,6 +329,10 @@ _Avoid_: Recording mode, Capture backend, New recorder (its old name; stored as 
 The composite of the open recorder's camera, screen and mic, drawn in the scene the preview shows and pushed to one YouTube **Broadcast**. It starts with **Go Live** and ends with **End Stream**. A Live Stream always runs with exactly one **Recording Session**, which it starts and stops: if that Recording Session ends on its own (the camera lost), the Live Stream ends with it, saying why. It keeps no file and never stops or changes the recording: a Live Stream that fails only ends (or restarts) itself (ADR 0054).
 _Avoid_: Stream (alone; it clashes with the Stream Deck and the preview streams), Livestream recording, Broadcast
 
+**Live Timer**:
+How long the **Live Stream** has been live, as `HH:MM:SS`, shown beside Go Live / End Stream on the Streaming tab and in the chat pop-out. It counts from the moment the Live Stream first went live after **Go Live** (not the press), which the app server stamps, so a reconnect doesn't reset it and a reload reads the same. It goes once the Live Stream has ended. It is only in CVM's own UI: never on the Live Stream picture or in an Overlay.
+_Avoid_: Stream clock, Uptime, Duration (alone)
+
 **Streamed Recording Session**:
 A **Recording Session** started by **Go Live**. It differs from others only in that its camera writer and screen recorder also feed the **Live Stream** (behind fifos that drop rather than wait), and leaving the page doesn't stop it. Every other Recording Session runs exactly as it always did, with no extra process.
 _Avoid_: Stream recording, Live take

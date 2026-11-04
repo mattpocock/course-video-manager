@@ -511,6 +511,7 @@ describe("raw footage first: a stream failure never stops or delays the take", (
           reason:
             "The Recording Session ended on its own: the camera was lost.",
         },
+        liveSince: null,
       })
     );
     expect(r.streamedSessionsEnded()).toBe(1);

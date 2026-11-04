@@ -14,11 +14,17 @@ const message = (id: string, text: string) => ({
   publishedAt: "2026-11-02T18:00:00Z",
 });
 
+const LIVE_SINCE = "2026-11-04T18:00:00.000Z";
+
 const live = () =>
   new ReducerTester(liveStreamReducer, createInitialLiveStreamState())
     .send({
       type: "live-stream-heard",
-      stream: { videoId: "v1", status: { kind: "live" } },
+      stream: {
+        videoId: "v1",
+        status: { kind: "live" },
+        liveSince: LIVE_SINCE,
+      },
     })
     .send({
       type: "chat-attached",
@@ -68,6 +74,7 @@ describe("the chat view, on the Streaming tab and in its pop-out", () => {
       notices: ["The card's browser is not downloaded."],
       waiting: false,
       viewers: null,
+      liveSince: null,
       rows: [],
     });
   });
@@ -230,6 +237,21 @@ describe("the chat view, on the Streaming tab and in its pop-out", () => {
     }).send({ type: "chat-highlight-hidden", highlightId: "h1" });
     expect(highlightOnPicture(t.getState())).toBeNull();
   });
+  it("carries the Live Timer's start to the pop-out, which draws the timer from it, until the Live Stream ends", () => {
+    const t = live();
+    expect(popoutChatView(t.getState(), null).liveSince).toBe(LIVE_SINCE);
+
+    t.send({
+      type: "live-stream-heard",
+      stream: {
+        videoId: "v1",
+        status: { kind: "ended", reason: "End Stream." },
+        liveSince: null,
+      },
+    });
+    expect(popoutChatView(t.getState(), null).liveSince).toBeNull();
+  });
+
   describe("Concurrent Viewers", () => {
     it("shows how many are watching on the tab and in the pop-out, and nothing while YouTube gives no count", () => {
       const t = live();

@@ -313,6 +313,10 @@ const chatHeard = (state: State, event: BroadcastChatEvent): State => {
 export const isLiveOn = (state: State, videoId: string) =>
   state.stream?.videoId === videoId && isStreamOn(state.stream.status);
 
+/** The Live Timer's start, while the Live Stream on `videoId` is on; else null. */
+export const liveSinceOf = (state: State, videoId: string): string | null =>
+  isLiveOn(state, videoId) ? (state.stream?.liveSince ?? null) : null;
+
 /** The Live indicator every page shows while live, linking back to its Streaming tab. */
 export type LiveIndicator = { videoId: string; href: string; words: string };
 

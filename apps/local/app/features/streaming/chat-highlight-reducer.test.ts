@@ -30,7 +30,7 @@ const withChat = () =>
 const live = () =>
   withChat().send({
     type: "live-stream-heard",
-    stream: { videoId: VIDEO, status: { kind: "live" } },
+    stream: { videoId: VIDEO, status: { kind: "live" }, liveSince: null },
   });
 
 const click = (messageId: string) =>
@@ -127,6 +127,7 @@ describe("the Chat Highlight: one message on the stream picture at a time", () =
         stream: {
           videoId: VIDEO,
           status: { kind: "ended", reason: "End Stream." },
+          liveSince: null,
         },
       });
     expect(highlighted(tester)).toEqual([]);
