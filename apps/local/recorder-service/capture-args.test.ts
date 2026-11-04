@@ -10,6 +10,7 @@ import { BT709, SCREEN_TO_NV12 } from "./colour";
 import {
   cameraWriterArgs,
   screenRecorderArgs,
+  graphUpCommand,
   takeStartCommand,
 } from "./take-args";
 
@@ -151,6 +152,9 @@ describe("a take's camera writer (#2207)", () => {
     expect(takeStartCommand(1_760_000_000_123)).toBe(
       "Call 1760000000.123 expr PTS-1760000000.123/TB\n"
     );
+    // The graph-up check is sent now, so only to setpts@t0: to every
+    // filter, it reset the CFR's own setpts and emptied camera.mkv (#2442).
+    expect(graphUpCommand).toBe("Csetpts@t0 -1 expr PTS-1e10/TB\n");
   });
 
   it("looks for Record on its stdin every 50 ms", () => {
