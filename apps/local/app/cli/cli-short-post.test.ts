@@ -329,6 +329,104 @@ const queueOrder = async () => {
   ).entries.map((e) => `${e.title} ${e.goesOutAt}`);
 };
 
+describe("cvm short post --now (#2692)", () => {
+  it("posts a Queued Short at the Sidecar's next check, and the rest move up one place", async () => {
+    const [, , three] = await queueOfThree();
+
+    const result = await run(["short", "post", "--now", three]);
+
+    expect(result.exitCode).toBe(0);
+    expect(ndjson(result.stdout)).toEqual([
+      {
+        videoId: three,
+        title: "Three",
+        verdict: "queued",
+        reason: null,
+        slot: "2026-11-03T08:00:00.000Z",
+        goesOutAt: "Tue 2026-11-03 08:00",
+      },
+    ]);
+    expect(await queueOrder()).toEqual([
+      "Three Tue 2026-11-03 08:00",
+      "One Tue 2026-11-03 13:00",
+      "Two Wed 2026-11-04 13:00",
+    ]);
+  });
+
+  it("queues a new Short and posts it now; several go in the order given", async () => {
+    const [one] = await queueOfThree();
+    const a = await short("Generics");
+    const b = await short("Satisfies");
+
+    const result = await run(["short", "post", "--now", b, a, one]);
+
+    expect(result.exitCode).toBe(0);
+    expect(
+      ndjson(result.stdout).map((v) => (v as { goesOutAt: string }).goesOutAt)
+    ).toEqual([
+      "Tue 2026-11-03 08:00",
+      "Tue 2026-11-03 08:00",
+      "Tue 2026-11-03 08:00",
+    ]);
+    // Asked first goes first; the slot schedule then carries on with Two.
+    expect(await queueOrder()).toEqual([
+      "Satisfies Tue 2026-11-03 08:00",
+      "Generics Tue 2026-11-03 08:00",
+      "One Tue 2026-11-03 08:00",
+      "Two Tue 2026-11-03 13:00",
+      "Three Wed 2026-11-04 13:00",
+    ]);
+  });
+
+  it("refuses a Short that is Posting or Held, exit 3, and marks none of the batch", async () => {
+    const [one] = await queueOfThree();
+    const posting = await inFlight("Going", "posting");
+
+    const result = await run(["short", "post", "--now", one, posting]);
+
+    expect(result.exitCode).toBe(3);
+    expect(errorOf(result).refusals).toEqual([
+      {
+        videoId: posting,
+        reason: expect.stringContaining(
+          "already in the Posting Queue (posting)"
+        ),
+      },
+    ]);
+    // Unchanged: Monday missed its slot, so Tuesday is 09:00 and 18:00.
+    expect(await queueOrder()).toEqual([
+      "Going Tue 2026-11-03 09:00",
+      "One Tue 2026-11-03 18:00",
+      "Two Wed 2026-11-04 13:00",
+      "Three Thu 2026-11-05 13:00",
+    ]);
+  });
+
+  it("--dry-run --now says it would go out now, and writes nothing", async () => {
+    const [, two] = await queueOfThree();
+    const a = await short("Generics");
+
+    const result = await run(["short", "post", "--dry-run", "--now", two, a]);
+
+    expect(result.exitCode).toBe(0);
+    expect(ndjson(result.stdout)).toEqual([
+      expect.objectContaining({
+        videoId: two,
+        goesOutAt: "Tue 2026-11-03 08:00",
+      }),
+      expect.objectContaining({
+        videoId: a,
+        goesOutAt: "Tue 2026-11-03 08:00",
+      }),
+    ]);
+    expect(await queueOrder()).toEqual([
+      "One Tue 2026-11-03 13:00",
+      "Two Wed 2026-11-04 13:00",
+      "Three Thu 2026-11-05 13:00",
+    ]);
+  });
+});
+
 describe("cvm short move", () => {
   it("--top moves a Queued Short to the head, and the queue shows its new slot", async () => {
     const [, , three] = await queueOfThree();

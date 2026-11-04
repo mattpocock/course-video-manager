@@ -12,6 +12,7 @@ import {
   fakeUrl,
   jobKinds,
   jobsOf,
+  postNow,
   queue,
   renders,
   runSidecarUntilSettled,
@@ -87,6 +88,35 @@ describe("the Posting Queue tick", () => {
     // Buffer's own queue (its free plan holds 10, and S3 deletes the file
     // after a day).
     expect(input.mode).toBe("shareNow");
+  });
+
+  it("a Short asked to Post Now posts at the next check, off the slots, and the Short ahead keeps 13:00", async () => {
+    const ahead = await exportedShort("Ahead");
+    const now = await exportedShort("Now please");
+    await queue(ahead, uk("08:00", "2026-10-13"));
+    await queue(now, uk("08:01", "2026-10-13"));
+
+    await postNow(now, uk("10:00"));
+    await tickAt(uk("10:01"));
+    expect(await stateOf(now)).toMatchObject({
+      state: "posting",
+      slot: uk("10:01"),
+    });
+    expect((await stateOf(ahead)).state).toBe("queued");
+
+    await runSidecarUntilSettled();
+    await tickAt(uk("10:03"));
+    expect((await stateOf(now)).state).toBe("posted");
+    expect(youtubeInits()).toHaveLength(1);
+    expect(JSON.parse(bufferPosts()[0]!.body).variables.input.mode).toBe(
+      "shareNow"
+    );
+
+    await tickAt(uk("13:00"));
+    expect(await stateOf(ahead)).toMatchObject({
+      state: "posting",
+      slot: uk("13:00"),
+    });
   });
 
   it("ticking again, a crash after the claim, and restarting the Sidecar never post either channel twice", async () => {

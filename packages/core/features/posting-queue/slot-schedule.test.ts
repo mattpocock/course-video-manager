@@ -27,6 +27,7 @@ const entry = (
     state: "queued",
     claimedSlot: null,
     endedAt: null,
+    postNowAt: null,
     ...over,
   };
 };
@@ -369,6 +370,77 @@ describe("when each queued Short goes out", () => {
     const entries = [...mondayPosted(), posting, ...queued(1, BEFORE_TUE)];
     expect(project(at("2026-11-03T13:01:00Z"), entries)).toEqual([
       "2026-11-04T13:00:00.000Z",
+    ]);
+  });
+});
+
+describe("post now", () => {
+  /** Tuesday 10:00: hours before its one 13:00 slot. */
+  const TUE_10 = at("2026-11-03T10:00:00Z");
+
+  it("posts a Queued Short at the next check, off the slot schedule", () => {
+    const entries = [...mondayPosted(), ...queued(3, BEFORE_TUE)];
+    entries[3] = { ...entries[3]!, postNowAt: TUE_10 - 60_000 };
+    expect(dueNow({ now: TUE_10, entries, patterns: SLOT_PATTERNS })).toEqual({
+      kind: "claim",
+      entryId: entries[3]!.id,
+      slot: TUE_10,
+    });
+  });
+
+  it("goes first, then the slot schedule carries on, every other Short one place up", () => {
+    const entries = [...mondayPosted(), ...queued(3, BEFORE_TUE)];
+    const [, first, second, third] = entries;
+    entries[3] = { ...third!, postNowAt: TUE_10 - 60_000 };
+    const projection = projectPostingQueue({
+      now: TUE_10,
+      entries,
+      patterns: SLOT_PATTERNS,
+    });
+    expect(projection.map((p) => [p.entryId, iso(p.slot)])).toEqual([
+      [third!.id, iso(TUE_10)],
+      [first!.id, "2026-11-03T13:00:00.000Z"],
+      [second!.id, "2026-11-04T13:00:00.000Z"],
+    ]);
+  });
+
+  it("several go out one per check, in the order asked, only once the last claim settled", () => {
+    const entries = [...mondayPosted(), ...queued(3, BEFORE_TUE)];
+    entries[3] = { ...entries[3]!, postNowAt: TUE_10 - 60_000 };
+    entries[2] = { ...entries[2]!, postNowAt: TUE_10 - 30_000 };
+    expect(
+      projectPostingQueue({ now: TUE_10, entries, patterns: SLOT_PATTERNS })
+        .slice(0, 2)
+        .map((p) => p.entryId)
+    ).toEqual([entries[3]!.id, entries[2]!.id]);
+
+    // The first is Posting: the second waits.
+    entries[3] = { ...entries[3]!, state: "posting", claimedSlot: TUE_10 };
+    const next = TUE_10 + 120_000;
+    expect(
+      dueNow({ now: next, entries, patterns: SLOT_PATTERNS })
+    ).toMatchObject({ kind: "nothing" });
+
+    entries[3] = { ...entries[3]!, state: "posted", endedAt: next + 1 };
+    expect(
+      dueNow({ now: next + 120_000, entries, patterns: SLOT_PATTERNS })
+    ).toEqual({ kind: "claim", entryId: entries[2]!.id, slot: next + 120_000 });
+  });
+
+  it("claims no Posting Slot: a day whose slot then went unclaimed still brings catch-up", () => {
+    // Tuesday: 2 queued at 00:00, one slot (13:00). The first is posted now
+    // at 10:00; CVM is off at 13:00, so the second misses its slot.
+    const entries = [...mondayPosted(), ...queued(2, BEFORE_TUE)];
+    entries[1] = {
+      ...entries[1]!,
+      state: "posted",
+      claimedSlot: TUE_10,
+      endedAt: TUE_10 + 60_000,
+    };
+    entries.push(entry({ queuedAt: at("2026-11-03T20:00:00Z") }));
+    expect(firstDaySlots(at("2026-11-04T00:00:01Z"), entries)).toEqual([
+      "2026-11-04T09:00:00.000Z",
+      "2026-11-04T18:00:00.000Z",
     ]);
   });
 });

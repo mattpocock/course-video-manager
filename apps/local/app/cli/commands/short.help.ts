@@ -13,7 +13,8 @@ finished-videos/<videoId>.mp4 on a Storage Root.
     --footage <path>) --range <r> [--range <r>…]
                                        # cut a new Short from ranges of a source
   cvm short render <videoId>           # render the vertical file and print its path
-  cvm short post [--dry-run] <videoId…> # add Shorts to the Posting Queue
+  cvm short post [--dry-run] [--now] <videoId…>
+                                       # add Shorts to the Posting Queue
   cvm short queue                      # list the Posting Queue and when each goes out
 
 Find a Short's id with 'cvm video list --format short'.
@@ -38,7 +39,8 @@ THE STREAM-TO-SHORT LOOP:
   8. 'cvm video update --name … --description …', then 'cvm short post'.
 
 THE POSTING QUEUE:
-  A Short is posted from CVM's own Posting Queue, never at once. Each UK day
+  A Short is posted from CVM's own Posting Queue, never at once ('short post
+  --now' asks for the Sidecar's next check, still through the queue). Each UK day
   (Europe/London) gets at least one Posting Slot, 13:00, even if its queue was
   empty at 00:00. On weekdays more than 14 queued at 00:00 gives 2 (09:00,
   18:00) and more than 21 gives 3 (09:00, 13:00, 18:00); Saturday and Sunday
@@ -152,6 +154,13 @@ An unknown Video id is a not-found (exit 2).
 exits as the real run would: 0 when all would be queued, 3 when any would be
 refused.
 
+--now marks each Short Post Now: the Sidecar posts it at its next check (within
+2 minutes), ahead of the Posting Slots, through the same post path. A Short
+already Queued is marked, not refused; one not in the queue is checked and
+queued as above. Several go one per check, in the order given; every other
+Short moves up one place. A Posting or Held Short is refused. Its 'slot' is
+now. Combine with --dry-run to see it without writing.
+
 LOCAL-ONLY
   Only this machine's Sidecar posts from the Posting Queue, so on any other
   box it is refused before anything happens — _tag "LocalOnlyCommandError",
@@ -159,7 +168,8 @@ LOCAL-ONLY
 
 EXAMPLES:
   cvm short post --dry-run vid_1 vid_2 vid_3
-  cvm short post vid_1 vid_2 vid_3`;
+  cvm short post vid_1 vid_2 vid_3
+  cvm short post --now vid_1`;
 
 export const QUEUE_HELP = `List the Posting Queue and when each Short goes out. Prints one object:
   { days, entries: [{ entryId, videoId, title, state, slot, goesOutAt,

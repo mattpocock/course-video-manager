@@ -52,6 +52,11 @@ export type SlotScheduleEntry = {
   readonly claimedSlot: number | null;
   /** When it left the queue: Posted, Failed or removed. */
   readonly endedAt: number | null;
+  /**
+   * When a Queued entry was asked to Post Now (`cvm short post --now`); null
+   * otherwise. It goes out at the next check, ahead of the slots.
+   */
+  readonly postNowAt: number | null;
 };
 
 /** How many Posting Slots a UK day has. */
@@ -102,6 +107,12 @@ export type ProjectedPost = {
 const byOrder = (a: SlotScheduleEntry, b: SlotScheduleEntry) =>
   a.order < b.order ? -1 : a.order > b.order ? 1 : 0;
 
+/** The Queued entries asked to Post Now, in the order they were asked. */
+const postNowQueue = (entries: ReadonlyArray<SlotScheduleEntry>) =>
+  entries
+    .filter((e) => e.state === "queued" && e.postNowAt !== null)
+    .sort((a, b) => a.postNowAt! - b.postNowAt! || byOrder(a, b));
+
 const isWeekend = (date: LondonDate) => {
   const day = londonWeekday(date);
   return day === 0 || day === 6;
@@ -128,17 +139,27 @@ const walk = ({ now, entries, patterns }: SlotScheduleInput) => {
       (e) => e.queuedAt < ms && (e.endedAt === null || e.endedAt > ms)
     ).length;
 
-  /** History: how many slots on `date` were claimed. */
+  /**
+   * History: how many Posting Slots on `date` were claimed. A Post Now
+   * claimed the instant it went out, never a Posting Slot, so it is not
+   * counted: it is one extra post, and its day can still be missed.
+   */
   const claimedOn = (date: LondonDate) => {
-    const start = londonMidnight(date);
-    const end = londonMidnight(addLondonDays(date, 1));
+    const slots = new Set(
+      Object.values(patterns)
+        .flat()
+        .map((hhmm) => londonInstant(date, hhmm))
+    );
     return entries.filter(
-      (e) =>
-        e.claimedSlot !== null && e.claimedSlot >= start && e.claimedSlot < end
+      (e) => e.claimedSlot !== null && slots.has(e.claimedSlot)
     ).length;
   };
 
-  const queued = entries.filter((e) => e.state === "queued").sort(byOrder);
+  const postNow = postNowQueue(entries);
+  /** Queued entries that wait for a Posting Slot, in queue order. */
+  const queued = entries
+    .filter((e) => e.state === "queued" && e.postNowAt === null)
+    .sort(byOrder);
   const held = entries.filter((e) => e.state === "held").length;
   const simulatedClaims = new Map<LondonDate, number>();
   /** Queued entries the walk has not given a slot yet, in queue order. */
@@ -209,7 +230,11 @@ const walk = ({ now, entries, patterns }: SlotScheduleInput) => {
   ): SlotScheduleEntry | undefined => from.find((e) => e.queuedAt <= slot);
 
   const project = (): ProjectedPost[] => {
-    const projected: ProjectedPost[] = [];
+    // A Post Now goes out at the next check, before any slot.
+    const projected: ProjectedPost[] = postNow.map((e) => ({
+      entryId: e.id,
+      slot: now,
+    }));
     const take = (date: LondonDate, slot: number) => {
       const next = takerOf(slot, remaining);
       if (!next) return;
@@ -237,7 +262,7 @@ const walk = ({ now, entries, patterns }: SlotScheduleInput) => {
     return projected;
   };
 
-  return { queued, openSlotsToday, takerOf, project };
+  return { postNow, queued, openSlotsToday, takerOf, project };
 };
 
 /** When each Queued Short goes out, in posting order. */
@@ -246,7 +271,8 @@ export const projectPostingQueue = (
 ): ProjectedPost[] => walk(input).project();
 
 /**
- * What the Sidecar's tick should do now: claim today's earliest due slot for
+ * What the Sidecar's tick should do now: claim the earliest-asked Post Now
+ * entry at `now`, or else today's earliest due slot for
  * the oldest Short queued at that slot — one claim per check, and only once
  * the previous claim has settled — or nothing. A slot not claimed by the end
  * of its UK day is dropped; catch-up is how a lost day comes back.
@@ -255,6 +281,10 @@ export const dueNow = (input: SlotScheduleInput): DueNow => {
   const schedule = walk(input);
   const settled = !input.entries.some((e) => e.state === "posting");
   if (settled) {
+    const postNow = schedule.postNow[0];
+    if (postNow) {
+      return { kind: "claim", entryId: postNow.id, slot: input.now };
+    }
     for (const slot of schedule.openSlotsToday()) {
       if (slot > input.now) break;
       const taker = schedule.takerOf(slot, schedule.queued);
