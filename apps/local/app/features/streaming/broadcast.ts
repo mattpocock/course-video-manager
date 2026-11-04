@@ -109,6 +109,15 @@ export const endStreamWaitMs = (broadcast: Broadcast): number =>
   END_STREAM_WAIT_MS[broadcast.latencyPreference ?? "normal"];
 
 /**
+ * How End Stream's **Unlist When Ended** went: not asked (the Broadcast was
+ * not public, or the Video's preference was off), made Unlisted, or why not.
+ */
+export type UnlistResult =
+  | { status: "not-asked" }
+  | { status: "unlisted" }
+  | { status: "failed"; message: string };
+
+/**
  * Why Google needs (re)connecting before Broadcasts can be listed: no stored
  * grant, or one given before CVM asked for live-streaming access
  * (`youtube.force-ssl`).
