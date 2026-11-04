@@ -12,10 +12,12 @@ import {
 } from "./clip-mockup-speech-service";
 import { FFmpegEncodeService } from "./ffmpeg-encode-commands";
 import { GpuGate, makeGpuGate, recorderGpuGateLayer } from "./gpu-gate";
+import { LocalWhisperEngine } from "./local-whisper-engine";
 import { resolveClipMockupSpeeches } from "./resolve-clip-mockup-speech";
 import { SidecarContextTest } from "./sidecar-context";
 import { STORAGE_ROOTS_ENV_KEY } from "./storage-roots";
 import type { RecordingSignal } from "./still-gate";
+import { WhisperTranscriptionService } from "./whisper-transcription-service";
 
 /** A recorder the test starts and stops. */
 const fakeRecorder = (recording = false) => {
@@ -235,6 +237,87 @@ describe("the GPU gate holds every GPU user, not only Whisper (#2644)", () => {
         else process.env[STORAGE_ROOTS_ENV_KEY] = original;
       }
     }));
+});
+
+// Matt's process needs each Clip's text as it arrives, in a Recording
+// Session and in a Live Stream (2026-11-04): #2631 had held every Whisper
+// pass until the Stop. A Clip's pass is short (its span of the mic file,
+// from a warm model), so only a Footage file's chunks wait.
+describe("Whisper transcription at the GPU gate", () => {
+  it(
+    "transcribes a Clip mid-Recording Session (a Live Stream always records), and holds a Footage file until the Stop",
+    () =>
+      withTempDir("gpu-gate-whisper-", async (dir) => {
+        // A stand-in `ffmpeg` that writes an empty file where it is told: no real decode.
+        fs.writeFileSync(
+          path.join(dir, "ffmpeg"),
+          `#!/bin/sh\nfor a; do last="$a"; done\n: > "$last"\nexit 0\n`,
+          { mode: 0o755 }
+        );
+        const originalPath = process.env.PATH;
+        process.env.PATH = `${dir}${path.delimiter}${originalPath ?? ""}`;
+        const recorder = fakeRecorder(true);
+        const heard: string[] = [];
+        // Local Whisper, faked at its seam.
+        const whisper = Layer.succeed(LocalWhisperEngine, {
+          keepWarm: () => Effect.void,
+          transcribe: () =>
+            Effect.sync(() => {
+              heard.push("pass");
+              return {
+                segments: [{ start: 0, end: 1, text: " hello" }],
+                words: [{ start: 0, end: 1, text: "hello" }],
+              };
+            }),
+        });
+        try {
+          await Effect.runPromise(
+            Effect.gen(function* () {
+              const whisperService = yield* WhisperTranscriptionService;
+              const [clip] = yield* whisperService.transcribeClips([
+                {
+                  id: "clip-1",
+                  inputVideo: path.join(dir, "mic.wav"),
+                  startTime: 1,
+                  duration: 2,
+                },
+              ]);
+              expect(clip?.words.map((w) => w.text)).toEqual(["hello"]);
+
+              const footage = yield* Effect.fork(
+                whisperService.transcribeFootageFile(
+                  path.join(dir, "footage.mp4")
+                )
+              );
+              yield* Effect.sleep("300 millis");
+              expect(heard).toEqual(["pass"]);
+
+              recorder.set(false);
+              yield* Fiber.join(footage);
+              expect(heard).toEqual(["pass", "pass"]);
+            }).pipe(
+              Effect.provide(
+                WhisperTranscriptionService.Default.pipe(
+                  Layer.provideMerge(
+                    Layer.mergeAll(
+                      whisper,
+                      NodeContext.layer,
+                      SidecarContextTest,
+                      Layer.succeed(GpuGate, {
+                        run: makeGpuGate(recorder.signal),
+                      })
+                    )
+                  )
+                )
+              )
+            )
+          );
+        } finally {
+          process.env.PATH = originalPath;
+        }
+      }),
+    10_000
+  );
 });
 
 // The Sidecar's gate reads the recorder service's `/health`, as `cvm`'s

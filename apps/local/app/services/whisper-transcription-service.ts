@@ -226,13 +226,9 @@ export class WhisperTranscriptionService extends Effect.Service<WhisperTranscrip
         return outputFile;
       });
 
-      /**
-       * One audio file through Local Whisper. Every caller below goes
-       * through here, and so through the GPU gate (#2631): no pass starts
-       * while a Recording Session or Live Stream is live.
-       */
-      const transcribeAudioFile = (audioPath: string) =>
-        gpu.run(localWhisper.transcribe(audioPath)).pipe(
+      /** One audio file through Local Whisper. Every caller below goes through here. */
+      const whisperPass = (audioPath: string) =>
+        localWhisper.transcribe(audioPath).pipe(
           Effect.mapError(
             (error) =>
               new CouldNotTranscribeError({
@@ -241,6 +237,14 @@ export class WhisperTranscriptionService extends Effect.Service<WhisperTranscrip
               })
           )
         );
+
+      /**
+       * A pass through the GPU gate (#2631): it starts only while nothing
+       * records. A Footage file's chunks go this way; a Clip's pass does not
+       * (see {@link transcribeClips}).
+       */
+      const transcribeAudioFile = (audioPath: string) =>
+        gpu.run(whisperPass(audioPath));
 
       /** Each Clip's range of its recording, transcribed on its own. */
       const transcribeClips = Effect.fn("transcribeClips")(function* (
@@ -261,7 +265,12 @@ export class WhisperTranscriptionService extends Effect.Service<WhisperTranscrip
                 startTime: clip.startTime,
                 duration: clip.duration,
               });
-              const transcription = yield* transcribeAudioFile(audioPath);
+              // NOT through the GPU gate: the recording workflow needs each
+              // Clip's text as it arrives, in a Recording Session and in a
+              // Live Stream (Matt, 2026-11-04, undoing #2631 for Clips). A
+              // Clip's pass is short: its span of the mic file, at nice 19,
+              // from the model the recorder keeps warm (#2224).
+              const transcription = yield* whisperPass(audioPath);
               yield* removeBestEffort(effectFs, audioPath);
 
               return {
