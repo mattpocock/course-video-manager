@@ -29,7 +29,7 @@ const withChat = () =>
 const live = () =>
   withChat().send({
     type: "live-stream-heard",
-    stream: { videoId: "v1", status: { kind: "live" } },
+    stream: { videoId: "v1", status: { kind: "live" }, liveSince: null },
   });
 
 /** A click in the pop-out, as it crosses the BroadcastChannel to the tab. */

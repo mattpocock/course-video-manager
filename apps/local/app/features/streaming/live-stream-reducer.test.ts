@@ -415,12 +415,16 @@ describe("Go Live and End Stream on the Live Stream surface", () => {
       .send({ type: "go-live-pressed", videoId: VIDEO, silenceLength: "short" })
       .send({
         type: "live-stream-heard",
-        stream: { videoId: VIDEO, status: { kind: "starting" } },
+        stream: {
+          videoId: VIDEO,
+          status: { kind: "starting" },
+          liveSince: null,
+        },
       })
       .send({ type: "go-live-answered" })
       .send({
         type: "live-stream-heard",
-        stream: { videoId: VIDEO, status: { kind: "live" } },
+        stream: { videoId: VIDEO, status: { kind: "live" }, liveSince: null },
       });
 
     expect(goLiveControl(tester.getState(), VIDEO)).toMatchObject({
@@ -453,6 +457,7 @@ describe("Go Live and End Stream on the Live Stream surface", () => {
       stream: {
         videoId: VIDEO,
         status: { kind: "ended", reason: "End Stream." },
+        liveSince: null,
       },
     });
 
@@ -468,7 +473,7 @@ describe("Go Live and End Stream on the Live Stream surface", () => {
     // A tab reloaded during End Stream's wait: no press of its own is out.
     const tester = picked().send({
       type: "live-stream-heard",
-      stream: { videoId: VIDEO, status: { kind: "ending" } },
+      stream: { videoId: VIDEO, status: { kind: "ending" }, liveSince: null },
     });
 
     expect(goLiveControl(tester.getState(), VIDEO)).toEqual({
@@ -487,7 +492,7 @@ describe("Go Live and End Stream on the Live Stream surface", () => {
     const tester = picked()
       .send({
         type: "live-stream-heard",
-        stream: { videoId: VIDEO, status: { kind: "live" } },
+        stream: { videoId: VIDEO, status: { kind: "live" }, liveSince: null },
       })
       .send({
         type: "live-stream-heard",
@@ -498,6 +503,7 @@ describe("Go Live and End Stream on the Live Stream surface", () => {
             reason:
               "The Recording Session ended on its own: the camera was lost.",
           },
+          liveSince: null,
         },
       });
 
@@ -516,7 +522,11 @@ describe("the Live indicator, on every page while live", () => {
 
   it("shows on any page while the recorder says it is live, linking back to that Video's Streaming tab, and goes once it ends, however it ends", () => {
     const tester = start().send(
-      heardFromAppServer({ videoId: "v1", status: { kind: "live" } })
+      heardFromAppServer({
+        videoId: "v1",
+        status: { kind: "live" },
+        liveSince: null,
+      })
     );
     expect(liveIndicator(tester.getState())).toEqual({
       videoId: "v1",
@@ -525,7 +535,11 @@ describe("the Live indicator, on every page while live", () => {
     });
 
     tester.send(
-      heardFromAppServer({ videoId: "v1", status: { kind: "reconnecting" } })
+      heardFromAppServer({
+        videoId: "v1",
+        status: { kind: "reconnecting" },
+        liveSince: null,
+      })
     );
     expect(liveIndicator(tester.getState())?.words).toBe(
       "Reconnecting to YouTube…"
@@ -535,6 +549,7 @@ describe("the Live indicator, on every page while live", () => {
       heardFromAppServer({
         videoId: "v1",
         status: { kind: "ended", reason: "End Stream." },
+        liveSince: null,
       })
     );
     expect(liveIndicator(tester.getState())).toBeNull();

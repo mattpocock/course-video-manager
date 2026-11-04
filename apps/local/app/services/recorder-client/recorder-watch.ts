@@ -27,6 +27,7 @@ const sameLiveStream = (
   (a !== null &&
     b !== null &&
     a.videoId === b.videoId &&
+    a.liveSince === b.liveSince &&
     a.status.kind === b.status.kind &&
     (a.status.kind === "ended" ? a.status.reason : null) ===
       (b.status.kind === "ended" ? b.status.reason : null));
