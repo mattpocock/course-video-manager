@@ -65,9 +65,10 @@ export { dependencyFailedMessage } from "./db-job-calls.server.js";
 /**
  * Job kinds held, queued, while any Recording Session is recording (#2214):
  * a whole Footage file is minutes of GPU and disk, so it waits for Stop.
- * A Clip's transcription is claimed at once and reads only the Clip's span
- * of the mic file, but its Whisper pass waits for Stop too, in the Sidecar's
- * GPU gate (#2631, `apps/local/app/services/gpu-gate.ts`).
+ * A Clip's transcription is NOT held: it is claimed and transcribed at once,
+ * mid-take and mid-stream, reading only the Clip's span of the mic file
+ * (#2224; Matt, 2026-11-04). Its Whisper pass skips the Sidecar's GPU gate
+ * (`apps/local/app/services/gpu-gate.ts`), which a Footage chunk waits at.
  */
 export const HELD_WHILE_RECORDING_KINDS = ["transcribe-footage"] as const;
 
