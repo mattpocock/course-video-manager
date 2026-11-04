@@ -23,6 +23,7 @@ const broadcast = (
   liveChatId: `chat-${id}`,
   boundStreamId: null,
   latencyPreference: null,
+  privacyStatus: null,
   ...overrides,
 });
 
@@ -218,6 +219,54 @@ const listed = (...broadcasts: Broadcast[]) =>
       type: "broadcasts-answered",
       answer: { status: "listed", broadcasts },
     });
+
+describe("New Broadcast on the Live Stream surface", () => {
+  it("adds the created Broadcast to the list and picks it, starting its chat", () => {
+    const created = broadcast("new-one", { boundStreamId: "keys-stream" });
+    const tester = start()
+      .send({ type: "broadcast-picker-shown" })
+      .send({
+        type: "broadcasts-answered",
+        answer: { status: "listed", broadcasts: [officeHours] },
+      })
+      .send({ type: "broadcast-clicked", broadcastId: "office-hours" })
+      .send({ type: "change-broadcast-clicked" })
+      .resetExec()
+      .send({ type: "broadcast-created", broadcast: created });
+
+    expect(
+      broadcastPickerRows(tester.getState()).map((r) => r.broadcast.id)
+    ).toEqual(["office-hours", "new-one"]);
+    expect(broadcastPickerView(tester.getState())).toEqual({
+      kind: "picked",
+      broadcast: created,
+      refusal: null,
+    });
+    expect(tester.getEffects()).toEqual([
+      {
+        type: "pick-broadcast",
+        pick: { broadcastId: "new-one", liveChatId: "chat-new-one" },
+      },
+    ]);
+    expect(tester.getState().chat).toEqual({
+      broadcastId: "new-one",
+      connection: { state: "connecting" },
+      messages: [],
+    });
+  });
+
+  it("picks the created Broadcast even before the list has answered", () => {
+    const created = broadcast("new-one");
+    const tester = start()
+      .send({ type: "broadcast-picker-shown" })
+      .send({ type: "broadcast-created", broadcast: created });
+
+    expect(broadcastPickerView(tester.getState())).toMatchObject({
+      kind: "picked",
+      broadcast: created,
+    });
+  });
+});
 
 describe("the Live Stream surface's chat buffer", () => {
   it("picking a Broadcast hands its chat to the app server, and its messages fill the buffer as they arrive", () => {

@@ -1,3 +1,5 @@
+import type { NewBroadcastSettings } from "./broadcast";
+
 /**
  * Creating a Video to stream into: one standalone Landscape Video, made by
  * `POST /api/videos/create` and opened on the Streaming tab, as Shorts' "+"
@@ -17,3 +19,20 @@ export const newStreamVideoFormData = (): FormData => {
   formData.set("redirectTo", "/streaming/{id}");
   return formData;
 };
+
+/** The Video a **New Broadcast** is made for, as its form reads it. */
+export type NewBroadcastVideo = { title: string; description: string | null };
+
+/**
+ * What the New Broadcast form starts with for the Video the Streaming tab is
+ * open for: its title and description, Unlisted (a stream never goes public
+ * by accident) and Ultra-low latency (chat replies land quickly).
+ */
+export const newBroadcastDefaults = (
+  video: NewBroadcastVideo
+): NewBroadcastSettings => ({
+  title: video.title,
+  description: video.description ?? "",
+  privacyStatus: "unlisted",
+  latencyPreference: "ultraLow",
+});

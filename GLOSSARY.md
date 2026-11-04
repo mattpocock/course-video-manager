@@ -342,8 +342,12 @@ The gestures that start and stop a **Live Stream** and its **Streamed Recording 
 _Avoid_: Start/Stop stream, Stop Stream, Go Offline
 
 **Broadcast**:
-A YouTube live event on Matt's channel (upcoming or active), picked before Go Live. The Live Stream is pushed to it, and its live chat is the chat shown. CVM lists Broadcasts, and at Go Live binds the picked one to the YouTube stream whose ingest name is the **Stream Key** if it isn't already, but never creates one or moves it between states: YouTube's auto-start and auto-stop start and end it, so one with either turned off is marked in the picker and Go Live refuses it.
+A YouTube live event on Matt's channel (upcoming or active), picked before Go Live. The Live Stream is pushed to it, and its live chat is the chat shown. CVM lists Broadcasts, showing each one's privacy and latency, and at Go Live binds the picked one to the YouTube stream whose ingest name is the **Stream Key** if it isn't already. CVM can create one (**New Broadcast**), always with auto-start and auto-stop on. It never starts one or moves it between states, other than **End Stream** completing it: YouTube's auto-start and auto-stop start and end it, so one with either turned off is marked in the picker and Go Live refuses it.
 _Avoid_: Stream, Event, Destination (YouTube is the only one)
+
+**New Broadcast**:
+Creating a **Broadcast** from the Streaming tab, with the button beside the Broadcast picker, rather than in YouTube Studio. Its form starts from the **Video** the tab is open for: its title and description, Unlisted (or Public) and Ultra-low latency (or Low, or Normal). The Broadcast is never made for kids, and auto-start and auto-stop are on. CVM then turns its ads monetization off, binds it to the **Stream Key**'s stream and picks it, so its chat starts. The form says how each step went: "Monetization: off", off because the channel is not in the YouTube Partner Program, or a failure to fix in YouTube Studio before going live; and whether it was bound, and why not. Only a failed create is an error: the Broadcast is picked whatever the later steps said.
+_Avoid_: Create stream, New event, Schedule stream
 
 **Concurrent Viewers**:
 How many people are watching a **Broadcast** right now, as YouTube counts them (`liveStreamingDetails.concurrentViewers`). The app server reads it every 30 s from the pick until **End Stream** or YouTube says the Broadcast ended, at 1 quota unit a read. The Streaming tab's chat and its pop-out show it as "N watching", and show nothing while YouTube gives no count (before live, or hidden by the channel). A read that fails keeps the last count, with no error shown (#2659).

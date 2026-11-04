@@ -222,6 +222,11 @@
       "reason": "Quick, and watched: the Streaming tab's Broadcast picker asks the app server for Matt's YouTube Broadcasts while he looks at the picker, before Go Live (#2451). Nothing is left to finish if he walks away."
     },
     {
+      "file": "apps/local/app/features/streaming/use-new-broadcast-reducer.ts",
+      "count": 1,
+      "reason": "Quick, and watched: New Broadcast (#2679) asks the app server to create a Broadcast while Matt waits on its form, which then shows how monetization and the bind went and picks it. A few small YouTube calls, before Go Live."
+    },
+    {
       "file": "apps/local/app/services/youtube-live-service.ts",
       "count": 3,
       "reason": "Quick, and watched: the YouTube Live service lists Matt's Broadcasts for the picker he is looking at (#2451), two small reads. It also reads the picked Broadcast's live chat for the app server's Broadcast chat (#2453), one streamList connection held open from the pick to End Stream: chat belongs to the live stream, is never stored, and is worth nothing once the stream is over, so it must not wait on a Job. At Go Live (#2456) it finds the YouTube stream whose ingest name is the Stream Key and binds the picked Broadcast to it if needed: one or two small calls while Matt waits on Go Live."

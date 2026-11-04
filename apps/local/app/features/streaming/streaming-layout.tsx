@@ -24,6 +24,7 @@ import {
   useBroadcastChatBridge,
 } from "./broadcast-chat-view";
 import { StreamCardPreview } from "./stream-card-preview";
+import type { NewBroadcastVideo } from "./new-stream-video";
 
 /**
  * The composite preview, with the Chat Highlight the stream shows over it,
@@ -109,6 +110,8 @@ const StreamToolbar = () => {
 export const StreamingLayout = (props: {
   /** Why Chat Highlights can't be shown, if they can't (`chatHighlightsUnavailable`). */
   highlightsUnavailable: string | null;
+  /** The Video the tab is open for, as New Broadcast reads it. */
+  video: NewBroadcastVideo;
 }) => {
   const videoTitle = useContextSelector(
     VideoEditorContext,
@@ -146,7 +149,7 @@ export const StreamingLayout = (props: {
         </section>
         <aside className="lg:w-[48ch] shrink-0 min-h-0 rounded-lg border bg-card/40 flex flex-col gap-3 p-3">
           <div className="shrink-0 max-h-[50%] flex flex-col min-h-0">
-            <BroadcastPicker />
+            <BroadcastPicker video={props.video} />
           </div>
           <BroadcastChatView
             highlightsUnavailable={props.highlightsUnavailable}
