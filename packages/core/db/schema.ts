@@ -989,11 +989,6 @@ export const overlays = createTable(
      * the time a row is written the array is already validated.
      */
     bullets: jsonb("bullets").$type<BulletPanelBullet[]>(),
-    /**
-     * UNUSED since #2669, which removed the Chat Spin from Shorts: nothing
-     * reads or writes it. #2671 drops the column.
-     */
-    chatSpin: jsonb("chat_spin").$type<{ author: string; text: string }[]>(),
   },
   (table) => [
     // "Every Overlay on this Video" resolves Clip-by-Clip, so this FK column is
