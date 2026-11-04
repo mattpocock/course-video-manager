@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { ThumbnailSelector } from "@/features/video-posting/post-page-thumbnail-selector";
 import type { LatencyPreference, NewBroadcastSettings } from "./broadcast";
 import {
   canCreate,
@@ -67,7 +68,7 @@ const Choices = <T extends string>(props: {
   </div>
 );
 
-const ReportRow = ({ line }: { line: ReportLine }) => (
+export const ReportRow = ({ line }: { line: ReportLine }) => (
   <p
     className={cn(
       "flex gap-1 text-sm",
@@ -96,9 +97,10 @@ export const NewBroadcastButton = ({ dispatch }: Pick<Props, "dispatch">) => (
 );
 
 /**
- * The New Broadcast form: title, description, privacy and latency, from the
- * Video's defaults. Once created, it says how monetization and the bind
- * went; the Broadcast is already picked.
+ * The New Broadcast form: title, description, privacy, latency and
+ * thumbnail, from the Video's defaults. Once created, it says how
+ * monetization, the bind and the thumbnail went; the Broadcast is already
+ * picked.
  */
 export const NewBroadcastForm = ({ state, dispatch }: Props) => {
   const report = newBroadcastReport(state);
@@ -108,7 +110,7 @@ export const NewBroadcastForm = ({ state, dispatch }: Props) => {
       open={state.open}
       onOpenChange={(open) => !open && dispatch({ type: "form-dismissed" })}
     >
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>New Broadcast</DialogTitle>
           <DialogDescription>
@@ -167,6 +169,14 @@ export const NewBroadcastForm = ({ state, dispatch }: Props) => {
               dispatch({ type: "latency-picked", latencyPreference })
             }
           />
+          <ThumbnailSelector
+            videoId={state.video.id}
+            thumbnails={state.video.thumbnails}
+            selectedThumbnailId={state.draft.thumbnailId}
+            onSelectThumbnail={(thumbnailId) =>
+              dispatch({ type: "thumbnail-picked", thumbnailId })
+            }
+          />
           {state.error !== null && (
             <p role="alert" className="text-sm text-destructive">
               Couldn't create the Broadcast: {state.error}
@@ -177,6 +187,7 @@ export const NewBroadcastForm = ({ state, dispatch }: Props) => {
               <ReportRow line={{ ok: true, words: "Created and picked." }} />
               <ReportRow line={report.monetization} />
               <ReportRow line={report.bind} />
+              <ReportRow line={report.thumbnail} />
             </div>
           )}
           <DialogFooter>

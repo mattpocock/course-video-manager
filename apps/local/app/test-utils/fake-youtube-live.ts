@@ -3,6 +3,7 @@ import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { ConfigProvider, Effect, Layer } from "effect";
 import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
+import { ThumbnailOperationsService } from "@/services/db-thumbnail-operations.server";
 import { DrizzleService } from "@/services/drizzle-service.server";
 import * as schema from "@/db/schema";
 import {
@@ -34,7 +35,7 @@ export const youtube: {
     method: string;
     path: string;
     authorization: string | undefined;
-    /** The JSON body sent, or null for none. */
+    /** The body sent: parsed when JSON, as text otherwise (a thumbnail's bytes), or null for none. */
     body: unknown;
   }[];
   answers: Record<string, Answer>;
@@ -79,14 +80,17 @@ const answerFor = (method: string, url: URL): Answer | undefined => {
 
 export const useFakeYouTube = () => {
   let testDb: TestDb;
-  let testLayer: Layer.Layer<LinkAuthOperationsService | DrizzleService>;
+  let testLayer: Layer.Layer<
+    LinkAuthOperationsService | ThumbnailOperationsService | DrizzleService
+  >;
 
   beforeAll(async () => {
     testDb = (await createTestDb()).testDb;
     const drizzleLayer = Layer.succeed(DrizzleService, testDb as any);
-    testLayer = LinkAuthOperationsService.Default.pipe(
-      Layer.provideMerge(drizzleLayer)
-    );
+    testLayer = Layer.mergeAll(
+      LinkAuthOperationsService.Default,
+      ThumbnailOperationsService.Default
+    ).pipe(Layer.provideMerge(drizzleLayer));
   });
 
   beforeEach(async () => {
@@ -109,7 +113,13 @@ export const useFakeYouTube = () => {
       let text = "";
       req.on("data", (chunk) => (text += String(chunk)));
       req.on("end", () => {
-        if (text) request.body = JSON.parse(text) as unknown;
+        if (text) {
+          request.body = req.headers["content-type"]?.startsWith(
+            "application/json"
+          )
+            ? (JSON.parse(text) as unknown)
+            : text;
+        }
         if (url.pathname === "/youtube/v3/liveChat/messages/stream") {
           const script = youtube.chatStreams.shift() ?? holdOpen;
           script(res);
@@ -150,8 +160,25 @@ export const useFakeYouTube = () => {
       expiresAt: new Date(Date.now() + 60 * 60 * 1000),
     });
 
+  /** A Video with one Thumbnail whose image is the file at `filePath`. */
+  const storeThumbnail = async (filePath: string) => {
+    const [video] = await testDb
+      .insert(schema.videos)
+      .values({ title: "Stream", originalFootagePath: "" })
+      .returning();
+    const [thumbnail] = await testDb
+      .insert(schema.thumbnails)
+      .values({ videoId: video!.id, filePath, layers: {} })
+      .returning();
+    return { videoId: video!.id, thumbnailId: thumbnail!.id };
+  };
+
   const runWithFakeYouTube = <A, E>(
-    effect: Effect.Effect<A, E, LinkAuthOperationsService>
+    effect: Effect.Effect<
+      A,
+      E,
+      LinkAuthOperationsService | ThumbnailOperationsService
+    >
   ) =>
     effect.pipe(
       Effect.provide(testLayer),
@@ -167,5 +194,5 @@ export const useFakeYouTube = () => {
       Effect.runPromise
     );
 
-  return { storeGrant, runWithFakeYouTube };
+  return { storeGrant, storeThumbnail, runWithFakeYouTube };
 };

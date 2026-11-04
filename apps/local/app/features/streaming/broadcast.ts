@@ -62,6 +62,14 @@ export type NewBroadcastSettings = {
   latencyPreference: LatencyPreference;
 };
 
+/**
+ * The New Broadcast form's fields: the settings, and which of the CVM
+ * Video's thumbnails to set on it (null for none).
+ */
+export type NewBroadcastDraft = NewBroadcastSettings & {
+  thumbnailId: string | null;
+};
+
 /** How turning a new Broadcast's ads monetization off went. */
 export type MonetizationResult =
   | { status: "off" }
@@ -77,6 +85,14 @@ export type BindResult =
   { status: "bound" } | { status: "not-bound"; reason: string };
 
 /**
+ * How setting a Broadcast's thumbnail went (`thumbnails.set`), at create or
+ * later: `none` when no thumbnail was picked. A failed thumbnail never
+ * stops the Broadcast being created.
+ */
+export type ThumbnailResult =
+  { status: "set" } | { status: "none" } | { status: "failed"; reason: string };
+
+/**
  * What `POST /api/streaming/new-broadcast` answers: the Broadcast and how
  * each step after the insert went (only a failed insert fails the route),
  * or why Google needs reconnecting first.
@@ -87,6 +103,7 @@ export type NewBroadcastAnswer =
       broadcast: Broadcast;
       monetization: MonetizationResult;
       bind: BindResult;
+      thumbnail: ThumbnailResult;
     }
   | { status: "needs-reconnect"; reason: ReconnectReason };
 

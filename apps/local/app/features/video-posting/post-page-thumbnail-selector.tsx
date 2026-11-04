@@ -19,7 +19,8 @@ export function ThumbnailSelector({
   thumbnails: Array<{ id: string }>;
   selectedThumbnailId: string | null;
   onSelectThumbnail: (id: string | null) => void;
-  onDeleteThumbnail: (id: string) => void;
+  /** Absent where Thumbnails are only picked (a Broadcast's): no Delete. */
+  onDeleteThumbnail?: (id: string) => void;
 }) {
   const navigate = useNavigate();
   const thumbnailMenu = useThumbnailMenu({

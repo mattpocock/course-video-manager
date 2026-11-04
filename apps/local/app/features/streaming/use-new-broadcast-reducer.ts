@@ -1,5 +1,9 @@
 import { useEffectReducer } from "@/hooks/use-effect-reducer";
-import type { NewBroadcastAnswer } from "./broadcast";
+import type { NewBroadcastAnswer, ThumbnailResult } from "./broadcast";
+import {
+  broadcastThumbnailReducer,
+  createInitialBroadcastThumbnailState,
+} from "./broadcast-thumbnail-reducer";
 import type { liveStreamReducer } from "./live-stream-reducer";
 import {
   createInitialNewBroadcastState,
@@ -9,6 +13,9 @@ import type { NewBroadcastVideo } from "./new-stream-video";
 
 /** Where New Broadcast creates (`routes/api.streaming.new-broadcast.ts`). */
 export const NEW_BROADCAST_HREF = "/api/streaming/new-broadcast";
+
+/** Where a picked Broadcast's thumbnail is set (`routes/api.streaming.broadcast-thumbnail.ts`). */
+export const BROADCAST_THUMBNAIL_HREF = "/api/streaming/broadcast-thumbnail";
 
 /** The reason a route refused with: its message, a JSON string or plain text. */
 const reasonOf = (body: string) => {
@@ -20,6 +27,22 @@ const reasonOf = (body: string) => {
   }
   return body;
 };
+
+/** POSTs JSON to one of the app server's streaming routes; its answer, or why not. */
+const postJson = async <T>(href: string, body: unknown): Promise<T> => {
+  const response = await fetch(href, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok)
+    throw new Error(
+      reasonOf(await response.text()) || `HTTP ${response.status}`
+    );
+  return (await response.json()) as T;
+};
+
+const messageOf = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 /**
  * The New Broadcast form's effect runner: it creates, and hands a created
@@ -34,28 +57,45 @@ export function useNewBroadcastReducer(
     () => createInitialNewBroadcastState(video),
     {
       "create-broadcast": (_state, { settings }, dispatch) => {
-        fetch(NEW_BROADCAST_HREF, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(settings),
+        postJson<NewBroadcastAnswer>(NEW_BROADCAST_HREF, {
+          ...settings,
+          videoId: video.id,
         })
-          .then(async (response) => {
-            if (!response.ok)
-              throw new Error(
-                reasonOf(await response.text()) || `HTTP ${response.status}`
-              );
-            const answer = (await response.json()) as NewBroadcastAnswer;
-            dispatch({ type: "create-answered", answer });
-          })
+          .then((answer) => dispatch({ type: "create-answered", answer }))
           .catch((e: unknown) =>
-            dispatch({
-              type: "create-failed",
-              message: e instanceof Error ? e.message : String(e),
-            })
+            dispatch({ type: "create-failed", message: messageOf(e) })
           );
       },
       "pick-created-broadcast": (_state, { broadcast }) => {
         liveStreamDispatch({ type: "broadcast-created", broadcast });
+      },
+    }
+  );
+}
+
+/**
+ * The picked Broadcast's thumbnail control's effect runner: it sets one of
+ * the Video's thumbnails on the Broadcast.
+ */
+export function useBroadcastThumbnailReducer(video: NewBroadcastVideo) {
+  return useEffectReducer(
+    broadcastThumbnailReducer,
+    () => createInitialBroadcastThumbnailState(video),
+    {
+      "set-broadcast-thumbnail": (
+        _state,
+        { broadcastId, thumbnailId },
+        dispatch
+      ) => {
+        postJson<ThumbnailResult>(BROADCAST_THUMBNAIL_HREF, {
+          broadcastId,
+          thumbnailId,
+          videoId: video.id,
+        })
+          .then((result) => dispatch({ type: "set-answered", result }))
+          .catch((e: unknown) =>
+            dispatch({ type: "set-failed", message: messageOf(e) })
+          );
       },
     }
   );

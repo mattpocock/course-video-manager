@@ -4,7 +4,10 @@ import type {
   MonetizationResult,
   NewBroadcastSettings,
   ReconnectReason,
+  ThumbnailResult,
 } from "@/features/streaming/broadcast";
+import { getValidAccessToken } from "@/services/youtube-auth-service";
+import { setYouTubeThumbnail } from "@/services/youtube-upload-service";
 import {
   liveApiCall,
   needsConnecting,
@@ -15,8 +18,9 @@ import {
 /**
  * The YouTube Live service's writes to a **Broadcast** beyond binding and
  * completing it: creating one for **New Broadcast** and turning its ads
- * monetization off. Each goes through the service's `liveApiCall`, so a
- * test fakes YouTube at the HTTP boundary.
+ * monetization off through the service's `liveApiCall`, and setting its
+ * thumbnail through the YouTube upload's `setYouTubeThumbnail`. A test fakes
+ * YouTube at the HTTP boundary.
  */
 
 /** YouTube wants a new Broadcast's start in the future: this long after submit. */
@@ -113,6 +117,43 @@ export const turnMonetizationOff = (broadcastId: string) =>
         Effect.succeed<MonetizationResult>({
           status: "failed",
           message: e.message,
+        }),
+    })
+  );
+
+/**
+ * Sets the Broadcast's thumbnail (`thumbnails.set`, 50 units) to the image
+ * at `thumbnailFilePath`: a Broadcast's id is its video's id. Any failure is
+ * answered with its reason, never failed: the Broadcast is there either way.
+ */
+export const setBroadcastThumbnail = (
+  broadcastId: string,
+  thumbnailFilePath: string
+) =>
+  Effect.gen(function* () {
+    const accessToken = yield* getValidAccessToken;
+    yield* setYouTubeThumbnail({
+      accessToken,
+      youtubeVideoId: broadcastId,
+      thumbnailFilePath,
+    });
+    return { status: "set" } as ThumbnailResult;
+  }).pipe(
+    Effect.catchTags({
+      YouTubeUploadError: (e) =>
+        Effect.succeed<ThumbnailResult>({
+          status: "failed",
+          reason: e.message,
+        }),
+      NotAuthenticatedError: () =>
+        Effect.succeed<ThumbnailResult>({
+          status: "failed",
+          reason: "Google is not connected.",
+        }),
+      YouTubeAuthError: (e) =>
+        Effect.succeed<ThumbnailResult>({
+          status: "failed",
+          reason: e.message,
         }),
     })
   );
