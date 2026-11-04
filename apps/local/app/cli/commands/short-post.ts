@@ -24,20 +24,27 @@ const dryRunOption = Options.boolean("dry-run").pipe(
   )
 );
 
+const nowOption = Options.boolean("now").pipe(
+  Options.withDescription(
+    "Post Now: the Sidecar posts each Short at its next check, ahead of the slots, in the order given (a Short already Queued is marked, not refused)"
+  )
+);
+
 export const postCmd = Command.make(
   "post",
   {
     dryRun: dryRunOption,
+    now: nowOption,
     ids: draftIdArg("video").pipe(Args.atLeast(1)),
   },
-  ({ dryRun, ids: refs }) =>
+  ({ dryRun, now: postNow, ids: refs }) =>
     Effect.gen(function* () {
       yield* requireLocalMachine("cvm short post", NEEDS_THE_SIDECAR_TO_POST);
       const videoIds = yield* Effect.all(refs);
       const now = yield* Clock.currentTimeMillis;
       const verdicts = yield* Effect.flatMap(
         PostingQueueOperationsService,
-        (svc) => svc.postShorts({ videoIds, dryRun, now })
+        (svc) => svc.postShorts({ videoIds, dryRun, postNow, now })
       );
       yield* emitNdjson(verdicts.map(withGoesOutAt));
 

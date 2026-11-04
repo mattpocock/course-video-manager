@@ -1,4 +1,14 @@
-import { and, asc, eq, gt, inArray, isNotNull, isNull, or } from "drizzle-orm";
+import {
+  and,
+  asc,
+  eq,
+  gt,
+  inArray,
+  isNotNull,
+  isNull,
+  or,
+  sql,
+} from "drizzle-orm";
 import { Effect } from "effect";
 import { generateNKeysBetween } from "fractional-indexing";
 import { postingQueueEntries, videoPosts, videos } from "../db/schema.js";
@@ -61,6 +71,10 @@ export type PostingQueueListing = {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+/** A Post Now request as stored: on a Queued entry's `claimedAt`. */
+const postNowDate = (at: number | undefined) =>
+  at === undefined ? null : new Date(at);
+
 export const toScheduleEntry = (
   row: typeof postingQueueEntries.$inferSelect
 ): SlotScheduleEntry => ({
@@ -70,6 +84,9 @@ export const toScheduleEntry = (
   state: row.state,
   claimedSlot: row.claimedSlot?.getTime() ?? null,
   endedAt: row.endedAt?.getTime() ?? null,
+  // A Queued entry with a claim time was asked to Post Now then: only a
+  // Posting or Held one has really claimed (no migration, #2692).
+  postNowAt: row.state === "queued" ? (row.claimedAt?.getTime() ?? null) : null,
 });
 
 /**
@@ -105,10 +122,15 @@ export const createPostingQueueOperations = (db: Database) => {
    * Short is checked first; if any is refused, nothing is queued and the
    * call fails with ShortPostRefusedError. With `dryRun` nothing is written
    * and every verdict comes back, refusals included.
+   *
+   * With `postNow` each Short is also marked Post Now: the Sidecar posts it at
+   * its next check, in the order given. A Short already Queued is marked,
+   * not refused; one Posting or Held is refused, as it has its slot.
    */
   const postShorts = Effect.fn("postShorts")(function* (input: {
     readonly videoIds: ReadonlyArray<string>;
     readonly dryRun: boolean;
+    readonly postNow?: boolean;
     /** Epoch ms: the caller's clock. */
     readonly now: number;
   }) {
@@ -174,7 +196,7 @@ export const createPostingQueueOperations = (db: Database) => {
         return "it has no description: set one first with 'cvm video update --description'";
       }
       const entry = live.find((e) => e.videoId === video.id);
-      if (entry) {
+      if (entry && !(input.postNow && entry.state === "queued")) {
         return `it is already in the Posting Queue (${entry.state})`;
       }
       const platforms = new Set(
@@ -190,7 +212,16 @@ export const createPostingQueueOperations = (db: Database) => {
       const video = found.find((v) => v.id === id)!;
       return { video, reason: refusalOf(video) };
     });
-    const accepted = checked.filter((c) => c.reason === null);
+    const queuedIds = new Set(
+      live.filter((e) => e.state === "queued").map((e) => e.videoId)
+    );
+    const accepted = checked.filter(
+      (c) => c.reason === null && !queuedIds.has(c.video.id)
+    );
+    // Post Now goes in the order given: one ms apart.
+    const postNowAt = new Map(
+      input.postNow ? ids.map((id, i) => [id, input.now + i]) : []
+    );
 
     const lastOrder = rows
       .filter((r) => isLive(r.state))
@@ -204,11 +235,22 @@ export const createPostingQueueOperations = (db: Database) => {
       videoId: c.video.id,
       order: orders[i]!,
     }));
+    /** Queued entries newly marked Post Now (one already marked keeps its time). */
+    const marked = rows.filter(
+      (r) =>
+        r.state === "queued" && r.claimedAt === null && postNowAt.has(r.videoId)
+    );
 
     const projection = projectPostingQueue({
       now: input.now,
       entries: [
-        ...rows.map(toScheduleEntry),
+        ...rows
+          .map(toScheduleEntry)
+          .map((e, i) =>
+            marked.includes(rows[i]!)
+              ? { ...e, postNowAt: postNowAt.get(rows[i]!.videoId)! }
+              : e
+          ),
         ...newEntries.map((e): SlotScheduleEntry => ({
           id: e.id,
           queuedAt: input.now,
@@ -216,13 +258,18 @@ export const createPostingQueueOperations = (db: Database) => {
           state: "queued",
           claimedSlot: null,
           endedAt: null,
+          postNowAt: postNowAt.get(e.videoId) ?? null,
         })),
       ],
       patterns: SLOT_PATTERNS,
     });
 
     const verdicts: ShortPostVerdict[] = checked.map(({ video, reason }) => {
-      const entry = newEntries.find((e) => e.videoId === video.id);
+      const entry =
+        reason === null
+          ? (newEntries.find((e) => e.videoId === video.id) ??
+            rows.find((r) => r.state === "queued" && r.videoId === video.id))
+          : undefined;
       const slot = entry
         ? projection.find((p) => p.entryId === entry.id)?.slot
         : undefined;
@@ -261,14 +308,49 @@ export const createPostingQueueOperations = (db: Database) => {
                 ...e,
                 queuedAt: new Date(input.now),
                 state: "queued" as const,
+                claimedAt: postNowDate(postNowAt.get(e.videoId)),
               }))
             )
           );
         })
       );
     }
+    if (marked.length > 0) yield* markPostNow(marked, postNowAt);
     return verdicts;
   });
+
+  /**
+   * Mark Queued entries Post Now, under the claim's lock. One the Sidecar
+   * claimed meanwhile is no longer Queued, and is left alone.
+   */
+  const markPostNow = (
+    entries: ReadonlyArray<typeof postingQueueEntries.$inferSelect>,
+    postNowAt: ReadonlyMap<string, number>
+  ) =>
+    withDbTransaction(db, (tx) =>
+      Effect.gen(function* () {
+        yield* makeDbCall(() =>
+          tx.execute(
+            sql`select pg_advisory_xact_lock(hashtext('posting-queue-claim'))`
+          )
+        );
+        for (const entry of entries) {
+          yield* requireDraftVersionForVideo(tx, entry.videoId);
+          yield* makeDbCall(() =>
+            tx
+              .update(postingQueueEntries)
+              .set({ claimedAt: postNowDate(postNowAt.get(entry.videoId)) })
+              .where(
+                and(
+                  eq(postingQueueEntries.id, entry.id),
+                  eq(postingQueueEntries.state, "queued"),
+                  isNull(postingQueueEntries.claimedAt)
+                )
+              )
+          );
+        }
+      })
+    );
 
   /**
    * The Posting Queue as `cvm short queue` and the Queue panel show it: the

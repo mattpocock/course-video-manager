@@ -615,6 +615,10 @@ _Avoid_: Stuck, Paused
 **Failed**:
 A **Posting Queue** entry with a channel that failed 3 times. Its slot stays used, and it stays listed, with its reason, until it is taken off the queue. Posting the Short again makes a new entry.
 
+**Post Now**:
+A **Queued** entry marked to go out at the Sidecar's next check, ahead of the **Posting Slots** (`cvm short post --now`, #2692). It goes first, one per check like any claim, in the order asked, through the same post path. It claims the instant it goes out, never a Posting Slot: every other Short moves up one place, and its day can still be missed (so catch-up still applies). Stored as the Queued entry's claim time; only a Posting or Held entry has really claimed.
+_Avoid_: Post immediately, Skip the queue
+
 **Removed**:
 A **Posting Queue** entry taken off the queue with `cvm short unqueue`, from Queued, Held or Failed. Nothing is deleted from YouTube or TikTok, and the Short can be posted again.
 _Avoid_: Unqueued, Taken off, Deleted (as names of the state; "take off the queue" is fine for the act)

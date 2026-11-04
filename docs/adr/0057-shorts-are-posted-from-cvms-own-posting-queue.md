@@ -41,6 +41,14 @@ Matt wants to "live stream for an hour and end up with content for a week". A Sh
    - A Buffer run that knows nothing reached Buffer (its S3 upload failed, or Buffer answered with a refusal: a 4xx, a GraphQL or `MutationError`) removes its unposted Video Post, so the check says not-posted and it is retried. No answer or a 5xx keeps the row, and the check says unknown: Held. ADR 0058 records why.
    - This amends ADR 0032 decision 5: the Posting Queue is the one automatic route to a second post ATTEMPT. It never re-runs a Job, and only follows a check that found the post did not go out.
 
+## Amendment 2026-11-04: Post Now (#2692)
+
+Matt reversed the "no post now" call: "Can you post junior engineers now?" `cvm short post --now <videoId…>` marks a Short **Post Now**: one already Queued is marked, one not in the queue is checked and queued as usual and marked too; a Posting or Held Short is refused (it has its slot).
+
+- **The decision stays in the pure Slot Schedule.** An entry carries `postNowAt`. `dueNow` claims the earliest-asked Post Now entry, at `now`, before any due slot, and still only once the previous claim settled: one post per check. `projectPostingQueue` puts Post Now entries first, at `now`, and walks the days without them, so `cvm short queue`, `--dry-run` and the Queue panel show what the tick will do, and every other Short moves up by exactly one place.
+- **It claims no Posting Slot.** Its `claimedSlot` is the tick's instant. A day's claims now count only claims of that day's Posting Slot instants, so a Post Now is one extra post: it takes no slot from the Short due at it, and a day whose slot then went unclaimed is still missed and still brings catch-up.
+- **No migration.** The request is stored on `claimed_at` of a QUEUED entry (`toScheduleEntry` reads it as `postNowAt`). Before this, only Posting and Held entries had a `claimedAt`, and every reader of it filters to those states, so an older Sidecar ignores the mark and posts the Short at its normal slot. The claim overwrites `claimedAt`, as it always has. The rest of the post path (just-in-time render, YouTube direct, Buffer "share now", retries, Held, Failed) is unchanged.
+
 ## Considered
 
 - **Buffer's own queue (spec #2564).** Rejected: 10 scheduled posts per channel on the free plan, and a file uploaded days ahead is deleted by the 1-day lifecycle rule before Buffer fetches it.

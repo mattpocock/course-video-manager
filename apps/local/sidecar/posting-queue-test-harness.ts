@@ -426,6 +426,21 @@ export const queue = async (videoId: string, at: number) => {
   );
 };
 
+/** `cvm short post --now` at `at`: the Sidecar posts it at its next check. */
+export const postNow = async (videoId: string, at: number) => {
+  clockAt = at;
+  await run(
+    Effect.flatMap(PostingQueueOperationsService, (q) =>
+      q.postShorts({
+        videoIds: [videoId],
+        dryRun: false,
+        postNow: true,
+        now: at,
+      })
+    )
+  );
+};
+
 /** Every Job, oldest first, as the Jobs feed lists them. */
 export const jobs = () =>
   run(
