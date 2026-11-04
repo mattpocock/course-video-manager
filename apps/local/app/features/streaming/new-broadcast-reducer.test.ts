@@ -105,6 +105,7 @@ describe("the New Broadcast form", () => {
     expect(tester.getEffects()).toEqual([
       {
         type: "create-broadcast",
+        videoId: "video-1",
         settings: {
           title: "Office hours: types",
           description: "",

@@ -41,6 +41,7 @@ describe("a picked Broadcast's thumbnail, set later", () => {
     expect(tester.getEffects()).toEqual([
       {
         type: "set-broadcast-thumbnail",
+        videoId: "video-1",
         broadcastId: "picked-one",
         thumbnailId: "newest",
       },

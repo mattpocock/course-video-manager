@@ -13,6 +13,7 @@ import {
   newBroadcastDefaults,
   type NewBroadcastVideo,
 } from "./new-stream-video";
+import type { ReportLine } from "./report-row";
 
 /**
  * The **New Broadcast** form beside the Broadcast picker: its draft, the one
@@ -58,7 +59,12 @@ export namespace newBroadcastReducer {
     | { type: "create-failed"; message: string };
 
   export type Effect =
-    | { type: "create-broadcast"; settings: NewBroadcastDraft }
+    | {
+        type: "create-broadcast";
+        /** The Video the Broadcast is for: its thumbnails are looked up by it. */
+        videoId: string;
+        settings: NewBroadcastDraft;
+      }
     /** Hand the new Broadcast to the Live Stream surface, which picks it. */
     | { type: "pick-created-broadcast"; broadcast: Broadcast };
 }
@@ -116,7 +122,11 @@ export const newBroadcastReducer: EffectReducer<State, Action, Effect> = (
       return edited(state, { thumbnailId: action.thumbnailId });
     case "create-clicked":
       if (!canCreate(state)) return state;
-      exec({ type: "create-broadcast", settings: state.draft });
+      exec({
+        type: "create-broadcast",
+        videoId: state.video.id,
+        settings: state.draft,
+      });
       return { ...state, submitting: true, error: null };
     case "create-answered": {
       if (!state.submitting) return state;
@@ -142,10 +152,7 @@ export const newBroadcastReducer: EffectReducer<State, Action, Effect> = (
   }
 };
 
-/** One line of the report: whether it went as asked, in words. */
-export type ReportLine = { ok: boolean; words: string };
-
-const MONETIZATION_WORDS = (m: MonetizationResult): ReportLine => {
+const monetizationWords = (m: MonetizationResult): ReportLine => {
   switch (m.status) {
     case "off":
       return { ok: true, words: "Monetization: off" };
@@ -163,7 +170,7 @@ const MONETIZATION_WORDS = (m: MonetizationResult): ReportLine => {
   }
 };
 
-const BIND_WORDS = (b: BindResult): ReportLine =>
+const bindWords = (b: BindResult): ReportLine =>
   b.status === "bound"
     ? { ok: true, words: "Bound to the Stream Key's stream." }
     : {
@@ -171,7 +178,8 @@ const BIND_WORDS = (b: BindResult): ReportLine =>
         words: `Not bound to the Stream Key's stream: ${b.reason}`,
       };
 
-const THUMBNAIL_WORDS = (t: ThumbnailResult): ReportLine => {
+/** How a thumbnail set went, in words: the form's, and the later control's when set. */
+export const thumbnailWords = (t: ThumbnailResult): ReportLine => {
   switch (t.status) {
     case "set":
       return { ok: true, words: "Thumbnail set." };
@@ -199,9 +207,9 @@ export const newBroadcastReport = (
   state.created === null
     ? null
     : {
-        monetization: MONETIZATION_WORDS(state.created.monetization),
-        bind: BIND_WORDS(state.created.bind),
-        thumbnail: THUMBNAIL_WORDS(state.created.thumbnail),
+        monetization: monetizationWords(state.created.monetization),
+        bind: bindWords(state.created.bind),
+        thumbnail: thumbnailWords(state.created.thumbnail),
       };
 
 /** The form's Unlist When Ended checkbox shows only for a Public Broadcast. */

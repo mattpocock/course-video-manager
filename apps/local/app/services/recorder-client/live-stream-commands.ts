@@ -36,15 +36,17 @@ export type RecorderLiveStream = {
  * Go Live, kept through `reconnecting` and `ending`, and null once it is not
  * on. The app server stamps it, so a reload or a second tab reads the same;
  * the recorder service never hears of it. Told every status the recorder
- * reports (null: closed).
+ * reports as it is heard (null: closed); read without changing it.
  */
 const liveTimerStart = () => {
   let liveSince: string | null = null;
-  return (status: StreamStatus | null) => {
-    if (!isStreamOn(status)) liveSince = null;
-    else if (status?.kind === "live" && liveSince === null)
-      liveSince = new Date().toISOString();
-    return liveSince;
+  return {
+    hear(status: StreamStatus | null) {
+      if (!isStreamOn(status)) liveSince = null;
+      else if (status?.kind === "live" && liveSince === null)
+        liveSince = new Date().toISOString();
+    },
+    since: () => liveSince,
   };
 };
 
@@ -83,24 +85,32 @@ export const liveStreamCommands = (
       state: RecorderState;
     };
   },
-  stampLiveSince = liveTimerStart()
+  liveTimer = liveTimerStart()
 ) => ({
+  /**
+   * Hears the recorder's state as the client is told it (`hello`, `state`),
+   * which is when it stamps the Live Timer's start. Cut off, the recorder
+   * may well be live still: nothing is heard, so the stamp is kept.
+   */
+  recorderStateHeard() {
+    const { state } = o.recorder();
+    liveTimer.hear(state.kind === "closed" ? null : state.stream);
+  },
+
   /**
    * The Live Stream as the recorder last said, and the Video it is open
    * for; null while it is closed or not running. Read by every page, for
    * the Live indicator (ADR 0055), after every change of the recorder's
-   * state, which is when it stamps the Live Timer's start.
+   * state.
    */
   liveStream(): RecorderLiveStream | null {
     const { reachable, state } = o.recorder();
-    // Cut off, the recorder may well be live still: the stamp is kept.
-    if (!reachable) return null;
-    const liveSince = stampLiveSince(
-      state.kind === "closed" ? null : state.stream
-    );
-    return state.kind !== "closed"
-      ? { videoId: state.videoId, status: state.stream, liveSince }
-      : null;
+    if (!reachable || state.kind === "closed") return null;
+    return {
+      videoId: state.videoId,
+      status: state.stream,
+      liveSince: liveTimer.since(),
+    };
   },
 
   /**

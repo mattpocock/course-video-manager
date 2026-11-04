@@ -1,6 +1,7 @@
 import type { EffectReducer } from "use-effect-reducer";
 import type { ThumbnailResult } from "./broadcast";
-import type { ReportLine } from "./new-broadcast-reducer";
+import { thumbnailWords } from "./new-broadcast-reducer";
+import type { ReportLine } from "./report-row";
 import { defaultThumbnailId, type NewBroadcastVideo } from "./new-stream-video";
 
 /**
@@ -33,6 +34,8 @@ export namespace broadcastThumbnailReducer {
 
   export type Effect = {
     type: "set-broadcast-thumbnail";
+    /** The Video whose thumbnail it is. */
+    videoId: string;
     broadcastId: string;
     thumbnailId: string;
   };
@@ -81,6 +84,7 @@ export const broadcastThumbnailReducer: EffectReducer<State, Action, Effect> = (
       if (!canSetThumbnail(state)) return state;
       exec({
         type: "set-broadcast-thumbnail",
+        videoId: state.video.id,
         broadcastId: action.broadcastId,
         thumbnailId: state.thumbnailId!,
       });
@@ -116,7 +120,7 @@ export const broadcastThumbnailReport = (
     case "none":
       return null;
     case "set":
-      return { ok: true, words: "Thumbnail set." };
+      return thumbnailWords(outcome.result);
     case "failed":
       return {
         ok: false,

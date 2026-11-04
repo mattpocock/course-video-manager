@@ -1,4 +1,4 @@
-import { AlertTriangleIcon, CheckIcon, PlusIcon } from "lucide-react";
+import { PlusIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,7 +11,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
 import { ThumbnailSelector } from "@/features/video-posting/post-page-thumbnail-selector";
 import type { LatencyPreference, NewBroadcastSettings } from "./broadcast";
 import {
@@ -19,8 +18,8 @@ import {
   newBroadcastReport,
   showsUnlistWhenEnded,
   type newBroadcastReducer,
-  type ReportLine,
 } from "./new-broadcast-reducer";
+import { ReportRow } from "./report-row";
 import { UnlistWhenEndedCheckbox } from "./unlist-when-ended-checkbox";
 
 type Props = {
@@ -68,22 +67,6 @@ const Choices = <T extends string>(props: {
       ))}
     </div>
   </div>
-);
-
-export const ReportRow = ({ line }: { line: ReportLine }) => (
-  <p
-    className={cn(
-      "flex gap-1 text-sm",
-      line.ok ? "text-foreground" : "text-amber-600"
-    )}
-  >
-    {line.ok ? (
-      <CheckIcon className="size-4 shrink-0 mt-0.5 text-green-600" />
-    ) : (
-      <AlertTriangleIcon className="size-4 shrink-0 mt-0.5" />
-    )}
-    <span>{line.words}</span>
-  </p>
 );
 
 /** The "New Broadcast" button beside the Broadcast picker. */

@@ -315,6 +315,7 @@ export const createRecorderClient = (o: RecorderClientOptions) => {
         reachable = true;
         problem = helloProblem(message);
         state = message.state;
+        live.recorderStateHeard();
         asked = undefined;
         deck.forget();
         reconcile();
@@ -327,6 +328,7 @@ export const createRecorderClient = (o: RecorderClientOptions) => {
         const letGo =
           state.kind === "recording" && message.state.kind !== "recording";
         state = message.state;
+        live.recorderStateHeard();
         reconcile();
         prepare();
         watch.changed();

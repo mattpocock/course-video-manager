@@ -80,12 +80,18 @@ const thumbnailFailed = (reason: string): ThumbnailResult => ({
 export const setThumbnailOnBroadcast = Effect.fn("setThumbnailOnBroadcast")(
   function* (o: BroadcastThumbnail & { broadcastId: string }) {
     const thumbnails = yield* ThumbnailOperationsService;
-    const row = yield* thumbnails.getThumbnailById(o.thumbnailId).pipe(
+    const found = yield* thumbnails.getThumbnailById(o.thumbnailId).pipe(
       Effect.catchTags({
         NotFoundError: () => Effect.succeed(null),
-        UnknownDBServiceError: () => Effect.succeed(null),
+        UnknownDBServiceError: () => Effect.succeed("unreadable" as const),
       })
     );
+    if (found === "unreadable") {
+      return thumbnailFailed(
+        "the thumbnail could not be read from the database: try again."
+      );
+    }
+    const row = found;
     if (row === null || row.videoId !== o.videoId) {
       return thumbnailFailed("the thumbnail is not one of this Video's.");
     }

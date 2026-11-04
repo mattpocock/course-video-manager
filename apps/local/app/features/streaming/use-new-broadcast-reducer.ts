@@ -10,23 +10,13 @@ import {
   newBroadcastReducer,
 } from "./new-broadcast-reducer";
 import type { NewBroadcastVideo } from "./new-stream-video";
+import { messageOf, reasonOf } from "./route-answer";
 
 /** Where New Broadcast creates (`routes/api.streaming.new-broadcast.ts`). */
 export const NEW_BROADCAST_HREF = "/api/streaming/new-broadcast";
 
 /** Where a picked Broadcast's thumbnail is set (`routes/api.streaming.broadcast-thumbnail.ts`). */
 export const BROADCAST_THUMBNAIL_HREF = "/api/streaming/broadcast-thumbnail";
-
-/** The reason a route refused with: its message, a JSON string or plain text. */
-const reasonOf = (body: string) => {
-  try {
-    const parsed: unknown = JSON.parse(body);
-    if (typeof parsed === "string") return parsed;
-  } catch {
-    // Plain text: the reason as it is.
-  }
-  return body;
-};
 
 /** POSTs JSON to one of the app server's streaming routes; its answer, or why not. */
 const postJson = async <T>(href: string, body: unknown): Promise<T> => {
@@ -42,8 +32,6 @@ const postJson = async <T>(href: string, body: unknown): Promise<T> => {
   return (await response.json()) as T;
 };
 
-const messageOf = (e: unknown) => (e instanceof Error ? e.message : String(e));
-
 /**
  * The New Broadcast form's effect runner: it creates, and hands a created
  * Broadcast to the Live Stream surface (`liveStreamDispatch`).
@@ -56,10 +44,10 @@ export function useNewBroadcastReducer(
     newBroadcastReducer,
     () => createInitialNewBroadcastState(video),
     {
-      "create-broadcast": (_state, { settings }, dispatch) => {
+      "create-broadcast": (_state, { videoId, settings }, dispatch) => {
         postJson<NewBroadcastAnswer>(NEW_BROADCAST_HREF, {
           ...settings,
-          videoId: video.id,
+          videoId,
         })
           .then((answer) => dispatch({ type: "create-answered", answer }))
           .catch((e: unknown) =>
@@ -84,13 +72,13 @@ export function useBroadcastThumbnailReducer(video: NewBroadcastVideo) {
     {
       "set-broadcast-thumbnail": (
         _state,
-        { broadcastId, thumbnailId },
+        { videoId, broadcastId, thumbnailId },
         dispatch
       ) => {
         postJson<ThumbnailResult>(BROADCAST_THUMBNAIL_HREF, {
           broadcastId,
           thumbnailId,
-          videoId: video.id,
+          videoId,
         })
           .then((result) => dispatch({ type: "set-answered", result }))
           .catch((e: unknown) =>

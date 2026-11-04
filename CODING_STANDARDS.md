@@ -366,12 +366,13 @@ counts and state-setting effects to a shrink-only allowlist. See
 
 ### One duration formatter
 
-Every duration shown to a person — a Video's length, a clip timecode, an
-Animatic's run time, a YouTube chapter — goes through `formatDuration` in
+Every duration shown to a person (a Video's length, a timecode, a
+YouTube chapter) goes through `formatDuration` in
 `app/lib/format-duration.ts`: `m:ss` under an hour, `h:mm:ss` from one.
 `scripts/check-duration-format.sh` fails a file that hand-rolls it (seconds
-`% 60` plus a two-digit `padStart`). Rounded estimates like an upload ETA
-(`~1h 5m`) are a different thing and keep their own wording.
+`% 60` plus a two-digit `padStart`). The one exception is
+`formatRunningClock` beside it: the Live Timer's fixed-width `HH:MM:SS`
+clock. Rounded estimates (`~1h 5m`) keep their own wording.
 
 ### One toast
 
