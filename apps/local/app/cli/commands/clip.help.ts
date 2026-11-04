@@ -37,26 +37,41 @@ Verbs:
   clip add --video <id> --source <p> --start <t> --end <t>
                                              cut a new clip, text sliced from <source>'s cached transcript
   clip update <id> [flags]                   set --zoom and/or retime --start/--end
+  clip split --at <t|word:n> <id>            split into two adjacent clips at a word boundary
   clip move <id> --before/--after <id>       reposition within the timeline
   clip move <id> --video <id> [--before/--after <id>]   move onto another Video's timeline
   clip delete <id>                           archive the clip (soft delete; see 'clip restore')
   clip restore <id>                          undo 'clip delete'
   clip words <id>                            the clip's Transcript Words, in spoken order (NDJSON)
+  clip edit-transcript --find <t> --replace <t> <id>
+                                             fix a misheard word in the clip's text (and its words)
+  clip layer list|add|update|move|remove     the clip's Layers: its picture (see 'clip layer --help')
+  clip update --layers-from <id> <id...>     copy one clip's Layers onto others
+  clip frame --at <t> <id>                   a PNG of a clip as its render ships it (Short or Landscape)
 
 All writes are immediate — no confirmation, no dry-run (agent-facing tool). There is no 'clip tree'
 (clips are leaves) — use 'video tree' then 'clip get'. 'clip add' cuts a single clip from a footage
 file + time range and takes its text from that footage's cached transcript (see 'cvm footage').`;
 
-export const UPDATE_HELP = `Update a Clip: set its Clip Zoom and/or retime its cut.
+export const UPDATE_HELP = `Update a Clip: set its Clip Zoom and/or retime its cut, or copy another Clip's Layers.
 
-At least one of --zoom / --start / --end is required.
+At least one of --zoom / --start / --end / --layers-from is required.
+
+--layers-from <clip>: copy that Clip's Layers (see 'clip layer') onto every clip named, in one
+write: 'clip update --layers-from clip_src clip_a clip_b'. A copy each; nothing is linked, so
+editing one later changes no other. It goes alone (no --zoom / --start / --end), and is refused
+whole (exit 3) when any clip cannot take them (camera/screen on a clip with no Recording Session).
+Layers with no Scene Layer drop each clip's Clip Zoom. --zoom / --start / --end update one clip at
+a time.
 
 --zoom <t>: "none" (as filmed) or "subtle", rendering the clip slightly tighter so a run of
 face-only camera clips has some visual change across its cuts. Only camera scenes can be zoomed —
 'Camera' and 'TikTok Face' — judged on the clip's 'effectiveScene' (its Scene Override if it has
 one, else its recorded scene). Anything else (a 'Code' clip, or a clip filmed before CVM recorded
-scenes) is refused with exit 3. A Scene Override that moves a zoomed clip off a camera scene drops
-its zoom. Reaches the Export Hash, so setting it marks the Video for re-export.
+scenes) is refused with exit 3. It zooms only the clip's Scene Layer (its Footage Layers keep their
+Placement), so a clip whose Layers have no Scene Layer is refused too (exit 3). A Scene Override
+that moves a zoomed clip off a camera scene drops its zoom, and so does removing its Scene Layer.
+Reaches the Export Hash, so setting it marks the Video for re-export.
 
 --start / --end <seconds>: move the in/out point into the source file. Either can be passed alone
 (the other keeps its current value) or both together. Rejected with exit 3 if the resulting range
@@ -69,12 +84,14 @@ transcriptionStatus, which says whether a Transcription landed at all).
 
 Retiming DOES cascade to everything positioned relative to the clip's start, in the same
 transaction as the recut itself, because moving the in-point moves the footage out from under
-every stored offset:
+every stored offset (and a Footage Layer of a file keeps showing the same Footage at the same
+moment: its start and span move with the cut):
 
-  Transcript Words ('cvm clip words') are shifted by the same delta as the recut. A word the new,
-  shorter range no longer contains — either end outside [0, duration] — is DROPPED. Words are
-  read-side data, reproducible by re-transcribing, and one claiming a moment the clip no longer
-  holds is worse than no word at all.
+  Transcript Words ('cvm clip words') are shifted by the same delta as the recut. A word the new
+  range cuts into is KEPT, clamped to the edge, when most of it (over half) is inside or the cut
+  is within 0.15s of its edge, so a Short cut there still captions it; otherwise it is DROPPED, as
+  is a word wholly outside. Words are read-side data, reproducible by re-transcribing, and one
+  claiming a moment the clip no longer holds is worse than no word at all.
 
   Overlays ('cvm overlay list') anchored to the clip have their 'at' shifted by that same delta,
   and an anchor pushed out of the new range is CLAMPED back inside it — to 0, or to the clip's new
@@ -148,17 +165,28 @@ already filmed, so it never counts in the footage stats. Rejected (exit 3) if st
 ${MINIMUM_CLIP_LENGTH_SECONDS}s minimum clip length; an unknown --video is a
 not-found (exit 2).
 
---source is a path as 'cvm footage list' prints it. One under a Storage Root is
-read by its root-relative form, so the Clip keeps working after its Footage is
-moved to another drive.
+--source is Footage addressed the way 'cvm footage transcribe' addresses it: a
+ROOT-RELATIVE path ("raw-footage/take.mkv", "raw-footage/imported/interview.mp4")
+is looked up on each Storage Root in order, whatever directory you run from; an
+absolute path is read where it is. The Clip stores its 'videoFilename'
+ROOT-RELATIVE (an absolute path under a Storage Root is stored in its
+root-relative form), so moving the Footage to another drive changes no row and
+no Export Hash. A path under no Storage Root is stored as typed.
+
+Footage is anything the Recorder filmed, or Imported Footage (a file CVM did not
+film, copied in under raw-footage/imported/ by 'cvm footage import', which
+prints the root-relative path to pass here). A Clip cut from
+Imported Footage is an ordinary Clip with no Recording Session: its picture and
+sound replace the author's for that stretch, and its Clip Origin is 'cli' too.
 
 Immediate — no confirmation (agent-facing tool). Like every clip write it needs
 the owning CourseVersion to be a Draft (a non-Draft is refused).
 
 Examples:
-  cvm footage transcribe /mnt/d/raw-footage/take.mkv
-  cvm clip add --video vid_123 --source /mnt/d/raw-footage/take.mkv --start 12.4 --end 40.0
-  cvm clip add --video vid_123 --source /mnt/d/raw-footage/take.mkv --start 5 --end 9 --before clip_def`;
+  cvm footage transcribe raw-footage/take.mkv
+  cvm clip add --video vid_123 --source raw-footage/take.mkv --start 12.4 --end 40.0
+  cvm clip add --video vid_123 --source /mnt/d/raw-footage/take.mkv --start 5 --end 9 --before clip_def
+  cvm clip add --video vid_123 --source "$(cvm footage import ~/Downloads/interview.mp4 | jq -r .path)" --start 0 --end 30`;
 
 export const DELETE_HELP = `Archive (soft-delete) a Clip.
 
@@ -231,6 +259,31 @@ Examples:
   cvm clip get clip_abc clip_def clip_ghi
   cvm clip get clip_abc | jq '{id, text, start: .sourceStartTime, end: .sourceEndTime}'`;
 
+export const SPLIT_HELP = `Split a Clip into two adjacent Clips, in the same Video and place.
+
+  cvm clip split --at 15.3 clip_abc       # at source second 15.3
+  cvm clip split --at word:12 clip_abc    # the right side starts at Transcript Word 12
+
+--at <seconds>: a moment on the clip's SOURCE clock (the seconds of sourceStartTime/sourceEndTime,
+what 'clip update --start/--end' take), strictly inside the clip. A moment inside a Transcript Word
+snaps to that word's nearer edge; one in the silence between two words stays put. A clip with no
+words is cut where asked.
+--at word:<n>: cut midway through the silence before word n (0-based, the order 'clip words'
+prints), n from 1 to (words - 1).
+
+The original clip keeps its id and becomes the LEFT side; a new clip after it is the RIGHT side.
+Each must be at least ${MINIMUM_CLIP_LENGTH_SECONDS}s long. What each side keeps:
+  - Layers: copied to both. A Footage Layer of a file keeps showing the same Footage at the same
+    moment; a span goes to the side(s) it covers, trimmed at the cut. A side left with no Layer is
+    refused.
+  - Overlays anchored at or after the cut move to the right side, at the same moment of footage.
+  - Transcript Words and text are split at the cut word, each word to one side; with no words the
+    text is shared out by letter count.
+  - Agent Session Entries at or after the cut move right; Clip Web Links go to both. The Pause goes
+    right; Recording Session, scene, Scene Override, Clip Zoom and Clip Origin go to both.
+
+Prints both clips (NDJSON, left then right). A refused split (exit 3) writes nothing.`;
+
 export const WORDS_HELP = `A Clip's Transcript Words — the per-word timing of its spoken audio.
 
 One NDJSON object per word, in spoken order:
@@ -248,10 +301,28 @@ A clip that has never been transcribed simply HAS no words: that prints nothing
 and exits 0 — it is an ordinary state, not an error. Clips transcribed before
 Transcript Words existed are in exactly that state and need a re-transcribe.
 
-Read-only: there is no CLI verb that writes or edits an individual word.
+Read-only: no verb edits a single word. To fix a misheard word, edit the clip's
+text with 'cvm clip edit-transcript', which rewrites its words to match.
 
 Examples:
   cvm clip words clip_abc
 
   # When was "overlay" said in this clip?
   cvm clip words clip_abc | jq 'select(.text == "overlay")'`;
+
+export const EDIT_TRANSCRIPT_HELP = `Edit Transcript: fix a misheard word in a Clip's text.
+
+  cvm clip edit-transcript --find "Andrea Karpathy" --replace "Andrej Karpathy" clip_abc
+
+Replaces every occurrence of --find (literal, case-sensitive) in the clip's 'text' with
+--replace, and prints the updated clip. The same write as the editor's Edit Transcript: the
+clip's Transcript Words ('cvm clip words') are rewritten to match the new text. With the same
+number of words, each word keeps its old start/end exactly (the usual fix: a misheard name). With
+a different number, the old words' span is shared out by letter count. A clip with no words keeps
+none. Footage, source times and transcriptionStatus are untouched.
+
+A Short's captions are each clip's text timed by its words, and its Short Export Hash covers both,
+so the Short is stale after this and its next render (or Posting Slot) draws the corrected text.
+
+Refused with exit 3, writing nothing, when --find is empty or not in the clip's text. Not-found
+(exit 2) for an unknown or archived clip. Like every clip write, the clip's Version must be a draft.`;

@@ -28,6 +28,7 @@ import { DEFAULT_MIC_OFFSET_MS } from "@cvm/core/features/videos/recorder";
 import { VIDEO_FORMAT_DIMENSIONS } from "@cvm/core/features/videos/video-format";
 import {
   clipComposite,
+  clipLayers,
   clipFfmpegInput,
   clipSource,
 } from "@/packages/clip-source";
@@ -155,6 +156,7 @@ const renderSegment = (clip: typeof obsClip, name: string) => {
       duration,
       zoomType: clip.zoomType,
       composite: clipComposite(source, { durationSeconds: duration }),
+      layers: clipLayers(source),
     },
     dims,
     out

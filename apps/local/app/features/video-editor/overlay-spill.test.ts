@@ -28,6 +28,7 @@ const overlay = (props: {
   at: number;
   durationInSeconds: number;
   id?: string;
+  kind?: string;
 }): ClipOverlay => ({
   id: props.id ?? "overlay-1",
   clipId: props.clipId,
@@ -36,7 +37,7 @@ const overlay = (props: {
   // The spill is the same walk whatever the Overlay Kind is — it measures a
   // window against Clip durations and never looks at the content — so the
   // Kind here is only the default one, spelled out to satisfy the shape.
-  kind: "definitionCard",
+  kind: props.kind ?? "definitionCard",
   bullets: null,
   disableEnterAnimation: false,
   disableExitAnimation: false,

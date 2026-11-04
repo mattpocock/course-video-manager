@@ -1,7 +1,7 @@
 import { DrizzleService, type Database } from "./drizzle-service.server.js";
 import { videoPosts } from "../db/schema.js";
 import { UnknownDBServiceError } from "./db-service-errors.js";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { Effect } from "effect";
 
 export type VideoPostPlatform = "youtube-shorts" | "buffer";
@@ -82,8 +82,24 @@ const createVideoPostOperations = (db: Database) => {
     return results[0]!;
   });
 
+  /**
+   * Remove a Video Post that never went out: its run knows the service
+   * refused it (or it never reached the service), so a post check finds no
+   * half-made post to Hold for.
+   */
+  const deleteUnpostedVideoPost = Effect.fn("deleteUnpostedVideoPost")(
+    function* (id: string) {
+      yield* makeDbCall(() =>
+        db
+          .delete(videoPosts)
+          .where(and(eq(videoPosts.id, id), isNull(videoPosts.postedAt)))
+      );
+    }
+  );
+
   return {
     createVideoPost,
+    deleteUnpostedVideoPost,
     listByVideoId,
     listByVideoIds,
     updateRemoteInfo,

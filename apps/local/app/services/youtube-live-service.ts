@@ -4,6 +4,7 @@ import { youtubeApiUrl } from "@/services/youtube-upload-service";
 import type {
   Broadcast,
   BroadcastListAnswer,
+  LatencyPreference,
   ReconnectReason,
 } from "@/features/streaming/broadcast";
 import type {
@@ -20,8 +21,9 @@ import type {
  * a minute later by auto-stop, which stays on as the backstop.
  *
  * It also reads a Broadcast's live chat, a page at a time
- * (`openChatStream`, `listChatPage`); the app server's chat
- * (`broadcast-chat.ts`) decides when.
+ * (`openChatStream`, `listChatPage`), and its **Concurrent Viewers**
+ * (`readConcurrentViewers`); the app server's chat (`broadcast-chat.ts`)
+ * decides when.
  */
 
 export class YouTubeLiveError extends Data.TaggedError("YouTubeLiveError")<{
@@ -60,8 +62,18 @@ type LiveBroadcastItem = {
     enableAutoStart?: boolean;
     enableAutoStop?: boolean;
     boundStreamId?: string;
+    latencyPreference?: string;
   };
 };
+
+const LATENCY_PREFERENCES: readonly LatencyPreference[] = [
+  "normal",
+  "low",
+  "ultraLow",
+];
+
+const toLatencyPreference = (value: string | undefined) =>
+  LATENCY_PREFERENCES.find((p) => p === value) ?? null;
 
 const toBroadcast = (item: LiveBroadcastItem): Broadcast => ({
   id: item.id,
@@ -71,6 +83,9 @@ const toBroadcast = (item: LiveBroadcastItem): Broadcast => ({
   enableAutoStop: item.contentDetails?.enableAutoStop ?? false,
   liveChatId: item.snippet?.liveChatId ?? null,
   boundStreamId: item.contentDetails?.boundStreamId ?? null,
+  latencyPreference: toLatencyPreference(
+    item.contentDetails?.latencyPreference
+  ),
 });
 
 /** One page (50) of the channel's Broadcasts in one `broadcastStatus`. */
@@ -312,6 +327,66 @@ export const completeBroadcast = (broadcastId: string) =>
     what: "completing the Broadcast",
   }).pipe(
     Effect.asVoid,
+    Effect.catchTags({
+      NotAuthenticatedError: () =>
+        Effect.fail(
+          new YouTubeLiveError({ message: "Google is not connected." })
+        ),
+      LiveAccessMissing: () =>
+        Effect.fail(
+          new YouTubeLiveError({
+            message: "the Google grant has no live-streaming access.",
+          })
+        ),
+      YouTubeAuthError: (e) =>
+        Effect.fail(new YouTubeLiveError({ message: e.message })),
+    })
+  );
+
+// ---------------------------------------------------------------------------
+// Concurrent Viewers
+// ---------------------------------------------------------------------------
+
+/** What YouTube says of a Broadcast's audience right now. */
+export type ConcurrentViewersAnswer = {
+  /** None before it is live, once it has ended, or hidden by the channel. */
+  concurrentViewers: number | null;
+  /** YouTube says the Broadcast ended (`actualEndTime`). */
+  ended: boolean;
+};
+
+type VideoListBody = {
+  items?: {
+    liveStreamingDetails?: {
+      concurrentViewers?: string;
+      actualEndTime?: string;
+    };
+  }[];
+} | null;
+
+/**
+ * A Broadcast's **Concurrent Viewers** (`videos.list`, part
+ * `liveStreamingDetails`: 1 quota unit). Any failure, a missing grant
+ * included, is a `YouTubeLiveError`: the caller keeps the count it had.
+ */
+export const readConcurrentViewers = (broadcastId: string) =>
+  liveApiCall({
+    method: "GET",
+    path: "videos",
+    query: { part: "liveStreamingDetails", id: broadcastId },
+    what: "reading the Broadcast's concurrent viewers",
+  }).pipe(
+    Effect.map((body): ConcurrentViewersAnswer => {
+      const details = (body as VideoListBody)?.items?.[0]?.liveStreamingDetails;
+      const count = Number(details?.concurrentViewers);
+      return {
+        concurrentViewers:
+          details?.concurrentViewers !== undefined && Number.isFinite(count)
+            ? count
+            : null,
+        ended: details?.actualEndTime !== undefined,
+      };
+    }),
     Effect.catchTags({
       NotAuthenticatedError: () =>
         Effect.fail(

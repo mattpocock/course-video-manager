@@ -25,7 +25,20 @@ export const broadcastChat = (): BroadcastChat => {
     // usual few-second polling interval it adds under a tenth to the polling,
     // and polling outlives the stream's return by a minute at most.
     maxStreamRetryMs: 60_000,
+    // A stream connection that breaks within a minute of opening is reopened
+    // after a growing pause. One YouTube simply ends after sending chat is
+    // reopened at once (`broadcast-chat.ts`).
+    steadyMs: 60_000,
     maxMessages: 500,
+    // Concurrent Viewers twice a minute: 1 quota unit a read, about 120 an
+    // hour, from the pick until End Stream or YouTube says it ended (#2659).
+    concurrentViewersEveryMs: 30_000,
+    // One line per change, into the dev log, so a run can tell polling from
+    // flapping (#2558).
+    log: (entry) =>
+      console.log(
+        `[broadcast-chat] ${JSON.stringify({ at: new Date().toISOString(), ...entry })}`
+      ),
   });
   store[KEY] = chat;
   return chat;

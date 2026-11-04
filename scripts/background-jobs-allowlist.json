@@ -80,9 +80,9 @@
       "reason": "Sidecar only: the Overlay renderer (Remotion's bin.mjs). It asks for SidecarContext, and no module a route reaches may import it (apps/local/.dependency-cruiser.spawn.cjs)."
     },
     {
-      "file": "apps/local/app/services/render-vertical-video-service.ts",
+      "file": "apps/local/app/services/overlay-frame.ts",
       "count": 1,
-      "reason": "Sidecar only: the vertical Short's subtitle render. It asks for SidecarContext, and no module a route reaches may import it (apps/local/.dependency-cruiser.spawn.cjs)."
+      "reason": "Interactive: the overlay renderer's process boundary (Remotion's bin.mjs). The only call outside the Sidecar is one frame as a PNG (a Short's overlay, or a Landscape Video's Definition Card or Bullet Panel), for the editor's paused preview (`clips.$clipId.frame.ts`) or `cvm clip frame`, which someone waits on, as on a still, behind the Still Gate. The whole overlay for the render-vertical Job goes through it from short-overlay-renderer.ts, which asks for SidecarContext and no route may reach (apps/local/.dependency-cruiser.spawn.cjs)."
     },
     {
       "file": "apps/local/app/services/ffmpeg-commands.ts",
@@ -98,6 +98,11 @@
       "file": "apps/local/app/packages/clap-step/lib/ffmpeg.ts",
       "count": 1,
       "reason": "Interactive: the AV Calibration page's clap step (#2137) waits on each. A short read of the mic around the clap, one camera frame as a JPEG, or Play's 2 s clip (NVENC, or CPU libx264 with 2 threads when there is no usable GPU), while Matt lines up a clap."
+    },
+    {
+      "file": "apps/local/app/services/footage-probe.ts",
+      "count": 1,
+      "reason": "Interactive: `cvm footage import` runs one read-only ffprobe on the file the author names, and waits on it for a moment, to refuse a file that is not 16:9 before anything is copied or queued. The copy itself is the import-footage Job."
     }
   ],
   "network": [
@@ -194,7 +199,7 @@
     {
       "file": "apps/local/app/features/jobs/use-jobs.ts",
       "count": 4,
-      "reason": "Browser: the Upload Manager's Retry, Cancel, Dismiss and stage history, each a call to the app's own route by the href job-wire.ts names (/api/jobs/\u2026). Not outbound."
+      "reason": "Browser: the Upload Manager's Retry, Cancel, Dismiss and stage history, each a call to the app's own route by the href job-wire.ts names (/api/jobs/…). Not outbound."
     },
     {
       "file": "apps/local/app/lib/post-confirmed.ts",
@@ -220,6 +225,11 @@
       "file": "apps/local/app/services/youtube-live-service.ts",
       "count": 3,
       "reason": "Quick, and watched: the YouTube Live service lists Matt's Broadcasts for the picker he is looking at (#2451), two small reads. It also reads the picked Broadcast's live chat for the app server's Broadcast chat (#2453), one streamList connection held open from the pick to End Stream: chat belongs to the live stream, is never stored, and is worth nothing once the stream is over, so it must not wait on a Job. At Go Live (#2456) it finds the YouTube stream whose ingest name is the Stream Key and binds the picked Broadcast to it if needed: one or two small calls while Matt waits on Go Live."
+    },
+    {
+      "file": "packages/core/db/planetscale-backup.ts",
+      "count": 1,
+      "reason": "Not app code: the PlanetScale backup before a production migrate (#2653, #2655). Only the apps/remote build step and the break-glass `pnpm db:migrate:prod` call it, and both must wait for the backup before they migrate, so it cannot be a Job."
     }
   ]
 }

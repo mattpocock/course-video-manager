@@ -76,6 +76,12 @@ const overrides = (ctx: {
   "video.recorder": () => "cvm",
   // CHECK clip_scene_override_valid.
   "clip.sceneOverride": () => "Code",
+  // CHECK posting_queue_entry_state_valid; an ended state, so a Short's two
+  // rows don't break its one-live-entry index. Never copied.
+  "posting_queue_entry.state": () => "posted",
+  // CHECKs on a Layer's kind and session file.
+  "clip_layer.kind": () => "footage",
+  "clip_layer.sessionFile": () => "screen",
   // CHECK clip_origin_valid; the non-default value, so a copy that drops
   // it (back to "video-editor") fails.
   "clip.origin": () => "cli",

@@ -26,6 +26,8 @@
     "prepare": "husky && ./scripts/patch-tsc.sh",
     "db:generate": "pnpm --filter @cvm/core run db:generate",
     "db:migrate": "pnpm --filter @cvm/core run db:migrate",
+    "db:migrate:prod": "pnpm --filter @cvm/local run db:migrate:prod",
+    "db:dump": "pnpm --filter @cvm/local run db:dump",
     "db:baseline": "pnpm --filter @cvm/local run db:baseline",
     "db:verify-features": "pnpm --filter @cvm/local run db:verify-features",
     "db:backfill-search-text": "pnpm --filter @cvm/local run db:backfill-search-text",

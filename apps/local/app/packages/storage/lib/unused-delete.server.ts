@@ -11,6 +11,7 @@ import {
   realConfineOf,
   stopIfCancelled,
 } from "./delete-safety.server";
+import { isImportedFootage } from "./imported-footage";
 import { loadStorageOwnership } from "./ownership.server";
 import { STORAGE_FOLDERS } from "./storage-roots";
 import {
@@ -42,6 +43,8 @@ import {
  *
  * Raw Footage is the one thing that can't be made again, so every check
  * leans towards keeping it:
+ * - Never Imported Footage (`raw-footage/imported/`), at any age: it is
+ *   Used or Unused Imported Footage, which CVM never deletes.
  * - Only Unused Footage: a file no Clip, live or archived, in any Video uses
  *   (read fresh from the database here, never taken from the page), no
  *   Recording Session still recording or under 7 days old uses, and no AV
@@ -68,6 +71,7 @@ type Candidate = {
 type Found = { relative: string; bytes: number; mtimeMs: number };
 
 const NOT_UNUSED = "a Clip or a recent Recording Session uses it";
+const IMPORTED = "it is Imported Footage, which CVM never deletes";
 
 /** Why a found file is kept (not Unused, or too new), or null to delete it. */
 const keptReason = (
@@ -76,6 +80,7 @@ const keptReason = (
   file: Found,
   now: Date
 ): string | null => {
+  if (isImportedFootage(file.relative)) return IMPORTED;
   const cls = classifyStorageFile(ownership, file.relative);
   if (cls?.bucketId !== UNUSED_FOOTAGE_BUCKET.id) return NOT_UNUSED;
   if (extendsAny(ownership.keptFootage, file.relative)) {
@@ -195,7 +200,10 @@ const candidatesOn = async (opts: {
         relative: file.relative,
         bytes: file.bytes,
       });
-    } else if (only !== undefined || reason !== NOT_UNUSED) {
+    } else if (
+      only !== undefined ||
+      (reason !== NOT_UNUSED && reason !== IMPORTED)
+    ) {
       // Whole-bucket runs only look at Unused Footage; a file named on the
       // page that is not is reported.
       opts.kept.push({ path: file.relative, location: root, reason });

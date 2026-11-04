@@ -219,4 +219,66 @@ describe("frames lost (#2227): alerted only inside a Clip", () => {
       );
     expect(framesLostAlert(t.getState())).toBeNull();
   });
+  it("hides the alert once dismissed, until a Clip loses more frames or the next Recording Session loses any", () => {
+    const t = recording()
+      .send(takeStarted("s1:4", 2))
+      .send(lostIn([{ picture: "camera", from: 3, to: 3.2, frames: 6 }]))
+      .send({ type: "dismiss-frames-lost-alert" });
+    expect(framesLostAlert(t.getState())).toBeNull();
+
+    // Its Clip ending and the Stop reword it, but lose nothing new.
+    t.send(speechEnded(2, 5)).send(
+      heard(
+        stoppedMessage({
+          framesLost: { camera: 6, screen: 0 },
+          lostFrameSpans: [{ picture: "camera", from: 3, to: 3.2, frames: 6 }],
+        })
+      )
+    );
+    expect(framesLostAlert(t.getState())).toBeNull();
+
+    // The next Recording Session losing the same count still shouts.
+    t.send(status())
+      .send(
+        heard({
+          type: "recording-started",
+          recordingSessionId: "s2",
+          silenceLength: "long",
+          micFile: "mic.mkv",
+        })
+      )
+      .send(
+        heard({
+          type: "take-started",
+          recordingSessionId: "s2",
+          takeId: "s2:1",
+          startTime: 1,
+        })
+      )
+      .send(
+        heard({
+          type: "frames-lost",
+          recordingSessionId: "s2",
+          framesLost: { camera: 6, screen: 0 },
+          lostFrameSpans: [{ picture: "camera", from: 2, to: 2.2, frames: 6 }],
+        })
+      );
+    expect(framesLostAlert(t.getState())).toContain("6 camera frames");
+  });
+
+  it("shows a dismissed alert again when a Clip loses more frames", () => {
+    const t = recording()
+      .send(takeStarted("s1:4", 2))
+      .send(lostIn([{ picture: "camera", from: 3, to: 3.2, frames: 6 }]))
+      .send({ type: "dismiss-frames-lost-alert" })
+      .send(
+        lostIn([
+          { picture: "camera", from: 3, to: 3.2, frames: 6 },
+          { picture: "screen", from: 4, to: 4.1, frames: 2 },
+        ])
+      );
+    expect(framesLostAlert(t.getState())).toBe(
+      "Frames lost in the Clip being recorded: 6 camera frames and 2 screen frames. It has a freeze in it."
+    );
+  });
 });

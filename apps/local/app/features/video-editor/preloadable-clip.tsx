@@ -4,14 +4,16 @@ import { RemountCommand } from "@/components/remount-command";
 import type { FootageNotFound } from "@/services/clip-source-files.server";
 import type { ClipOnDatabase, FrontendId } from "./clip-state-reducer";
 import { cn } from "@/lib/utils";
+import type { VideoFormat } from "@/features/videos/video-format";
 import {
   clipCompositePicture,
+  clipLayers,
   clipPlaybackClock,
   clipPlaybackUrl,
   clipSource,
+  footageLayers,
 } from "@/packages/clip-source";
 import { CompositePlayback } from "./components/composite-playback";
-import { clipZoomCssStyle } from "@/features/videos/clip-zoom";
 import {
   BEAT_DURATION,
   FINAL_VIDEO_PADDING,
@@ -19,11 +21,10 @@ import {
 } from "./constants";
 import { useAudioBoost } from "./use-audio-boost";
 import type { RunningState } from "./video-state-reducer";
-import {
-  OverlayPreview,
-  overlayTransformStyle,
-  type ClipOverlay,
-} from "./overlay-preview";
+import { OverlayPreview, type ClipOverlay } from "./overlay-preview";
+import { clipPlaybackBase, clipPlaybackStyles } from "./clip-playback-picture";
+import { FootageLayersPreview } from "./footage-layers-preview";
+import { footagePlaybackFrame } from "./footage-playback-frame";
 import { useStillsWaitForVideo } from "./components/queued-still";
 import { usePreloadableClipReducer } from "./hooks/use-preloadable-clip-reducer";
 
@@ -39,6 +40,8 @@ export const PreloadableClip = (props: {
   state: RunningState;
   onUpdateCurrentTime: (time: number) => void;
   profile: string | undefined;
+  /** The Video's format: a CVM-recorder Clip's Scene Layer is drawn in it. */
+  videoFormat: VideoFormat;
   scrubSeekTime: number | undefined;
   /**
    * Every Overlay this Clip must draw — already selected upstream. Not the
@@ -69,8 +72,12 @@ export const PreloadableClip = (props: {
   // The `<video>` below is the playback clock: an OBS Clip's Footage, or a
   // CVM-recorder Clip's mic, which runs `clockOffset` behind the picture.
   // Every time this component keeps is the clock's own.
-  const source = clipSource(props.clip);
+  const source = clipSource(props.clip, { videoFormat: props.videoFormat });
   const clockOffset = clipPlaybackClock(source).offsetSeconds;
+  const layersOver = footageLayers(clipLayers(source));
+  // The clip-relative playhead is kept only for a Clip that draws something
+  // on it: an Overlay, or a Footage Layer.
+  const tracksPlayhead = props.overlays.length > 0 || layersOver.length > 0;
   const clockStart = props.clip.sourceStartTime - clockOffset;
   const preloadFrom = clockStart - PRELOAD_PLAY_AMOUNT;
   const preloadTo = clockStart;
@@ -95,7 +102,7 @@ export const PreloadableClip = (props: {
   // Overlay the playhead sits.
   useEffect(() => {
     const video = ref.current;
-    if (!video || props.hidden || props.overlays.length === 0) {
+    if (!video || props.hidden || !tracksPlayhead) {
       return;
     }
 
@@ -108,13 +115,7 @@ export const PreloadableClip = (props: {
       video.removeEventListener("seeked", sync);
       video.removeEventListener("timeupdate", sync);
     };
-  }, [
-    ref.current,
-    props.hidden,
-    props.overlays.length,
-    clockStart,
-    reportPlayhead,
-  ]);
+  }, [ref.current, props.hidden, tracksPlayhead, clockStart, reportPlayhead]);
 
   useEffect(() => {
     if (!ref.current) {
@@ -188,7 +189,7 @@ export const PreloadableClip = (props: {
 
       const clipRelativeTime = currentTime - clockStart;
       props.onUpdateCurrentTime(clipRelativeTime);
-      if (props.overlays.length > 0) {
+      if (tracksPlayhead) {
         reportPlayhead(clipRelativeTime);
       }
 
@@ -210,23 +211,31 @@ export const PreloadableClip = (props: {
     clockStart,
     preloadTo,
     props.onUpdateCurrentTime,
-    props.overlays.length,
+    tracksPlayhead,
     dispatch,
     reportPlayhead,
   ]);
 
-  // The camera move the Overlay on screen asks for, re-read at this Clip's own
-  // playhead — `null` for a Clip with no Overlay over it, and for an Overlay
-  // whose Kind moves no camera. It takes precedence over the Clip Zoom below,
-  // which the write path has already made sure cannot also be present.
-  const overlayCameraStyle = props.hidden
-    ? null
-    : overlayTransformStyle(props.overlays, overlayCurrentTime);
+  // The Overlay's Transform slides the whole picture (every Layer, the black
+  // base too), as the export's composite pass does; the Clip Zoom zooms the
+  // Scene Layer alone. No Transform is read for a hidden Clip.
+  const styles = clipPlaybackStyles({
+    overlays: props.hidden ? EMPTY_OVERLAYS : props.overlays,
+    currentTime: overlayCurrentTime,
+    zoomType: props.clip.zoomType,
+  });
+  const base = clipPlaybackBase(source);
+  const frameClass =
+    props.profile === "TikTok"
+      ? "w-92 aspect-[9/16]"
+      : props.videoFormat === "short"
+        ? "aspect-[9/16]"
+        : "aspect-[16/9]";
 
   // `overflow-hidden` and the ground colour are the frame the Overlay
   // Transform slides INSIDE: the move is a translate, so without a clip the
-  // footage would spill over whatever sits beside it, and the space it vacates
-  // would show the page rather than the panel's own ground.
+  // picture would spill over whatever sits beside it, and the space it
+  // vacates would show the page rather than the panel's own ground.
   return (
     <div
       className={cn(
@@ -256,43 +265,60 @@ export const PreloadableClip = (props: {
           ))}
         </div>
       )}
-      <video
-        key={props.clip.frontendId}
-        src={playbackUrl}
-        className={cn(
-          "w-full",
-          props.profile === "TikTok" && "w-92 aspect-[9/16]",
-          // A CVM-recorder Clip's clock is its mic: heard, drawn below.
-          picture && "hidden",
-          props.footageNotFound !== undefined && "hidden"
-        )}
-        // The preview half of two contracts that are never both in force: the
-        // Overlay's kind-derived Transform (a sideways translate) and the
-        // Clip's own Clip Zoom (a scale). Each is formatted from the same
-        // numbers the export's ffmpeg filter is built from
-        // (features/videos/overlay-transform and features/videos/clip-zoom),
-        // so what plays here is what ships.
-        style={
-          overlayCameraStyle ??
-          clipZoomCssStyle(props.clip.zoomType) ??
-          undefined
-        }
-        ref={ref}
-      />
-      {picture && props.footageNotFound === undefined && (
-        <CompositePlayback
-          clock={ref}
-          picture={picture}
-          offsetSeconds={clockOffset}
-          hidden={props.hidden}
-          editorPlaying={isPlaying}
-          style={
-            overlayCameraStyle ??
-            clipZoomCssStyle(props.clip.zoomType) ??
-            undefined
-          }
+      {/* The Clip's picture: every Layer, bottom to top, slid together by
+          the Transform. */}
+      <div className="relative w-full" style={styles.picture}>
+        <video
+          key={props.clip.frontendId}
+          src={playbackUrl}
+          className={cn(
+            "w-full",
+            props.profile === "TikTok" && "w-92 aspect-[9/16]",
+            footagePlaybackFrame(props.videoFormat) === "cover-portrait" &&
+              "aspect-[9/16] object-cover",
+            // The clock is heard, not seen, when something else draws the
+            // picture: a CVM-recorder Clip's composite, or the black base of
+            // a Clip with no Scene Layer.
+            (picture || base === "black") && "hidden",
+            props.footageNotFound !== undefined && "hidden"
+          )}
+          // The Clip Zoom, formatted from the same numbers as the export's
+          // ffmpeg filter (features/videos/clip-zoom), so what plays here is
+          // what ships.
+          style={styles.scene}
+          ref={ref}
         />
-      )}
+        {picture && props.footageNotFound === undefined && (
+          <CompositePlayback
+            clock={ref}
+            picture={picture}
+            offsetSeconds={clockOffset}
+            hidden={props.hidden}
+            editorPlaying={isPlaying}
+            style={styles.scene}
+          />
+        )}
+        {/* No Scene Layer: the Footage Layers are drawn on black, as the
+            export's layered segment draws them. */}
+        {base === "black" && props.footageNotFound === undefined && (
+          <div
+            className={cn("w-full bg-black", frameClass)}
+            data-testid="clip-black-base"
+          />
+        )}
+        {/* Over the Clip's picture, under any card. Mounted for a preloading
+            Clip too, so its Footage Layers are ready when the Clip comes up. */}
+        {props.footageNotFound === undefined &&
+          (!props.hidden || props.aggressivePreload) && (
+            <FootageLayersPreview
+              layers={layersOver}
+              currentTime={overlayCurrentTime}
+              playing={isPlaying}
+              playbackRate={props.playbackRate}
+              videoFormat={props.videoFormat}
+            />
+          )}
+      </div>
       {/* Only mounted for the Clip actually on screen — every other Clip in
           the manager is preloading off-screen (`hidden`), and there is no
           reason to run an extra `<Player>` per one of those. */}
@@ -314,6 +340,7 @@ export const PreloadableClipManager = (props: {
   state: RunningState;
   currentClipId: FrontendId | undefined;
   currentClipProfile: string | undefined;
+  videoFormat: VideoFormat;
   onClipFinished: () => void;
   onUpdateCurrentTime: (time: number) => void;
   scrubSeekTime: number | undefined;
@@ -365,6 +392,7 @@ export const PreloadableClipManager = (props: {
               hidden={!isCurrentlyPlaying}
               state={props.state}
               profile={props.currentClipProfile}
+              videoFormat={props.videoFormat}
               onUpdateCurrentTime={(time) => {
                 if (isCurrentlyPlaying) {
                   props.onUpdateCurrentTime(time);

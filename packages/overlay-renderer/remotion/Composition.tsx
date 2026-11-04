@@ -1,16 +1,16 @@
 import {
   AbsoluteFill,
   Easing,
-  Img,
   interpolate,
   Sequence,
-  staticFile,
   useCurrentFrame,
 } from "remotion";
 import { loadFont } from "@remotion/google-fonts/FiraCode";
-import type { Cta, OverlayProps } from "../src/props";
+import type { OverlayProps } from "../src/props";
 import { DefinitionCards } from "./DefinitionCard";
 import { BulletPanels } from "./BulletPanel";
+import { ChatCards } from "./ChatCard";
+import { CallsToAction } from "./CallToAction";
 
 // Load Fira Code so the overlay is self-contained and does not depend on a
 // system-installed font. This reproduces the `font-family: "Fira Code"` the
@@ -19,14 +19,15 @@ const { fontFamily } = loadFont();
 
 // Accepts the full render props (so Remotion's `calculateMetadata` sees
 // width/height/fps/durationInFrames) but only draws the content-kinds:
-// subtitles + CTA (vertical Shorts), Definition Cards and Bullet Panels
+// subtitles + Chat Cards + Calls to Action (vertical Shorts), Definition Cards and Bullet Panels
 // (landscape course videos). Every content-kind is optional, so one
 // composition serves both pipelines.
 export const Overlay = ({
   subtitles,
-  cta,
   definitionCards,
   bulletPanels,
+  chatCards,
+  callsToAction,
 }: OverlayProps) => {
   return (
     <AbsoluteFill style={{ fontFamily }}>
@@ -48,85 +49,11 @@ export const Overlay = ({
           </AbsoluteFill>
         </Sequence>
       ))}
-      {cta !== null && (
-        <Sequence durationInFrames={cta.durationInFrames}>
-          <AbsoluteFill className="flex flex-col">
-            <CTAPill
-              variant={cta.variant}
-              durationInFrames={cta.durationInFrames}
-            />
-          </AbsoluteFill>
-        </Sequence>
-      )}
       <DefinitionCards cards={definitionCards} />
       <BulletPanels panels={bulletPanels} />
+      <ChatCards cards={chatCards} />
+      <CallsToAction cards={callsToAction} />
     </AbsoluteFill>
-  );
-};
-
-const FADE_DURATION = 8;
-const MOVE_DISTANCE = 30;
-const FADE_OUT_BUFFER_BEFORE_END = 4;
-
-// Each branded CTA image ships its own horizontal padding so the artwork sits
-// with the right margins. Keyed by the `variant` prop.
-const CTA_IMAGES: Record<Cta["variant"], { src: string; padding: string }> = {
-  ai: { src: "/ai-cta.png", padding: "px-24" },
-  typescript: { src: "/typescript-cta.png", padding: "px-6" },
-};
-
-const CTAPill = ({
-  variant,
-  durationInFrames,
-}: {
-  variant: Cta["variant"];
-  durationInFrames: number;
-}) => {
-  const frame = useCurrentFrame();
-
-  const opacity = interpolate(
-    frame,
-    [
-      0,
-      FADE_DURATION,
-      durationInFrames - FADE_DURATION - FADE_OUT_BUFFER_BEFORE_END,
-      durationInFrames - FADE_OUT_BUFFER_BEFORE_END,
-    ],
-    [0, 1, 1, 0],
-    {
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-    }
-  );
-
-  // Drift up from 0px to -MOVE_DISTANCE px over the animation.
-  const translateY = interpolate(
-    frame,
-    [0, durationInFrames - FADE_OUT_BUFFER_BEFORE_END],
-    [0, -MOVE_DISTANCE],
-    {}
-  );
-
-  const { src, padding } = CTA_IMAGES[variant];
-
-  return (
-    <>
-      <div className="flex-1"></div>
-      <div className="flex flex-1 items-center justify-center ">
-        <div
-          className={`w-full h-full flex items-center justify-center ${padding}`}
-        >
-          <Img
-            src={staticFile(src)}
-            className="w-full h-full object-contain"
-            style={{
-              opacity,
-              transform: `translateY(${translateY}px)`,
-            }}
-          />
-        </div>
-      </div>
-    </>
   );
 };
 

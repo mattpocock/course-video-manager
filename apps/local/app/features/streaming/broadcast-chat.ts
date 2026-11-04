@@ -39,7 +39,9 @@ const ReconnectReason = Schema.Literal(
  * `liveChatMessages.streamList` connection (5 quota units each), `polling`
  * `liveChatMessages.list` at YouTube's interval only once a stream
  * connection that worked is refused mid-stream (asking for the stream again
- * meanwhile), `reconnecting` after a dropped connection, `refused` when the
+ * meanwhile), `reconnecting` after a connection failed (YouTube ending a
+ * stream connection's answer, as it does every few seconds, is still
+ * `streaming` while it is reopened), `refused` when the
  * stream connection was refused before it ever opened.
  */
 export const ChatConnection = Schema.Union(
@@ -98,6 +100,17 @@ export const BroadcastChatEvent = Schema.Union(
     type: Schema.Literal("chat-connection-changed"),
     broadcastId: Schema.String,
     connection: ChatConnection,
+  }),
+  /**
+   * The Broadcast's **Concurrent Viewers** changed: null when YouTube gives
+   * no count (not live yet, ended, or hidden by the channel). Sent after
+   * `chat-attached` to a new listener while there is a count; every
+   * `chat-attached` otherwise starts with none.
+   */
+  Schema.Struct({
+    type: Schema.Literal("concurrent-viewers-changed"),
+    broadcastId: Schema.String,
+    concurrentViewers: Schema.NullOr(Schema.Number),
   })
 );
 export type BroadcastChatEvent = typeof BroadcastChatEvent.Type;
@@ -106,6 +119,7 @@ export const BROADCAST_CHAT_EVENT_TYPES = [
   "chat-attached",
   "chat-message-received",
   "chat-connection-changed",
+  "concurrent-viewers-changed",
 ] as const satisfies readonly BroadcastChatEvent["type"][];
 
 /** What `POST /api/streaming/broadcast-pick` takes. */

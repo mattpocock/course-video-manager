@@ -1,47 +1,35 @@
 import { useEffect } from "react";
 import { useEffectReducer } from "@/hooks/use-effect-reducer";
 import { toast } from "@/components/ui/toast";
-import { useLocalStorage } from "@/hooks/use-local-storage";
-import { useUploadActions } from "@/features/upload-manager/upload-context";
 import type { PostedPlatforms } from "@/lib/short-status";
 import { createShortLinks, generateText } from "./posting-requests";
 import {
   createInitialShortsPostingState,
   shortsPostingReducer,
-  type ShortsPostingMode,
 } from "./shorts-posting-reducer";
 
-const SHORTS_DESC_KEY = (videoId: string) =>
-  `shorts-post-description-${videoId}`;
+/** The Shorts modal's Posting Queue route: same origin, a quick call. */
+const postToQueueRoute = (videoId: string, body: object) =>
+  fetch(`/api/videos/${videoId}/posting-queue`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
 
-/**
- * The Shorts posting modal's effect runner for `shortsPostingReducer`, with
- * the description it keeps per Short in this browser.
- */
+/** The Shorts posting modal's effect runner for `shortsPostingReducer`. */
 export function useShortsPostingReducer({
   open,
   onOpenChange,
+  onQueued,
   videoId,
   videoTitle,
-  mode,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onQueued?: (videoId: string) => void;
   videoId: string;
   videoTitle: string;
-  mode: ShortsPostingMode;
 }) {
-  const [description, setDescription] = useLocalStorage(
-    SHORTS_DESC_KEY(videoId),
-    ""
-  );
-
-  const {
-    startYoutubeShortsUpload,
-    startSocialUpload,
-    startRenderVerticalUpload,
-  } = useUploadActions();
-
   const [state, dispatch] = useEffectReducer<
     shortsPostingReducer.State,
     shortsPostingReducer.Action,
@@ -55,9 +43,6 @@ export function useShortsPostingReducer({
         .catch(() =>
           dispatch({ type: "text-generation-failed", field: effect.field })
         );
-    },
-    "apply-field-text": (_state, effect) => {
-      setDescription(effect.text);
     },
     "load-posted-status": (_state, effect, dispatch) => {
       let cancelled = false;
@@ -77,6 +62,24 @@ export function useShortsPostingReducer({
         cancelled = true;
       };
     },
+    "load-queue-preview": (_state, effect, dispatch) => {
+      fetch(`/api/videos/${effect.videoId}/posting-queue`)
+        .then(async (res) => {
+          if (!res.ok) throw new Error("Failed to load the Posting Queue");
+          const preview = (await res.json()) as {
+            description: string;
+            verdict: shortsPostingReducer.Verdict;
+          };
+          dispatch({
+            type: "queue-preview-loaded",
+            videoId: effect.videoId,
+            ...preview,
+          });
+        })
+        .catch(() =>
+          dispatch({ type: "queue-preview-failed", videoId: effect.videoId })
+        );
+    },
     "rename-short": (_state, effect, dispatch) => {
       const formData = new FormData();
       formData.set("name", effect.name);
@@ -85,7 +88,10 @@ export function useShortsPostingReducer({
         body: formData,
       })
         .then((res) => {
-          if (res.ok) return;
+          if (res.ok) {
+            dispatch({ type: "short-renamed", videoId: effect.videoId });
+            return;
+          }
           dispatch({
             type: "rename-refused",
             reason: res.status === 409 ? "name-taken" : "failed",
@@ -93,33 +99,53 @@ export function useShortsPostingReducer({
         })
         .catch(() => dispatch({ type: "rename-refused", reason: "failed" }));
     },
-    "check-vertical-export": (_state, effect, dispatch) => {
-      fetch(`/api/videos/${effect.videoId}/vertical-export-exists`)
-        .then(async (res) => {
-          if (!res.ok) throw new Error("Failed to check export status");
-          const { exists } = (await res.json()) as { exists: boolean };
-          dispatch({ type: "vertical-export-checked", exists });
+    "save-description": (_state, effect, dispatch) => {
+      postToQueueRoute(effect.videoId, {
+        intent: "save-description",
+        description: effect.description,
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error("Failed to save the description");
+          dispatch({
+            type: "description-saved",
+            videoId: effect.videoId,
+            description: effect.description,
+          });
         })
-        .catch(() => dispatch({ type: "vertical-export-check-failed" }));
+        .catch(() => dispatch({ type: "description-save-failed" }));
     },
-    "start-short-posting": (_state, effect) => {
-      const exportId = effect.exportFirst
-        ? startRenderVerticalUpload(effect.videoId, effect.title)
-        : undefined;
-      if (effect.toYoutube) {
-        startYoutubeShortsUpload(
-          effect.videoId,
-          effect.title,
-          effect.description,
-          exportId
+    "add-to-posting-queue": (_state, effect, dispatch) => {
+      postToQueueRoute(effect.videoId, {
+        intent: "add",
+        title: effect.title,
+        description: effect.description,
+      })
+        .then(async (res) => {
+          if (!res.ok) {
+            dispatch({
+              type: "add-to-queue-failed",
+              reason: res.status === 409 ? "name-taken" : "failed",
+            });
+            return;
+          }
+          const { verdict } = (await res.json()) as {
+            verdict: shortsPostingReducer.Verdict;
+          };
+          dispatch({
+            type: "add-to-queue-answered",
+            videoId: effect.videoId,
+            verdict,
+          });
+        })
+        .catch(() =>
+          dispatch({ type: "add-to-queue-failed", reason: "failed" })
         );
-      }
-      if (effect.toBuffer) {
-        startSocialUpload(effect.videoId, effect.title, effect.title, exportId);
-      }
     },
     "close-modal": () => {
       onOpenChange(false);
+    },
+    "report-queued": (_state, effect) => {
+      onQueued?.(effect.videoId);
     },
     "create-short-links": (_state, effect, dispatch) => {
       createShortLinks(effect.urls, effect.linkDescription)
@@ -136,15 +162,13 @@ export function useShortsPostingReducer({
 
   // Bridges: the modal opening, and the Short's title as the page has it.
   useEffect(() => {
-    if (open) dispatch({ type: "modal-opened", videoId, mode, description });
+    if (open) dispatch({ type: "modal-opened", videoId });
     else dispatch({ type: "modal-closed" });
-    // Only opening the modal counts; typing in the description must not.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, open, videoId]);
 
   useEffect(() => {
     dispatch({ type: "video-title-loaded", videoTitle });
   }, [dispatch, videoTitle]);
 
-  return { state, dispatch, description, editDescription: setDescription };
+  return { state, dispatch };
 }

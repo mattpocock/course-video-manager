@@ -5,6 +5,7 @@ import { storageRootsConfig } from "@/services/storage-roots";
 import { VideoPostOperationsService } from "@/services/db-video-post-operations.server";
 import { getValidAccessToken } from "@/services/youtube-auth-service";
 import { uploadVideoToYouTube } from "@/services/youtube-upload-service";
+import { PostingQueueSidecarService } from "@/services/db-posting-queue-sidecar.server";
 import { definePostingJobKind } from "../job-kind";
 import { reportPost } from "./post-events";
 import { PostNotStartedError } from "./youtube";
@@ -17,8 +18,9 @@ export const shortUrl = (youtubeVideoId: string) =>
  * **YouTube Shorts post** (#3 in docs/plans/background-jobs-sidecar.md): the
  * rendered vertical Short, uploaded public without notifying subscribers,
  * and recorded as a `video_post` — the same steps the `post-youtube-shorts`
- * route ran. A POSTING kind (decision 5): one attempt, never re-queued, and
- * only the author's Retry runs it again.
+ * route ran. Only the Posting Queue enqueues it, at a Posting Slot (ADR
+ * 0057). A POSTING kind (decision 5): one attempt, never re-queued, and only
+ * the author's Retry runs it again.
  */
 export const youtubeShortsJobKind = definePostingJobKind({
   params: JOB_PARAMS["youtube-shorts"],
@@ -35,6 +37,12 @@ export const youtubeShortsJobKind = definePostingJobKind({
         });
       }
       const filePath = found.value;
+      yield* (yield* PostingQueueSidecarService).assertStillToPost(
+        params,
+        "youtube-shorts"
+      );
+      // The words its slot was claimed with, whatever the Video says now.
+      const { title, description } = params;
       const videoPosts = yield* VideoPostOperationsService;
       const post = yield* videoPosts.createVideoPost({
         videoId: params.videoId,
@@ -47,8 +55,8 @@ export const youtubeShortsJobKind = definePostingJobKind({
       const uploaded = yield* uploadVideoToYouTube({
         accessToken,
         filePath,
-        title: params.title,
-        description: params.description,
+        title,
+        description,
         privacyStatus: "public",
         notifySubscribers: false,
         onProgress: (percent) => reports.onProgress("uploading", percent),
@@ -72,6 +80,8 @@ export const youtubeShortsJobKind = definePostingJobKind({
       yield* videoPosts.markPosted(post.id);
       yield* Effect.logInfo("youtube-shorts: done", { remoteUrl });
     }),
+  // Looks for the title that was posted (the claim's), never the Video's
+  // title now: a rename after a failed post must not hide an upload.
   checkPosted: (params, post) =>
     checkYouTubePost({ title: params.title, post, linkTo: shortUrl }),
 });

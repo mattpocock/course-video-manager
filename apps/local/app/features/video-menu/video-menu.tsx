@@ -19,16 +19,14 @@ import {
   FilmIcon,
   MonitorSpeaker,
   PlayIcon,
-  Music2,
   RefreshCwIcon,
   ScrollText,
   ScrollTextIcon,
-  SendIcon,
+  ListPlusIcon,
   Sparkles,
   TimerIcon,
   Workflow,
   XIcon,
-  Youtube,
   type LucideIcon,
 } from "lucide-react";
 
@@ -86,9 +84,8 @@ export interface VideoMenuActions {
   export?: VideoAction;
   renderVerticalShort?: VideoAction;
   retranscribeAllClips?: VideoAction;
+  /** Opens Add to Posting Queue: a Short is only posted at its Posting Slot. */
   postShort?: VideoAction;
-  postToYouTube?: VideoAction;
-  postToTikTok?: VideoAction;
   // copy
   copyTranscript?: VideoAction;
   copyYouTubeChapters?: VideoAction;
@@ -231,18 +228,14 @@ export function videoMenuGroups(
     run: [
       leaf(STANDARD_ACTIONS.export, a.export),
       leaf(
-        { label: "Post Short", icon: SendIcon, opensDialog: true },
+        {
+          label: "Add to Posting Queue",
+          icon: ListPlusIcon,
+          opensDialog: true,
+        },
         a.postShort
       ),
       ...fold("Run", PlayIcon, [
-        leaf(
-          { label: "Post to YouTube", icon: Youtube, opensDialog: true },
-          a.postToYouTube
-        ),
-        leaf(
-          { label: "Post to TikTok", icon: Music2, opensDialog: true },
-          a.postToTikTok
-        ),
         leaf(
           { label: "Render Vertical Short", icon: FilmIcon },
           a.renderVerticalShort

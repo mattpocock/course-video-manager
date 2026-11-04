@@ -75,11 +75,12 @@ export const IDLE_STOP = { type: "idle-stop" } as const;
  * `lostFrameSpans`; 18: the Live Stream, `start-stream`, `end-stream` and
  * the state's `stream`; 19: Chat Highlights,
  * `chat-highlight-protocol.ts`; 20: `live-stream-stopped`, which End Stream
- * waits for before it completes the Broadcast). The app server reloads on a change and the service does not
+ * waits for before it completes the Broadcast; 21: End Stream's wait,
+ * `start-stream`'s `endWaitMs` and the stream status `ending`). The app server reloads on a change and the service does not
  * (ADR 0035), so after a pull mid-session the app may meet a service started
  * from older code; `hello` says which wire it speaks (none before 2).
  */
-export const RECORDER_PROTOCOL_VERSION = 20;
+export const RECORDER_PROTOCOL_VERSION = 21;
 
 export const PREVIEW_FEEDS = ["camera", "screen"] as const;
 export type PreviewFeed = (typeof PREVIEW_FEEDS)[number];

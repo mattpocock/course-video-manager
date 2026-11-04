@@ -8,7 +8,8 @@ pnpm recorder:scorecard --quick    # 60 s take, 10 cycles, 3 preview kills, ~6 m
   [--out <dir>]          # default .data/recorder-scorecard/<run>/
   [--long-take <s>] [--cycles <n>] [--fault-repeats <n>] [--keep-footage]
   [--stream-take <s>]    # the streamed Recording Session's length: 300 s, --quick 60 s
-  [--only <scenario,…>]  # idle, longTake, previewKill, eventLogFailure, streamed, cycles, crash
+  [--stills-take <s>]    # the stills-mid-take take's length: 60 s, --quick 30 s
+  [--only <scenario,…>]  # idle, longTake, previewKill, eventLogFailure, stillsMidTake, streamed, cycles, crash
 ```
 
 The command runs under `nice -n 19 taskset -c 6-9`. The baseline is in [`baseline/`](./baseline/): a run on 2026-10-30, `ca63ea73` plus the synthetic screen pinned to the NVIDIA GPU (#2441). It was run in three parts, merged into one report: `--only idle,longTake --long-take 360`, then `--only previewKill,eventLogFailure,crash`, then `--only cycles`. Each part has full-mode cycles and fault repeats, but the long take is 360 s, not 600 s, so that each part fits an agent's 600 s foreground limit. To compare a run with it, diff the two `scorecard.json` files: each metric sits on its own line, in a fixed order. The `ranking` list names the failing metrics, worst first.
@@ -32,9 +33,10 @@ The command runs under `nice -n 19 taskset -c 6-9`. The baseline is in [`baselin
   2. The long take (A/V drift, frames, first frames, Stop timings, Optimistic Clip delay).
   3. Takes whose camera and screen previews are killed mid-take, `--fault-repeats` times, for a pass rate.
   4. A take whose `events.jsonl` turns read-only.
-  5. The streamed Recording Session (#2455): Go Live, `--stream-take` seconds, then End Stream. See below.
-  6. The Record/Stop cycles. Each Stop lets the writer go and arms the next on the same relay, and the camera capture must live through it (the same Windows PID, never reopened): a pass rate and restarts per Stop.
-  7. The service SIGKILLed mid-take and started again on the same state folder.
+  5. Stills mid-take (#2214, #2294): a placed Take's last and first frame, asked for every 6 s while a take records, through the app's own still path and Still Gate (`stills.ts`). `stills_decoded_mid_take` must be 0: a still that decodes the growing camera.mkv cost a streamed Recording Session 14 camera frames. The footage is on WSL's disk, not `/mnt/d`, so frames lost here understate the real cost; the decode count is the bar.
+  6. The streamed Recording Session (#2455): Go Live, `--stream-take` seconds, then End Stream. See below.
+  7. The Record/Stop cycles. Each Stop lets the writer go and arms the next on the same relay, and the camera capture must live through it (the same Windows PID, never reopened): a pass rate and restarts per Stop.
+  8. The service SIGKILLed mid-take and started again on the same state folder.
 
 ## The streamed Recording Session
 
@@ -46,6 +48,7 @@ The command runs under `nice -n 19 taskset -c 6-9`. The baseline is in [`baselin
 - **The stream's picture.** The stream process's `-progress` reaches the scorecard over the service child's IPC.
   - The steady-state rule is over the whole take (decided 2026-10-31, for smoothness): `stream_dup_frames` and `stream_drop_frames` are 0, summed over every stream process, and `stream_take_fps_off_60`, the average frame rate's distance from 60.0 fps, is within 0.05.
   - The average is the frames the encoder put out per second of the Windows clock, across each process once it is steady: the first from 20 s after it went live to its kill (the sink's drop included), the relaunched one from 5 s after it went live to End Stream. It is one least-squares slope through every 2 s slice's least-late `-progress` block, each process with its own offset. A lag that wanders and comes back does not move it; a stall the stream never catches up from does. The same slope over the relaunched process alone is reported, never a bar (decided 2026-10-31): over its short span it reads the lag's wander, not smoothness, and the whole-take rules already cover the relaunch. It is `streamed.faults.relaunchedFpsOff60` in the details.
+  - **It keeps up with real time (#2631).** `stream_low_speed_max_s` (≤ 5) is the longest stretch the stream health's `speed` read under 0.9, over the same steady spans as the average, from the first health under 0.9 to the first back up (`stream-speed.ts`). On 2026-11-03 Local Whisper held the GPU through a stream and its speed read 0.10–0.63 (clean ≈ 0.99), with 24–38 fps and two relaunches.
   - The stream's lag behind the take is reported, never a bar: `streamed.streamLag` in the details. ffmpeg's own `fps` counts its start-up, so it reads a little over 60; it is in the details too.
 - **Also in the details:** the stream statuses in order, Go Live → recording and Go Live → live, and the frames the sink received. The scenario fails if the stream never goes live or the sink gets nothing.
 - **Room for the Chat Highlight.** `streamed()` takes a `during` step that runs while the stream is live. #2461's checks (click-to-on-screen time, monotonic card opacity) go there, and their metrics go after the streamed ones in `metrics.ts`.

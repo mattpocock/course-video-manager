@@ -23,6 +23,7 @@ import { eq } from "drizzle-orm";
 import type { JobContext } from "../job-kind";
 import { CLIP_MOCKUP_VOICE_POLICY } from "../retry-policy";
 import { clipMockupVoiceJobKind } from "./clip-mockup-voice";
+import { idleGpuGate } from "@/test-utils/idle-gpu-gate";
 
 // ===========================================================================
 // The `clip-mockup-voice` Job: what `cvm clip-mockup add` no longer waits
@@ -142,7 +143,9 @@ const runJob = (ids: string[], speech: SpeechFake, attempt = 1) =>
         ctxAt(attempt)
       )
     ).pipe(
-      Effect.provide(Layer.mergeAll(dbLayer, speech.layer, NodeContext.layer))
+      Effect.provide(
+        Layer.mergeAll(dbLayer, speech.layer, NodeContext.layer, idleGpuGate)
+      )
     ) as Effect.Effect<Exit.Exit<void, unknown>>
   );
 

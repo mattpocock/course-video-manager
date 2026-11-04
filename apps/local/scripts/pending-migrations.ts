@@ -5,7 +5,7 @@
  * in `drizzle.__drizzle_migrations`, and applies only the entries newer than
  * the newest one it has recorded — so "behind" is every journal entry whose
  * `when` is later than that maximum. Same rule as the `apps/remote` deploy
- * check (`apps/remote/scripts/assert-migrations-applied.mjs`).
+ * check (`@cvm/core/db/migrate-on-deploy`).
  */
 export interface JournalEntry {
   readonly tag: string;

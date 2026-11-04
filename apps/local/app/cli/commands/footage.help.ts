@@ -5,8 +5,10 @@
  */
 export const HELP = `Footage — a raw recording on disk, before it is a Video.
 
-Footage is a source video FILE on the author's machine (an OBS capture, a screen
-recording) that has not been cut into Clips yet. Unlike every other noun in the
+Footage is a source video FILE on the author's machine that has not been cut
+into Clips yet: a CVM-recorder Recording Session's camera, screen and mic files,
+an older OBS recording, or Imported Footage (a file CVM did not film, copied in
+under raw-footage/imported/ on a Storage Root). Unlike every other noun in the
 domain model it has NO DATABASE ROW: its identity is its path RELATIVE TO A
 STORAGE ROOT ("raw-footage/take.mkv"; STORAGE_ROOTS lists the drives, first hit
 wins), so it is the same Footage whichever drive holds it, and
@@ -14,7 +16,13 @@ its transcript is cached in a SIDECAR file next to it
 ("<path>.transcript.json") — the same "the filesystem is the state" convention
 as a Video File. There is no 'RawFootage' table and no id; you always address
 footage by path: a root-relative path (looked up on each Storage Root in order),
-or an absolute one as 'footage list' prints it. Footage is never deleted.
+or an absolute one as 'footage list' prints it. CVM deletes Footage only from
+the Storage page: Unused Footage (7+ days old, no Clip uses it, after a
+confirmation) and a moved file's original that has an identical copy elsewhere.
+Imported Footage is never Unused Footage, so CVM never deletes it. A file comes
+in as Imported Footage only through 'cvm footage import', which copies it (the
+original is never moved, changed or deleted) or downloads it from a YouTube URL,
+and transcribes the copy.
 
 The point of transcribing footage is to read what was said BEFORE editing, so an
 agent can decide where Clips and Chapters should fall. The loop is:
@@ -25,10 +33,10 @@ agent can decide where Clips and Chapters should fall. The loop is:
                                          # cut a Clip whose text is sliced from
                                          # that cached transcript (no re-Whisper)
 
-Transcription is whole-file and speaker-agnostic: mono 64kbps audio, Whisper
-'whisper-1' with segment + word timestamps, NO diarization. A file too large for
-Whisper's 25MB upload is split into ~27-minute chunks cut at detected silence
-(never mid-word) and merged back onto one timeline. The cache is keyed by a
+Transcription is whole-file and speaker-agnostic: mono 64kbps audio, Local
+Whisper ('large-v3-turbo', run by the Sidecar on this machine) with segment +
+word timestamps, NO diarization. A long file is split into ~27-minute chunks cut
+at detected silence (never mid-word) and merged back onto one timeline. The cache is keyed by a
 content hash of the source, so replacing/re-recording a file re-transcribes it
 rather than serving stale words. The transcription itself is a Job the Sidecar
 runs ('pnpm dev' / 'pnpm start' starts it), so it survives a restart.
@@ -38,10 +46,18 @@ machine; on any other box it is refused before doing anything (_tag
 "LocalOnlyCommandError", exit 7). That is a full stop, not a retry.
 
 Verbs:
-  list       [--dir <path>]              List video files in a directory
+  list       [--dir <path> | --imported] List video files in a directory, or
+                                         every Imported Footage file
+  import     <file|youtube-url>          Copy a 16:9 file (or download a
+             [--no-wait]                 YouTube video) in as Imported
+                                         Footage, and transcribe it
+  search     <query>                     Find a phrase in what was said in
+                                         Imported Footage (per segment)
   transcribe <path> [--no-wait]          Transcribe a file, caching the result
   transcript <path>                      Read the cached transcript (never runs
-                                         Whisper; not-found if never transcribed)`;
+                                         Whisper; not-found if never transcribed)
+  frame      <path> --at <t>             A PNG of the raw frame at t, to choose
+                                         a Source Crop (held while recording)`;
 
 export const LIST_HELP = `List the video files in a directory as NDJSON (one compact object per line;
 an empty directory prints nothing, exit 0).
@@ -63,19 +79,27 @@ mic offset (default 150 ms). Each line carries:
 
 'transcribed' only reports that a sidecar is PRESENT; whether it is still fresh
 for the current bytes is checked by 'footage transcript' / 'footage transcribe',
-which re-hash the file.
+which re-hash the file unless its size and mtime are still those it was
+hashed at.
+
+--imported lists Imported Footage instead: every video file under
+raw-footage/imported/ (nested folders too) on every Storage Root, each once
+(the first root that has it wins; an Offline root lists nothing). Its 'path' is
+ROOT-RELATIVE ("raw-footage/imported/interview.mp4"), ready for 'clip add
+--source'. --dir and --imported cannot be passed together.
 
 Examples:
   cvm footage list
+  cvm footage list --imported
   cvm footage list --dir /mnt/d/raw-footage
   cvm footage list | jq -r 'select(.transcribed | not) | .path'`;
 
 export const TRANSCRIBE_HELP = `Transcribe a raw footage file and cache the transcript beside it.
 
-Extracts the file's audio (mono, 64kbps), transcribes it with Whisper
-('whisper-1', segment + word timestamps, no diarization), and writes a sidecar
-cache at "<path>.transcript.json". A file whose audio exceeds Whisper's 25MB
-upload cap is split into ~27-minute chunks, each cut at a detected silence point
+Extracts the file's audio (mono, 64kbps), transcribes it with Local Whisper
+('large-v3-turbo', run by the Sidecar; segment + word timestamps, no
+diarization), and writes a sidecar cache at "<path>.transcript.json". A long
+file is split into ~27-minute chunks, each cut at a detected silence point
 (never mid-word), transcribed independently, and merged back onto the file's own
 timeline.
 
@@ -94,7 +118,7 @@ A JOB THE SIDECAR RUNS
   Job instead of starting a second one.
   Each finished chunk is kept beside the file ("<path>.transcript.partial/")
   until the transcript is written, so a Sidecar restart mid-run resumes rather
-  than re-sending finished chunks to Whisper. A run cut off for good (its Sidecar
+  than transcribing finished chunks again. A run cut off for good (its Sidecar
   died) ends FootageTranscriptionInterruptedError (exit 4): run the command again
   and it resumes from those chunks.
 
@@ -127,3 +151,115 @@ Examples:
   cvm footage transcript raw-footage/take.mkv
   cvm footage transcript /mnt/d/raw-footage/take.mkv
   cvm footage transcript ./rec.mp4 | jq -r '.segments[].text'`;
+
+export const IMPORT_HELP = `Import a file CVM did not film (a StreamYard interview's composed file, a
+b-roll shot), or a YouTube video by its URL, as Imported Footage, and transcribe
+it.
+
+PROBED FIRST. Before anything is copied or queued, ffprobe reads the file. It is
+refused (ParseError, exit 3, naming the size and ratio found) when it is not a
+video file, ffprobe can't read it, it has no video stream, or its display aspect
+ratio (width x sample aspect ratio / height) is not within 1% of 16:9. A refusal
+copies nothing and queues no Job. Non-16:9 files are never letterboxed or
+cropped.
+
+COPIED, NEVER MOVED. The file is copied into raw-footage/imported/ on the FIRST
+Storage Root (STORAGE_ROOTS), under its own name. The original is only ever
+read: never moved, changed or deleted. The copy is an 'import-footage' Job the
+Sidecar runs ('pnpm dev' / 'pnpm start'), so a multi-gigabyte copy survives
+closing the terminal and shows in the Jobs list. It is written as
+"<name>.cvm-import-partial" and renamed into place only once its size and
+checksum match the original, so a copy cut off by a restart never has the final
+name (the Job redoes it). Nothing is ever overwritten:
+  - a file of that name with IDENTICAL bytes is already there: no copy, that
+    file is the import (running the command again is safe);
+  - a file of that name with different bytes: the copy is named "<name>-2",
+    "<name>-3", ... (the next free one).
+
+TRANSCRIBED. A 'transcribe-footage' Job waits on the copy, then transcribes it
+exactly as 'footage transcribe' does (Local Whisper, no diarization). An import
+already transcribed is not transcribed again.
+
+Echoes one JSON object once both Jobs are done: { path, size, width, height,
+durationSeconds, transcript: { words, segments } } (counts). 'path' is
+ROOT-RELATIVE ("raw-footage/imported/interview.mp4"): pass it straight to
+'cvm clip add --source' (a normal Clip, Clip Origin 'cli'), or to
+'cvm clip layer add --footage' (a Footage Layer, such as a B-roll).
+
+--no-wait returns once the Jobs are queued: { jobId, transcribeJobId, status:
+"queued", path }. A Job id is null when there was nothing to do (the file was
+already imported, or already transcribed); status is "imported" when neither
+was needed.
+
+FROM A YOUTUBE URL (watch?v=, youtu.be/, shorts/, live/, embed/). The download
+is an 'import-youtube-footage' Job the Sidecar runs with yt-dlp, which must be
+on the Sidecar's PATH (Linux; the Job fails naming the install when it is not).
+It takes the best video up to 1080p plus the best audio, merged to MP4, from
+that one video (never a playlist). The 16:9 probe runs on the download: a
+refused video is deleted and nothing lands in raw-footage/imported/. The file
+is named "<title> [<video id>].mp4" (the title made filename-safe) and copied
+in as above, with "<file>.youtube.json" ({ url, title, videoId }) beside it.
+A video id already imported is reused, never downloaded again. The echo adds
+{ title, url }. --no-wait prints { jobId, transcribeJobId, status, path }:
+jobId is the download's, and path is null until it has landed.
+
+Examples:
+  cvm footage import ~/Downloads/streamyard-interview.mp4
+  cvm footage import "https://www.youtube.com/watch?v=<id>"
+  cvm footage import --no-wait /tmp/b-roll.mov
+  cvm footage list --imported`;
+
+export const SEARCH_HELP = `Find a phrase in what was said in Imported Footage.
+
+Searches the transcript of every Imported Footage file (everything under
+raw-footage/imported/ on every Storage Root, as 'footage list --imported'
+walks it). Nothing else is searched: other Footage, Clips and Videos are not
+(use 'cvm search' for those).
+
+The match is PER SEGMENT: each transcript segment (Whisper's sentence-sized
+run of words, with a start and end) is a hit when its text contains the query
+as a literal, case-insensitive substring, the same rule as 'cvm search'. A
+phrase split across two segments is not found. An empty query is a ParseError
+(exit 3).
+
+Only a FRESH transcript is searched: one whose content hash still matches the
+file's bytes. While the file's size and mtime are those it was hashed at, the
+hash is trusted and the file is not read again. A file never transcribed, still being transcribed, or changed
+since is NOT TRANSCRIBED, never "no matches": after the hits, one JSON line on
+STDERR names them, { notTranscribed: [path, ...] } (absent when there are
+none). Transcribe one with 'footage transcribe <path>'.
+
+Prints NDJSON, one hit per line, in path then time order (no hits prints
+nothing, exit 0):
+  path   ROOT-RELATIVE ("raw-footage/imported/interview.mp4"), ready for
+         'clip add --source'
+  start  the segment's start, in seconds on the file's own timeline
+  end    the segment's end
+  text   the segment's words
+
+Examples:
+  cvm footage search "type inference"
+  cvm footage search "generics" | jq -r '"\\(.path) \\(.start)"'`;
+
+export const FRAME_HELP = `A PNG of one raw frame of a Footage file, to choose a Source Crop by.
+
+  cvm footage frame --at <t> <path>
+
+<path> is a Footage path as every 'cvm footage' verb takes it: root-relative
+("raw-footage/imported/talk.mp4", looked up on each Storage Root) or absolute
+(a Recording Session's camera.mkv or screen.mkv, as 'clip list' prints them).
+<t> is seconds into the file; the frame is the one showing at t (the latest
+frame at or before it), at the file's own size, never scaled or cropped.
+
+Prints { path, source, at }: 'path' is a NEW PNG in the temp directory
+(cvm-frames/) each time. Read it, measure, and give 'clip layer add --crop' the
+fractions of this frame you want (x, y, w, h, each 0-1).
+
+THE STILL GATE. Decoding raw footage while the recorder records costs the live
+take its camera frames, so this is refused while any Recording Session records
+(or a stopped take is still closing its files): _tag "StillHeldError", exit 3,
+"No still while recording: ask again after the Stop". Wait for the Stop and run
+it again; never loop on it mid-take.
+
+Refused (exit 3): no such file, a file ffprobe cannot read, or a t outside
+the file (under 0, or at or past its end). Local-only (exit 7 elsewhere).`;

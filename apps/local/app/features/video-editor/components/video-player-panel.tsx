@@ -7,9 +7,12 @@ import { TableOfContents } from "./table-of-contents";
 import { DeferredAddVideoModal } from "./deferred-fs-panels";
 import { ActionsDropdown } from "./actions-dropdown";
 import { VideoPlayerStatusStrip } from "./video-player-status-strip";
+import { ClipFramePreviewOverlay } from "./clip-frame-preview-overlay";
+import { ClipLayersList } from "./clip-layers-list";
 import { LessonBodyWriterModal } from "@/features/lesson-writer/lesson-body-writer-modal";
 import { AutofillDescriptionModal } from "@/features/lesson-writer/autofill-description-modal";
 import { PreloadableClipManager } from "../preloadable-clip";
+import { landscapeOverlaysByClipId } from "../overlay-preview";
 import {
   getChapters as getChaptersSelector,
   getHasSections as getHasSectionsSelector,
@@ -43,9 +46,14 @@ export const VideoPlayerPanel = () => {
     (ctx) => ctx.clipsToAggressivelyPreload
   );
   const clips = useContextSelector(VideoEditorContext, (ctx) => ctx.clips);
-  const overlaysByClipId = useContextSelector(
+  const allOverlaysByClipId = useContextSelector(
     VideoEditorContext,
     (ctx) => ctx.overlaysByClipId
+  );
+  // Chat Cards are Shorts-only: this Video's export drops them, so does this.
+  const overlaysByClipId = useMemo(
+    () => landscapeOverlaysByClipId(allOverlaysByClipId),
+    [allOverlaysByClipId]
   );
   const footageNotFound = useContextSelector(
     VideoEditorContext,
@@ -66,6 +74,10 @@ export const VideoPlayerPanel = () => {
   const currentClipProfile = useContextSelector(
     VideoEditorContext,
     (ctx) => ctx.currentClipProfile
+  );
+  const videoFormat = useContextSelector(
+    VideoEditorContext,
+    (ctx) => ctx.videoFormat
   );
   const currentClip = useContextSelector(
     VideoEditorContext,
@@ -153,31 +165,44 @@ export const VideoPlayerPanel = () => {
           ) : (
             <>
               <LivePreviewFrame />
-              <div
-                className={cn(
+              {/* The player, with the current Clip's Layers listed beside
+                  it, as in the Portrait Studio. */}
+              <div className={cn("flex gap-3", !showVideoPlayer && "hidden")}>
+                <div
                   // overflow-hidden is what makes a Clip Zoom read as a
                   // crop rather than as an oversized video: the zoomed
                   // <video> is scaled past its box and clipped back to frame.
-                  "w-full aspect-[16/9] overflow-hidden",
-                  !showVideoPlayer && "hidden"
+                  className="flex-1 min-w-0 aspect-[16/9] overflow-hidden relative"
+                >
+                  <ClipFramePreviewOverlay
+                    overlaysByClipId={overlaysByClipId}
+                  />
+                  <PreloadableClipManager
+                    clipsToAggressivelyPreload={clipsToAggressivelyPreload}
+                    clips={clips
+                      .filter((clip) => clipIdsPreloaded.has(clip.frontendId))
+                      .filter((clip) => clip.type === "on-database")}
+                    finalClipId={clips[clips.length - 1]?.frontendId}
+                    state={runningState}
+                    currentClipId={currentClipId}
+                    currentClipProfile={currentClipProfile}
+                    videoFormat={videoFormat}
+                    onClipFinished={onClipFinished}
+                    onUpdateCurrentTime={onUpdateCurrentTime}
+                    playbackRate={playbackRate}
+                    scrubSeekTime={scrubSeekTime}
+                    overlaysByClipId={overlaysByClipId}
+                    footageNotFound={footageNotFound}
+                  />
+                </div>
+                {clips.length > 0 && (
+                  // As tall as the player: the list scrolls inside it.
+                  <div className="relative w-64 shrink-0">
+                    <div className="absolute inset-0">
+                      <ClipLayersList />
+                    </div>
+                  </div>
                 )}
-              >
-                <PreloadableClipManager
-                  clipsToAggressivelyPreload={clipsToAggressivelyPreload}
-                  clips={clips
-                    .filter((clip) => clipIdsPreloaded.has(clip.frontendId))
-                    .filter((clip) => clip.type === "on-database")}
-                  finalClipId={clips[clips.length - 1]?.frontendId}
-                  state={runningState}
-                  currentClipId={currentClipId}
-                  currentClipProfile={currentClipProfile}
-                  onClipFinished={onClipFinished}
-                  onUpdateCurrentTime={onUpdateCurrentTime}
-                  playbackRate={playbackRate}
-                  scrubSeekTime={scrubSeekTime}
-                  overlaysByClipId={overlaysByClipId}
-                  footageNotFound={footageNotFound}
-                />
               </div>
             </>
           )}

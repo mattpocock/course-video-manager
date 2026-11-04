@@ -1,5 +1,9 @@
 import { PUBLISH_INTERRUPTED_MESSAGE } from "@/features/jobs/job-wire";
 import type { LaneName } from "./lanes";
+import {
+  SHORT_POSTING_JOB_POLICY,
+  SHORT_RENDER_JOB,
+} from "@cvm/core/features/posting-queue/posting-jobs";
 import { CLIP_MOCKUP_VOICE_POLICY as CORE_CLIP_MOCKUP_VOICE_POLICY } from "@cvm/core/features/clip-mockups/voice-status";
 
 /**
@@ -225,6 +229,25 @@ export const STORAGE_MOVE_POLICY = {
 } as const satisfies RetryingJobPolicy;
 
 /**
+ * **Footage import** (`cvm footage import`, #2534): copies one file in as
+ * Imported Footage, checked by checksum. Copied from the Storage move, the
+ * copy it is: a lost run spends no attempt and is redone from its start, so a
+ * multi-gigabyte import outlasts a Sidecar restart.
+ */
+export const FOOTAGE_IMPORT_POLICY = STORAGE_MOVE_POLICY;
+
+/**
+ * **YouTube import** (#2545): one attempt, as a refusal (not 16:9, not
+ * found) would only be refused again; the author runs it again. A lost run
+ * (a Sidecar restart) spends no attempt and is redone from the start.
+ */
+export const YOUTUBE_IMPORT_POLICY = {
+  lane: "default",
+  maxAttempts: 1,
+  resumable: true,
+} as const satisfies RetryingJobPolicy;
+
+/**
  * **Storage delete** (#2110): "Delete originals", and every other delete on
  * the Storage page as it moves here. 1 attempt: a file it could not delete
  * (Windows holds it open) fails the Job with "N files still on D:, retry",
@@ -252,6 +275,21 @@ export const STORAGE_DELETE_POLICY = {
  */
 export const CLIP_MOCKUP_VOICE_POLICY =
   CORE_CLIP_MOCKUP_VOICE_POLICY satisfies RetryingJobPolicy;
+
+/**
+ * The policy core's Posting Queue enqueues its posting Jobs with
+ * (`SHORT_POSTING_JOB_POLICY`) is this one: a mismatch does not compile.
+ */
+SHORT_POSTING_JOB_POLICY satisfies Pick<
+  typeof POSTING_JOB_POLICY,
+  "lane" | "maxAttempts"
+>;
+
+/** The render core's Posting Queue enqueues (`SHORT_RENDER_JOB`) has this policy. */
+SHORT_RENDER_JOB satisfies Pick<
+  (typeof UPLOAD_MANAGER_POLICIES)[typeof SHORT_RENDER_JOB.kind],
+  "lane" | "maxAttempts"
+>;
 
 /**
  * The Upload Manager types that post to an outside service: each must be a

@@ -1,4 +1,5 @@
 import { Schema } from "effect";
+import type { QueuedShortPostParams } from "@cvm/core/features/posting-queue/posting-jobs";
 import {
   ANNOUNCE_NOTHING_BAND,
   PLACEHOLDER_FLOOR_BANDS,
@@ -17,6 +18,13 @@ const FileAtParam = Schema.Struct({
   ),
   path: NonEmptyPath,
 });
+
+/** A Footage file, by its absolute path (Footage has no row). */
+const AbsoluteFootagePath = Schema.String.pipe(
+  Schema.filter((p) => p.startsWith("/"), {
+    message: () => "a footage path must be absolute",
+  })
+);
 
 /** A Storage Root: an absolute path. */
 const StorageRootParam = Schema.String.pipe(
@@ -41,6 +49,18 @@ const youtubeMetadataAccepted = <
       (metadata) => findYouTubeMetadataProblem(metadata)?.message ?? true
     )
   );
+
+/**
+ * A Short's posting Job, which only the Posting Queue enqueues
+ * (`QueuedShortPostParams`): its entry, and the words its slot was claimed
+ * with. TikTok's caption is the title.
+ */
+const QUEUED_SHORT_POST_PARAMS = Schema.Struct({
+  videoId: Schema.String,
+  postingQueueEntryId: Schema.String,
+  title: Schema.Trim.pipe(Schema.nonEmptyString()),
+  description: Schema.Trim.pipe(Schema.nonEmptyString()),
+}) satisfies Schema.Schema<QueuedShortPostParams, QueuedShortPostParams>;
 
 export const JOB_PARAMS = {
   noop: Schema.Struct({
@@ -87,6 +107,24 @@ export const JOB_PARAMS = {
         message: () => "a footage path must be absolute",
       })
     ),
+  }),
+  /**
+   * One file copied in as Imported Footage: from where it is (only ever
+   * read) to the name `cvm footage import` chose under
+   * `raw-footage/imported/` on the first Storage Root.
+   */
+  "import-footage": Schema.Struct({
+    source: AbsoluteFootagePath,
+    destination: AbsoluteFootagePath,
+  }),
+  /**
+   * One YouTube video downloaded and copied in as Imported Footage
+   * (`cvm footage import <url>`, the Imported Footage page). `url` is the
+   * video's watch URL, rebuilt from its id.
+   */
+  "import-youtube-footage": Schema.Struct({
+    url: Schema.String.pipe(Schema.startsWith("https://")),
+    videoId: Schema.String.pipe(Schema.pattern(/^[A-Za-z0-9_-]{11}$/)),
   }),
   /** A Course copied under a new name; the route chose the new Course's id. */
   "duplicate-course": Schema.Struct({
@@ -179,17 +217,8 @@ export const JOB_PARAMS = {
       thumbnailId: Schema.String,
     })
   ),
-  "youtube-shorts": youtubeMetadataAccepted(
-    Schema.Struct({
-      videoId: Schema.String,
-      title: Schema.Trim.pipe(Schema.nonEmptyString()),
-      description: Schema.Trim.pipe(Schema.nonEmptyString()),
-    })
-  ),
-  buffer: Schema.Struct({
-    videoId: Schema.String,
-    caption: Schema.Trim.pipe(Schema.nonEmptyString()),
-  }),
+  "youtube-shorts": youtubeMetadataAccepted(QUEUED_SHORT_POST_PARAMS),
+  buffer: QUEUED_SHORT_POST_PARAMS,
   "ai-hero": Schema.Struct({
     videoId: Schema.String,
     title: Schema.Trim.pipe(Schema.nonEmptyString()),

@@ -1,4 +1,5 @@
 import { DrizzleService, type Database } from "./drizzle-service.server.js";
+import { clipLayersRelation } from "./clip-layers-relation.js";
 import { CourseOperationsService } from "./db-course-operations.server.js";
 import {
   clips,
@@ -16,6 +17,7 @@ import {
 import { and, asc, desc, eq, inArray, isNull, ne } from "drizzle-orm";
 import { Effect } from "effect";
 import { copyVideoImpl } from "./db-video-operations.copy.server.js";
+import { createShortOperationsUnwrapped } from "./db-short-create.server.js";
 import {
   createVideoWriteOps,
   videoWriteMethods,
@@ -168,6 +170,7 @@ const createVideoOperationsUnwrapped = (db: Database, deps: VideoOpsDeps) => {
               with: {
                 overlays: overlayExportRelation,
                 recordingSession: clipRecordingSessionRelation,
+                layers: clipLayersRelation,
               },
             },
           },
@@ -199,6 +202,7 @@ const createVideoOperationsUnwrapped = (db: Database, deps: VideoOpsDeps) => {
               with: {
                 overlays: overlayExportRelation,
                 recordingSession: clipRecordingSessionRelation,
+                layers: clipLayersRelation,
               },
             },
           },
@@ -242,6 +246,7 @@ const createVideoOperationsUnwrapped = (db: Database, deps: VideoOpsDeps) => {
             with: {
               overlays: overlayExportRelation,
               recordingSession: clipRecordingSessionRelation,
+              layers: clipLayersRelation,
               diagramSnapshot: {
                 with: {
                   diagram: {
@@ -293,6 +298,20 @@ const createVideoOperationsUnwrapped = (db: Database, deps: VideoOpsDeps) => {
     return Object.fromEntries(
       rows.map((row) => [row.id, row.script])
     ) as Record<string, string | null>;
+  });
+
+  /** Each Video's title, by id; ids with no Video are absent. */
+  const getVideoTitlesByIds = Effect.fn("getVideoTitlesByIds")(function* (
+    ids: readonly string[]
+  ) {
+    if (ids.length === 0) return new Map<string, string>();
+    const rows = yield* makeDbCall(() =>
+      db.query.videos.findMany({
+        where: inArray(videos.id, [...ids]),
+        columns: { id: true, title: true },
+      })
+    );
+    return new Map(rows.map((row) => [row.id, row.title] as const));
   });
 
   const getVideoWithLessonById = Effect.fn("getVideoWithLessonById")(function* (
@@ -634,6 +653,7 @@ const createVideoOperationsUnwrapped = (db: Database, deps: VideoOpsDeps) => {
     getVideoWithLessonById,
     getNextVideoNeedingBody,
     getVideoScriptsByIds,
+    getVideoTitlesByIds,
     createVideo,
     createStandaloneVideo,
     hasOriginalFootagePathAlreadyBeenUsed,
@@ -643,6 +663,7 @@ const createVideoOperationsUnwrapped = (db: Database, deps: VideoOpsDeps) => {
     copyVideo,
     updateVideoLesson,
     ...createVideoWriteOps(db),
+    ...createShortOperationsUnwrapped(db),
     ...createVideoNavigationOps({ getCourseNavigationData }),
     getVideosForFewShotExamples,
   };

@@ -10,7 +10,10 @@
 //    encode runner and the encodes built on it, the Overlay renderer
 //    (Remotion's `bin.mjs`), the vertical Short, Whisper transcription (its
 //    ffmpeg audio extraction), and the Sidecar's own layer and Job handlers.
-//    A route enqueues a Job instead.
+//    A route enqueues a Job instead. One frame of an overlay is not
+//    background work (`overlay-frame.ts`, the editor's paused
+//    preview and `cvm clip frame` wait on it, as on a still), so it and the
+//    renderer's path (`overlay-renderer-bin.ts`) are not listed.
 //
 // 2. Outside the Sidecar (`sidecar/`), `child_process` is imported only by
 //    the entry points named below, each with why it stays: none is work the
@@ -32,8 +35,8 @@ const SIDECAR_SPAWNERS = [
   "^app/services/ffmpeg-encode-commands\\.ts$",
   "^app/services/video-export-service\\.ts$",
   "^app/services/overlay-content-renderer\\.ts$",
-  "^app/services/overlay-renderer-bin\\.ts$",
   "^app/services/render-vertical-video-service\\.ts$",
+  "^app/services/short-overlay-renderer\\.ts$",
   "^app/services/whisper-transcription-service\\.ts$",
   "^app/services/footage-transcription\\.ts$",
   "^app/services/course-publish-service\\.ts$",

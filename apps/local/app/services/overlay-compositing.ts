@@ -8,17 +8,15 @@
  * catch — no test in this repo drives real ffmpeg.
  */
 
-import {
-  clipExportDurationInSeconds,
-  expectedExportDurationInSeconds,
-  type ExportClipDuration,
-} from "./export-duration-check";
+import type { ExportClipDuration } from "./export-duration-check";
+import { placeOnTimeline } from "./overlay-timeline";
 import type { OverlayContent } from "./overlay-render-cache";
 import { resolveOverlayKind } from "@/features/videos/overlay-kind";
 import type { ExportOverlay } from "./export-hash";
 import { overlayTransformVideoFilter } from "@/features/videos/overlay-transform";
 import { VIDEO_FORMAT_DIMENSIONS } from "@/features/videos/video-format";
-import { BITEXACT_ARGS, LANDSCAPE_VIDEO_ENCODE_ARGS } from "./ffmpeg-run";
+import { OVERLAY_RENDER_FPS } from "./overlay-render-cache";
+import { overlayRenderProps } from "./overlay-content-props";
 
 /**
  * One Overlay placed on the Video's own timeline: the seconds at which it
@@ -56,9 +54,11 @@ export type OverlayCameraMove = {
  * it occupies, and the `.mov` to composite over that span. This is everything
  * the ffmpeg pass needs and nothing it does not — the content has already done
  * its job by naming the file.
+ *
+ * `inputPath` is the ffmpeg input drawn over the span: the rendered `.mov`.
  */
 export type RenderedOverlay = {
-  overlayPath: string;
+  inputPath: string;
   startInSeconds: number;
   endInSeconds: number;
 } & OverlayCameraMove;
@@ -72,9 +72,9 @@ export type RenderedOverlay = {
  */
 export const withRenderedContent = (
   placed: PlacedOverlay,
-  overlayPath: string
+  inputPath: string
 ): RenderedOverlay => ({
-  overlayPath,
+  inputPath,
   startInSeconds: placed.startInSeconds,
   endInSeconds: placed.endInSeconds,
   kind: placed.kind,
@@ -83,52 +83,31 @@ export const withRenderedContent = (
 });
 
 /**
- * Convert every Overlay's Clip-relative anchor into an absolute offset on the
- * finished Video's timeline.
- *
- * The export concatenates the Clips end to end, so a Clip's start on the
- * timeline is the sum of what every preceding Clip contributes — its padded
- * duration plus its long Pause, exactly the number ffmpeg is told to cut. The
- * Clips must arrive in playback order and with the archived ones already gone,
- * which is what `getVideoWithClipsById` returns and what the renderer is fed.
- *
- * An Overlay lasts as long as it says, not as long as its anchor Clip: one
- * that outlives its Clip keeps showing over the Clips that follow, and is cut
- * off at the end of the Video. An Overlay anchored past the end of the Video —
- * only reachable from data that no longer matches its Clip — is dropped rather
- * than composited into a span that does not exist.
+ * The Overlays the export composites, placed by {@link placeOnTimeline}. A
+ * Chat Card and a Call to Action are not among them: they are drawn only in a
+ * Short's render (`vertical-overlay-props.ts`).
  */
 export const placeOverlaysOnTimeline = (
   clips: ReadonlyArray<{ overlays: ReadonlyArray<ExportOverlay> }>,
   clipDurations: ReadonlyArray<ExportClipDuration>
-): PlacedOverlay[] => {
-  const videoEndInSeconds = expectedExportDurationInSeconds(clipDurations);
-  const placed: PlacedOverlay[] = [];
-  let clipStartInSeconds = 0;
-
-  clips.forEach((clip, index) => {
-    const duration = clipDurations[index];
-    for (const overlay of clip.overlays) {
-      const startInSeconds = clipStartInSeconds + overlay.at;
-      const endInSeconds = Math.min(
-        startInSeconds + overlay.durationInSeconds,
-        videoEndInSeconds
-      );
-      if (!(endInSeconds > startInSeconds)) continue;
-      placed.push({
-        content: overlayContent(overlay),
-        startInSeconds,
-        endInSeconds,
-        kind: overlay.kind,
-        disableEnterAnimation: overlay.disableEnterAnimation,
-        disableExitAnimation: overlay.disableExitAnimation,
-      });
+): PlacedOverlay[] =>
+  placeOnTimeline(clips, clipDurations).flatMap(
+    ({ overlay, startInSeconds, endInSeconds }) => {
+      const content = overlayContent(overlay);
+      return content === null
+        ? []
+        : [
+            {
+              content,
+              startInSeconds,
+              endInSeconds,
+              kind: overlay.kind,
+              disableEnterAnimation: overlay.disableEnterAnimation,
+              disableExitAnimation: overlay.disableExitAnimation,
+            },
+          ];
     }
-    clipStartInSeconds += duration ? clipExportDurationInSeconds(duration) : 0;
-  });
-
-  return placed;
-};
+  );
 
 /**
  * What the Overlay Render Cache is asked to render for this Overlay.
@@ -140,8 +119,12 @@ export const placeOverlaysOnTimeline = (
  * A Bullet Panel with no bullets at all is still a panel — its heading renders
  * — so the empty array is passed through rather than treated as absent.
  */
-const overlayContent = (overlay: ExportOverlay): OverlayContent => {
+const overlayContent = (overlay: ExportOverlay): OverlayContent | null => {
   switch (resolveOverlayKind(overlay.kind)) {
+    case "chatCard":
+    case "callToAction":
+      // Shorts only: never composited by the export.
+      return null;
     case "bulletPanel":
       return {
         kind: "bulletPanel",
@@ -183,6 +166,9 @@ const formatSeconds = (seconds: number): string => seconds.toFixed(3);
  * with LANDSCAPE_VIDEO_ENCODE_ARGS, and Overlays exist only on course videos.
  */
 const NORMALIZE_FILTER = `scale=${VIDEO_FORMAT_DIMENSIONS.landscape.width}:${VIDEO_FORMAT_DIMENSIONS.landscape.height}`;
+
+/** How a rendered Overlay is drawn over the footage: 1:1, at the origin. */
+const OVERLAY_NODE = "overlay=x=0:y=0:format=auto";
 
 /**
  * The `-filter_complex` graph that composites N rendered Overlays onto one
@@ -252,7 +238,7 @@ export const buildOverlayCompositeFilterGraph = (
     const isLast = index === overlays.length - 1;
     const output = isLast ? "[outv]" : `[comp${index}]`;
     const node =
-      `${current}[ovl${index}]overlay=x=0:y=0:format=auto:eof_action=pass:repeatlast=0` +
+      `${current}[ovl${index}]${OVERLAY_NODE}:eof_action=pass:repeatlast=0` +
       `:enable='between(t,${formatSeconds(overlay.startInSeconds)},${formatSeconds(overlay.endInSeconds)})'${output}`;
     current = output;
     return node;
@@ -262,47 +248,66 @@ export const buildOverlayCompositeFilterGraph = (
 };
 
 /**
- * The whole ffmpeg command line for the compositing pass, minus the program
- * name: the video, one input per rendered card, the graph that places them, and
- * the settings the finished file is written with.
+ * The Overlay the export shows at `timelineSeconds` on the Video's timeline,
+ * if any, and which frame of its content render is on screen then.
  *
- * It encodes with {@link LANDSCAPE_VIDEO_ENCODE_ARGS} — what the concat pass
- * that MADE this file already used — rather than the Shorts burn-in's settings,
- * so a course video carrying a Definition Card comes out with the same
- * characteristics as one that does not. The audio is stream-copied: the
- * normalize pass has already had its say, and re-encoding it here would only
- * lose a generation.
- *
- * Returns `null` when there is nothing to composite, for exactly the reason
- * {@link buildOverlayCompositeFilterGraph} does: the pass must be skipped, not
- * run over a video it would change nothing about.
+ * Its window holds the moment (its camera move, if its kind has one, is read
+ * there). `contentFrame` is the frame {@link buildOverlayCompositeFilterGraph}
+ * composites at that moment: the render is shifted to the start as the graph
+ * spells it (to the millisecond) and gated by the same `between`, and
+ * ffmpeg's `overlay` shows the most recent frame whose time has passed, so it
+ * is the FLOOR of the elapsed frames (as `overlay-transform.ts` measured). It
+ * is `null` where the export draws none of the render: before its first
+ * frame, or past its last.
  */
-export const buildOverlayCompositeArgs = (
-  videoPath: string,
-  overlays: ReadonlyArray<RenderedOverlay>,
-  outputPath: string
-): string[] | null => {
-  const filterGraph = buildOverlayCompositeFilterGraph(overlays);
-  if (!filterGraph) return null;
+export const overlayOnScreenAt = <O extends PlacedOverlay>(
+  overlays: ReadonlyArray<O>,
+  timelineSeconds: number
+): { overlay: O; contentFrame: number | null } | null => {
+  const overlay = overlays.find(
+    (o) =>
+      o.startInSeconds <= timelineSeconds && timelineSeconds <= o.endInSeconds
+  );
+  if (!overlay) return null;
+  const start = Number(formatSeconds(overlay.startInSeconds));
+  const end = Number(formatSeconds(overlay.endInSeconds));
+  const frame = Math.floor(
+    (timelineSeconds - start) * OVERLAY_RENDER_FPS + FRAME_EPSILON
+  );
+  const frames = overlayRenderProps(overlay.content).durationInFrames;
+  const drawn =
+    start <= timelineSeconds &&
+    timelineSeconds <= end &&
+    frame >= 0 &&
+    frame < frames;
+  return { overlay, contentFrame: drawn ? frame : null };
+};
 
+/** A moment on the frame boundary is that frame (`overlay-transform.ts`). */
+const FRAME_EPSILON = 1e-9;
+
+/**
+ * The composite pass at ONE frame of the Video's timeline (`timelineFrame`,
+ * at the export's 60 fps): input `0` is that frame's picture, input `1` (when
+ * `withContent`) the frame of the Overlay's content on screen then. It is
+ * {@link buildOverlayCompositeFilterGraph}'s own camera move, resize and
+ * `overlay` node, with the picture stamped at the moment it shows in the
+ * export, so the move is read at the same `t`. Ends in `[outv]`.
+ */
+export const buildOverlayCompositeFrameFilterGraph = (
+  overlay: Pick<PlacedOverlay, "startInSeconds" | "endInSeconds"> &
+    Partial<OverlayCameraMove>,
+  timelineFrame: number,
+  withContent: boolean
+): string => {
+  // A timebase of one export frame, so `t` is exactly the frame's moment.
+  const at = `settb=1/${OVERLAY_RENDER_FPS},setpts=${timelineFrame}`;
+  const crop = overlayTransformVideoFilter(overlay);
+  const move = crop === null ? "" : `,${crop},${NORMALIZE_FILTER}`;
+  if (!withContent) return `[0:v]${at}${move}[outv]`;
   return [
-    "-y",
-    "-hide_banner",
-    "-i",
-    videoPath,
-    ...overlays.flatMap((overlay) => ["-i", overlay.overlayPath]),
-    "-filter_complex",
-    filterGraph,
-    "-map",
-    "[outv]",
-    "-map",
-    "0:a",
-    ...LANDSCAPE_VIDEO_ENCODE_ARGS,
-    "-c:a",
-    "copy",
-    "-movflags",
-    "+faststart",
-    ...BITEXACT_ARGS,
-    outputPath,
-  ];
+    `[0:v]${at}${move}[pic]`,
+    `[1:v]${at}[ovl]`,
+    `[pic][ovl]${OVERLAY_NODE}[outv]`,
+  ].join(";");
 };

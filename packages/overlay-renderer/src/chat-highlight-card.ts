@@ -20,23 +20,30 @@ import {
 /** The Remotion composition id of the card, in the card server's own entry. */
 export const CHAT_HIGHLIGHT_COMPOSITION_ID = "ChatHighlightCard";
 
+/**
+ * How much larger than the Definition Card's body type the card draws its
+ * type and box (#2558): Matt found the first card too small on the stream.
+ */
+export const CHAT_HIGHLIGHT_SCALE = 1.25;
+
 /** The message text is clamped to this many lines, ending in an ellipsis. */
 export const CHAT_HIGHLIGHT_MAX_LINES = 4;
 
 /**
- * The author line: body size, so the message stays the main thing, in the
+ * The author line: the message's size, so the message stays the main thing, in the
  * title's weight and the brand accent colour.
  */
 export const CHAT_HIGHLIGHT_AUTHOR_TYPE = {
-  fontSize: BODY_TYPE.fontSize,
+  fontSize: BODY_TYPE.fontSize * CHAT_HIGHLIGHT_SCALE,
   fontWeight: TITLE_TYPE.fontWeight,
   lineHeight: BODY_TYPE.lineHeight,
   color: COLORS.underline,
 } as const;
 
-/** The message: body type, in the title's white. */
+/** The message: body type, scaled, in the title's white. */
 export const CHAT_HIGHLIGHT_MESSAGE_TYPE = {
   ...BODY_TYPE,
+  fontSize: BODY_TYPE.fontSize * CHAT_HIGHLIGHT_SCALE,
   color: COLORS.title,
 } as const;
 
@@ -50,10 +57,10 @@ export const CHAT_HIGHLIGHT_MESSAGE_TYPE = {
  * so the drop shadow is never cut off.
  */
 export const CHAT_HIGHLIGHT_GEOMETRY = {
-  cardWidth: 640,
-  padding: 32,
+  cardWidth: 640 * CHAT_HIGHLIGHT_SCALE,
+  padding: 32 * CHAT_HIGHLIGHT_SCALE,
   /** Between the author line and the message. */
-  gap: 4,
+  gap: 4 * CHAT_HIGHLIGHT_SCALE,
   /** Room for the drop shadow (its blur and offset) on every side. */
   shadowMargin: 48,
 } as const;
@@ -69,6 +76,27 @@ export type ChatHighlightCard = z.infer<typeof chatHighlightCardSchema>;
 /** yuva420p halves the chroma planes, so the stream needs even dimensions. */
 const even = (n: number) => Math.ceil(n / 2) * 2;
 
+/** The card's own height on a 1920-wide frame, its message at its full lines. */
+const designCardHeight = (): number => {
+  const g = CHAT_HIGHLIGHT_GEOMETRY;
+  const lineHeight = (type: { fontSize: number; lineHeight: number }) =>
+    type.fontSize * type.lineHeight;
+  return (
+    g.padding * 2 +
+    lineHeight(CHAT_HIGHLIGHT_AUTHOR_TYPE) +
+    g.gap +
+    lineHeight(CHAT_HIGHLIGHT_MESSAGE_TYPE) * CHAT_HIGHLIGHT_MAX_LINES
+  );
+};
+
+/**
+ * The card's own height (no shadow margin) at a given frame width, with its
+ * message at its full {@link CHAT_HIGHLIGHT_MAX_LINES}: the most room it can
+ * take, whatever the message.
+ */
+export const chatHighlightCardHeight = (frameWidth: number): number =>
+  designCardHeight() * (frameWidth / DESIGN_WIDTH);
+
 /**
  * The still's canvas size at a given frame width: tall enough for the author
  * line plus a message at its full {@link CHAT_HIGHLIGHT_MAX_LINES}.
@@ -78,15 +106,8 @@ export const chatHighlightCanvasSize = (
 ): { width: number; height: number } => {
   const scale = frameWidth / DESIGN_WIDTH;
   const g = CHAT_HIGHLIGHT_GEOMETRY;
-  const lineHeight = (type: { fontSize: number; lineHeight: number }) =>
-    type.fontSize * type.lineHeight;
-  const cardHeight =
-    g.padding * 2 +
-    lineHeight(CHAT_HIGHLIGHT_AUTHOR_TYPE) +
-    g.gap +
-    lineHeight(CHAT_HIGHLIGHT_MESSAGE_TYPE) * CHAT_HIGHLIGHT_MAX_LINES;
   return {
     width: even((g.cardWidth + g.shadowMargin * 2) * scale),
-    height: even((cardHeight + g.shadowMargin * 2) * scale),
+    height: even((designCardHeight() + g.shadowMargin * 2) * scale),
   };
 };

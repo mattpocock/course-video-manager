@@ -425,7 +425,7 @@ has a `useState` left, so both `effect-sets-state` entries are gone (5 → 3).
   a live Recorder, which a clone does not have, so the reducer tests are
   their only check here.
 
-## Batch 8 — Command palette (score 102)
+## Batch 8 — Command palette (score 102) — Done
 
 `features/diagrams/palette/use-palette.ts` is already half migrated:
 `navReducer` holds navigation, but `open`, `hasSelection`, `selectedIcon`,
@@ -437,6 +437,58 @@ become effects that report their results as events.
 - `palette-nav.test.ts` becomes the base of the palette reducer tests, so
   rename it and grow it. Do not keep two files. `palette-model.test.ts`,
   `recent-icons.test.ts` and `grid-nav.test.ts` test pure helpers and stay.
+
+**Done.** The batch's premise held: nine `useState`s (the plan's eight plus
+`componentUnderEdit`) and three effects that set state. `palette-nav.ts` is
+gone; `features/diagrams/palette/palette-reducer.ts` owns the page stack it
+held and everything that sat beside it: `open`, the selection as of the
+summon, the recents, the component library, the component under rename,
+diagram hits, `searching` and the spinner. `palette-summoned` carries the
+page, the selection and the stored recents, all read by the caller, so the
+reducer never reads the editor or storage. Leaving or entering a page is
+one rule applied after every event: entering the library declares
+`list-components`; entering the diagram search, or typing on it, declares
+`search-diagrams` with its `seq` and debounce as data (`exec.replace`, so a
+newer search cancels a waiting one), and `diagrams-found` for an older
+`seq` is ignored. Enter on a name page is one `name-submitted`, and the page
+decides whether it saves a component, renames one or renames the Diagram.
+Every insert, save, rename, delete, root command and toast is an effect
+(`insert-icon`, `save-component`, `report-error`, …), and its outcome comes
+back as an event; the spinner is `wait-for-spinner`, so it still shows only
+past 150 ms. The root rows and the filtered library are selectors. The
+runner is `use-palette.ts`, which keeps the two bridges (the summon
+shortcuts and the `max-shapes` listener). The hook has no `useState` left,
+so both of its allowlist entries are gone (`use-state` 3 → 2,
+`effect-sets-state` 3 → 2).
+
+- Tests: `palette-nav.test.ts` became `palette-reducer.test.ts` and went
+  from 18 to 25 cases: the 18 page-stack cases folded into 7 scenarios, plus
+  18 for the rest (a click away closes it, Cmd+F a second time searches
+  again, a root command fires and closes, a stale search
+  answer is ignored, icons land / hit the cap / are replaced, components are
+  listed, inserted, saved, renamed and deleted, a vanished component drops
+  its tile, a Diagram is gone to and renamed). The palette folder went from
+  61 to 68. `palette-model.test.ts`, `recent-icons.test.ts`,
+  `grid-nav.test.ts` and `palette-shortcuts.test.ts` stay. No component
+  test rendered the palette, so none could be deleted.
+- Two edge cases changed on purpose. A second Enter on a component while
+  its insert or save is in flight is ignored, where before both ran. A
+  renamed component goes back to the library at once, showing its new name,
+  and the library is listed once on the way in; before, the page waited for
+  one list and then listed again.
+- Verified with `verify-cvm` on a test clone, on two Diagrams made for the
+  run. Ctrl+K with nothing selected shows no Replace or Save rows; an icon
+  inserted from the grid lands, closes the palette and is stored as recent;
+  with it selected, Replace and Save appear, and Replace rewrites it in
+  place. Save as component blocks an empty name, then saves and closes; the
+  library lists and filters it, renames it (back on the library with the new
+  name), inserts it (closes, a second shape on the canvas) and deletes it
+  (its tile goes). Ctrl+F opens on Recent, Esc backs out to the root, Ctrl+F
+  again searches again, typing searches by name; picking a hit goes to that
+  Diagram and closes. Rename diagram saves the trimmed name. Backspace pops
+  only an empty query and never closes; Esc and Ctrl+K close at the root.
+  The Write Ledger shows only `diagram` and `diagram_component`, and the
+  console has no errors.
 
 ## Batch 9 — Posting pages, part 2 (score 64)
 

@@ -100,6 +100,7 @@ const Command = Schema.Union(
       midDb: Schema.Number,
       highDb: Schema.Number,
     }),
+    endWaitMs: Schema.Number,
     record: Schema.Struct(RecordWith),
   }),
   Schema.Struct({ type: Schema.Literal("end-stream") }),

@@ -54,8 +54,20 @@ export namespace liveStreamReducer {
     /** A listing is out. */
     listing: boolean;
     pickedBroadcast: Broadcast | null;
+    /** Change was pressed: the list shows again until a Broadcast is picked. */
+    changingBroadcast: boolean;
     /** The chat buffer: the picked Broadcast's chat, as the app server relays it. */
     chat: ChatSnapshot;
+    /**
+     * The chat's reconnects (#2558): which one this is, counted per tab, and
+     * whether it has outlasted the grace, so a blip is never shown.
+     */
+    chatReconnect: { reconnect: number; shown: boolean };
+    /**
+     * The picked Broadcast's **Concurrent Viewers**, as the app server last
+     * read them from YouTube; null while YouTube gives no count.
+     */
+    concurrentViewers: number | null;
     /** The Live Stream, as the recorder last said, and the Video it is open for. */
     stream: LiveStreamHeard;
     /** Go Live or End Stream was pressed and the app server has not answered. */
@@ -73,8 +85,15 @@ export namespace liveStreamReducer {
     | { type: "broadcasts-answered"; answer: BroadcastListAnswer }
     | { type: "broadcast-listing-failed"; message: string }
     | { type: "broadcast-clicked"; broadcastId: string }
+    | { type: "change-broadcast-clicked" }
     /** Heard from the app server's chat (`GET /api/streaming/chat/events`). */
     | BroadcastChatEvent
+    /** A reconnect's grace (`RECONNECT_GRACE_MS`) is over. */
+    | {
+        type: "chat-reconnect-grace-ended";
+        broadcastId: string;
+        reconnect: number;
+      }
     /**
      * The app server's recorder client said the Live Stream (null: the
      * recorder closed), on every page (`live-stream-wire.ts`).
@@ -100,6 +119,8 @@ export namespace liveStreamReducer {
         silenceLength: SilenceLength;
       }
     | { type: "end-stream"; videoId: string }
+    /** Say `chat-reconnect-grace-ended` once the grace is over. */
+    | { type: "await-reconnect-grace"; broadcastId: string; reconnect: number }
     | ChatHighlightEffect;
 }
 
@@ -111,12 +132,24 @@ export const createInitialLiveStreamState = (): State => ({
   broadcastList: { status: "unlisted" },
   listing: false,
   pickedBroadcast: null,
+  changingBroadcast: false,
   stream: null,
   pending: null,
   refusal: null,
   highlight: NO_CHAT_HIGHLIGHT,
   chat: { broadcastId: null, connection: { state: "idle" }, messages: [] },
+  chatReconnect: { reconnect: 0, shown: false },
+  concurrentViewers: null,
 });
+
+/**
+ * How long the chat may be reconnecting before the panel quietly says so.
+ * YouTube ending a stream connection's answer is not reconnecting at all
+ * (`services/broadcast-chat.ts`); this covers a real failure, which the app
+ * server retries on its own within seconds, so only an outage that lasts
+ * shows.
+ */
+export const RECONNECT_GRACE_MS = 10_000;
 
 /** As many chat messages as the app server keeps (`broadcast-chat-live.server.ts`). */
 const MAX_CHAT_MESSAGES = 500;
@@ -170,7 +203,7 @@ const broadcastClicked = (
     state.chat.broadcastId === broadcast.id &&
     !chatGaveUp(state.chat.connection)
   ) {
-    return { ...state, pickedBroadcast: broadcast };
+    return { ...state, pickedBroadcast: broadcast, changingBroadcast: false };
   }
   exec({
     type: "pick-broadcast",
@@ -179,12 +212,39 @@ const broadcastClicked = (
   return {
     ...state,
     pickedBroadcast: broadcast,
+    changingBroadcast: false,
     chat: {
       broadcastId: broadcast.id,
       connection: { state: "connecting" },
       messages: [],
     },
   };
+};
+
+/**
+ * A chat now reconnecting that wasn't starts its grace; any other state ends
+ * the last reconnect.
+ */
+const followReconnect = (before: State, after: State, exec: Exec): State => {
+  const { chat } = after;
+  if (chat.connection.state !== "reconnecting") {
+    return after.chatReconnect.shown
+      ? { ...after, chatReconnect: { ...after.chatReconnect, shown: false } }
+      : after;
+  }
+  if (
+    before.chat.connection.state === "reconnecting" &&
+    before.chat.broadcastId === chat.broadcastId
+  )
+    return after;
+  const reconnect = after.chatReconnect.reconnect + 1;
+  if (chat.broadcastId !== null)
+    exec({
+      type: "await-reconnect-grace",
+      broadcastId: chat.broadcastId,
+      reconnect,
+    });
+  return { ...after, chatReconnect: { reconnect, shown: false } };
 };
 
 /** The chat buffer follows what the app server's chat says. */
@@ -196,10 +256,20 @@ const chatHeard = (state: State, event: BroadcastChatEvent): State => {
       id === null || state.pickedBroadcast?.id === id
         ? state.pickedBroadcast
         : listedBroadcast(state, id);
-    return { ...state, chat: event.chat, pickedBroadcast };
+    // A new listener, pick or End Stream starts with no count: the app
+    // server sends the one it has next.
+    return {
+      ...state,
+      chat: event.chat,
+      pickedBroadcast,
+      concurrentViewers: null,
+    };
   }
   // A late word on a chat no longer picked.
   if (event.broadcastId !== state.chat.broadcastId) return state;
+  if (event.type === "concurrent-viewers-changed") {
+    return { ...state, concurrentViewers: event.concurrentViewers };
+  }
   if (event.type === "chat-connection-changed") {
     return { ...state, chat: { ...state.chat, connection: event.connection } };
   }
@@ -258,10 +328,19 @@ export const liveStreamReducer: EffectReducer<State, Action, Effect> = (
       };
     case "broadcast-clicked":
       return broadcastClicked(state, action.broadcastId, exec);
+    case "change-broadcast-clicked":
+      return { ...state, changingBroadcast: true };
     case "chat-attached":
     case "chat-message-received":
     case "chat-connection-changed":
-      return chatHeard(state, action);
+    case "concurrent-viewers-changed":
+      return followReconnect(state, chatHeard(state, action), exec);
+    case "chat-reconnect-grace-ended":
+      return action.broadcastId === state.chat.broadcastId &&
+        action.reconnect === state.chatReconnect.reconnect &&
+        state.chat.connection.state === "reconnecting"
+        ? { ...state, chatReconnect: { ...state.chatReconnect, shown: true } }
+        : state;
     case "live-stream-heard": {
       const next: State = { ...state, stream: action.stream };
       // A Live Stream that ended took its Chat Highlight with it (the
@@ -319,7 +398,12 @@ const goLiveReducer = (
     case "end-stream-failed":
       return { ...state, pending: null, refusal: action.message };
     case "end-stream-pressed":
-      if (state.pending || !isLiveOn(state, action.videoId)) return state;
+      if (
+        state.pending ||
+        !isLiveOn(state, action.videoId) ||
+        state.stream?.status.kind === "ending"
+      )
+        return state;
       exec({ type: "end-stream", videoId: action.videoId });
       return { ...state, pending: "ending", refusal: null };
   }
@@ -342,6 +426,7 @@ const STATUS_WORDS: Record<StreamStatus["kind"], string | null> = {
   connecting: "Connecting to YouTube…",
   live: "Live",
   reconnecting: "Reconnecting to YouTube…",
+  ending: "Ending… viewers are catching up, then the Broadcast ends.",
   ended: null,
 };
 
@@ -349,7 +434,8 @@ export const goLiveControl = (state: State, videoId: string): GoLiveControl => {
   const status = state.stream?.videoId === videoId ? state.stream.status : null;
   return {
     press: isLiveOn(state, videoId) ? "end-stream" : "go-live",
-    busy: state.pending !== null,
+    // End Stream's wait (#2660) is a press already out, wherever it came from.
+    busy: state.pending !== null || status?.kind === "ending",
     status:
       status?.kind === "ended"
         ? `The Live Stream ended: ${status.reason}`
@@ -376,3 +462,20 @@ export const broadcastPickerRows = (state: State): BroadcastPickerRow[] =>
         refusal: broadcastRefusal(broadcast),
       }))
     : [];
+
+/**
+ * What the Broadcast picker shows (#2558): the list until a Broadcast is
+ * picked, then only the pick (with Change), so the chat gets the room.
+ */
+export type BroadcastPickerView =
+  | { kind: "list" }
+  | { kind: "picked"; broadcast: Broadcast; refusal: string | null };
+
+export const broadcastPickerView = (state: State): BroadcastPickerView =>
+  state.pickedBroadcast === null || state.changingBroadcast
+    ? { kind: "list" }
+    : {
+        kind: "picked",
+        broadcast: state.pickedBroadcast,
+        refusal: broadcastRefusal(state.pickedBroadcast),
+      };

@@ -19,6 +19,7 @@ export const clipService = (client: RpcClient) =>
     createClip: rpcMethod((json) => client.rpc.clip.createClip.$post({ json })),
     updateClip: rpcMethod((json) => client.rpc.clip.updateClip.$post({ json })),
     retimeClip: rpcMethod((json) => client.rpc.clip.retimeClip.$post({ json })),
+    splitClip: rpcMethod((json) => client.rpc.clip.splitClip.$post({ json })),
     setClipZoom: rpcMethod((json) =>
       client.rpc.clip.setClipZoom.$post({ json })
     ),
@@ -39,6 +40,15 @@ export const clipService = (client: RpcClient) =>
     ),
     replaceTranscriptWords: rpcMethod((json) =>
       client.rpc.clip.replaceTranscriptWords.$post({ json })
+    ),
+    setClipText: rpcMethod((json) =>
+      client.rpc.clip.setClipText.$post({ json })
+    ),
+    listClipLayers: rpcMethod((json) =>
+      client.rpc.clip.listClipLayers.$post({ json })
+    ),
+    setClipLayers: rpcMethod((json) =>
+      client.rpc.clip.setClipLayers.$post({ json })
     ),
     // Chapters live on this same service (ClipOperationsService merges the
     // chapter ops in), so `cvm chapter`'s verbs are RPC methods here too, backed

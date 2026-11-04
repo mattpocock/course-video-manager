@@ -1,19 +1,34 @@
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { NodeContext } from "@effect/platform-node";
-import { FileSystem } from "@effect/platform";
-import { ConfigProvider, Effect, Layer } from "effect";
+import { Effect, Layer } from "effect";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { clipComposite, clipSource } from "@/packages/clip-source";
+import { clipComposite, clipLayers, clipSource } from "@/packages/clip-source";
 import { sceneFilterGraph } from "@/packages/scene-layout";
 import { DEFAULT_MIC_EQ } from "@cvm/core/features/videos/recorder";
 import { micEqFilters } from "@/packages/mic-eq";
-import { FFmpegCommandsService } from "./ffmpeg-commands";
+import type { ClipLayerRow } from "@cvm/core/features/videos/clip-layer";
+import {
+  overlayTransform,
+  overlayTransformProgressAt,
+} from "@/features/videos/overlay-transform";
 import { FFmpegEncodeService } from "./ffmpeg-encode-commands";
+import type { RenderedOverlay } from "./overlay-compositing";
 import { SidecarContextTest } from "./sidecar-context";
-import { makeVideoExportPasses } from "./video-export-passes";
+import {
+  hasFfmpeg,
+  lavfi,
+  probe,
+  pixel,
+  exportClips,
+  sessionRow,
+  exportClip,
+  flashes,
+  beeps,
+} from "@/test-utils/video-export-ffmpeg";
+import { idleGpuGate } from "@/test-utils/idle-gpu-gate";
 
 /**
  * The export pass over a Video of CVM-recorder Clips, with the real ffmpeg on
@@ -21,146 +36,6 @@ import { makeVideoExportPasses } from "./video-export-passes";
  * no device): a red 60 fps screen, a green 29.97 fps camera, a mono mic.
  * Skipped where there is no ffmpeg.
  */
-const hasFfmpeg = (() => {
-  try {
-    execFileSync("ffmpeg", ["-version"], { stdio: "ignore" });
-    return true;
-  } catch {
-    return false;
-  }
-})();
-
-const lavfi = (dir: string, name: string, source: string, codec: string[]) => {
-  const file = path.join(dir, name);
-  execFileSync("ffmpeg", [
-    "-v",
-    "error",
-    "-f",
-    "lavfi",
-    "-i",
-    source,
-    ...codec,
-    file,
-  ]);
-  return file;
-};
-
-const probe = (file: string) =>
-  JSON.parse(
-    execFileSync(
-      "ffprobe",
-      ["-v", "error", "-show_streams", "-show_format", "-of", "json", file],
-      {
-        encoding: "utf8",
-      }
-    )
-  ) as {
-    streams: Record<string, string | number>[];
-    format: { duration: string };
-  };
-
-/** The rgb of the pixel at (x, y) (even) of the frame at `t`. */
-const pixel = (file: string, t: number, x: number, y: number) => [
-  ...execFileSync("ffmpeg", [
-    "-v",
-    "error",
-    "-ss",
-    String(t),
-    "-i",
-    file,
-    "-frames:v",
-    "1",
-    "-vf",
-    `crop=2:2:${x}:${y},format=rgb24`,
-    "-f",
-    "rawvideo",
-    "-",
-  ]).subarray(0, 3),
-];
-
-/** Run the export pass over `clips`; the output file and every command run. */
-const exportClips = async (
-  dir: string,
-  clips: Parameters<
-    ReturnType<typeof makeVideoExportPasses>["exportVideoClips"]
-  >[0]["clips"]
-) => {
-  const commands: string[] = [];
-  const program = Effect.gen(function* () {
-    const passes = makeVideoExportPasses({
-      ffmpegEncode: yield* FFmpegEncodeService,
-      ffmpegCommands: yield* FFmpegCommandsService,
-      effectFs: yield* FileSystem.FileSystem,
-      videoEditorLogger: {
-        log: (_videoId, event) =>
-          Effect.sync(() => {
-            if (event.type === "cli-output") commands.push(event.command);
-          }),
-      } as Parameters<typeof makeVideoExportPasses>[0]["videoEditorLogger"],
-    });
-    return yield* passes.exportVideoClips({
-      videoId: "video-1",
-      format: "landscape",
-      clips,
-    });
-  });
-  const result = await Effect.runPromise(
-    program.pipe(
-      Effect.provide(
-        Layer.mergeAll(
-          FFmpegEncodeService.Default,
-          FFmpegCommandsService.Default,
-          NodeContext.layer,
-          SidecarContextTest
-        ).pipe(
-          Layer.provide(
-            Layer.setConfigProvider(
-              ConfigProvider.fromMap(new Map([["STORAGE_ROOTS", dir]]))
-            )
-          )
-        )
-      )
-    )
-  );
-  return { output: result.outputPath, commands };
-};
-
-const sessionRow = (
-  dir: string,
-  start: number,
-  end: number,
-  // Code until 1.5 s, then Camera.
-  sceneEvents = [{ fileTime: 1.5, scene: "Camera" as const }]
-) => ({
-  videoFilename: path.join(dir, "mic.mkv"),
-  sourceStartTime: start,
-  sourceEndTime: end,
-  recordingSessionId: "session-1",
-  sceneOverride: null,
-  recordingSession: {
-    id: "session-1",
-    screenFilePath: path.join(dir, "screen.mkv"),
-    cameraFilePath: path.join(dir, "camera.mkv"),
-    micFilePath: path.join(dir, "mic.mkv"),
-    micOffsetMs: 150,
-    format: "landscape" as const,
-    screenCaptured: true,
-    sceneEvents,
-  },
-});
-
-const exportClip = (row: ReturnType<typeof sessionRow>) => {
-  const source = clipSource(row);
-  return {
-    inputVideo: row.videoFilename,
-    startTime: row.sourceStartTime,
-    duration: row.sourceEndTime - row.sourceStartTime,
-    pauseType: "none" as const,
-    zoomType: "none",
-    composite: clipComposite(source),
-  };
-};
-
 describe.skipIf(!hasFfmpeg)("exporting a Video of CVM-recorder Clips", () => {
   const dir = path.join(
     os.tmpdir(),
@@ -248,50 +123,158 @@ describe.skipIf(!hasFfmpeg)("exporting a Video of CVM-recorder Clips", () => {
   });
 });
 
-/** The times of the frames whose centre is white. */
-const flashes = (file: string) =>
-  execFileSync(
-    "ffprobe",
-    [
-      "-v",
-      "error",
-      "-f",
-      "lavfi",
-      "-i",
-      `movie=${file},crop=4:4:958:538,signalstats`,
-      "-show_entries",
-      "frame=pts_time:frame_tags=lavfi.signalstats.YAVG",
-      "-of",
-      "csv=p=0",
-    ],
-    { encoding: "utf8" }
-  )
-    .trim()
-    .split("\n")
-    .map((line) => line.split(",").map(Number))
-    .filter(([, luma]) => luma! > 128)
-    .map(([t]) => t!);
+/**
+ * A Bullet Panel over a Clip with a Footage Layer (#2606): the composite
+ * pass runs on the finished picture, so its Transform slides the Footage
+ * Layer with the Scene Layer. The Clip is all Camera (lime) with a blue
+ * Footage Layer over the frame's left quarter; the panel's own render is
+ * transparent, so only the move shows. The editor's playback is checked
+ * against this (`clipPlaybackStyles`).
+ */
+describe.skipIf(!hasFfmpeg)(
+  "a Bullet Panel's Transform over a Clip with a Footage Layer",
+  () => {
+    const dir = path.join(
+      os.tmpdir(),
+      `composite-transform-${process.pid}-${Date.now()}`
+    );
+    const layer = (o: Partial<ClipLayerRow>): ClipLayerRow => ({
+      position: 0,
+      kind: "scene",
+      footagePath: null,
+      footageStart: null,
+      sessionFile: null,
+      volume: 1,
+      spanAt: null,
+      spanDuration: null,
+      cropX: null,
+      cropY: null,
+      cropW: null,
+      cropH: null,
+      placeX: null,
+      placeY: null,
+      placeW: null,
+      placeH: null,
+      ...o,
+    });
+    const clip = exportClip({
+      ...sessionRow(dir, 0.5, 3.5, [{ fileTime: 0, scene: "Camera" }]),
+      layers: [
+        layer({}),
+        layer({
+          position: 1,
+          kind: "footage",
+          footagePath: path.join(dir, "broll.mkv"),
+          footageStart: 0,
+          volume: 0,
+          cropX: 0,
+          cropY: 0,
+          cropW: 1,
+          cropH: 1,
+          placeX: 0,
+          placeY: 0,
+          placeW: 480,
+          placeH: 1080,
+        }),
+      ],
+    });
+    const panel = {
+      startInSeconds: 0.5,
+      endInSeconds: 2.5,
+      kind: "bulletPanel",
+      disableEnterAnimation: false,
+      disableExitAnimation: false,
+    };
+    let output: string;
 
-/** The times each beep starts: where silencedetect says a silence ends. */
-const beeps = (file: string) => {
-  const result = spawnSync(
-    "ffmpeg",
-    [
-      "-hide_banner",
-      "-i",
-      file,
-      "-af",
-      "silencedetect=n=-30dB:d=0.005",
-      "-f",
-      "null",
-      "-",
-    ],
-    { encoding: "utf8" }
-  );
-  return [...result.stderr.matchAll(/silence_end: ([\d.]+)/g)].map((m) =>
-    Number(m[1])
-  );
-};
+    beforeAll(async () => {
+      fs.mkdirSync(dir, { recursive: true });
+      const h264 = ["-c:v", "libx264", "-pix_fmt", "yuv420p"];
+      lavfi(dir, "screen.mkv", "color=c=red:s=320x180:r=60:d=4", h264);
+      lavfi(dir, "camera.mkv", "color=c=lime:s=384x216:r=60:d=4", h264);
+      lavfi(dir, "broll.mkv", "color=c=blue:s=320x180:r=60:d=4", h264);
+      lavfi(dir, "mic.mkv", "sine=f=440:r=48000:d=4", [
+        "-c:a",
+        "aac",
+        "-ac",
+        "1",
+      ]);
+      // The panel's content: fully transparent, so the probes see the move.
+      lavfi(dir, "panel.mov", "color=c=black@0:s=64x64:r=60:d=2,format=rgba", [
+        "-c:v",
+        "png",
+      ]);
+      const exported = (await exportClips(dir, [clip])).output;
+      const overlays: RenderedOverlay[] = [
+        { ...panel, inputPath: path.join(dir, "panel.mov") },
+      ];
+      output = path.join(dir, "composited.mp4");
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const encode = yield* FFmpegEncodeService;
+          return yield* encode.compositeOverlaysAtOffsets(
+            exported,
+            overlays,
+            output,
+            { totalDurationSeconds: 3, onLog: () => {} }
+          );
+        }).pipe(
+          Effect.provide(
+            Layer.mergeAll(
+              FFmpegEncodeService.Default.pipe(Layer.provide(idleGpuGate)),
+              NodeContext.layer,
+              SidecarContextTest
+            )
+          )
+        )
+      );
+    }, 120_000);
+
+    afterAll(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+    // By colour: the encode leaves lime at about (0, 213, 0).
+    type Colour = (rgb: number[]) => boolean;
+    const BLUE: Colour = ([r, g, b]) => b! > 200 && r! < 60 && g! < 60;
+    const LIME: Colour = ([r, g, b]) => g! > 150 && r! < 60 && b! < 60;
+    // The Transform's ground: #101011.
+    const GROUND: Colour = (rgb) => rgb.every((v) => v < 40);
+    const near = (rgb: number[], colour: Colour) => colour(rgb);
+    // Just after a frame's start, so the probe decodes that frame.
+    const frameTime = (frame: number) => frame / 60 + 0.004;
+
+    it("draws the Footage Layer in its Placement before the panel", () => {
+      expect(near(pixel(output, frameTime(12), 400, 540), BLUE)).toBe(true);
+      expect(near(pixel(output, frameTime(12), 560, 540), LIME)).toBe(true);
+    });
+
+    it("slides the Footage Layer and the Scene Layer together mid-move", () => {
+      // 24 frames into the panel's 0.8 s ease: partway across.
+      const frame = 30 + 24;
+      const progress = overlayTransformProgressAt(panel, frame / 60);
+      const fullOffset = overlayTransform("bulletPanel")!.to.offsetX * 1920;
+      expect(progress).toBeGreaterThan(0);
+      expect(progress).toBeLessThan(1);
+      const offset = Math.round((fullOffset * progress) / 2) * 2;
+      const t = frameTime(frame);
+      // The ground in the space the picture left, then the Footage Layer
+      // moved by the offset, then the scene beside it, moved by the same.
+      expect(near(pixel(output, t, offset - 16, 540), GROUND)).toBe(true);
+      expect(near(pixel(output, t, offset + 16, 540), BLUE)).toBe(true);
+      expect(near(pixel(output, t, offset + 480 - 16, 540), BLUE)).toBe(true);
+      expect(near(pixel(output, t, offset + 480 + 16, 540), LIME)).toBe(true);
+    });
+
+    it("slides it by the Transform's whole offset once the move arrives", () => {
+      const offset = Math.round(
+        overlayTransform("bulletPanel")!.to.offsetX * 1920
+      );
+      const t = frameTime(100);
+      expect(near(pixel(output, t, offset - 16, 540), GROUND)).toBe(true);
+      expect(near(pixel(output, t, offset + 16, 540), BLUE)).toBe(true);
+      expect(near(pixel(output, t, offset + 480 + 16, 540), LIME)).toBe(true);
+    });
+  }
+);
 
 /**
  * Clips of an odd length (1.8137 s, not a whole number of 60 fps frames),
@@ -381,6 +364,126 @@ describe.skipIf(!hasFfmpeg)("joining CVM-recorder Clips", () => {
 });
 
 /**
+ * Imported Footage (#2534) beside CVM-recorder Clips: a single 30 fps file
+ * with its own sound (a StreamYard export), cut as a plain Footage Clip
+ * between 60 fps Recording Session Clips. Its flash and beep are at the same
+ * instant, file time 2k+0.5; the export must keep them together and stay
+ * true CFR 60. Checked before the last ~3 s, as above.
+ */
+describe.skipIf(!hasFfmpeg)(
+  "a 30 fps Imported Footage Clip among CVM-recorder Clips",
+  () => {
+    const dir = path.join(
+      os.tmpdir(),
+      `import-join-${process.pid}-${Date.now()}`
+    );
+    const CLIP = 1.8137;
+    const FRAMES = 109;
+    const imported = (k: number) => {
+      const start = 2 * k + 0.2;
+      const source = clipSource({
+        videoFilename: path.join(dir, "interview.mp4"),
+        sourceStartTime: start,
+        sourceEndTime: start + CLIP,
+        recordingSessionId: null,
+        sceneOverride: null,
+        recordingSession: null,
+      });
+      return {
+        inputVideo: path.join(dir, "interview.mp4"),
+        startTime: start,
+        duration: CLIP,
+        pauseType: "none" as const,
+        zoomType: "none",
+        composite: clipComposite(source),
+        layers: clipLayers(source),
+      };
+    };
+    const clips = [
+      exportClip(sessionRow(dir, 0.2, 0.2 + CLIP, [])),
+      imported(1),
+      exportClip(sessionRow(dir, 4.2, 4.2 + CLIP, [])),
+      exportClip(sessionRow(dir, 6.2, 6.2 + CLIP, [])),
+    ];
+    let output: string;
+
+    beforeAll(async () => {
+      fs.mkdirSync(dir, { recursive: true });
+      const h264 = ["-c:v", "libx264", "-pix_fmt", "yuv420p"];
+      lavfi(
+        dir,
+        "screen.mkv",
+        "color=c=black:s=320x180:r=60:d=9,drawbox=c=white:t=fill:enable='between(mod(t\\,2)\\,0.499\\,0.509)'",
+        h264
+      );
+      lavfi(dir, "camera.mkv", "color=c=lime:s=384x216:r=30000/1001:d=9", h264);
+      lavfi(
+        dir,
+        "mic.mkv",
+        "aevalsrc='if(between(mod(t\\,2)\\,0.35\\,0.40)\\,0.5*sin(2*PI*1000*t)\\,0)+0.003*sin(2*PI*200*t)':s=48000:d=9",
+        ["-c:a", "pcm_s16le", "-ac", "1"]
+      );
+      // One file, picture and sound: 30 fps, a flash one frame long at 2k+0.5
+      // and a beep from the same instant.
+      execFileSync("ffmpeg", [
+        "-v",
+        "error",
+        "-f",
+        "lavfi",
+        "-i",
+        "color=c=black:s=320x180:r=30:d=9,drawbox=c=white:t=fill:enable='between(mod(t\\,2)\\,0.499\\,0.52)'",
+        "-f",
+        "lavfi",
+        "-i",
+        "aevalsrc='if(between(mod(t\\,2)\\,0.5\\,0.55)\\,0.5*sin(2*PI*1000*t)\\,0)+0.003*sin(2*PI*200*t)':s=48000:d=9",
+        ...h264,
+        "-c:a",
+        "pcm_s16le",
+        path.join(dir, "interview.mp4").replace(/mp4$/, "mkv"),
+      ]);
+      fs.renameSync(
+        path.join(dir, "interview.mkv"),
+        path.join(dir, "interview.mp4")
+      );
+      output = (await exportClips(dir, clips)).output;
+    }, 120_000);
+
+    afterAll(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+    it("is CFR 60 for every Clip's whole length, the 30 fps one too", () => {
+      const { streams, format } = probe(output);
+      const video = streams.find((s) => s.codec_type === "video")!;
+      expect(video).toMatchObject({
+        r_frame_rate: "60/1",
+        avg_frame_rate: "60/1",
+        nb_frames: String(clips.length * FRAMES),
+      });
+      expect(Number(format.duration)).toBeCloseTo(
+        (clips.length * FRAMES) / 60,
+        1
+      );
+    });
+
+    it("keeps the imported Clip's beep on its flash, and the next Clip's too", () => {
+      // A 30 fps frame is two 60 fps frames: each flash by its first frame.
+      const flashTimes = flashes(output).filter(
+        (t, i, all) => i === 0 || t - all[i - 1]! > 0.05
+      );
+      expect(flashTimes).toHaveLength(clips.length);
+      const beepTimes = beeps(output).slice(0, 3);
+      expect(beepTimes).toHaveLength(3);
+      flashTimes
+        .slice(0, 3)
+        .forEach((t, k) => expect(t).toBeCloseTo((k * FRAMES) / 60 + 0.3, 1));
+      // Within one 30 fps frame: the picture is sampled every 1/30 s there.
+      beepTimes.forEach((t, k) =>
+        expect(Math.abs(t - flashTimes[k]!)).toBeLessThan(1 / 30)
+      );
+    });
+  }
+);
+
+/**
  * A Video's Animatic, encoded through `FFmpegEncodeService.encodeAnimatic`:
  * two stills of different sizes, each held for its segment, each with its
  * voice from its onset and silence to the end of the segment.
@@ -427,7 +530,7 @@ describe.skipIf(!hasFfmpeg)("encoding an Animatic", () => {
       }).pipe(
         Effect.provide(
           Layer.mergeAll(
-            FFmpegEncodeService.Default,
+            FFmpegEncodeService.Default.pipe(Layer.provide(idleGpuGate)),
             NodeContext.layer,
             SidecarContextTest
           )

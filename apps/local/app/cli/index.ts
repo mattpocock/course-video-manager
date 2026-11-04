@@ -4,12 +4,14 @@ import { versionCommand } from "./commands/version";
 import { sectionCommand } from "./commands/section";
 import { lessonCommand } from "./commands/lesson";
 import { videoCommand } from "./commands/video";
+import { shortCommand } from "./commands/short";
 import { clipCommand } from "./commands/clip";
 import { chapterCommand } from "./commands/chapter";
 import { clipMockupCommand } from "./commands/clip-mockup";
 import { clipMockupChapterCommand } from "./commands/clip-mockup-chapter";
 import { clipMockupCommentCommand } from "./commands/clip-mockup-comment";
 import { overlayCommand } from "./commands/overlay";
+import { chatHighlightCommand } from "./commands/chat-highlight";
 import { beatCommand } from "./commands/beat";
 import { learningGoalCommand } from "./commands/learning-goal";
 import { fileCommand } from "./commands/file";
@@ -35,7 +37,7 @@ Read-mostly: most verbs are READS. A growing set of nouns has WRITE verbs —
 (add/update/move/delete), 'overlay' (add/update/delete), 'section'
 (create/rename/move/archive), 'lesson'
 (create/update/move/archive), 'video'
-(create/move/update/archive/unarchive), 'file' (add/delete), 'footage' (transcribe), 'pitch'
+(create/move/update/archive/unarchive), 'short' (create/render), 'file' (add/delete), 'footage' (transcribe), 'pitch'
 (create/update), 'deliverable' (create/update/archive), 'diagram' (create/snapshot add) and
 'course' (publish).
 Every other verb is read-only, and each verb's own --help is authoritative about
@@ -104,7 +106,9 @@ OUTPUT CONTRACT
   Errors => a JSON object on STDERR carrying the Effect error _tag. STDOUT is
   always pure data. Exit codes: 0 ok, 2 not-found, 3 invalid-input, 4 db/internal,
   5 authentication, 6 out-of-date checkout, 7 needs the author's machine (the
-  last three are explained in WHERE THE DATA LIVES and WHAT NEEDS A MACHINE).
+  last three are explained in WHERE THE DATA LIVES and WHAT NEEDS A MACHINE),
+  8 changed underneath you (another command edited the same thing between this
+  one's read and its write; nothing was written: run it again).
 
 WHERE THE DATA LIVES
   cvm does not hold a database connection. It talks to the deployed Course
@@ -134,6 +138,8 @@ WHAT NEEDS A MACHINE
     cvm diagram …           a headless browser and the running app (draws the PNG)
     cvm course readiness    the finished videos directory (exportedness)
     cvm course publish      the same, plus ffmpeg
+    cvm short render        the Sidecar's ffmpeg and finished-videos/ (the vertical file)
+    cvm clip frame          raw footage and the overlay renderer (a Clip's composed frame)
   Anywhere else they are refused before doing any work — exit 7, _tag
   "LocalOnlyCommandError", with the reason in the message. That is a STOP, not
   a retry: no token, no pull and no repeat will make them work, and nothing is
@@ -151,14 +157,21 @@ WRITES
                                      priority); not editable in the UI
     beat    add/update/move/delete   author a Video's Beat plan
                                      (add --pitch <id> targets a pitch's video)
+    short   create                   cut a Standalone Short from ranges of a
+                                     Video, a Recording Session or a Footage
+                                     file (Clips point at the same Footage;
+                                     the source is untouched)
     clip    add/update/move/delete   cut/retime/reorder/archive a Clip ('add'
                                      needs a footage file transcribed first)
     chapter add/update/move/delete   author a Video's Chapters (timeline
                                      dividers that group its Clips)
-    overlay add/update/delete        place a Definition Card on top of the
-                                     footage, anchored to a Clip at an offset
-                                     in seconds ('delete' is a HARD delete —
-                                     no archive, no restore)
+    overlay add/update/delete        place a Definition Card, Bullet Panel
+                                     or (Shorts only) Chat Card or Call to
+                                     Action on top of the footage, anchored
+                                     to a Clip at an offset in seconds
+                                     ('delete' is a HARD delete — no
+                                     archive, no restore; footage over
+                                     footage is 'clip layer')
     clip-mockup
             add/update/move/delete   author a Video's Animatic: one still image
                                      and one spoken line per moment, decided
@@ -188,6 +201,9 @@ WRITES
                                      'delete' is a HARD delete
     footage transcribe               cache a raw footage file's transcript on
                                      disk (LOCAL-ONLY; feeds 'clip add')
+    short render                     render a Short's vertical file into
+                                     finished-videos/ and print its path
+                                     (LOCAL-ONLY; a Sidecar Job)
     section
             create/rename/move/      create a section in a Version, rename it,
             archive                  reorder it, or soft-delete it ('archive'
@@ -240,9 +256,13 @@ WRITES
   (Dropbox) and reads publish-only config from the repo .env.
 
 NOUNS
-  course version section learning-goal lesson video clip clip-mockup
-  clip-mockup-chapter clip-mockup-comment chapter overlay beat file footage pitch deliverable
-  diagram
+  course version section learning-goal lesson video short clip clip-mockup
+  clip-mockup-chapter clip-mockup-comment chapter overlay chat-highlight beat file footage
+  pitch deliverable diagram
+
+  chat-highlight list (--recording-session <id> | --video <id>): a Streamed
+  Recording Session's Chat Highlights (id, shownAt/hiddenAt in seconds on its
+  clock, author, text): what a Chat Card is made from.
 
 SEARCH
   search <query>   Case-insensitive substring search DOWN THE TREE across every
@@ -264,12 +284,14 @@ export const rootCommand = Command.make("cvm").pipe(
     sectionCommand,
     lessonCommand,
     videoCommand,
+    shortCommand,
     clipCommand,
     chapterCommand,
     clipMockupCommand,
     clipMockupChapterCommand,
     clipMockupCommentCommand,
     overlayCommand,
+    chatHighlightCommand,
     beatCommand,
     learningGoalCommand,
     fileCommand,

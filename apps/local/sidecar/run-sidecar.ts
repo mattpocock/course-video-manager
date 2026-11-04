@@ -12,7 +12,12 @@ import {
   isReadOnlyConnection,
   judgeConnection,
 } from "@cvm/core/db/connection-guard";
-import { isInsideGitWorktree } from "@cvm/core/git-worktree";
+import {
+  GitWorktreeProbeLive,
+  isInsideGitWorktree,
+} from "@cvm/core/git-worktree";
+import { JobOperationsService } from "@cvm/core/services/db-job-operations.server";
+import { DrizzleService } from "@cvm/core/services/drizzle-service.server";
 import { leaveSignalsToTheProcess } from "@/services/ffmpeg-child-registry";
 import { judgeServiceUrlOverrides } from "@/services/service-url-guard";
 import { judgeStorageRootsOnDisk } from "@/services/storage-roots";
@@ -27,6 +32,10 @@ import { sweepStuckClips } from "./stuck-clip-sweep";
 import { sweepUnqueuedVoices } from "./clip-mockup-voice-sweep";
 import { sweepMovePartials } from "./move-partials-sweep";
 import { superviseSidecar } from "./supervise";
+import {
+  POSTING_QUEUE_TICK_MS,
+  postingQueueTickIn,
+} from "./posting-queue-tick";
 
 /**
  * The sidecar's entry point (`pnpm dev` runs it as `dev:sidecar`, `pnpm start`
@@ -139,6 +148,14 @@ const main = async (): Promise<void> => {
     )
   );
 
+  // The lease, heartbeats and settling: on a client that fails at once, so
+  // an outage is seen as one, and a stop never waits on a retry.
+  const bookkeeping = JobOperationsService.Default.pipe(
+    Layer.provide(
+      DrizzleService.Default.pipe(Layer.provide(GitWorktreeProbeLive))
+    )
+  );
+
   const outcome = await Effect.runPromise(
     Effect.gen(function* () {
       const signalled = yield* Deferred.make<string>();
@@ -157,6 +174,11 @@ const main = async (): Promise<void> => {
               timing: SIDECAR_TIMING,
               stop,
               // Each sweep on its own: one that fails never skips the other.
+              // Only Matt's main checkout posts the Posting Queue.
+              postingQueueTick: {
+                tick: postingQueueTickIn(CHECKOUT),
+                everyMs: POSTING_QUEUE_TICK_MS,
+              },
               afterRecovery: sweepStuckClips.pipe(
                 Effect.catchAllCause((cause) =>
                   Effect.logError("sidecar: the stuck-Clip sweep failed", cause)
@@ -173,7 +195,11 @@ const main = async (): Promise<void> => {
                   keepWhisperWarm: whisper.keepWarm,
                 }),
             })
-          ).pipe(Effect.provide(layer)),
+          ).pipe(
+            // Its own bookkeeping on the impatient client (`sidecar-layer.ts`).
+            Effect.provide(bookkeeping),
+            Effect.provide(layer)
+          ),
         signalled,
         initialDelayMs: 1_000,
         maxDelayMs: 30_000,

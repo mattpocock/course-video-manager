@@ -2,7 +2,7 @@ import { describe, it, expect } from "@effect/vitest";
 import { beforeAll, beforeEach } from "vitest";
 import { ConfigProvider, Effect, Layer, Stream } from "effect";
 import { Command, CommandExecutor } from "@effect/platform";
-import { readFileSync } from "node:fs";
+import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { NodeContext, NodeFileSystem, NodePath } from "@effect/platform-node";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { FFmpegCommandsService } from "@/services/ffmpeg-commands";
@@ -14,6 +14,7 @@ import {
   type LogEvent,
 } from "@/services/video-editor-logger-service";
 import * as schema from "@/db/schema";
+import { eq } from "drizzle-orm";
 import {
   createTestDb,
   truncateAllTables,
@@ -23,7 +24,9 @@ import {
   RenderVerticalError,
   RenderVerticalVideoService,
 } from "./render-vertical-video-service";
+import { isShortExportStale } from "./short-export-hash";
 import { SidecarContextTest } from "./sidecar-context";
+import { ShortOverlayRendererService } from "./short-overlay-renderer";
 
 describe("RenderVerticalVideoService", () => {
   let testDb: TestDb;
@@ -57,7 +60,9 @@ describe("RenderVerticalVideoService", () => {
       createAndConcatenateVideoClipsSinglePass: () =>
         Effect.succeed("/tmp/fake-concatenated.mp4"),
       normalizeAudio: () => Effect.succeed("/tmp/fake-normalized.mp4"),
-      compositeOverlay: () => Effect.void,
+      // The composite is the pass that writes the Short's file.
+      compositeOverlay: (_c: string, _o: string, output: string) =>
+        Effect.sync(() => writeFileSync(output, "vertical mp4 bytes")),
     } as any);
     // Stands in for `node bin.mjs --props-file <file>`, reading the props.
     const fakeOverlayRenderer = Layer.succeed(
@@ -86,7 +91,14 @@ describe("RenderVerticalVideoService", () => {
       )
     );
 
+    // The real overlay-renderer boundary, over the faked subprocess.
+    const overlayRendererLayer =
+      ShortOverlayRendererService.DefaultWithoutDependencies.pipe(
+        Layer.provide(Layer.mergeAll(NodeFileSystem.layer, fakeOverlayRenderer))
+      );
+
     const depsLayer = Layer.mergeAll(
+      overlayRendererLayer,
       VideoOperationsService.Default.pipe(Layer.provide(dbLayer)),
       ClipOperationsService.Default.pipe(Layer.provide(dbLayer)),
       fakeFfmpeg,
@@ -215,6 +227,59 @@ describe("RenderVerticalVideoService", () => {
   );
 
   it.effect(
+    "writes the Short Export Hash beside its export: a Clip or caption word edit makes the export stale, a render makes it fresh again",
+    () =>
+      Effect.gen(function* () {
+        rmSync("/tmp/test-storage-root/finished-videos", {
+          recursive: true,
+          force: true,
+        });
+        const { videoId, clipIds } = yield* seedShort([
+          {
+            text: "Hello there.",
+            seconds: 2,
+            words: [{ start: 0.5, end: 0.9, text: "Hello" }],
+          },
+        ]);
+        const clipOps = yield* ClipOperationsService;
+        const service = yield* RenderVerticalVideoService;
+        expect(yield* isShortExportStale(videoId), "no export").toBe(true);
+
+        yield* service.renderVerticalVideo({ videoId });
+        expect(yield* isShortExportStale(videoId), "just rendered").toBe(false);
+
+        // A caption word's timing: drawn only by the vertical render.
+        yield* clipOps.replaceTranscriptWords(clipIds[0]!, [
+          { start: 0.7, end: 0.9, text: "Hello" },
+        ]);
+        expect(yield* isShortExportStale(videoId), "word moved").toBe(true);
+        yield* service.renderVerticalVideo({ videoId });
+        expect(yield* isShortExportStale(videoId)).toBe(false);
+
+        // A caption's text.
+        yield* clipOps.updateClip(clipIds[0]!, { text: "Hi there." });
+        expect(yield* isShortExportStale(videoId), "text edited").toBe(true);
+        yield* service.renderVerticalVideo({ videoId });
+
+        // A Clip change: its timing.
+        yield* Effect.promise(() =>
+          testDb
+            .update(schema.clips)
+            .set({ sourceEndTime: 103 })
+            .where(eq(schema.clips.id, clipIds[0]!))
+        );
+        expect(yield* isShortExportStale(videoId), "Clip retimed").toBe(true);
+
+        // An export made before the Short Export Hash: no hash file.
+        yield* service.renderVerticalVideo({ videoId });
+        rmSync(
+          `/tmp/test-storage-root/finished-videos/${videoId}.mp4.export-hash`
+        );
+        expect(yield* isShortExportStale(videoId), "no hash file").toBe(true);
+      }).pipe(Effect.provide(buildTestLayer()))
+  );
+
+  it.effect(
     "leaves no gap: from frame 0 to the Short's last, one subtitle is always showing",
     () => {
       const overlays: OverlayProps[] = [];
@@ -304,6 +369,8 @@ describe("RenderVerticalVideoService", () => {
       const depsLayer = Layer.mergeAll(
         VideoOperationsService.Default.pipe(Layer.provide(dbLayer)),
         ClipOperationsService.Default.pipe(Layer.provide(dbLayer)),
+        // Never reached: each fails at the concat, before the overlay.
+        ShortOverlayRendererService.Default,
         Layer.succeed(FFmpegCommandsService, {} as any),
         Layer.succeed(FFmpegEncodeService, {
           createAndConcatenateVideoClipsSinglePass: () =>
@@ -392,6 +459,8 @@ describe("RenderVerticalVideoService", () => {
       const depsLayer = Layer.mergeAll(
         VideoOperationsService.Default.pipe(Layer.provide(dbLayer)),
         ClipOperationsService.Default.pipe(Layer.provide(dbLayer)),
+        // Never reached: each fails at the concat, before the overlay.
+        ShortOverlayRendererService.Default,
         Layer.succeed(FFmpegCommandsService, {} as any),
         Layer.succeed(FFmpegEncodeService, {
           concatenateClipSegments: (clips: unknown) => {

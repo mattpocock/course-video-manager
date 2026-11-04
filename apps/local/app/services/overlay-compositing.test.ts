@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildOverlayCompositeArgs,
   buildOverlayCompositeFilterGraph,
   placeOverlaysOnTimeline,
 } from "./overlay-compositing";
+import { buildOverlayCompositeArgs } from "./overlay-composite-args";
 import {
   LONG_PAUSE_DURATION_IN_SECONDS,
   type ExportClipDuration,
@@ -37,6 +37,22 @@ const clip = (
 ): ExportClipDuration => ({ duration, pauseType });
 
 describe("placeOverlaysOnTimeline", () => {
+  it("leaves a Chat Card out: it is drawn only in a Short's render", () => {
+    const placed = placeOverlaysOnTimeline(
+      [
+        {
+          overlays: [
+            card({ kind: "chatCard" }),
+            card({ at: 6, durationInSeconds: 2 }),
+          ],
+        },
+      ],
+      [clip(30)]
+    );
+
+    expect(placed.map((p) => p.startInSeconds)).toEqual([6]);
+  });
+
   it("places an Overlay on the first Clip at its own anchor", () => {
     const placed = placeOverlaysOnTimeline(
       [{ overlays: [card({ at: 3, durationInSeconds: 4 })] }],
@@ -193,10 +209,10 @@ describe("placeOverlaysOnTimeline", () => {
       [clip(10), clip(10)]
     );
 
-    expect(placed.map((p) => p.content.title)).toEqual([
-      "first",
-      "second",
-      "third",
+    expect(placed.map((p) => p.content)).toMatchObject([
+      { title: "first" },
+      { title: "second" },
+      { title: "third" },
     ]);
   });
 
@@ -469,7 +485,7 @@ describe("buildOverlayCompositeFilterGraph — the camera Transform", () => {
 
 describe("buildOverlayCompositeArgs", () => {
   const card = {
-    overlayPath: "/cache/a.mov",
+    inputPath: "/cache/a.mov",
     startInSeconds: 1,
     endInSeconds: 4,
     kind: "definitionCard",
@@ -480,7 +496,7 @@ describe("buildOverlayCompositeArgs", () => {
   it("feeds ffmpeg the video first and one input per card", () => {
     const args = buildOverlayCompositeArgs(
       "/in.mp4",
-      [card, { ...card, overlayPath: "/cache/b.mov" }],
+      [card, { ...card, inputPath: "/cache/b.mov" }],
       "/out.mp4"
     )!;
 

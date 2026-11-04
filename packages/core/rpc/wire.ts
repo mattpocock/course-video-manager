@@ -57,7 +57,12 @@ const ERROR_CONSTRUCTORS: Record<
   VideoTitleTakenError: DomainErrors.VideoTitleTakenError,
   ClipNotZoomableError: DomainErrors.ClipNotZoomableError,
   ClipCarriesOverlaysError: DomainErrors.ClipCarriesOverlaysError,
+  ClipLayersRefusedError: DomainErrors.ClipLayersRefusedError,
+  ClipLayersChangedError: DomainErrors.ClipLayersChangedError,
+  ClipSplitRefusedError: DomainErrors.ClipSplitRefusedError,
   AgentSessionUploadRefusedError: DomainErrors.AgentSessionUploadRefusedError,
+  ShortPostRefusedError: DomainErrors.ShortPostRefusedError,
+  PostingQueueChangeRefusedError: DomainErrors.PostingQueueChangeRefusedError,
 };
 
 /**

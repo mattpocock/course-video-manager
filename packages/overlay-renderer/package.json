@@ -1,7 +1,7 @@
 {
   "name": "@cvm/overlay-renderer",
   "version": "1.0.0",
-  "description": "Standalone Remotion renderer for CVM overlays — the subtitle + CTA caption overlay and AI Hero Definition Cards. Renders a transparent overlay at any resolution locally via @remotion/renderer (Chromium). No AWS/Lambda.",
+  "description": "Standalone Remotion renderer for CVM overlays — the Shorts overlay (captions, Chat Cards, Calls to Action) and AI Hero Definition Cards. Renders a transparent overlay at any resolution locally via @remotion/renderer (Chromium). No AWS/Lambda.",
   "private": true,
   "type": "module",
   "license": "UNLICENSED",
@@ -14,6 +14,7 @@
     "./preview": "./src/preview.tsx",
     "./props": "./src/props.ts",
     "./definition-card-tokens": "./src/definition-card-tokens.ts",
+    "./chat-highlight-card": "./src/chat-highlight-card.ts",
     "./card-server-protocol": "./src/card-server-protocol.ts"
   },
   "scripts": {
@@ -28,6 +29,7 @@
   "dependencies": {
     "@cvm/lucide-icons": "workspace:*",
     "@fontsource-variable/dm-sans": "5.3.0",
+    "@fontsource/noto-color-emoji": "5.3.2",
     "@remotion/bundler": "4.0.347",
     "@remotion/cli": "4.0.347",
     "@remotion/google-fonts": "4.0.347",

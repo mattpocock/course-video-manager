@@ -15,14 +15,14 @@ import {
 } from "./ffmpeg-error";
 import { runFfmpegWithProgress } from "./ffmpeg-run";
 import { FfmpegPermitsService } from "./ffmpeg-permits";
+import { GpuGate } from "./gpu-gate";
 import { SidecarContext } from "./sidecar-context";
 import { buildClipConcatArgs, type ConcatClip } from "./clip-concat-args";
 import { makeConcatenateClipSegments } from "./ffmpeg-encode-segments";
+import { SHORT_OVERLAY_COMPOSITE_FILTER } from "./vertical-overlay-props";
 import { assertUnder } from "./assert-under";
-import {
-  buildOverlayCompositeArgs,
-  type RenderedOverlay,
-} from "./overlay-compositing";
+import { buildOverlayCompositeArgs } from "./overlay-composite-args";
+import type { RenderedOverlay } from "./overlay-compositing";
 import {
   animaticEncodeDurationSeconds,
   buildAnimaticEncodeArgs,
@@ -46,18 +46,22 @@ export class FFmpegEncodeService extends Effect.Service<FFmpegEncodeService>()(
       // Built once per process; every encode below draws its slot from it,
       // through `runFfmpegWithProgress`.
       const permits = yield* FfmpegPermitsService;
+      // No encode starts while a Recording Session records (#2644).
+      const gpu = yield* GpuGate;
       type RunOptions = Omit<
         Parameters<typeof runFfmpegWithProgress>[0],
         "permit"
       >;
       const runEncode = (opts: RunOptions) =>
         runFfmpegWithProgress({ ...opts, permit: "encode-slot" }).pipe(
-          Effect.provideService(FfmpegPermitsService, permits)
+          Effect.provideService(FfmpegPermitsService, permits),
+          Effect.provideService(GpuGate, gpu)
         );
       // A pass that stream-copies the video: a CPU permit, not an encode slot.
       const runCopyPass = (opts: RunOptions) =>
         runFfmpegWithProgress({ ...opts, permit: "cpu-permit" }).pipe(
-          Effect.provideService(FfmpegPermitsService, permits)
+          Effect.provideService(FfmpegPermitsService, permits),
+          Effect.provideService(GpuGate, gpu)
         );
 
       const createAndConcatenateVideoClipsSinglePass = Effect.fn(
@@ -197,7 +201,7 @@ export class FFmpegEncodeService extends Effect.Service<FFmpegEncodeService>()(
       });
 
       /**
-       * A Short's final pass: its subtitle/CTA overlay (a Remotion ProRes 4444
+       * A Short's final pass: its caption overlay (a Remotion ProRes 4444
        * render with alpha) burned into the concatenated video.
        *
        * The video decodes on NVDEC and encodes on NVENC
@@ -228,7 +232,7 @@ export class FFmpegEncodeService extends Effect.Service<FFmpegEncodeService>()(
           "-i",
           overlayPath,
           "-filter_complex",
-          "[0:v][1:v]overlay=0:0:format=auto[outv]",
+          SHORT_OVERLAY_COMPOSITE_FILTER,
           "-map",
           "[outv]",
           "-map",

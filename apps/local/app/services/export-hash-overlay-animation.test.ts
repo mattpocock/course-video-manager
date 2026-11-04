@@ -61,3 +61,50 @@ describe("an Overlay's animation toggles", () => {
     );
   });
 });
+
+describe("a Definition Card in the address", () => {
+  it("is where it was before B-roll came and went", () => {
+    // Pinned before B-roll existed, and unchanged by its removal.
+    expect(withOverlays(card({ kind: "definitionCard" }))).toBe(
+      "506d7e9fe1da53c7e56f0d1b398164fa"
+    );
+  });
+});
+
+describe("a Chat Card in the address", () => {
+  const chatCard = (overrides: Partial<ExportOverlay> = {}): ExportOverlay =>
+    card({
+      kind: "chatCard",
+      title: "@fake_viewer_1",
+      description: "A fake question?",
+      ...overrides,
+    });
+
+  it("changes when its author or text changes", () => {
+    expect(withOverlays(chatCard({ title: "@fake_viewer_9" }))).not.toBe(
+      withOverlays(chatCard())
+    );
+    expect(withOverlays(chatCard({ description: "Another?" }))).not.toBe(
+      withOverlays(chatCard())
+    );
+  });
+});
+
+describe("a Call to Action in the address", () => {
+  const callToAction = (overrides: Partial<ExportOverlay> = {}) =>
+    card({
+      kind: "callToAction",
+      title: "example.com",
+      description: "A fake subline",
+      ...overrides,
+    });
+
+  it("changes when its headline or subline changes", () => {
+    expect(withOverlays(callToAction({ title: "example.org" }))).not.toBe(
+      withOverlays(callToAction())
+    );
+    expect(withOverlays(callToAction({ description: "Another" }))).not.toBe(
+      withOverlays(callToAction())
+    );
+  });
+});

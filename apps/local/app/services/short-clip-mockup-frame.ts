@@ -10,13 +10,11 @@ import {
  *
  * A Short's frame is a whole 1080x1920 picture, and the agent never draws the
  * whole of it. CVM draws the layout from the recorder's own Short layout
- * (`scene-layout`), so an agent cannot put code where the camera goes or
- * leave the advert's place covered. There are two scenes, named as the
- * recorder names them:
+ * (`scene-layout`), so an agent cannot put code where the camera goes.
+ * There are two scenes, named as the recorder names them:
  *
  * - **Camera**: the opening moment, Matt to camera. A head icon on a blank
- *   frame, and a faint "advert" box in the bottom half, where the finished
- *   Short draws its call to action. The agent gives no picture for it.
+ *   frame. The agent gives no picture for it.
  * - **Code**: the agent's page (or PNG) fills the screen square at the top,
  *   at exactly the screen's size, with the camera band and its head icon
  *   below. The page sits in an iframe, so nothing it does can reach outside
@@ -98,31 +96,20 @@ body { position: relative; width: ${SHORT_FRAME.width}px; height: ${SHORT_FRAME.
 .head { display: block; }
 .screen { background: #000; }
 .screen iframe { display: block; width: 100%; height: 100%; border: 0; }
-.screen img { display: block; width: 100%; height: 100%; object-fit: contain; }
-.advert { position: absolute; border: 3px dashed rgba(214, 211, 209, 0.18);
-  border-radius: 48px; color: rgba(214, 211, 209, 0.28); display: flex;
-  align-items: center; justify-content: center; font-size: 40px;
-  letter-spacing: 0.3em; text-transform: uppercase; }`;
+.screen img { display: block; width: 100%; height: 100%; object-fit: contain; }`;
 
 /**
  * The Camera scene. The head sits in the top half, where a face sits in a
- * real one; the advert's box sits in the bottom half, as the finished Short's
- * call to action does (the overlay renderer gives it the bottom half, centred,
- * 96px in from each side).
+ * real one. The finished Short draws no call to action, so nothing marks one.
  */
 const cameraBody = () => {
   const r = SHORT_FRAME_RECTS.camera;
   const half = r.height / 2;
   const headSize = Math.round(r.width * 0.5);
-  const advertWidth = r.width - 2 * 96;
-  const advertHeight = Math.round(half * 0.4);
   return `<div class="region camera" style="${box(r)}align-items:flex-start;">
   <div class="head" style="width:${headSize}px;height:${headSize}px;margin-top:${Math.round(
     (half - headSize) / 2 + half * 0.15
   )}px;">${HEAD_ICON}</div>
-  <div class="advert" style="left:96px;top:${Math.round(
-    half + (half - advertHeight) / 2
-  )}px;width:${advertWidth}px;height:${advertHeight}px;">advert</div>
 </div>`;
 };
 

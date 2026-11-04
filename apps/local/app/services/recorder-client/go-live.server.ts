@@ -11,6 +11,7 @@ import type { SilenceLength } from "@/silence-detection-constants";
 import {
   type Broadcast,
   broadcastRefusal,
+  endStreamWaitMs,
 } from "@/features/streaming/broadcast";
 import { dbCall } from "@/services/clip-service-handler.helpers";
 import type { Database } from "@/services/drizzle-service.server";
@@ -197,6 +198,7 @@ export const goLive = Effect.fn("goLive")(function* (o: {
       streamKey: streamKey.right,
       micOffsetMs: micOffsetMs ?? DEFAULT_MIC_OFFSET_MS,
       micEq,
+      endWaitMs: endStreamWaitMs(picked.value),
       silenceLength: o.silenceLength,
       folder: o.folder,
     })
@@ -204,8 +206,10 @@ export const goLive = Effect.fn("goLive")(function* (o: {
 });
 
 /**
- * END STREAM on the app server: once the push has stopped, the Broadcast is
- * completed, so it ends now and not a minute later by auto-stop. The stream
+ * END STREAM on the app server: the recorder service keeps the push going
+ * for the Broadcast's latency (`endStreamWaitMs`, given at Go Live), so
+ * viewers catch up, then stops it. Once the push has stopped, the Broadcast
+ * is completed, so it ends now and not a minute later by auto-stop. The stream
  * has ended either way: a refused transition is only logged, and auto-stop
  * still ends the Broadcast.
  */

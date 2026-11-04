@@ -11,12 +11,10 @@ import {
 import {
   JobOperationsService,
   type Job,
-  type JobFailure,
   type SidecarLease,
 } from "@cvm/core/services/db-job-operations.server";
-import { formatFailureCause } from "@/services/format-failure-cause";
-import { storageRootOfflineErrorOf } from "@/packages/storage";
 import { readStorageRootsOrNone } from "@/services/storage-roots";
+import { toJobFailure } from "./to-job-failure";
 import {
   isNeverReRun,
   isPostingKind,
@@ -27,9 +25,11 @@ import {
   type JobContext,
 } from "./job-kind";
 import { makeKindCleanup } from "./kind-cleanup";
+import { makeLeaseRenewal } from "./lease-renewal";
 import { settleCancelled } from "./settle-cancelled";
 import { retryingSettleOps } from "./settle-retry";
 import { makePostChecks } from "./post-checks";
+import { repeatTick } from "./posting-queue-tick";
 import { makeJobEventFeed, type JobEventFeed } from "./job-event-feed";
 import {
   enqueueThrough,
@@ -95,34 +95,6 @@ export type SidecarOutcome =
   | { readonly _tag: "Stopped"; readonly reason: string }
   | { readonly _tag: "LeaseHeld"; readonly lease: SidecarLease | undefined };
 
-/** A Job's failure as `job.error` keeps it: tag, one line, and the whole chain. */
-export const toJobFailure = (
-  cause: Cause.Cause<unknown>,
-  roots: readonly string[] = []
-): JobFailure => {
-  const squashed = Cause.squash(cause);
-  // A Job that needs an Offline Storage Root fails saying which drive, not
-  // with the filesystem's ENODEV.
-  const error = storageRootOfflineErrorOf(squashed, roots) ?? squashed;
-  const tag =
-    typeof error === "object" &&
-    error !== null &&
-    "_tag" in error &&
-    typeof error._tag === "string"
-      ? error._tag
-      : null;
-  const message =
-    error instanceof Error
-      ? error.message
-      : typeof error === "object" &&
-          error !== null &&
-          "message" in error &&
-          typeof error.message === "string"
-        ? error.message
-        : String(error);
-  return { tag, message, cause: formatFailureCause(squashed) };
-};
-
 const logCause = (what: string) =>
   Effect.catchAllCause((cause: Cause.Cause<unknown>) =>
     Effect.logError(what, cause)
@@ -142,6 +114,14 @@ export const runSidecar = <R>(opts: {
    * sidecar.
    */
   readonly afterRecovery?: Effect.Effect<void, unknown, R>;
+  /**
+   * The Posting Queue tick (`posting-queue-tick.ts`) and how often it runs.
+   * Only `run-sidecar.ts` passes one: a Sidecar without it posts nothing.
+   */
+  readonly postingQueueTick?: {
+    readonly tick: Effect.Effect<void, unknown, R>;
+    readonly everyMs: number;
+  };
   /** Starts the socket once the lease is held; it is closed first on the way out. */
   readonly serve: (
     handle: SidecarHandle
@@ -447,6 +427,8 @@ export const runSidecar = <R>(opts: {
           neverRetryKinds: neverReRunMessagesOf(registry),
           resumableKinds: resumableKindsOf(registry),
           stillRunning: [...running.keys()],
+          // A sidecar cut off from the database runs its Jobs this long.
+          holderGoneAfterMs: timing.outageToleranceMs,
         })
       ).pipe(
         Effect.flatMap((recovered) =>
@@ -495,39 +477,13 @@ export const runSidecar = <R>(opts: {
         }
       }).pipe(logCause("sidecar: the job heartbeat failed"));
 
-      // A sidecar that cannot reach its database for longer than the lease
-      // has lost it — another may hold it by now — so it stops rather than run
-      // Jobs on a lease it cannot prove.
-      let lastRenewed = Date.now();
-      const renewLease = ops
-        .renewSidecarLease({
-          holder: identity.holder,
-          leaseMs: timing.leaseMs,
-        })
-        .pipe(
-          Effect.flatMap((renewed) =>
-            renewed
-              ? Effect.sync(() => {
-                  lastRenewed = Date.now();
-                })
-              : Effect.logError(
-                  "sidecar: another sidecar took this database's lease; stopping"
-                ).pipe(Effect.zipRight(Deferred.succeed(stop, "lease lost")))
-          ),
-          Effect.catchAllCause((cause) =>
-            Effect.logError("sidecar: could not renew the lease", cause).pipe(
-              Effect.zipRight(
-                Date.now() - lastRenewed > timing.leaseMs
-                  ? Effect.logError(
-                      "sidecar: the lease lapsed while the database was unreachable; stopping"
-                    ).pipe(
-                      Effect.zipRight(Deferred.succeed(stop, "lease lapsed"))
-                    )
-                  : Effect.void
-              )
-            )
-          )
-        );
+      // Stops on a takeover, or after `outageToleranceMs` of silence.
+      const renewLease = makeLeaseRenewal({
+        ops,
+        holder: identity.holder,
+        timing,
+        stop,
+      });
 
       // Recovery runs once before any lane claims, so a Job the last sidecar
       // left running is settled before new work starts beside it.
@@ -575,6 +531,15 @@ export const runSidecar = <R>(opts: {
           Schedule.forever
         )
       );
+      if (opts.postingQueueTick) {
+        yield* Effect.forkScoped(
+          repeatTick(
+            opts.postingQueueTick.tick,
+            opts.postingQueueTick.everyMs,
+            nudge
+          )
+        );
+      }
       const lanes = yield* Effect.forkScoped(
         Effect.forEach(LANE_NAMES, laneLoop, {
           concurrency: "unbounded",

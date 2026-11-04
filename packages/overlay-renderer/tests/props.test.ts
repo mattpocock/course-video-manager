@@ -11,14 +11,13 @@ describe("parseOverlayProps", () => {
     expect(props.width).toBe(1080);
     expect(props.height).toBe(1920);
     expect(props.fps).toBe(60);
-    expect(props.cta).toBeNull();
   });
 
   it("defaults every content-kind to empty so a caller sends only what it draws", () => {
     const props = parseOverlayProps({ durationInFrames: 180 });
 
     expect(props.subtitles).toEqual([]);
-    expect(props.cta).toBeNull();
+    expect(props.callsToAction).toEqual([]);
     expect(props.definitionCards).toEqual([]);
     expect(props.bulletPanels).toEqual([]);
 
@@ -30,6 +29,36 @@ describe("parseOverlayProps", () => {
       ],
     });
     expect(withCard.definitionCards[0]?.startFrame).toBe(0);
+  });
+
+  // ── Calls to Action ──────────────────────────────────────────────────
+
+  it("no longer reads the old image-based `cta` as a Call to Action", () => {
+    const props = parseOverlayProps({
+      durationInFrames: 300,
+      cta: { variant: "ai", durationInFrames: 120 },
+    });
+
+    expect(props.callsToAction).toEqual([]);
+    expect(props).not.toHaveProperty("cta");
+  });
+
+  it("defaults a Call to Action to the overlay's start with both animations on", () => {
+    const props = parseOverlayProps({
+      durationInFrames: 300,
+      callsToAction: [
+        { title: "example.com", description: "", durationInFrames: 120 },
+      ],
+    });
+
+    expect(props.callsToAction[0]).toEqual({
+      title: "example.com",
+      description: "",
+      startFrame: 0,
+      durationInFrames: 120,
+      disableEnterAnimation: false,
+      disableExitAnimation: false,
+    });
   });
 
   // ── Bullet Panels ────────────────────────────────────────────────────

@@ -62,9 +62,8 @@ const StreamingStudio = (props: Route.ComponentProps) => {
     <VideoEditor
       {...wiring}
       replay={false}
-      layout={({ sidePanel }) => (
+      layout={() => (
         <StreamingLayout
-          sidePanel={sidePanel}
           highlightsUnavailable={props.loaderData.highlightsUnavailable}
         />
       )}

@@ -323,6 +323,48 @@
       "when": 1793395610323,
       "tag": "0045_chat_highlight",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1793625490019,
+      "tag": "0046_overlay_b_roll",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1793652362284,
+      "tag": "0047_overlay_chat_spin",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1793656495335,
+      "tag": "0048_clip_layer",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1793658550980,
+      "tag": "0049_b_roll_to_footage_layers",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1793704731957,
+      "tag": "0050_overlay_drop_b_roll_footage",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1793729197644,
+      "tag": "0051_posting_queue",
+      "breakpoints": true
     }
   ]
 }

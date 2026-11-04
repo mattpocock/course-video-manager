@@ -67,33 +67,40 @@ export const kindOpt = Options.choice("kind", OVERLAY_KINDS).pipe(
   Options.withDescription(
     `Which content-kind the Overlay carries: ${OVERLAY_KINDS.join(
       " | "
-    )}. Omitted on 'add' means "definitionCard".`
+    )}. Omitted on 'add' means "definitionCard". callToAction (Shorts ` +
+      `only): a headline (--title) and subline (--description), both ` +
+      `optional, defaulting to "AIhero.dev" / "Go from Zero To AI Hero"; ` +
+      `'--at 0 --duration 5' on the first Clip recreates the old timing.`
   ),
   Options.optional
 );
 
 export const titleAddOpt = Options.text("title").pipe(
   Options.withDescription(
-    "The Definition Card's heading — the term being defined (required)."
-  )
+    "The Definition Card's heading — the term being defined, the Bullet " +
+      "Panel's own heading, or a callToAction's headline (required, except " +
+      "for a chatCard or a callToAction)."
+  ),
+  Options.optional
 );
 
 export const titleUpdateOpt = Options.text("title").pipe(
-  Options.withDescription("New Definition Card heading."),
+  Options.withDescription("New heading (or callToAction headline)."),
   Options.optional
 );
 
 export const descriptionAddOpt = Options.text("description").pipe(
   Options.withDescription(
-    "The Definition Card's body — the definition itself. Required for a " +
-      "definitionCard Overlay, refused for a bulletPanel (whose content is " +
-      "--bullets-json)."
+    "The Definition Card's body — the definition itself, or a " +
+      "callToAction's subline. Required for a definitionCard Overlay, " +
+      "optional for a callToAction, refused for a bulletPanel (whose " +
+      "content is --bullets-json)."
   ),
   Options.optional
 );
 
 export const descriptionUpdateOpt = Options.text("description").pipe(
-  Options.withDescription("New Definition Card body."),
+  Options.withDescription("New card body (or callToAction subline)."),
   Options.optional
 );
 

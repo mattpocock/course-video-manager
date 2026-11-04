@@ -25,6 +25,7 @@ import {
   type BulletPanelBullet,
 } from "@/features/videos/bullet-panel";
 import { toRootRelative } from "@/packages/storage";
+import { CHAT_CARD_VERSION } from "@/features/video-editor/chat-card-input-props";
 
 /**
  * Bump this constant to force re-export of all videos (e.g., after changing
@@ -162,6 +163,14 @@ const toOverlayPayload = (overlays: ExportOverlay[]) =>
       ...(o.bullets && o.bullets.length > 0
         ? { b: bulletPanelHashPayload(o.bullets) }
         : {}),
+      // A Chat Card's author and text are already `t` and `x`. How it is
+      // drawn (its look, motion, slots and the Face Area that picks one) is
+      // code, so its version joins them ONLY for a Chat Card, and no other
+      // Overlay's payload is re-addressed. The Layers that decide its slot
+      // are already in the Clip's entry.
+      ...(resolveOverlayKind(o.kind) === "chatCard"
+        ? { cc: CHAT_CARD_VERSION }
+        : {}),
     }))
     .sort((left, right) =>
       JSON.stringify(left) < JSON.stringify(right) ? -1 : 1
@@ -219,7 +228,10 @@ const rootRelativeHashFields = <F extends { f: string }>(
  * its Recording Session, scene segments, Scene Override, mic offset, the
  * saved mic EQ (loaded with its Recording Session) and the layout version
  * join its entry (see
- * `clipSourceHashFields`). An OBS Clip's entry is untouched.
+ * `clipSourceHashFields`), drawn in the Video's format: a Landscape
+ * session's Clip on a Short is addressed by the Short layout's version. An
+ * OBS Clip's entry is untouched on a Landscape Video; on a Short it adds
+ * `cv`, since it now covers the frame instead of being stretched.
  *
  * The file a Clip's entry names (`f`) is its ROOT-RELATIVE path
  * (`raw-footage/x.mp4`), never the drive it is on: a legacy absolute path
@@ -235,20 +247,27 @@ export const computeExportHash = (
 ): string | null => {
   if (clips.length === 0) return null;
 
+  const videoFormat = resolveVideoFormat(format);
   const payload = {
     v: EXPORT_VERSION,
-    fmt: resolveVideoFormat(format),
-    clips: clips.map((c) => ({
-      ...rootRelativeHashFields(
-        clipSourceHashFields(clipSource(c)),
-        storageRoots
-      ),
-      ...(c.pauseType === LONG_PAUSE ? { p: LONG_PAUSE } : {}),
-      ...(resolveClipZoomType(c.zoomType) === DEFAULT_CLIP_ZOOM_TYPE
-        ? {}
-        : { z: resolveClipZoomType(c.zoomType) }),
-      ...(c.overlays.length === 0 ? {} : { o: toOverlayPayload(c.overlays) }),
-    })),
+    fmt: videoFormat,
+    clips: clips.map((c) => {
+      const source = clipSource(c, { videoFormat });
+      return {
+        ...rootRelativeHashFields(clipSourceHashFields(source), storageRoots),
+        // A single file on a Short covers the frame, centre-cropped (it was
+        // stretched before #2575): `cv` re-addresses it. Landscape, and every
+        // CVM-recorder Clip, is untouched.
+        ...(source.kind === "footage" && videoFormat === "short"
+          ? { cv: 1 }
+          : {}),
+        ...(c.pauseType === LONG_PAUSE ? { p: LONG_PAUSE } : {}),
+        ...(resolveClipZoomType(c.zoomType) === DEFAULT_CLIP_ZOOM_TYPE
+          ? {}
+          : { z: resolveClipZoomType(c.zoomType) }),
+        ...(c.overlays.length === 0 ? {} : { o: toOverlayPayload(c.overlays) }),
+      };
+    }),
   };
 
   return crypto

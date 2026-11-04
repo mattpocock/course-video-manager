@@ -31,6 +31,9 @@ ALLOWLIST=(
   "packages/core/services/db-course-duplicate.server.ts"
   # Fresh Clips: createClip / appendClips / createClipWebLinks.
   "packages/core/services/db-clip-operations.server.ts"
+  # Fresh Clips cut by `cvm short create` (its copies go through
+  # copyClipsOntoVideo, COPY_PATHS.shortCreate).
+  "packages/core/services/db-short-create.server.ts"
   # Fresh Clips from recording: appendClips / insert-at-position.
   "apps/local/app/services/clip-service-handler.helpers.ts"
   # Fresh child rows on one existing Clip.

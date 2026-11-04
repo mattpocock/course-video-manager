@@ -95,6 +95,10 @@ const OVERLAY_TRANSFORMS: Record<OverlayKind, OverlayTransform | null> = {
     from: CENTERED,
     to: { offsetX: BULLET_PANEL_OFFSET_X },
   },
+  // A Chat Card sits in a Short's top band, over nothing that must move.
+  chatCard: null,
+  // A Call to Action sits in a Short's lower half and moves no camera.
+  callToAction: null,
 };
 
 /**

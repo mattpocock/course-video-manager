@@ -1,5 +1,10 @@
 import type { Database } from "./drizzle-service.server.js";
-import { clipTranscriptWords, clips, overlays } from "../db/schema.js";
+import {
+  clipLayers,
+  clipTranscriptWords,
+  clips,
+  overlays,
+} from "../db/schema.js";
 import { NotFoundError, UnknownDBServiceError } from "./db-service-errors.js";
 import { asc, eq } from "drizzle-orm";
 import { Effect } from "effect";
@@ -7,9 +12,15 @@ import { requireDraftVersionForClip } from "./draft-guard.server.js";
 import { writeTranscriptWords } from "./db-transcript-word-operations.server.js";
 import {
   retimeShift,
+  shiftFootageLayer,
   shiftOverlayAnchors,
   shiftTranscriptWords,
 } from "../features/videos/retime-cascade.js";
+import { layerSpecsFromRows } from "../features/videos/clip-layer.js";
+import {
+  clipLayersRelation,
+  layerRowsFromSpecs,
+} from "./clip-layers-relation.js";
 
 const makeDbCall = <T>(fn: () => Promise<T>) => {
   return Effect.tryPromise({
@@ -28,7 +39,7 @@ const makeDbCall = <T>(fn: () => Promise<T>) => {
  * `updateClip` has no business knowing. Moving a Clip's in-point moves the
  * footage out from under every Clip-relative offset stored against it, so the
  * recut is never just an UPDATE of two columns — it is that UPDATE plus the
- * cascade over the Clip's Transcript Words and Overlays, and the two must not
+ * cascade over the Clip's Transcript Words, Overlays and Footage Layers, and the two must not
  * be separable. Anyone who retimes through this method inherits the cascade
  * instead of reimplementing it (or, far more likely, forgetting it).
  *
@@ -116,6 +127,25 @@ export const createClipRetimeOperationsUnwrapped = (db: Database) => {
         ),
       { discard: true }
     );
+
+    // Footage Layers of a file: their start and span follow the source,
+    // so they show the same Footage at the same moment. Rewritten whole.
+    const layerRows = yield* makeDbCall(() =>
+      db.query.clipLayers.findMany({
+        where: eq(clipLayers.clipId, clipId),
+        columns: clipLayersRelation.columns,
+      })
+    );
+    const layers = layerSpecsFromRows(layerRows);
+    const shifted = layers.map((layer) => shiftFootageLayer(layer, shift));
+    if (JSON.stringify(shifted) !== JSON.stringify(layers)) {
+      yield* makeDbCall(() =>
+        db.delete(clipLayers).where(eq(clipLayers.clipId, clipId))
+      );
+      yield* makeDbCall(() =>
+        db.insert(clipLayers).values(layerRowsFromSpecs(clipId, shifted))
+      );
+    }
 
     return updated!;
   });

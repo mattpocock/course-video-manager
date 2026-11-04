@@ -1,8 +1,10 @@
 import { describe, it, expect, beforeAll, beforeEach } from "vitest";
 import { Effect } from "effect";
+import { eq } from "drizzle-orm";
 import type { Database } from "./drizzle-service.server.js";
 import { copyVideoImpl } from "./db-video-operations.copy.server.js";
 import { createVideoFromSelectionImpl } from "./db-video-from-selection.server.js";
+import { createShortOperationsUnwrapped } from "./db-short-create.server.js";
 import {
   createTestDb,
   truncateAllTables,
@@ -72,6 +74,13 @@ const overrides = (ctx: {
   "clip_mockup.voiceError": () => null,
   // CHECK clip_scene_override_valid.
   "clip.sceneOverride": () => "Code",
+  // CHECK posting_queue_entry_state_valid; an ended state, so a Short's two
+  // rows don't break its one-live-entry index. Never copied.
+  "posting_queue_entry.state": () => "posted",
+  // CHECKs on a Layer's kind and session file; one position per Clip.
+  "clip_layer.kind": () => "footage",
+  "clip_layer.sessionFile": () => "screen",
+  "clip_layer.position": (i) => i,
   // CHECK clip_origin_valid. The source is `cli`, so a copy that carried it
   // instead of stamping `copy` fails.
   "clip.origin": () => "cli",
@@ -196,6 +205,32 @@ const RUN_PATH: Partial<
       })
     );
     return copy.id;
+  },
+  shortCreate: async (sourceVideoId) => {
+    // From a Short, so its Footage Layers are copied as they are: from a
+    // Landscape Video they move into the Short's frame on purpose
+    // (`layerRowInVideoFormat`, tested in cli-short-create.test.ts).
+    await testDb
+      .update(schema.videos)
+      .set({ format: "short" })
+      .where(eq(schema.videos.id, sourceVideoId));
+    const clips = await testDb.query.clips.findMany({
+      where: (c, { and, eq }) =>
+        and(eq(c.videoId, sourceVideoId), eq(c.archived, false)),
+      orderBy: (c) => c.order,
+    });
+    const short = await Effect.runPromise(
+      createShortOperationsUnwrapped(db()).createShortFromRanges({
+        name: "Short",
+        parts: clips.map((c) => ({
+          kind: "copy" as const,
+          clipId: c.id,
+          sourceStartTime: c.sourceStartTime,
+          sourceEndTime: c.sourceEndTime,
+        })),
+      })
+    );
+    return short.id;
   },
 };
 

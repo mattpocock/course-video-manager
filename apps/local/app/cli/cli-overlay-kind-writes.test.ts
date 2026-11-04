@@ -368,3 +368,32 @@ describe("only one Overlay at a time", () => {
     expect(updated.durationInSeconds).toBe(8);
   });
 });
+
+// ===========================================================================
+// B-roll is no Overlay Kind: footage over footage is a Footage Layer.
+// ===========================================================================
+
+describe("a B-roll", () => {
+  it("is refused as an unknown Kind, pointing at cvm clip layer", async () => {
+    const clip = await seedClip(s.standaloneActiveId, { start: 0, end: 10 });
+
+    const { exitCode, stdout } = await run([
+      "overlay",
+      "add",
+      "--clip",
+      clip.id,
+      "--at",
+      "2",
+      "--duration",
+      "5",
+      "--kind",
+      "bRoll",
+    ]);
+
+    expect(exitCode).toBe(3);
+    expect(stdout).toBe("");
+    expect((await run(["overlay", "--help"])).stdout).toContain(
+      "cvm clip layer"
+    );
+  });
+});

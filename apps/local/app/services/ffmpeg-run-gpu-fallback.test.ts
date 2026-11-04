@@ -21,6 +21,7 @@ import { FFmpegEncodeService } from "./ffmpeg-encode-commands";
 import { NvencSessionWaits, runFfmpegWithProgress } from "./ffmpeg-run";
 import { FfmpegPermitsService } from "./ffmpeg-permits";
 import { SidecarContextTest } from "./sidecar-context";
+import { idleGpuGate } from "@/test-utils/idle-gpu-gate";
 
 // What ffmpeg printed in the real failure (Publish Job 859b8689): the CUDA
 // context would not come up, so NVENC could not open at all.
@@ -266,6 +267,7 @@ exit 0
           Layer.mergeAll(
             NodeContext.layer,
             SidecarContextTest,
+            idleGpuGate,
             FfmpegPermitsService.Default,
             Logger.replace(Logger.defaultLogger, logger)
           )
@@ -306,7 +308,7 @@ exit 0
         Effect.either,
         Effect.provide(
           Layer.mergeAll(
-            FFmpegEncodeService.Default,
+            FFmpegEncodeService.Default.pipe(Layer.provide(idleGpuGate)),
             NodeContext.layer,
             SidecarContextTest
           )

@@ -14,9 +14,10 @@
  * point of this module:
  *
  *   - A Transcript Word is read-side data, reproducible at any time by
- *     re-transcribing the Clip. One that no longer fits is DROPPED, because a
- *     word claiming a moment that no longer exists inside the Clip is worse
- *     than no word at all.
+ *     re-transcribing the Clip. One the new cut leaves mostly outside is
+ *     DROPPED, because a word claiming a moment that no longer exists inside
+ *     the Clip is worse than no word at all. One on the edge but mostly
+ *     inside is kept, clamped, so a Short cut there still captions it.
  *   - An Overlay carries hand-authored content (a Definition Card's title and
  *     description). One that no longer fits is CLAMPED back inside the Clip,
  *     never deleted — an unrelated trim must not be able to destroy writing
@@ -27,6 +28,8 @@
  * down (retime-cascade.test.ts), and the transaction that applies it
  * (db-clip-retime.server.ts) is then only plumbing.
  */
+
+import type { ClipLayerSpec } from "./clip-layer.js";
 
 /** A Clip's cut into its source file. Both ends in source-file seconds. */
 export interface ClipRange {
@@ -70,12 +73,41 @@ export interface ShiftableWord {
 }
 
 /**
- * Shift every word, keeping only the ones the recut Clip still contains.
+ * How far past a range's edge a word may run and still be kept: Whisper's
+ * word edges are about this loose, so a cut this close to a word's edge is a
+ * cut at its edge.
+ */
+export const WORD_EDGE_TOLERANCE_SECONDS = 0.15;
+
+/**
+ * Whether a Clip of `duration` holds a Clip-relative word that overlaps it (#2670).
  *
- * "Contains" is judged on the WHOLE word, both ends: a word half outside the
- * new cut is half unspoken in the footage, and there is no honest offset to
- * give it. A word ending exactly at `newDuration` is kept — its last instant
- * is the Clip's last instant, which is inside the Clip, not past it.
+ * A word on a range's edge is held, and so captioned in a Short, when MOST of
+ * it is inside (more than half its length), or when the part outside is no
+ * more than {@link WORD_EDGE_TOLERANCE_SECONDS}. Otherwise it is mostly
+ * unspoken in the footage and is not. A word wholly outside is never held.
+ */
+export const clipHoldsWord = (
+  word: ShiftableWord,
+  duration: number
+): boolean => {
+  if (word.start >= 0 && word.start < duration && word.end <= duration) {
+    return true;
+  }
+  const inside = Math.min(word.end, duration) - Math.max(word.start, 0);
+  const outside = word.end - word.start - inside;
+  // The epsilon keeps a cut exactly at the tolerance inside it despite floats.
+  return (
+    inside > 0 &&
+    (inside > outside || outside <= WORD_EDGE_TOLERANCE_SECONDS + 1e-9)
+  );
+};
+
+/**
+ * Shift every word, keeping only the ones the recut Clip still holds
+ * ({@link clipHoldsWord}). A kept word that ran past an edge is clamped to
+ * it, so every offset is a moment inside the Clip. A word ending exactly at
+ * `newDuration` is wholly inside: its last instant is the Clip's last.
  *
  * The word's own fields (`text`, and whatever else the caller's row carries)
  * ride through untouched; only `start`/`end` move.
@@ -90,12 +122,12 @@ export const shiftTranscriptWords = <W extends ShiftableWord>(
       start: word.start + shift.delta,
       end: word.end + shift.delta,
     }))
-    .filter(
-      (word) =>
-        word.start >= 0 &&
-        word.start < shift.newDuration &&
-        word.end <= shift.newDuration
-    );
+    .filter((word) => clipHoldsWord(word, shift.newDuration))
+    .map((word) => ({
+      ...word,
+      start: Math.max(word.start, 0),
+      end: Math.min(word.end, shift.newDuration),
+    }));
 
 /**
  * Shift one Overlay's anchor, clamping it back inside the recut Clip rather
@@ -119,6 +151,15 @@ export const shiftTranscriptWords = <W extends ShiftableWord>(
 export const clampOverlayAnchor = (at: number, shift: RetimeShift): number =>
   Math.max(0, Math.min(at + shift.delta, shift.newDuration));
 
+/**
+ * Whether a recut Clip still holds an Overlay's anchor: shifted, it lands at
+ * or after the Clip's start and before its end. A recut in place clamps
+ * instead (`clampOverlayAnchor`); a copy cut to a smaller range (a Short made
+ * from a Short) leaves the Overlays it does not hold behind.
+ */
+export const recutHoldsOverlay = (at: number, shift: RetimeShift): boolean =>
+  at + shift.delta >= 0 && at + shift.delta < shift.newDuration;
+
 /** An Overlay's identity and anchor. The DB row is a superset of this. */
 export interface ShiftableOverlay {
   readonly id: string;
@@ -141,3 +182,43 @@ export const shiftOverlayAnchors = <O extends ShiftableOverlay>(
     const at = clampOverlayAnchor(overlay.at, shift);
     return at === overlay.at ? [] : [{ id: overlay.id, at }];
   });
+
+/**
+ * Shift a Footage Layer of a file so it shows the same Footage at the same
+ * moment of the source after the recut (a Scene Layer, or a Footage Layer of
+ * the Clip's own Recording Session, is on the Clip's clock already and never
+ * moves).
+ *
+ * - A whole-Clip Layer's start moves by the recut's delta: the Footage at the
+ *   new in-point is what was shown there before (never before 0).
+ * - A span moves by the delta. A span pushed before the new in-point loses
+ *   that head, its start moving on to match; one that would lose all of it,
+ *   or lands past the new end, is clamped inside the Clip like an Overlay,
+ *   never deleted: it is hand-authored.
+ */
+export const shiftFootageLayer = (
+  layer: ClipLayerSpec,
+  shift: RetimeShift
+): ClipLayerSpec => {
+  if (layer.kind === "scene" || layer.source.kind === "session") return layer;
+  const { source, span } = layer;
+  if (span === null) {
+    const start = Math.max(0, source.start - shift.delta);
+    return { ...layer, source: { ...source, start } };
+  }
+  const at = span.at + shift.delta;
+  if (at < 0 && span.duration + at > 0) {
+    return {
+      ...layer,
+      source: { ...source, start: source.start - at },
+      span: { at: 0, duration: span.duration + at },
+    };
+  }
+  return {
+    ...layer,
+    span: {
+      at: Math.max(0, Math.min(at, shift.newDuration)),
+      duration: span.duration,
+    },
+  };
+};

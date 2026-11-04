@@ -10,7 +10,16 @@ import { DrizzleService } from "@/services/drizzle-service.server";
 import { makeLoader } from "@/services/route-action.server";
 import { onlyRootFilterChanged } from "@/features/storage/root-filter";
 import { onlySearchChanged } from "@/features/list-search/list-search";
+import { onlyPlayerChanged } from "@/features/imported-footage/player-url";
 import { offlineStorageRoots } from "@/services/storage-root-availability.server";
+import {
+  createInitialOfflineRootsBannerState,
+  offlineRootsBannerReducer,
+  offlineRootsShown,
+} from "@/features/storage/offline-roots-banner-reducer";
+import { Button } from "@/components/ui/button";
+import { XIcon } from "lucide-react";
+import { useEffect, useReducer } from "react";
 import { getFootageStats } from "@cvm/core/services/db-footage-stats.server";
 import { Effect } from "effect";
 import {
@@ -61,7 +70,9 @@ export const loader = makeLoader({
  * the sidebar's footage stats pick up a take recorded on the page just left.
  * It runs alongside the new page's own loader. Toggling the Storage Root
  * filter (#2431) or typing in a list's search box (#2512) only filters what
- * the page already has: no reload.
+ * the page already has: no reload. Nor does the Imported Footage page's
+ * search (#2537), a GET form that only changes `q` and runs that page's own
+ * loader, or picking a hit to play there.
  */
 export const shouldRevalidate: ShouldRevalidateFunction = ({
   currentUrl,
@@ -69,32 +80,65 @@ export const shouldRevalidate: ShouldRevalidateFunction = ({
   formMethod,
   defaultShouldRevalidate,
 }) =>
-  formMethod === undefined &&
+  (formMethod === undefined || formMethod.toUpperCase() === "GET") &&
   (onlyRootFilterChanged(currentUrl, nextUrl) ||
-    onlySearchChanged(currentUrl, nextUrl))
+    onlySearchChanged(currentUrl, nextUrl) ||
+    onlyPlayerChanged(currentUrl, nextUrl))
     ? false
     : defaultShouldRevalidate || currentUrl.pathname !== nextUrl.pathname;
 
 /**
  * One line per Offline Storage Root, naming the drive and what to do, with
- * the command that remounts it ready to copy.
+ * the command that remounts it ready to copy. Its X hides it until the page
+ * reloads or another Storage Root goes offline (#2558).
  */
 function OfflineStorageRootsBanner() {
   const { offlineRoots } = useLoaderData<typeof loader>();
-  if (offlineRoots.length === 0) return null;
+  const [state, dispatch] = useReducer(
+    offlineRootsBannerReducer,
+    undefined,
+    createInitialOfflineRootsBannerState
+  );
+  const rootsKey = offlineRoots.map(({ root }) => root).join("\n");
+  // Bridges the layout loader's word on which Storage Roots are offline.
+  useEffect(() => {
+    dispatch({
+      type: "offline-roots-heard",
+      roots: rootsKey === "" ? [] : rootsKey.split("\n"),
+    });
+  }, [rootsKey]);
+  const shown = offlineRootsShown(state, offlineRoots);
+  if (shown.length === 0) return null;
   return (
     <div
       role="alert"
-      className="border-b border-amber-500/40 bg-amber-500/20 px-4 py-2 text-sm text-amber-600"
+      className="flex items-start gap-2 border-b border-amber-500/40 bg-amber-500/20 px-4 py-2 text-sm text-amber-600"
     >
-      {offlineRoots.map(({ root, message, remountCommand }) => (
-        <div key={root} className="space-y-1 py-0.5">
-          <p>{message}</p>
-          {remountCommand !== null && (
-            <RemountCommand command={remountCommand} />
-          )}
-        </div>
-      ))}
+      <div className="flex-1 min-w-0">
+        {shown.map(({ root, message, remountCommand }) => (
+          <div key={root} className="space-y-1 py-0.5">
+            <p>{message}</p>
+            {remountCommand !== null && (
+              <RemountCommand command={remountCommand} />
+            )}
+          </div>
+        ))}
+      </div>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="size-7 shrink-0 text-amber-600 hover:bg-amber-500/20"
+        aria-label="Dismiss the Offline Storage Roots warning"
+        onClick={() =>
+          dispatch({
+            type: "banner-dismissed",
+            roots: shown.map(({ root }) => root),
+          })
+        }
+      >
+        <XIcon className="size-4" />
+      </Button>
     </div>
   );
 }

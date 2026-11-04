@@ -1,12 +1,14 @@
 import { Data, Effect } from "effect";
 import {
   avCalibrations,
+  clipLayers,
   clips,
   recordingSessions,
   videos as videosTable,
 } from "@cvm/core/db/schema";
 import { listVideosForExportHash } from "@cvm/core/services/db-export-hash-videos.server";
 import type { Database } from "@cvm/core/services/drizzle-service.server";
+import { eq, isNotNull } from "drizzle-orm";
 import { computeExportHash, toExportClips } from "@/services/export-hash";
 import {
   assignStorageBuckets,
@@ -18,13 +20,18 @@ import { UNUSED_FOOTAGE_MIN_AGE_MS } from "./unused-wire";
 /** Loading what owns which file failed; the scan cannot start. */
 export class StorageOwnershipLoadError extends Data.TaggedError(
   "StorageOwnershipLoadError"
-)<{ readonly message: string }> {}
+)<{
+  readonly message: string;
+  /** What the database threw: a route reads it to tell "migrate" from a bug. */
+  readonly cause?: unknown;
+}> {}
 
 /**
  * What the database says owns each file: every Course, every Video (in any
  * Version, archived or not) with the names of its current Exported Video,
- * and every Footage path any Clip (archived ones too: they can come back) or
- * Recording Session uses. Read-only.
+ * and every Footage path any Clip (archived ones too: they can come back), any
+ * Footage Layer (on any Clip, for the same reason) or Recording Session uses.
+ * Read-only.
  *
  * A Recording Session no Clip points at uses its files only while it is
  * still recording, or for 7 days after it started (#2157): after that, with
@@ -46,6 +53,7 @@ export const loadStorageOwnership = (
         sessionRows,
         calibrationRows,
         originalRows,
+        layerRows,
       ] = await Promise.all([
         db.query.courses.findMany({ columns: { id: true, name: true } }),
         listVideosForExportHash(db),
@@ -77,6 +85,11 @@ export const loadStorageOwnership = (
         db
           .select({ original: videosTable.originalFootagePath })
           .from(videosTable),
+        db
+          .select({ videoId: clips.videoId, stored: clipLayers.footagePath })
+          .from(clipLayers)
+          .innerJoin(clips, eq(clipLayers.clipId, clips.id))
+          .where(isNotNull(clipLayers.footagePath)),
       ]);
 
       const footageUses: StorageOwnershipInput["footageUses"][number][] = [];
@@ -95,6 +108,10 @@ export const loadStorageOwnership = (
             recordingSession: true,
           });
         }
+      }
+      for (const layer of layerRows) {
+        if (layer.stored === null) continue;
+        footageUses.push({ stored: layer.stored, videoId: layer.videoId });
       }
       // A Recording Session no Clip points at still uses its files while it
       // is recording, and for 7 days after it started; then they are Unused.
@@ -146,5 +163,6 @@ export const loadStorageOwnership = (
     catch: (cause) =>
       new StorageOwnershipLoadError({
         message: `Could not read what owns each file: ${cause instanceof Error ? cause.message : String(cause)}`,
+        cause,
       }),
   });

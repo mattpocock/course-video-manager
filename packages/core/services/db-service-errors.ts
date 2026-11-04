@@ -173,6 +173,42 @@ export class ClipCarriesOverlaysError extends Data.TaggedError(
 }> {}
 
 /**
+ * A Clip's Layers refused by `setClipLayers`: a Source Crop outside the frame,
+ * a Placement with no area, a Landscape shape other than a Scene Layer at the
+ * bottom, a Recording Session file the Clip has none of, and so on
+ * (`clipLayersProblem`). Nothing is written.
+ */
+export class ClipLayersRefusedError extends Data.TaggedError(
+  "ClipLayersRefusedError"
+)<{
+  clipId: string;
+  message: string;
+}> {}
+
+/**
+ * `splitClip` refused: the cut leaves a side empty, names a word the Clip
+ * does not have, or leaves a side with no Layer. Nothing is written.
+ */
+export class ClipSplitRefusedError extends Data.TaggedError(
+  "ClipSplitRefusedError"
+)<{
+  clipId: string;
+  message: string;
+}> {}
+
+/**
+ * A Clip's Layers write refused because they are no longer the Layers the
+ * writer read: another command changed them in between. Nothing is written;
+ * reading them again and redoing the edit is the fix (a lost update, #2598).
+ */
+export class ClipLayersChangedError extends Data.TaggedError(
+  "ClipLayersChangedError"
+)<{
+  clipId: string;
+  message: string;
+}> {}
+
+/**
  * An Agent Session upload (`cvm video agent-sessions set`) that broke a content
  * rule — a skill body or tool result, an absolute local path, a secret — or
  * whose Claude Code session id matched more than one Agent Session. The whole
@@ -182,5 +218,31 @@ export class AgentSessionUploadRefusedError extends Data.TaggedError(
   "AgentSessionUploadRefusedError"
 )<{
   reasons: ReadonlyArray<string>;
+  message: string;
+}> {}
+
+/**
+ * `cvm short post` refused: at least one Short named cannot be added to the
+ * Posting Queue (a Landscape Video, a default title, no description, already
+ * live in the queue, already Posted). Nothing is queued, not even the Shorts
+ * that were fine; `refusals` names each refused Short and why.
+ */
+export class ShortPostRefusedError extends Data.TaggedError(
+  "ShortPostRefusedError"
+)<{
+  refusals: ReadonlyArray<{ videoId: string; reason: string }>;
+  message: string;
+}> {}
+
+/**
+ * `cvm short move` or `cvm short unqueue` refused: a Short named is not in
+ * the Posting Queue in a state the verb can change (it is Posting, or not in
+ * the queue at all). Nothing is changed, not even the Shorts that were fine;
+ * `refusals` names each refused Short and why.
+ */
+export class PostingQueueChangeRefusedError extends Data.TaggedError(
+  "PostingQueueChangeRefusedError"
+)<{
+  refusals: ReadonlyArray<{ videoId: string; reason: string }>;
   message: string;
 }> {}

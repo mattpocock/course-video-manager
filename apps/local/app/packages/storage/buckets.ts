@@ -4,7 +4,9 @@
 // A Storage Bucket is the unit the Storage page counts space in: each Course,
 // Standalone Videos, Shorts, Shared Footage (Footage Clips in more than one Course
 // use), Unused Footage (Footage under `raw-footage/` no Clip and no
-// Recording Session uses), and the Other buckets (Clip Mockups, the Overlay
+// Recording Session uses), Used and Unused Imported Footage (everything under
+// `raw-footage/imported/`, never Unused Footage, never deleted), and the
+// Other buckets (Clip Mockups, the Overlay
 // Render Cache, export scratch, Exported Videos of no current Video). The scan streams
 // `StorageScanMessage`s; the page adds them up. The per-bucket page's
 // listing streams `StorageBucketFilesMessage`s, gathered with `addFoundFiles`
@@ -21,6 +23,7 @@ export {
   type StorageFileRole,
   type StorageOwnership,
   type StorageOwnershipInput,
+  USED_IMPORTED_FOOTAGE_ID,
 } from "./lib/buckets";
 export {
   windowsDriveOf,

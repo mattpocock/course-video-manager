@@ -8,8 +8,9 @@ import { z } from "zod";
 export const COMPOSITION_ID = "Overlay";
 
 /**
- * The render contract for a CVM overlay — subtitles + CTA (the vertical Shorts
- * pipeline) and Definition Cards (the landscape course-video pipeline).
+ * The render contract for a CVM overlay — subtitles, Chat Cards and Calls to
+ * Action (the vertical Shorts pipeline) and Definition Cards (the landscape
+ * course-video pipeline).
  *
  * Every invocation is driven entirely by these explicit props — there is no
  * `meta.json`-in-the-source-tree handshake like the deprecated monorepo used.
@@ -29,18 +30,30 @@ export const subtitleSchema = z.object({
 export type Subtitle = z.infer<typeof subtitleSchema>;
 
 /**
- * The call-to-action pill shown near the end of the overlay. Rendered as one of
- * the pre-made branded CTA images (kept as images so the look stays
- * pixel-identical to the current Remotion output). `null` = no CTA.
+ * One Call to Action in a Short: a branded card drawn from text, a bold
+ * headline (`title`, e.g. a URL) over a lighter subline (`description`), in the
+ * lower half of the 1080x1920 frame. Either line may be empty, and the card
+ * then draws only the line it has.
+ *
+ * It fades in, drifts up and fades out. Each Animation Toggle hard-cuts that
+ * end instead.
  */
-export const ctaSchema = z.object({
-  /** Which branded CTA image to show. */
-  variant: z.enum(["ai", "typescript"]),
-  /** How many frames the CTA stays on screen (it fades in and out). */
+export const callToActionSchema = z.object({
+  /** The headline. */
+  title: z.string(),
+  /** The subline under the headline. */
+  description: z.string(),
+  /** First frame the card is visible on. Defaults to the overlay's start. */
+  startFrame: z.number().default(0),
+  /** How many frames the card stays on screen. */
   durationInFrames: z.number(),
+  /** Hard-cut in: the card appears fully formed instead of fading in. */
+  disableEnterAnimation: z.boolean().default(false),
+  /** Hard-cut out: the card vanishes instead of fading out. */
+  disableExitAnimation: z.boolean().default(false),
 });
 
-export type Cta = z.infer<typeof ctaSchema>;
+export type CallToAction = z.infer<typeof callToActionSchema>;
 
 /**
  * One on-screen term Definition Card: an AI-Hero-branded `title` +
@@ -134,19 +147,59 @@ export const bulletPanelSchema = z.object({
 
 export type BulletPanel = z.infer<typeof bulletPanelSchema>;
 
+/** A Chat Card on one frame: how opaque, and how many px below its place. */
+export const chatCardPoseSchema = z.object({
+  opacity: z.number(),
+  offsetY: z.number(),
+});
+
+export type ChatCardPose = z.infer<typeof chatCardPoseSchema>;
+
+/**
+ * Where a Short's Chat Card may sit on the 1080x1920 frame (#2669): centred,
+ * `width` px wide, its top at one of two slots. `top` is inside the
+ * platforms' safe area, above the centred captions; `bottom` is just below
+ * the captions. Which one is decided from the Face Areas under it, by the
+ * app (`chat-card-input-props.ts`): the renderer draws where it is told.
+ */
+export const CHAT_CARD_PLACEMENT = {
+  slots: { top: 240, bottom: 1240 },
+  width: 960,
+} as const;
+
+/**
+ * One Chat Card in a Short: one Chat Highlight's author and text, drawn as
+ * the Chat Highlight card, `top` px down.
+ *
+ * Its motion arrives frame by frame (`enter`, `exit`), worked out by the
+ * domain's Chat Card motion, which this package cannot import: every frame
+ * between the two is the settled card. Empty `enter` is a hard cut in, empty
+ * `exit` a hard cut out.
+ */
+export const chatCardSchema = z.object({
+  author: z.string(),
+  text: z.string(),
+  startFrame: z.number().default(0),
+  durationInFrames: z.number(),
+  enter: z.array(chatCardPoseSchema).default([]),
+  exit: z.array(chatCardPoseSchema).default([]),
+  top: z.number(),
+  width: z.number().default(CHAT_CARD_PLACEMENT.width),
+});
+
+export type ChatCard = z.infer<typeof chatCardSchema>;
+
 export const overlayPropsSchema = z.object({
   /** Overlay width in px. Defaults to the vertical 9:16 frame. */
   width: z.number().default(1080),
   /** Overlay height in px. Defaults to the vertical 9:16 frame. */
   height: z.number().default(1920),
-  /** Frames per second the segment/CTA timings are expressed in. */
+  /** Frames per second every timing is expressed in. */
   fps: z.number().default(60),
   /** Total length of the overlay in frames. */
   durationInFrames: z.number(),
   /** Word-timed caption segments. Defaults to none. */
   subtitles: z.array(subtitleSchema).default([]),
-  /** Optional call-to-action, or `null` for none. */
-  cta: ctaSchema.nullable().default(null),
   /**
    * Term Definition Cards to draw. Defaults to none, so the vertical Shorts
    * pipeline keeps sending its existing props unchanged.
@@ -159,6 +212,10 @@ export const overlayPropsSchema = z.object({
    * caller's props valid unchanged.
    */
   bulletPanels: z.array(bulletPanelSchema).default([]),
+  /** A Short's Chat Cards, beside its captions. Defaults to none. */
+  chatCards: z.array(chatCardSchema).default([]),
+  /** A Short's Calls to Action, in the lower half. Defaults to none. */
+  callsToAction: z.array(callToActionSchema).default([]),
 });
 
 /** Parsed props (all defaults applied) — what the composition receives. */

@@ -8,54 +8,65 @@ import { goLiveControl } from "./live-stream-reducer";
 import { streamHealthAmber, streamHealthLine } from "./stream-health-line";
 
 /**
- * Go Live / End Stream: the Streaming tab's only main button, under the
- * picture, with the Live Stream's status, its health line and why a press
- * was refused. The Live Stream surface decides, from the app server's word
- * on the Live Stream; the health line also reads this tab's recorder.
+ * Go Live / End Stream: the Streaming tab's main button, in its toolbar
+ * beside the Teleprompter (#2558). The Live Stream surface decides, from the
+ * app server's word on the Live Stream.
  */
-export const GoLiveControls = () => {
+export const GoLiveButton = () => {
   const videoId = useContextSelector(VideoEditorContext, (ctx) => ctx.videoId);
   const silenceLength = useContextSelector(
     VideoEditorContext,
     (ctx) => ctx.silenceLength
   );
+  const { state, dispatch } = useLiveStream();
+  const control = goLiveControl(state, videoId);
+  return control.press === "go-live" ? (
+    <Button
+      size="sm"
+      disabled={control.busy}
+      onClick={() =>
+        dispatch({ type: "go-live-pressed", videoId, silenceLength })
+      }
+    >
+      <RadioIcon className="size-4 mr-1" />
+      Go Live
+    </Button>
+  ) : (
+    <Button
+      size="sm"
+      variant="destructive"
+      disabled={control.busy}
+      onClick={() => dispatch({ type: "end-stream-pressed", videoId })}
+    >
+      <SquareIcon className="size-4 mr-1" />
+      End Stream
+    </Button>
+  );
+};
+
+/**
+ * What the Live Stream is doing, under the picture: its status, its health
+ * line and why a press was refused. The health line also reads this tab's
+ * recorder. Nothing at all before the first Go Live.
+ */
+export const GoLiveStatus = () => {
+  const videoId = useContextSelector(VideoEditorContext, (ctx) => ctx.videoId);
   const health = useContextSelector(
     VideoEditorContext,
     (ctx) => ctx.cvmRecorder.state.streamHealth
   );
-  const { state, dispatch } = useLiveStream();
+  const { state } = useLiveStream();
 
   const control = goLiveControl(state, videoId);
   const healthLine = streamHealthLine(state, videoId, health);
+  if (!control.status && !healthLine && !control.refusal) return null;
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center gap-3">
-        {control.press === "go-live" ? (
-          <Button
-            disabled={control.busy}
-            onClick={() =>
-              dispatch({ type: "go-live-pressed", videoId, silenceLength })
-            }
-          >
-            <RadioIcon className="size-4 mr-1" />
-            Go Live
-          </Button>
-        ) : (
-          <Button
-            variant="destructive"
-            disabled={control.busy}
-            onClick={() => dispatch({ type: "end-stream-pressed", videoId })}
-          >
-            <SquareIcon className="size-4 mr-1" />
-            End Stream
-          </Button>
-        )}
-        {control.status && (
-          <p className="text-sm text-muted-foreground" role="status">
-            {control.status}
-          </p>
-        )}
-      </div>
+    <div className="flex flex-col items-center gap-1">
+      {control.status && (
+        <p className="text-sm text-muted-foreground" role="status">
+          {control.status}
+        </p>
+      )}
       {healthLine && (
         <p
           className={cn(

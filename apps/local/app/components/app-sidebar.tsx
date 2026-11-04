@@ -24,6 +24,7 @@ import {
   ChevronRight,
   Clapperboard,
   FolderGit2,
+  FileVideo,
   HardDrive,
   KeyRound,
   Lightbulb,
@@ -282,6 +283,13 @@ export function AppSidebar({ variant }: AppSidebarProps) {
         label="AV Calibration"
         href="/av-calibration"
         active={location.pathname.startsWith("/av-calibration")}
+      />
+
+      <EntityCard
+        icon={<FileVideo className="w-4 h-4 text-muted-foreground" />}
+        label="Imported Footage"
+        href="/imported-footage"
+        active={location.pathname.startsWith("/imported-footage")}
       />
 
       <EntityCard

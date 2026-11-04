@@ -19,6 +19,7 @@ import type { LinkAuthOperationsService } from "@/services/db-link-auth-operatio
 import {
   listChatPage,
   openChatStream,
+  readConcurrentViewers,
   type ChatListAnswer,
   type ChatPage,
   type ChatStreamAnswer,
@@ -35,8 +36,18 @@ import {
  * 5 quota units however long it stays open; polling `list` would eat the
  * daily quota uploads share. A connection that drops is opened again on its
  * own, from the last page heard, after a pause that doubles from
- * `reconnectMs` up to `maxReconnectMs` (`Schedule.exponential`); a
- * connection that heard a page starts the pause over.
+ * `reconnectMs` up to `maxReconnectMs` (`Schedule.exponential`). A
+ * connection that heard a page and stayed open `steadyMs` starts the pause
+ * over; one that breaks sooner, though it heard pages, is reopened after a
+ * pause that doubles too, so a stream that flaps can't spend the quota at 5
+ * units a reopen (#2558).
+ *
+ * YouTube ends a healthy stream connection's answer every few seconds. That
+ * end is no drop: the chat stays `streaming` while it is reopened from the
+ * last page, at once if the answer carried a page (Google's streamList
+ * sample reconnects in a loop with no pause; its docs give no wait), after
+ * the growing pause if it carried none. Only a connection that fails (a
+ * network error, a 5xx, a rate limit, a read that breaks) is `reconnecting`.
  *
  * A stream connection YouTube refuses before one has ever opened for the
  * Broadcast reads no chat at all (`refused`): it never polls, to spare the
@@ -50,7 +61,25 @@ import {
  * it runs with the app server's services; the next pick or `end` stops it.
  * It keeps the last `maxMessages` in memory for a listener that comes back;
  * chat messages are never stored.
+ *
+ * Every change of connection is logged (`log`), with how many stream
+ * connections this pick has opened, so a run's log tells polling from
+ * flapping.
+ *
+ * Given `concurrentViewersEveryMs`, it also reads the Broadcast's
+ * **Concurrent Viewers** (`videos.list`, 1 quota unit) at the pick and that
+ * often after, until the same stop as the chat, or YouTube says the
+ * Broadcast ended (#2659). A read that fails keeps the count it had and says
+ * nothing: the pop-out, which Matt's audience sees, shows the count too.
  */
+
+/** One logged change of a pick's chat connection. */
+export type ChatConnectionLog = {
+  broadcastId: string;
+  connection: ChatConnection;
+  /** Stream connections opened for this pick so far: 5 quota units each. */
+  streamOpens: number;
+};
 
 export type BroadcastChat = {
   /** Reads this Broadcast's chat instead; picking the same one again is a no-op. */
@@ -87,12 +116,22 @@ export const createBroadcastChat = (o: {
   maxReconnectMs: number;
   /** The longest pause between asks for the stream connection while polling. */
   maxStreamRetryMs: number;
+  /**
+   * A stream connection open this long before it closed was steady: the
+   * reopen pause starts over. One closed sooner doubles it.
+   */
+  steadyMs: number;
   maxMessages: number;
+  /** Hears every change of connection. */
+  log?: (entry: ChatConnectionLog) => void;
+  /** How often to read the Concurrent Viewers; never read without it. */
+  concurrentViewersEveryMs?: number;
 }): BroadcastChat => {
   const listeners = new Set<(event: BroadcastChatEvent) => void>();
   let broadcastId: string | null = null;
   let connection: ChatConnection = { state: "idle" };
   let messages: ChatMessage[] = [];
+  let concurrentViewers: number | null = null;
   /** Done once the pick's reading must stop. */
   let stopReading: Deferred.Deferred<void> | null = null;
 
@@ -101,6 +140,28 @@ export const createBroadcastChat = (o: {
     for (const listener of listeners) listener(event);
   };
   const attach = () => emit({ type: "chat-attached", chat: snapshot() });
+
+  /** Reads the Concurrent Viewers every `everyMs` until YouTube says it ended. */
+  const watchViewers = (id: string, everyMs: number) =>
+    Effect.gen(function* () {
+      for (;;) {
+        const read = yield* Effect.either(readConcurrentViewers(id));
+        // A failed read keeps the last count.
+        if (read._tag === "Right") {
+          const next = read.right.ended ? null : read.right.concurrentViewers;
+          if (next !== concurrentViewers && broadcastId === id) {
+            concurrentViewers = next;
+            emit({
+              type: "concurrent-viewers-changed",
+              broadcastId: id,
+              concurrentViewers: next,
+            });
+          }
+          if (read.right.ended) return;
+        }
+        yield* Effect.sleep(Duration.millis(everyMs));
+      }
+    });
 
   const stop = () => {
     if (stopReading) Deferred.unsafeDone(stopReading, Exit.void);
@@ -119,6 +180,16 @@ export const createBroadcastChat = (o: {
     let streamed = false;
     /** Polling since the stream broke mid-stream: when to ask for it again. */
     let polling: { retryMs: number; retryAt: number } | null = null;
+    /** Stream connections asked for, and when the last one opened. */
+    let streamOpens = 0;
+    let streamOpenedAt = 0;
+    /** The pause before reopening a stream that closed after pages. */
+    let reopenPauseMs = o.reconnectMs;
+    const openStream = (asked: Parameters<typeof openChatStream>[0]) =>
+      Effect.suspend(() => {
+        streamOpens += 1;
+        return openChatStream(asked);
+      });
     /** Polls, and asks for the stream connection again `retryMs` from now. */
     const retryStreamLater = (retryMs: number) =>
       Effect.map(Clock.currentTimeMillis, (now): Next => {
@@ -126,9 +197,31 @@ export const createBroadcastChat = (o: {
         return "again";
       });
 
+    /**
+     * The pause before reopening a stream that heard chat: it starts over if
+     * the connection was steady, and grows if YouTube keeps closing it soon.
+     */
+    const reopenPause = Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis;
+      const steady = now - streamOpenedAt >= o.steadyMs;
+      const pauseMs = steady ? o.reconnectMs : reopenPauseMs;
+      reopenPauseMs = steady
+        ? o.reconnectMs
+        : Math.min(pauseMs * 2, o.maxReconnectMs);
+      yield* Effect.sleep(Duration.millis(pauseMs));
+      return "again" as Next;
+    });
     const setConnection = (next: ChatConnection) => {
-      if (sameConnection(next, connection)) return;
+      if (sameConnection(next, connection)) {
+        // A stream reopened while it still streams: logged, so a run's log
+        // still counts the opens.
+        if (next.state === "streaming") {
+          o.log?.({ broadcastId: id, connection, streamOpens });
+        }
+        return;
+      }
       connection = next;
+      o.log?.({ broadcastId: id, connection, streamOpens });
       emit({ type: "chat-connection-changed", broadcastId: id, connection });
     };
     const hear = (page: ChatPage) => {
@@ -155,7 +248,7 @@ export const createBroadcastChat = (o: {
         const wasPolling = polling;
         if (wasPolling && now >= wasPolling.retryAt) {
           // Polling: is the stream connection back yet?
-          const back = yield* openChatStream(asked).pipe(
+          const back = yield* openStream(asked).pipe(
             Effect.catchAll((e) =>
               Effect.succeed({ status: "dropped", message: e.message } as const)
             )
@@ -172,7 +265,7 @@ export const createBroadcastChat = (o: {
           ChatStreamAnswer | ChatListAnswer,
           { message: string },
           LinkAuthOperationsService
-        > = wasPolling ? listChatPage(asked) : openChatStream(asked);
+        > = wasPolling ? listChatPage(asked) : openStream(asked);
         const answer = yield* call.pipe(
           Effect.catchAll((e) => dropped(e.message))
         );
@@ -198,6 +291,7 @@ export const createBroadcastChat = (o: {
         switch (answer.status) {
           case "open": {
             streamed = true;
+            streamOpenedAt = yield* Clock.currentTimeMillis;
             setConnection({ state: "streaming" });
             let heard = false;
             // Each page as it comes. Interrupted mid-read, the scope's abort
@@ -212,7 +306,17 @@ export const createBroadcastChat = (o: {
               heard = true;
               hear(page.value);
             }
-            return yield* dropped("YouTube closed the chat connection.", heard);
+            // YouTube ended its answer: it does so every few seconds on a
+            // healthy chat, so this is no drop. The chat still streams while
+            // it is reopened from the last page heard: at once, as Google's
+            // streamList sample does, since a pause would hold chat back. An
+            // answer that ended with no page reopens after a growing pause,
+            // so a stream that flaps can't spend the quota.
+            if (heard) {
+              reopenPauseMs = o.reconnectMs;
+              return "again" satisfies Next;
+            }
+            return yield* reopenPause;
           }
           case "page":
             setConnection({ state: "polling" });
@@ -242,10 +346,9 @@ export const createBroadcastChat = (o: {
         )
       ),
       Effect.retry({ schedule: reconnects, while: (e) => !e.heard }),
-      // It heard chat before it dropped: the pause starts over.
-      Effect.catchTag("ChatDropped", () =>
-        Effect.as(Effect.sleep(Duration.millis(o.reconnectMs)), "again" as Next)
-      )
+      // It heard chat before it dropped: the pause starts over if it was
+      // steady, and grows if YouTube keeps closing it.
+      Effect.catchTag("ChatDropped", () => reopenPause)
     );
 
     return Effect.gen(function* () {
@@ -262,6 +365,18 @@ export const createBroadcastChat = (o: {
         stop();
         broadcastId = pick.broadcastId;
         messages = [];
+        concurrentViewers = null;
+        const stopped = yield* Deferred.make<void>();
+        stopReading = stopped;
+        if (o.concurrentViewersEveryMs !== undefined) {
+          // Outlives the pick's request, like the chat; ends with it.
+          yield* Effect.forkDaemon(
+            Effect.raceFirst(
+              watchViewers(pick.broadcastId, o.concurrentViewersEveryMs),
+              Deferred.await(stopped)
+            )
+          );
+        }
         if (pick.liveChatId === null) {
           connection = { state: "over", reason: "no-chat" };
           attach();
@@ -269,8 +384,6 @@ export const createBroadcastChat = (o: {
         }
         connection = { state: "connecting" };
         attach();
-        const stopped = yield* Deferred.make<void>();
-        stopReading = stopped;
         // Outlives the pick's request: it reads until stopped.
         yield* Effect.forkDaemon(
           Effect.raceFirst(
@@ -284,11 +397,19 @@ export const createBroadcastChat = (o: {
       broadcastId = null;
       connection = { state: "idle" };
       messages = [];
+      concurrentViewers = null;
       attach();
     },
     subscribe: (listener) => {
       listeners.add(listener);
       listener({ type: "chat-attached", chat: snapshot() });
+      if (broadcastId !== null && concurrentViewers !== null) {
+        listener({
+          type: "concurrent-viewers-changed",
+          broadcastId,
+          concurrentViewers,
+        });
+      }
       return () => listeners.delete(listener);
     },
     snapshot,

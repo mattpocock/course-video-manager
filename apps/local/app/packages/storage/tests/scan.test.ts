@@ -15,7 +15,7 @@ import {
   type TestDb,
 } from "@/test-utils/test-db";
 import type { StorageRoots } from "../index";
-import type { StorageScanMessage } from "../buckets";
+import { assignStorageBuckets, type StorageScanMessage } from "../buckets";
 import { streamStorageScan, type DirtyBitReader } from "../scan";
 
 let testDb: TestDb;
@@ -237,6 +237,104 @@ describe("streamStorageScan", () => {
     });
   });
 
+  it("counts Imported Footage in Used or Unused Imported Footage, never in a Course", async () => {
+    const a = await seedCourse("Course A");
+    await seedVideo({
+      lessonId: a.lessonId,
+      footage: ["raw-footage/imported/interview.mp4", "raw-footage/a.mkv"],
+    });
+    const standalone = await seedVideo({ footage: [] });
+    // An archived Clip uses its Footage too: it can come back.
+    await testDb.insert(schema.clips).values({
+      videoId: standalone,
+      videoFilename: path.join(d, "raw-footage/imported/broll/city.mp4"),
+      sourceStartTime: 0,
+      sourceEndTime: 1,
+      order: `a${order++}`,
+      text: "",
+      archived: true,
+    });
+
+    put(d, "raw-footage/a.mkv", 1);
+    put(d, "raw-footage/imported/interview.mp4", 100);
+    put(d, "raw-footage/imported/interview.mp4.transcript.json", 5);
+    put(e, "raw-footage/imported/broll/city.mp4", 20);
+    put(d, "raw-footage/imported/unused.mp4", 50);
+    put(d, "raw-footage/imported/unused.mp4.transcript.json", 3);
+
+    const messages = await scan();
+
+    const listed = messages.find((m) => m.type === "buckets-listed");
+    expect(
+      listed?.type === "buckets-listed" &&
+        listed.buckets.filter((b) => b.kind.endsWith("imported-footage"))
+    ).toEqual([
+      {
+        id: "used-imported-footage",
+        kind: "used-imported-footage",
+        name: "Used Imported Footage",
+        sharedBy: ["Course A"],
+      },
+      {
+        id: "unused-imported-footage",
+        kind: "unused-imported-footage",
+        name: "Unused Imported Footage",
+      },
+    ]);
+    expect(totals(messages)).toEqual({
+      [`course:${a.courseId}`]: { [d]: { footage: 1 } },
+      "used-imported-footage": {
+        [d]: { footage: 105 },
+        [e]: { footage: 20 },
+      },
+      "unused-imported-footage": { [d]: { footage: 53 } },
+    });
+  });
+
+  it("counts a Footage Layer's Footage in Used Imported Footage", async () => {
+    const a = await seedCourse("Course A");
+    const video = await seedVideo({ lessonId: a.lessonId, footage: [] });
+    const [clip] = await testDb
+      .insert(schema.clips)
+      .values({
+        videoId: video,
+        videoFilename: "raw-footage/take.mkv",
+        sourceStartTime: 0,
+        sourceEndTime: 10,
+        order: `a${order++}`,
+        text: "",
+      })
+      .returning();
+    await testDb.insert(schema.clipLayers).values([
+      { clipId: clip!.id, position: 0, kind: "scene", volume: 1 },
+      {
+        clipId: clip!.id,
+        position: 1,
+        kind: "footage",
+        footagePath: "raw-footage/imported/city.mp4",
+        footageStart: 5,
+        cropX: 0,
+        cropY: 0,
+        cropW: 1,
+        cropH: 1,
+        placeX: 0,
+        placeY: 0,
+        placeW: 1920,
+        placeH: 1080,
+        volume: 0,
+      },
+    ]);
+    put(d, "raw-footage/take.mkv", 1);
+    put(d, "raw-footage/imported/city.mp4", 40);
+
+    const sizes = totals(await scan());
+
+    expect(sizes["used-imported-footage"]).toEqual({
+      [d]: { footage: 40 },
+    });
+    expect(sizes["unused-imported-footage"]).toBeUndefined();
+  });
+
   it("shows an unreadable root as Offline, with no sizes for it", async () => {
     await seedVideo({ footage: ["raw-footage/s.mkv"] });
     put(d, "raw-footage/s.mkv", 30);
@@ -348,5 +446,28 @@ describe("streamStorageScan", () => {
       false
     );
     await runtime.dispose();
+  });
+});
+
+describe("assignStorageBuckets", () => {
+  it("names the Videos that use each Footage file, by its root-relative path", () => {
+    const ownership = assignStorageBuckets(
+      {
+        courses: [],
+        videos: [],
+        footageUses: [
+          { stored: "/mnt/d/raw-footage/imported/a.mp4", videoId: "v1" },
+          { stored: "raw-footage/imported/a.mp4", videoId: "v2" },
+          { stored: "raw-footage/imported/a.mp4", videoId: "v1" },
+          { stored: "raw-footage/b.mkv", videoId: null },
+        ],
+      },
+      ["/mnt/d"]
+    );
+    expect(
+      Object.fromEntries(
+        [...ownership.videosByFootage].map(([p, v]) => [p, [...v]])
+      )
+    ).toEqual({ "raw-footage/imported/a.mp4": ["v1", "v2"] });
   });
 });

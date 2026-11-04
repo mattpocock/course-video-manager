@@ -4,6 +4,7 @@ import type { Broadcast } from "./broadcast";
 import type { ChatMessage } from "./broadcast-chat";
 import {
   broadcastPickerRows,
+  broadcastPickerView,
   createInitialLiveStreamState,
   goLiveControl,
   liveIndicator,
@@ -21,6 +22,7 @@ const broadcast = (
   enableAutoStop: true,
   liveChatId: `chat-${id}`,
   boundStreamId: null,
+  latencyPreference: null,
   ...overrides,
 });
 
@@ -31,6 +33,50 @@ const start = () =>
   new ReducerTester(liveStreamReducer, createInitialLiveStreamState());
 
 describe("the Live Stream surface's Broadcast picker", () => {
+  const listed = () =>
+    start()
+      .send({ type: "broadcast-picker-shown" })
+      .send({
+        type: "broadcasts-answered",
+        answer: { status: "listed", broadcasts: [officeHours, qa] },
+      });
+
+  it("shows the list until a Broadcast is picked, then only the pick", () => {
+    const tester = listed();
+    expect(broadcastPickerView(tester.getState())).toEqual({ kind: "list" });
+
+    tester.send({ type: "broadcast-clicked", broadcastId: "qa" });
+    expect(broadcastPickerView(tester.getState())).toEqual({
+      kind: "picked",
+      broadcast: qa,
+      refusal: null,
+    });
+  });
+
+  it("brings the list back on Change, and hides it again once a Broadcast is picked", () => {
+    const tester = listed()
+      .send({ type: "broadcast-clicked", broadcastId: "qa" })
+      .send({ type: "change-broadcast-clicked" });
+    expect(broadcastPickerView(tester.getState())).toEqual({ kind: "list" });
+
+    tester.send({ type: "broadcast-clicked", broadcastId: "office-hours" });
+    expect(broadcastPickerView(tester.getState())).toMatchObject({
+      kind: "picked",
+      broadcast: officeHours,
+    });
+  });
+
+  it("shows the list again when the picked Broadcast is no longer listed", () => {
+    const tester = listed()
+      .send({ type: "broadcast-clicked", broadcastId: "qa" })
+      .send({ type: "refresh-broadcasts-clicked" })
+      .send({
+        type: "broadcasts-answered",
+        answer: { status: "listed", broadcasts: [officeHours] },
+      });
+    expect(broadcastPickerView(tester.getState())).toEqual({ kind: "list" });
+  });
+
   it("lists Broadcasts the first time the picker shows, and again only on Refresh", () => {
     const tester = start()
       .send({ type: "broadcast-picker-shown" })
@@ -416,6 +462,25 @@ describe("Go Live and End Stream on the Live Stream surface", () => {
       status: "The Live Stream ended: End Stream.",
       refusal: null,
     });
+  });
+
+  it("says Ending… while End Stream lets viewers catch up, on a reloaded tab too, and offers no second press (#2660)", () => {
+    // A tab reloaded during End Stream's wait: no press of its own is out.
+    const tester = picked().send({
+      type: "live-stream-heard",
+      stream: { videoId: VIDEO, status: { kind: "ending" } },
+    });
+
+    expect(goLiveControl(tester.getState(), VIDEO)).toEqual({
+      press: "end-stream",
+      busy: true,
+      status: "Ending… viewers are catching up, then the Broadcast ends.",
+      refusal: null,
+    });
+    tester.send({ type: "end-stream-pressed", videoId: VIDEO });
+    expect(tester.getEffects().filter((e) => e.type === "end-stream")).toEqual(
+      []
+    );
   });
 
   it("says why the Live Stream ended on its own, and offers Go Live again", () => {

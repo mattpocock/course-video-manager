@@ -12,10 +12,12 @@ import { DiagramOperationsService } from "@/services/db-diagram-operations.serve
 import { DiagramComponentOperationsService } from "@/services/db-diagram-component-operations.server";
 import { diagramComponentService, diagramService } from "./rpc-layer.diagram";
 import { clipService } from "./rpc-layer.clip";
+import { postingQueueService } from "./rpc-layer.short";
 import { LearningGoalOperationsService } from "@/services/db-learning-goal-operations.server";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { OverlayOperationsService } from "@/services/db-overlay-operations.server";
 import { PitchOperationsService } from "@/services/db-pitch-operations.server";
+import { PostingQueueOperationsService } from "@/services/db-posting-queue-operations.server";
 import { SearchOperationsService } from "@/services/db-search-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
@@ -201,6 +203,12 @@ const videoService = (client: RpcClient) =>
     linkVideoToPitch: rpcMethod((json) =>
       client.rpc.video.linkVideoToPitch.$post({ json })
     ),
+    getRecordingSessionForCut: rpcMethod((json) =>
+      client.rpc.video.getRecordingSessionForCut.$post({ json })
+    ),
+    createShortFromRanges: rpcMethod((json) =>
+      client.rpc.video.createShortFromRanges.$post({ json })
+    ),
     moveVideoToLesson: rpcMethod((json) =>
       client.rpc.video.moveVideoToLesson.$post({ json })
     ),
@@ -235,6 +243,12 @@ const overlayService = (client: RpcClient) =>
     ),
     getOverlaysByIds: rpcMethod((json) =>
       client.rpc.overlay.getOverlaysByIds.$post({ json })
+    ),
+    getRecordingSessionChatHighlights: rpcMethod((json) =>
+      client.rpc.overlay.getRecordingSessionChatHighlights.$post({ json })
+    ),
+    getChatHighlightById: rpcMethod((json) =>
+      client.rpc.overlay.getChatHighlightById.$post({ json })
     ),
     createOverlay: rpcMethod((json) =>
       client.rpc.overlay.createOverlay.$post({ json })
@@ -473,6 +487,7 @@ export type RemoteServices =
   | AgentSessionOperationsService
   | PitchOperationsService
   | DeliverableOperationsService
+  | PostingQueueOperationsService
   | DiagramOperationsService
   | DiagramComponentOperationsService
   | CourseWriteService;
@@ -524,6 +539,7 @@ export const makeRemoteLayer = (
     remoteLayer(AgentSessionOperationsService, agentSessionService, client),
     remoteLayer(PitchOperationsService, pitchService, client),
     remoteLayer(DeliverableOperationsService, deliverableService, client),
+    remoteLayer(PostingQueueOperationsService, postingQueueService, client),
     remoteLayer(DiagramOperationsService, diagramService, client),
     remoteLayer(
       DiagramComponentOperationsService,

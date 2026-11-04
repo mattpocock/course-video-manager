@@ -21,12 +21,20 @@ import type { Database } from "./drizzle-service.server.js";
 
 export type CopyDecision = "copied" | { notCopied: string };
 export type CopyPathName =
-  "submit" | "duplicateCourse" | "videoCopy" | "createVideoFromSelection";
+  | "submit"
+  | "duplicateCourse"
+  | "videoCopy"
+  | "createVideoFromSelection"
+  | "shortCreate";
 
 const NEVER_POSTED =
   "A Video Post records where one Video row was posted. Only standalone " +
   "Shorts are posted, and they never sit in a Course; a copied Video has " +
   "never been posted anywhere.";
+
+const NEVER_QUEUED =
+  "A Posting Queue entry records one time one Video row was queued to be " +
+  "posted; like a Video Post, a copied Video has never been queued.";
 
 const SHARED_FOOTAGE =
   "A Recording Session is the CVM recorder's Footage: files on the author's " +
@@ -53,6 +61,7 @@ const VERSION_TABLES: Record<string, CopyDecision> = {
   clip_web_link: "copied",
   clip_transcript_word: "copied",
   overlay: "copied",
+  clip_layer: "copied",
   agent_session_entry: "copied",
   chapter: "copied",
   beat: "copied",
@@ -62,6 +71,7 @@ const VERSION_TABLES: Record<string, CopyDecision> = {
   clip_mockup_comment: "copied",
   thumbnail: "copied",
   video_post: { notCopied: NEVER_POSTED },
+  posting_queue_entry: { notCopied: NEVER_QUEUED },
   ...RECORDING_SESSION_TABLES,
 };
 
@@ -74,6 +84,7 @@ const CLIP_TABLES: Record<string, CopyDecision> = {
   clip_web_link: "copied",
   clip_transcript_word: "copied",
   overlay: "copied",
+  clip_layer: "copied",
   agent_session_entry: "copied",
 };
 
@@ -102,6 +113,7 @@ const TIMELINE_TABLES: Record<string, CopyDecision> = {
   clip_mockup_comment: { notCopied: NOT_THE_TIMELINE },
   thumbnail: { notCopied: NOT_THE_TIMELINE },
   video_post: { notCopied: NEVER_POSTED },
+  posting_queue_entry: { notCopied: NEVER_QUEUED },
   ...RECORDING_SESSION_TABLES,
 };
 
@@ -145,6 +157,7 @@ export const COPY_PATHS: Record<CopyPathName, CopyPath> = {
           "rows would alias the source's files. A copy starts without one.",
       },
       video_post: { notCopied: NEVER_POSTED },
+      posting_queue_entry: { notCopied: NEVER_QUEUED },
       ...RECORDING_SESSION_TABLES,
     },
   },
@@ -158,6 +171,32 @@ export const COPY_PATHS: Record<CopyPathName, CopyPath> = {
     root: schema.videos,
     tables: TIMELINE_TABLES,
     keepsArchived: [],
+  },
+  /**
+   * `cvm short create` from a Video range (#2577): a Standalone Short holding
+   * copies of the live Clips a range covers. A Landscape Video's Overlays and
+   * Chapters stay behind (the agent adds Chat Cards and Calls to Action
+   * afterwards); everything else on a Clip travels with it. From a Short, the
+   * Overlays its range holds travel too (#2633), tested in
+   * cli-short-create.test.ts: the guard's seed is a Landscape Video.
+   */
+  shortCreate: {
+    root: schema.videos,
+    keepsArchived: [],
+    tables: {
+      ...TIMELINE_TABLES,
+      overlay: {
+        notCopied:
+          "A Landscape Video's Overlays were placed for its picture; a " +
+          "Short draws only Chat Cards and Calls to Action, added afterwards. " +
+          "From a Short, the Overlays its range holds are copied.",
+      },
+      chapter: {
+        notCopied:
+          "A Short is one short run of speech, with no Chapters; its ranges " +
+          "are joined by jump cuts.",
+      },
+    },
   },
 };
 

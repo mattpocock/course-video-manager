@@ -149,12 +149,20 @@ export const updateZoom = (
     // so every caller inherits it. The editor hides the affordance on an
     // ineligible clip and the CLI pre-checks to report a clean typed
     // error, but neither of those is what makes the rule hold.
-    const clip = yield* findClip(db, event.clipId);
+    const clip = yield* dbCall(() =>
+      db.query.clips.findFirst({
+        where: eq(clips.id, event.clipId),
+        with: { layers: { columns: { kind: true } } },
+      })
+    );
     if (!clip) {
       throw new Error(`Clip not found: ${event.clipId}`);
     }
 
-    const ineligibility = checkClipZoomEligibility(effectiveClipScene(clip));
+    const ineligibility = checkClipZoomEligibility(
+      effectiveClipScene(clip),
+      clip.layers
+    );
     if (ineligibility) {
       throw new Error(clipZoomIneligibilityMessage(ineligibility));
     }

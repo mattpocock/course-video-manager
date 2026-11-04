@@ -8,6 +8,7 @@ import type { JobEventMessage } from "@/features/jobs/job-wire";
 import type { ClipRecordingSession } from "@/packages/clip-source";
 import type { Scene } from "@/packages/scene-layout";
 import type { MicEq } from "@cvm/core/features/videos/recorder";
+import type { ClipLayerRow } from "@cvm/core/features/videos/clip-layer";
 
 /**
  * The schema is typed in terms of `DatabaseId`, so it is declared in
@@ -75,6 +76,12 @@ export type ClipOnDatabase = {
    */
   recordingSession?: ClipRecordingSession | null;
   sceneOverride?: Scene | null;
+  /**
+   * Its stored Layers (`clipLayersRelation`), as the loader read them: the
+   * preview draws its Footage Layers over its picture. Absent on a Clip this
+   * window made, which has none.
+   */
+  layers?: readonly ClipLayerRow[];
   /**
    * If true, this clip has been archived by the user (deleted from session panel).
    * The clip stays in state so it can appear in the archived sub-section of the

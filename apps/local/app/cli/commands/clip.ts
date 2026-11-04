@@ -16,12 +16,14 @@ import {
   notFoundMany,
   parseError,
 } from "@/cli/helpers";
+import { footageOnDisk, footagePathToStore } from "./footage-on-disk";
 import { resolveBeforeItemId } from "./timeline-position";
-import {
-  CLIP_ZOOM_TYPES,
-  type ClipZoomType,
-} from "@/features/videos/clip-zoom";
-import { effectiveClipScene } from "@cvm/core/features/videos/effective-scene";
+import { requireActiveClip, withEffectiveScene } from "./clip.shared";
+import { updateCmd } from "./clip.update";
+import { splitCmd } from "./clip.split";
+import { clipLayerCommand } from "./clip.layer";
+import { clipFrameCmd } from "./clip-frame";
+import { editTranscriptCmd } from "./clip.edit-transcript";
 import { MINIMUM_CLIP_LENGTH_SECONDS } from "@/silence-detection-constants";
 import { readFootageTranscript } from "@/services/footage-cache";
 import {
@@ -33,7 +35,6 @@ import {
   LIST_HELP,
   GET_HELP,
   ADD_HELP,
-  UPDATE_HELP,
   MOVE_HELP,
   DELETE_HELP,
   RESTORE_HELP,
@@ -102,6 +103,8 @@ import {
  *   clip delete <id>                          archive (soft delete; see `clip restore`)
  *   clip restore <id>                         undo `clip delete`
  *   clip words <id>                           the Clip's Transcript Words (NDJSON)
+ *   clip edit-transcript --find <t> --replace <t> <id>
+ *                                             fix the Clip's text (and its words)
  *
  * `update`'s --start/--end retime the cut WITHOUT touching `text`/`transcribedAt` — there is no
  * re-transcription step, so a retimed clip's text can drift out of sync with its new audio range
@@ -132,11 +135,6 @@ import {
  *     | jq -r '.. | objects | select(.kind=="clip") | .id' \
  *     | xargs cvm clip get
  */
-/** Every reported Clip carries the scene rules judge it on (see GLOSSARY Scene Override). */
-const withEffectiveScene = <C extends Parameters<typeof effectiveClipScene>[0]>(
-  clip: C
-) => ({ ...clip, effectiveScene: effectiveClipScene(clip) });
-
 const videoOpt = draftIdOption("video", "video").pipe(
   Options.withDescription("Parent Video id whose clips to list")
 );
@@ -198,27 +196,6 @@ const getCmd = Command.make(
     })
 ).pipe(Command.withDescription(detail(GET_HELP)));
 
-const zoomOpt = Options.choice("zoom", CLIP_ZOOM_TYPES).pipe(
-  Options.withDescription(
-    `Clip Zoom to set: ${CLIP_ZOOM_TYPES.join(" | ")}. Camera scenes only.`
-  ),
-  Options.optional
-);
-
-const startOpt = Options.float("start").pipe(
-  Options.withDescription(
-    "New sourceStartTime, in seconds (in-point into the source file)."
-  ),
-  Options.optional
-);
-
-const endOpt = Options.float("end").pipe(
-  Options.withDescription(
-    "New sourceEndTime, in seconds (out-point into the source file)."
-  ),
-  Options.optional
-);
-
 const beforeOpt = entityIdOption("before", ["clip", "chapter"]).pipe(
   Options.withDescription(
     "Place immediately before this clip id (mutually exclusive with --after)."
@@ -241,8 +218,9 @@ const videoAddOpt = draftIdOption("video", "video").pipe(
 
 const sourceOpt = Options.text("source").pipe(
   Options.withDescription(
-    "Path to the source footage file the clip is cut from (required). Its " +
-      "cached transcript (from 'cvm footage transcribe') supplies the clip text."
+    "Footage the clip is cut from (required): a root-relative path, found on " +
+      "whichever Storage Root has it, or an absolute one. Stored root-relative. " +
+      "Its cached transcript (from 'cvm footage transcribe') supplies the clip text."
   )
 );
 
@@ -257,21 +235,6 @@ const addEndOpt = Options.float("end").pipe(
 // ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------
-
-/**
- * Resolve + gate a clip for a write: a bad id is a clean not-found (exit 2)
- * rather than arriving as a service failure, and archived clips are deleted
- * as far as this noun is concerned, so they are not-found too.
- */
-const requireActiveClip = (id: string) =>
-  Effect.gen(function* () {
-    const clipOps = yield* ClipOperationsService;
-    const [existing] = yield* clipOps.getClipsByIds([id]);
-    if (!existing || existing.archived) {
-      return yield* notFound("clip", id);
-    }
-    return existing;
-  });
 
 // `resolveBeforeItemId` (the --before/--after anchor resolver) is shared with
 // `chapter` in ./timeline-position — clips and chapters share one order space,
@@ -321,7 +284,10 @@ const addCmd = Command.make(
       // whose hash no longer matches (the footage was re-recorded/replaced) as
       // absent, so a STALE transcript is refused exactly like a missing one —
       // never silently sliced. Either way: tell the agent to transcribe first.
-      const sidecar = yield* readFootageTranscript(source);
+      // A root-relative --source is found on whichever Storage Root has it,
+      // as `footage transcribe` finds it, never against the current directory.
+      const onDisk = footageOnDisk(source);
+      const sidecar = yield* readFootageTranscript(onDisk);
       if (sidecar === null) {
         return yield* parseError(
           `no fresh cached transcript for ${source} — run ` +
@@ -344,7 +310,7 @@ const addCmd = Command.make(
       const clipOps = yield* ClipOperationsService;
       const clip = yield* clipOps.createClip({
         videoId: video,
-        videoFilename: source,
+        videoFilename: footagePathToStore(source, onDisk),
         sourceStartTime: start,
         sourceEndTime: end,
         text,
@@ -354,73 +320,6 @@ const addCmd = Command.make(
       yield* emitObject(clip);
     })
 ).pipe(Command.withDescription(detail(ADD_HELP)));
-
-const updateCmd = Command.make(
-  "update",
-  { id: idArg, zoom: zoomOpt, start: startOpt, end: endOpt },
-  ({ id, zoom, start, end }) =>
-    Effect.gen(function* () {
-      const z = Option.getOrUndefined(zoom);
-      const s = Option.getOrUndefined(start);
-      const e = Option.getOrUndefined(end);
-
-      if (z === undefined && s === undefined && e === undefined) {
-        return yield* parseError(
-          "update needs at least one of --zoom / --start / --end",
-          "clip"
-        );
-      }
-
-      const clipOps = yield* ClipOperationsService;
-      let row = yield* requireActiveClip(id);
-
-      if (s !== undefined || e !== undefined) {
-        const newStart = s ?? row.sourceStartTime;
-        const newEnd = e ?? row.sourceEndTime;
-        if (newStart >= newEnd) {
-          return yield* parseError(
-            `--start (${newStart}) must be before --end (${newEnd})`,
-            "clip"
-          );
-        }
-        if (newEnd - newStart < MINIMUM_CLIP_LENGTH_SECONDS) {
-          return yield* parseError(
-            `clip would be ${(newEnd - newStart).toFixed(3)}s, below the ` +
-              `${MINIMUM_CLIP_LENGTH_SECONDS}s minimum clip length`,
-            "clip"
-          );
-        }
-        // retimeClip, not updateClip: a recut moves the footage out from
-        // under every Clip-relative offset stored against the Clip, so the
-        // service cascades over its Transcript Words (shifted, dropped when
-        // they no longer fit) and its Overlays (shifted, clamped, never
-        // deleted) in the same transaction. Doing that here would be two round
-        // trips and two transactions, either of which could leave the Clip
-        // half-cascaded.
-        row = yield* clipOps
-          .retimeClip(id, {
-            sourceStartTime: newStart,
-            sourceEndTime: newEnd,
-          })
-          .pipe(Effect.catchTag("NotFoundError", () => notFound("clip", id)));
-      }
-
-      // setClipZoom re-checks eligibility — it is the service that owns the
-      // rule. Translating its failure here is only about the exit code: an
-      // ineligible clip is bad input (exit 3), not an internal fault.
-      if (z !== undefined) {
-        row = yield* clipOps
-          .setClipZoom(id, z satisfies ClipZoomType)
-          .pipe(
-            Effect.catchTag("ClipNotZoomableError", (e) =>
-              parseError(e.message, "clip")
-            )
-          );
-      }
-
-      yield* emitObject(withEffectiveScene(row));
-    })
-).pipe(Command.withDescription(detail(UPDATE_HELP)));
 
 const videoMoveOpt = draftIdOption("video", "video").pipe(
   Options.withDescription(
@@ -543,9 +442,13 @@ export const clipCommand = Command.make("clip").pipe(
     getCmd,
     addCmd,
     updateCmd,
+    splitCmd,
     moveCmd,
     deleteCmd,
     restoreCmd,
     wordsCmd,
+    editTranscriptCmd,
+    clipLayerCommand,
+    clipFrameCmd,
   ])
 );

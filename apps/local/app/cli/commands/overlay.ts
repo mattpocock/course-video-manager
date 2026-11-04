@@ -39,7 +39,18 @@ import {
   resolveBulletPanelPatch,
 } from "./overlay.bullets";
 import { requireNoClipZoomUnderTransform } from "./overlay.clip-zoom-guard";
-import { clipTimelineStarts } from "@/services/clip-timeline";
+import { requireNoOverlappingOverlay } from "./overlay.overlap-guard";
+import { requireShortForKind } from "./overlay.short-guard";
+import {
+  chatCardOpts,
+  requireChatCardFlags,
+  requireChatCardUnchanged,
+  resolveChatCardColumns,
+} from "./overlay.chat-card";
+import {
+  requireCallToActionUnchanged,
+  resolveCallToActionWords,
+} from "./overlay.call-to-action";
 import {
   OVERLAY_HELP,
   LIST_HELP,
@@ -57,9 +68,11 @@ import {
  *   seconds, and carries its own `durationInSeconds` — independent of that
  *   Clip's length, so an Overlay may run on across the Clips that follow. Its
  *   `kind` says which content-kind it carries — `definitionCard` (the default,
- *   and what every Overlay written before the discriminator existed is) or
- *   `bulletPanel`. A Definition Card's content is a `title` (the term) and a
- *   `description` (the definition), written inline on the Overlay itself;
+ *   and what every Overlay written before the discriminator existed is),
+ *   `bulletPanel`, `chatCard` or `callToAction`. Overlays are graphics only:
+ *   footage over footage is a Footage Layer (`cvm clip layer`). A Definition
+ *   Card's content is a `title` (the term) and a `description` (the
+ *   definition), written inline on the Overlay itself;
  *   there is no shared glossary entity. A Bullet Panel's content is a `title`
  *   (the panel's heading) and up to four `bullets`, each an icon, a line of
  *   text and its own `revealAt` — seconds after the Overlay's own start.
@@ -70,8 +83,9 @@ import {
  *   `overlay.clip-zoom-guard.ts`.
  *
  *   At most ONE Overlay is visible at a given moment across the whole Video,
- *   so an Overlay whose window overlaps another's — of either kind, on any
- *   Clip of the same Video — is refused rather than authored.
+ *   so an Overlay whose window overlaps another's — of any kind, on any Clip
+ *   of the same Video — is refused rather than authored. The one exception
+ *   is a Call to Action beside a Chat Card (`overlay.overlap-guard.ts`).
  *
  *   Overlays are CHILDREN of a Clip, addressed only by id, with no version
  *   scoping. Unlike every other write noun here, delete is a HARD delete: an
@@ -202,68 +216,6 @@ const requireSameVideo = (from: AnchorClip, to: AnchorClip) =>
         "overlay"
       );
 
-/**
- * At most ONE Overlay is ever visible at a given moment across the whole Video
- * (GLOSSARY.md, "Overlays and transitions") — no tracks, no layering.
- *
- * The comparison is on the VIDEO's timeline, not within one Clip: an Overlay's
- * duration is free to outrun its anchor Clip, so two Overlays on different
- * Clips can still be on screen together. Touching windows are fine — one
- * Overlay ending exactly where the next begins shows only ever one at a time.
- *
- * `exclude` is the Overlay being updated: it may of course overlap itself.
- */
-const requireNoOverlappingOverlay = (params: {
-  videoId: string;
-  clipId: string;
-  at: number;
-  durationInSeconds: number;
-  exclude?: string;
-}) =>
-  Effect.gen(function* () {
-    const videoOps = yield* VideoOperationsService;
-    const video = yield* videoOps
-      .getVideoWithClipsById(params.videoId)
-      .pipe(
-        Effect.catchTag("NotFoundError", () =>
-          notFound("video", params.videoId)
-        )
-      );
-
-    const starts = clipTimelineStarts(video.clips);
-    const anchorStart = starts.get(params.clipId);
-    // An anchor that is not on this Video's timeline at all is somebody else's
-    // refusal to make — requireActiveClip/requireSameVideo already made it.
-    if (anchorStart === undefined) return;
-
-    const startInSeconds = anchorStart + params.at;
-    const endInSeconds = startInSeconds + params.durationInSeconds;
-
-    const overlayOps = yield* OverlayOperationsService;
-    const siblings = yield* overlayOps.listOverlaysByVideoId(
-      params.videoId,
-      null
-    );
-
-    for (const sibling of siblings) {
-      if (sibling.id === params.exclude) continue;
-      const siblingClipStart = starts.get(sibling.clipId);
-      if (siblingClipStart === undefined) continue;
-      const siblingStart = siblingClipStart + sibling.at;
-      const siblingEnd = siblingStart + sibling.durationInSeconds;
-      if (startInSeconds < siblingEnd && siblingStart < endInSeconds) {
-        return yield* parseError(
-          `this Overlay would be on screen from ${startInSeconds}s to ` +
-            `${endInSeconds}s on the Video's timeline, where Overlay ` +
-            `${sibling.id} is already showing (${siblingStart}s to ` +
-            `${siblingEnd}s). At most one Overlay is visible at a time — ` +
-            `move or shorten one of them, or delete ${sibling.id}.`,
-          "overlay"
-        );
-      }
-    }
-  });
-
 // ---------------------------------------------------------------------------
 // Verbs
 // ---------------------------------------------------------------------------
@@ -326,8 +278,9 @@ const addCmd = Command.make(
     title: titleAddOpt,
     description: descriptionAddOpt,
     ...bulletPanelOpts,
+    ...chatCardOpts,
   },
-  ({ clip, at, duration, kind, title, description, ...flags }) =>
+  ({ clip, at, duration, kind, title, description, chatHighlight, ...flags }) =>
     Effect.gen(function* () {
       yield* requireNonNegativeAt(at);
       yield* requirePositiveDuration(duration);
@@ -335,8 +288,28 @@ const addCmd = Command.make(
       // Resolved before the anchor is looked up: a content mistake is a typo
       // in the command, and saying so needs no database round trip.
       const desc = Option.getOrUndefined(description);
+      const willBeKind = Option.getOrUndefined(kind) ?? DEFAULT_OVERLAY_KIND;
+      yield* requireChatCardFlags({
+        kind: willBeKind,
+        title: Option.getOrUndefined(title),
+        description: desc,
+        bulletsJson: Option.getOrUndefined(flags.bulletsJson),
+        chatCard: { chatHighlight },
+      });
+      // A Chat Card's title is its Chat Highlight's author, copied; a Call
+      // to Action's has a default.
+      if (
+        willBeKind !== "chatCard" &&
+        willBeKind !== "callToAction" &&
+        Option.isNone(title)
+      ) {
+        return yield* parseError(
+          `--title is required for a ${willBeKind} Overlay`,
+          "overlay"
+        );
+      }
       const panel = yield* resolveBulletPanelPatch({
-        kind: Option.getOrUndefined(kind) ?? DEFAULT_OVERLAY_KIND,
+        kind: willBeKind,
         needsContent: true,
         durationInSeconds: duration,
         description: desc,
@@ -344,12 +317,14 @@ const addCmd = Command.make(
       });
 
       const anchor = yield* requireActiveClip(clip);
+      yield* requireShortForKind({ kind: willBeKind, videoId: anchor.videoId });
       yield* requireAtWithinClip(at, anchor);
       yield* requireNoOverlappingOverlay({
         videoId: anchor.videoId,
         clipId: clip,
         at,
         durationInSeconds: duration,
+        kind: willBeKind,
       });
       yield* requireNoClipZoomUnderTransform({
         videoId: anchor.videoId,
@@ -358,6 +333,17 @@ const addCmd = Command.make(
         durationInSeconds: duration,
         kind: Option.getOrUndefined(kind),
       });
+      const callToAction = resolveCallToActionWords({
+        kind: willBeKind,
+        title: Option.getOrUndefined(title),
+        description: desc,
+      });
+      const chatCard = yield* resolveChatCardColumns({
+        kind: willBeKind,
+        anchor,
+        at,
+        flags: { chatHighlight },
+      });
 
       const overlayOps = yield* OverlayOperationsService;
       const created = yield* overlayOps.createOverlay({
@@ -365,13 +351,18 @@ const addCmd = Command.make(
         at,
         durationInSeconds: duration,
         kind: Option.getOrUndefined(kind),
-        title,
+        // A Chat Card's title is copied in below; the column is NOT NULL.
+        title: Option.getOrElse(title, () => ""),
         // A Bullet Panel has no `description`, but the column is NOT NULL —
         // it stores the empty string rather than the caller inventing one.
         description: desc ?? "",
         bullets: panel.bullets ?? null,
         disableEnterAnimation: panel.disableEnterAnimation ?? false,
         disableExitAnimation: panel.disableExitAnimation ?? false,
+        // A Call to Action's words, its defaults filled in.
+        ...callToAction,
+        // A Chat Card's author and text, copied over title and description.
+        ...chatCard,
       });
       yield* emitObject(created);
     })
@@ -423,6 +414,15 @@ const updateCmd = Command.make(
       // lands, so a switch of kind and its new content go in together.
       const wasKind = resolveOverlayKind(overlay.kind);
       const willBeKind = newKind ?? wasKind;
+      yield* requireCallToActionUnchanged({ wasKind, willBeKind });
+      yield* requireChatCardUnchanged({
+        wasKind,
+        willBeKind,
+        contentEdited:
+          newTitle !== undefined ||
+          newDescription !== undefined ||
+          Option.isSome(flags.bulletsJson),
+      });
       // What the Overlay's window will BE, which is what a bullet's reveal
       // time has to fit inside — not what it is now.
       const nextDuration = newDuration ?? overlay.durationInSeconds;
@@ -484,6 +484,7 @@ const updateCmd = Command.make(
           clipId: anchor.id,
           at: newAt ?? overlay.at,
           durationInSeconds: nextDuration,
+          kind: willBeKind,
           exclude: id,
         });
       }

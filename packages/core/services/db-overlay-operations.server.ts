@@ -1,5 +1,10 @@
 import { DrizzleService, type Database } from "./drizzle-service.server.js";
-import { clips, overlays } from "../db/schema.js";
+import {
+  chatHighlights,
+  clips,
+  overlays,
+  recordingSessions,
+} from "../db/schema.js";
 import { UnknownDBServiceError } from "./db-service-errors.js";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { Effect } from "effect";
@@ -31,7 +36,7 @@ import type { BulletPanelBullet } from "../features/videos/bullet-panel.js";
  *
  * Every query whose Clips end up in `computeExportHash` must include this, or
  * that Video's address would claim it has no Overlays and a Definition Card
- * edit — or a change of `kind`, of a Bullet Panel's bullets, or of either
+ * edit — or a change of `kind`, of a Bullet Panel's bullets, of either
  * animation toggle — would publish stale video. It lives here, next to the table's own
  * operations, so the four queries that need it cannot drift apart.
  */
@@ -66,6 +71,16 @@ const overlayColumns = {
   title: overlays.title,
   description: overlays.description,
   bullets: overlays.bullets,
+};
+
+/** What a Chat Card copies from a Chat Highlight, and where it was. */
+const chatHighlightColumns = {
+  id: chatHighlights.id,
+  recordingSessionId: chatHighlights.recordingSessionId,
+  author: chatHighlights.author,
+  text: chatHighlights.text,
+  shownAtMs: chatHighlights.shownAtMs,
+  hiddenAtMs: chatHighlights.hiddenAtMs,
 };
 
 const createOverlayOperationsUnwrapped = (db: Database) => {
@@ -189,9 +204,49 @@ const createOverlayOperationsUnwrapped = (db: Database) => {
     return deleted;
   });
 
+  /**
+   * A Recording Session's Chat Highlights, in shown order, with its T0 (the
+   * recorder's clock time of file time 0, stored as `startedAt`): what a Chat
+   * Card is copied from. Undefined for an unknown Recording Session.
+   */
+  const getRecordingSessionChatHighlights = Effect.fn(
+    "getRecordingSessionChatHighlights"
+  )(function* (recordingSessionId: string) {
+    const [session] = yield* makeDbCall(() =>
+      db
+        .select({ startedAt: recordingSessions.startedAt })
+        .from(recordingSessions)
+        .where(eq(recordingSessions.id, recordingSessionId))
+    );
+    if (!session) return undefined;
+    const highlights = yield* makeDbCall(() =>
+      db
+        .select(chatHighlightColumns)
+        .from(chatHighlights)
+        .where(eq(chatHighlights.recordingSessionId, recordingSessionId))
+        .orderBy(asc(chatHighlights.shownAtMs), asc(chatHighlights.id))
+    );
+    return { t0Ms: session.startedAt.getTime(), highlights };
+  });
+
+  /** One Chat Highlight by id, or undefined. */
+  const getChatHighlightById = Effect.fn("getChatHighlightById")(function* (
+    chatHighlightId: string
+  ) {
+    const [row] = yield* makeDbCall(() =>
+      db
+        .select(chatHighlightColumns)
+        .from(chatHighlights)
+        .where(eq(chatHighlights.id, chatHighlightId))
+    );
+    return row;
+  });
+
   return {
     listOverlaysByVideoId,
     getOverlaysByIds,
+    getRecordingSessionChatHighlights,
+    getChatHighlightById,
     createOverlay,
     updateOverlay,
     deleteOverlay,

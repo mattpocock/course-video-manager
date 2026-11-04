@@ -87,8 +87,11 @@ describe("on a box that is not the author's", () => {
     const invocations: ReadonlyArray<ReadonlyArray<string>> = [
       ["footage", "list"],
       ["footage", "list", "--dir", "/tmp/whatever"],
+      ["footage", "list", "--imported"],
+      ["footage", "import", "/tmp/whatever.mp4"],
       ["footage", "transcribe", "/tmp/whatever.mkv"],
       ["footage", "transcript", "/tmp/whatever.mkv"],
+      ["footage", "frame", "--at", "1", "/tmp/whatever.mkv"],
     ];
 
     for (const argv of invocations) {
@@ -131,6 +134,23 @@ describe("on a box that is not the author's", () => {
     }
   });
 
+  it("refuses cvm short render", async () => {
+    const result = await run(["short", "render", s.standaloneActiveId]);
+
+    expect(result.exitCode).toBe(7);
+    expect(failureOf(result)._tag).toBe("LocalOnlyCommandError");
+    expect(failureOf(result).command).toBe("cvm short render");
+    expect(result.stdout).toBe("");
+  });
+
+  it("refuses cvm clip frame", async () => {
+    const result = await run(["clip", "frame", "--at", "1", "clip_1"]);
+
+    expect(result.exitCode).toBe(7);
+    expect(failureOf(result).command).toBe("cvm clip frame");
+    expect(result.stdout).toBe("");
+  });
+
   it("refuses cvm course readiness", async () => {
     const result = await run(["course", "readiness", await courseIdOf()]);
 
@@ -152,6 +172,20 @@ describe("on a box that is not the author's", () => {
 
     expect(result.exitCode).toBe(7);
     expect(failureOf(result)._tag).toBe("LocalOnlyCommandError");
+    expect(result.stdout).toBe("");
+  });
+
+  it("refuses cvm course publish discard", async () => {
+    const result = await run([
+      "course",
+      "publish",
+      "discard",
+      await courseIdOf(),
+    ]);
+
+    expect(result.exitCode).toBe(7);
+    expect(failureOf(result)._tag).toBe("LocalOnlyCommandError");
+    expect(failureOf(result).command).toBe("cvm course publish discard");
     expect(result.stdout).toBe("");
   });
 

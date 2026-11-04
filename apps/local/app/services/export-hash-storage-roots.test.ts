@@ -15,6 +15,7 @@ const obs = (videoFilename: string, sourceStartTime = 1.5) => ({
   recordingSessionId: null,
   sceneOverride: null,
   recordingSession: null,
+  layers: [],
   pauseType: "long",
   zoomType: "none",
   overlays: [
