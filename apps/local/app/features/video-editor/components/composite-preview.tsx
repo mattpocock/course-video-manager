@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 import type { VideoFormat } from "@/features/videos/video-format";
 import { CANVASES, drawnSources, type Scene } from "@/packages/scene-layout";
 import { PREVIEW_STALL_MS } from "recorder-service/protocol";
@@ -45,8 +45,11 @@ export const CompositePreview = (props: {
   cameraShowing: boolean;
   /** Changes when the camera comes back, so its last frame is dropped. */
   cameraKey: string;
+  /** The canvas, for a caller that keeps a picture of it (the take-end frame). */
+  canvasRef?: RefObject<HTMLCanvasElement | null>;
 }) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const ownCanvasRef = useRef<HTMLCanvasElement>(null);
+  const canvasRef = props.canvasRef ?? ownCanvasRef;
   const camera = useLatestFrame(
     props.cameraShowing ? props.previews.camera : undefined,
     props.cameraKey

@@ -1,9 +1,10 @@
+import { useRef } from "react";
 import { cn } from "@/lib/utils";
 import { useContextSelector } from "use-context-selector";
 import { VideoEditorContext } from "../video-editor-context";
-import { clipStillUrl } from "../clip-still-url";
-import { holdsStillsOf, stillRound } from "../cvm-recorder-reducer";
+import { stillRound } from "../cvm-recorder-reducer";
 import { getCvmRecorderLivePreview } from "../live-preview";
+import { useLastFrameUrl } from "../use-take-end-frame";
 import { getShowRecordingSignal } from "../video-editor-selectors";
 import { CaptureFrame } from "./capture-frame";
 import { CompositePreview } from "./composite-preview";
@@ -11,7 +12,9 @@ import { RecordingSignalIndicator } from "./timeline-indicators";
 
 /**
  * The editor's live frame: the live picture while paused, with the previous
- * Clip's last frame over it at half opacity to match position between takes.
+ * Clip's last frame over it at half opacity to match position between takes
+ * (in a Video or a Short; never in a Live Stream). Mid-session that frame is
+ * the live picture from when the take's speech ended (`lastFrameSource`).
  * The picture is the CVM recorder's composite, with the capture badge, ring,
  * recording signal and centre line. A Short's frame is portrait 9:16, the
  * CVM recorder's Short layout.
@@ -51,6 +54,14 @@ export const LivePreviewFrame = () => {
     (ctx) => ctx.databaseClipToShowLastFrameOf
   );
 
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const lastFrameUrl = useLastFrameUrl(
+    canvasRef,
+    cvmRecorderState,
+    speechDetectorState,
+    lastFrameClip
+  );
+
   const composite = getCvmRecorderLivePreview(cvmRecorderState);
   if (!composite) return null;
 
@@ -87,19 +98,20 @@ export const LivePreviewFrame = () => {
           format={composite.format}
           cameraShowing={composite.cameraShowing}
           cameraKey={composite.cameraKey}
+          canvasRef={canvasRef}
         />
       </CaptureFrame>
       {!showVideoPlayer &&
         showLastFrameOverlay &&
-        lastFrameClip &&
-        // Its Recording Session is still recording: no still until Stop
-        // (#2214; #2294 let it through and it cost the camera frames).
-        !holdsStillsOf(cvmRecorderState, lastFrameClip) && (
+        // Its Recording Session still recording, the still is held until
+        // Stop (#2214; #2294 let it through and it cost the camera frames):
+        // the take-end frame stands in for it.
+        lastFrameUrl && (
           <div className="absolute inset-0 rounded-lg">
             <img
               key={stillRound(cvmRecorderState)}
               className="w-full h-full rounded-lg opacity-50 object-contain"
-              src={clipStillUrl(lastFrameClip, "last")}
+              src={lastFrameUrl}
             />
           </div>
         )}

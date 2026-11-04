@@ -8,6 +8,7 @@ import {
   framesLostAlert,
   holdsStillsOf,
 } from "./cvm-recorder-reducer";
+import { lastFrameSource } from "./live-preview";
 import type { CvmRecorderMessage } from "./cvm-recorder-wire";
 import { getRecorderCapture, toCaptureStatus } from "./recorder-capture";
 
@@ -157,6 +158,31 @@ describe("the CVM recorder's Record and Stop", () => {
 
     t.send(heard(stoppedMessage())).send(status());
     expect(holdsStillsOf(t.getState(), ofTake)).toBe(false);
+  });
+
+  it("shows the last-frame overlay mid-session from the take's end on the live preview, its still after the Stop, and none in a Live Stream", () => {
+    // Matt matches his position to the last Clip's end between takes, in a
+    // Video or a Short: the overlay is needed mid-session (2026-11-04), yet
+    // its still may not be decoded from the growing take (#2560).
+    const t = recording();
+    const ofTake = { recordingSession: { id: "s1" } };
+    expect(lastFrameSource(t.getState(), ofTake)).toBe("take-end");
+    expect(
+      lastFrameSource(t.getState(), { recordingSession: { id: "s0" } })
+    ).toBe("still");
+
+    t.send(heard(stoppedMessage())).send(status());
+    expect(lastFrameSource(t.getState(), ofTake)).toBe("still");
+
+    const streamed = tester()
+      .send(status({ recordingSessionId: "s2", streamed: true }))
+      .send(live);
+    expect(
+      lastFrameSource(streamed.getState(), { recordingSession: { id: "s2" } })
+    ).toBe("none");
+    expect(
+      lastFrameSource(streamed.getState(), { recordingSession: { id: "s0" } })
+    ).toBe("none");
   });
 
   it("raises no alert for a recording that lost nothing", () => {
