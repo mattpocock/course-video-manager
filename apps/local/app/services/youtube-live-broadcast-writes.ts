@@ -12,6 +12,7 @@ import {
   liveApiCall,
   needsConnecting,
   toBroadcast,
+  YouTubeLiveError,
   type LiveBroadcastItem,
 } from "@/services/youtube-live-service";
 
@@ -157,3 +158,53 @@ export const setBroadcastThumbnail = (
         }),
     })
   );
+
+/** Any failure to reach YouTube, a missing grant included, as a `YouTubeLiveError`. */
+const asLiveError = {
+  NotAuthenticatedError: () =>
+    Effect.fail(new YouTubeLiveError({ message: "Google is not connected." })),
+  LiveAccessMissing: () =>
+    Effect.fail(
+      new YouTubeLiveError({
+        message: "the Google grant has no live-streaming access.",
+      })
+    ),
+  YouTubeAuthError: (e: { message: string }) =>
+    Effect.fail(new YouTubeLiveError({ message: e.message })),
+};
+
+type VideoStatusBody = {
+  items?: { status?: Record<string, unknown> }[];
+} | null;
+
+/**
+ * **Unlist When Ended**: makes the Broadcast's video Unlisted
+ * (`videos.list part=status`, then `videos.update part=status`: 51 quota
+ * units). The update deletes any `status` property it isn't sent, so the
+ * status read back is sent whole, only `privacyStatus` changed. Any failure
+ * is a `YouTubeLiveError`.
+ */
+export const unlistBroadcast = (broadcastId: string) =>
+  Effect.gen(function* () {
+    const read = (yield* liveApiCall({
+      method: "GET",
+      path: "videos",
+      query: { part: "status", id: broadcastId },
+      what: "reading the Broadcast's privacy",
+    })) as VideoStatusBody;
+    const status = read?.items?.[0]?.status;
+    if (!status)
+      return yield* new YouTubeLiveError({
+        message: "YouTube has no video for the Broadcast",
+      });
+    yield* liveApiCall({
+      method: "PUT",
+      path: "videos",
+      query: { part: "status" },
+      body: {
+        id: broadcastId,
+        status: { ...status, privacyStatus: "unlisted" },
+      },
+      what: "making the Broadcast Unlisted",
+    });
+  }).pipe(Effect.catchTags(asLiveError));

@@ -1,11 +1,13 @@
 import { toastError } from "@/components/ui/toast";
 import { useEffectReducer } from "@/hooks/use-effect-reducer";
-import type { BroadcastListAnswer } from "./broadcast";
+import { readStored, writeStored } from "@/hooks/use-local-storage";
+import type { BroadcastListAnswer, UnlistResult } from "./broadcast";
 import {
   createInitialLiveStreamState,
   liveStreamReducer,
   RECONNECT_GRACE_MS,
 } from "./live-stream-reducer";
+import { unlistPreferenceKey } from "./unlist-when-ended";
 
 /** Where the Broadcast picker lists from (`routes/api.streaming.broadcasts.ts`). */
 export const BROADCASTS_HREF = "/api/streaming/broadcasts";
@@ -132,12 +134,31 @@ export function useLiveStreamReducer() {
       return () => clearTimeout(timer);
     },
     "end-stream": (_state, effect, dispatch) => {
-      fetch(`/api/videos/${effect.videoId}/recorder/end-stream`, postJson({}))
-        .then(answered)
-        .then(() => dispatch({ type: "end-stream-answered" }))
+      fetch(
+        `/api/videos/${effect.videoId}/recorder/end-stream`,
+        postJson({ unlistWhenEnded: effect.unlistWhenEnded })
+      )
+        .then(async (response) => {
+          await answered(response);
+          const { unlist } = (await response.json()) as {
+            unlist: UnlistResult;
+          };
+          dispatch({ type: "end-stream-answered", unlist });
+        })
         .catch((e: unknown) =>
           dispatch({ type: "end-stream-failed", message: messageOf(e) })
         );
+    },
+    "read-unlist-preference": (_state, { videoId }, dispatch) => {
+      const stored = readStored(unlistPreferenceKey(videoId));
+      dispatch({
+        type: "unlist-preference-read",
+        videoId,
+        checked: stored === null ? null : stored === "true",
+      });
+    },
+    "save-unlist-preference": (_state, { videoId, checked }) => {
+      writeStored(unlistPreferenceKey(videoId), String(checked));
     },
   });
 }

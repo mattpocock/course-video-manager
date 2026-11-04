@@ -17,9 +17,11 @@ import type { LatencyPreference, NewBroadcastSettings } from "./broadcast";
 import {
   canCreate,
   newBroadcastReport,
+  showsUnlistWhenEnded,
   type newBroadcastReducer,
   type ReportLine,
 } from "./new-broadcast-reducer";
+import { UnlistWhenEndedCheckbox } from "./unlist-when-ended-checkbox";
 
 type Props = {
   state: newBroadcastReducer.State;
@@ -160,6 +162,9 @@ export const NewBroadcastForm = ({ state, dispatch }: Props) => {
               dispatch({ type: "privacy-picked", privacyStatus })
             }
           />
+          {showsUnlistWhenEnded(state) && (
+            <UnlistWhenEndedCheckbox id="unlist-when-ended-new" />
+          )}
           <Choices
             label="Latency"
             value={state.draft.latencyPreference}

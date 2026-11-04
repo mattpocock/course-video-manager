@@ -25,6 +25,7 @@ import {
 } from "./broadcast-chat-view";
 import { StreamCardPreview } from "./stream-card-preview";
 import type { NewBroadcastVideo } from "./new-stream-video";
+import { useStreamingTabShown } from "./unlist-when-ended-checkbox";
 
 /**
  * The composite preview, with the Chat Highlight the stream shows over it,
@@ -117,8 +118,10 @@ export const StreamingLayout = (props: {
     VideoEditorContext,
     (ctx) => ctx.videoTitle
   );
+  const videoId = useContextSelector(VideoEditorContext, (ctx) => ctx.videoId);
   // The chat is heard while this tab is open, popped out or not.
   useBroadcastChatBridge();
+  useStreamingTabShown(videoId);
 
   return (
     <div className="flex flex-col h-screen p-2 gap-2">

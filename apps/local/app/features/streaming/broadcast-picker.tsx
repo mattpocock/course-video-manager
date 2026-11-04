@@ -1,5 +1,7 @@
 import { useEffect } from "react";
 import { useLocation } from "react-router";
+import { useContextSelector } from "use-context-selector";
+import { VideoEditorContext } from "@/features/video-editor/video-editor-context";
 import {
   AlertTriangleIcon,
   CheckIcon,
@@ -22,6 +24,8 @@ import { NewBroadcastButton, NewBroadcastForm } from "./new-broadcast-form";
 import { BroadcastThumbnailControl } from "./broadcast-thumbnail-control";
 import type { NewBroadcastVideo } from "./new-stream-video";
 import { useNewBroadcastReducer } from "./use-new-broadcast-reducer";
+import { unlistWhenEndedBesidePick } from "./unlist-when-ended";
+import { UnlistWhenEndedCheckbox } from "./unlist-when-ended-checkbox";
 
 const RECONNECT_MESSAGES: Record<ReconnectReason, string> = {
   "not-connected": "Connect Google to list your YouTube Broadcasts.",
@@ -63,6 +67,7 @@ export const BroadcastPicker = (props: {
   video: NewBroadcastVideo;
 }) => {
   const { state, dispatch } = useLiveStream();
+  const videoId = useContextSelector(VideoEditorContext, (ctx) => ctx.videoId);
   const location = useLocation();
   const [newBroadcast, newBroadcastDispatch] = useNewBroadcastReducer(
     props.video,
@@ -111,6 +116,9 @@ export const BroadcastPicker = (props: {
             <AlertTriangleIcon className="size-3.5 shrink-0 mt-0.5" />
             <span>{view.refusal}</span>
           </div>
+        )}
+        {unlistWhenEndedBesidePick(state, videoId) !== null && (
+          <UnlistWhenEndedCheckbox id="unlist-when-ended-picked" />
         )}
         {newBroadcastForm}
       </div>

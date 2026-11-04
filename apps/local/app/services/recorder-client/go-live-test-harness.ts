@@ -66,7 +66,66 @@ export const youtube: {
   calls: string[];
   /** What `liveBroadcasts/transition` answers: its status, 200 unless a test says. */
   transitionStatus: number;
-} = { url: "", broadcasts: [], streams: [], calls: [], transitionStatus: 200 };
+  /** The Broadcast's video status, as `videos.list part=status` answers it. */
+  videoStatus: Record<string, unknown>;
+  /** What `videos.update` answers: its status, 200 unless a test says. */
+  videoUpdateStatus: number;
+  /** Each `videos.update` body CVM sent. */
+  videoUpdates: unknown[];
+} = {
+  url: "",
+  broadcasts: [],
+  streams: [],
+  calls: [],
+  transitionStatus: 200,
+  videoStatus: {},
+  videoUpdateStatus: 200,
+  videoUpdates: [],
+};
+
+/** The video `videos.list part=status` answers until a test says. */
+const PUBLIC_VIDEO_STATUS = {
+  uploadStatus: "uploaded",
+  privacyStatus: "public",
+  license: "youtube",
+  embeddable: true,
+  publicStatsViewable: true,
+  selfDeclaredMadeForKids: false,
+};
+
+/** `videos.list` and `videos.update`, as Unlist When Ended calls them. */
+const answerVideos = (
+  req: http.IncomingMessage,
+  url: URL,
+  res: http.ServerResponse
+) => {
+  if (req.method === "GET") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    const id = url.searchParams.get("id");
+    res.end(JSON.stringify({ items: [{ id, status: youtube.videoStatus }] }));
+    return;
+  }
+  let text = "";
+  req.on("data", (chunk) => (text += String(chunk)));
+  req.on("end", () => {
+    youtube.videoUpdates.push(JSON.parse(text) as unknown);
+    res.writeHead(youtube.videoUpdateStatus, {
+      "Content-Type": "application/json",
+    });
+    res.end(
+      JSON.stringify(
+        youtube.videoUpdateStatus === 200
+          ? { id: url.searchParams.get("id") }
+          : {
+              error: {
+                message: "Forbidden",
+                errors: [{ reason: "forbidden" }],
+              },
+            }
+      )
+    );
+  });
+};
 
 /**
  * A Go Live test file's setup: the clip service's test database, and YouTube
@@ -79,6 +138,10 @@ export const setupGoLiveTests = () => {
     server = http.createServer((req, res) => {
       const url = new URL(req.url ?? "/", "http://fake");
       youtube.calls.push(`${req.method} ${url.pathname}${url.search}`);
+      if (url.pathname === "/youtube/v3/videos") {
+        answerVideos(req, url, res);
+        return;
+      }
       res.writeHead(200, { "Content-Type": "application/json" });
       if (url.pathname === "/youtube/v3/liveStreams") {
         res.end(JSON.stringify({ items: youtube.streams }));
@@ -250,6 +313,9 @@ export const ready = async (
   ];
   youtube.calls = [];
   youtube.transitionStatus = 200;
+  youtube.videoStatus = PUBLIC_VIDEO_STATUS;
+  youtube.videoUpdateStatus = 200;
+  youtube.videoUpdates = [];
   const video = await clipService.createVideo("Office hours");
   if (o.format === "short")
     await testDb
@@ -299,7 +365,8 @@ export const ready = async (
     goLive: goLiveWith,
     endClock,
     /** End Stream as the app server presses it (its route's effect). */
-    endStream: () => run(endStream(client, video.id)),
+    endStream: (o = { unlistWhenEnded: false }) =>
+      run(endStream(client, video.id, o)),
     streamStatuses,
     /** Each Live Stream the app server heard of (the Live indicator's). */
     liveStreams,
