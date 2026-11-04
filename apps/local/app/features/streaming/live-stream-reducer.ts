@@ -9,6 +9,7 @@ import {
   type Broadcast,
   type BroadcastListAnswer,
   type ReconnectReason,
+  type UnlistResult,
 } from "./broadcast";
 import {
   chatGaveUp,
@@ -24,6 +25,13 @@ import {
   type ChatHighlightState,
 } from "./chat-highlight-reducer";
 import type { LiveStreamHeard } from "./live-stream-wire";
+import {
+  unlistAtEndStream,
+  unlistFailedWords,
+  unlistWhenEndedReducer,
+  type UnlistWhenEndedAction,
+  type UnlistWhenEndedEffect,
+} from "./unlist-when-ended";
 
 /**
  * The app-wide Live Stream surface, mounted at the app root like the Upload
@@ -72,8 +80,13 @@ export namespace liveStreamReducer {
     stream: LiveStreamHeard;
     /** Go Live or End Stream was pressed and the app server has not answered. */
     pending: "going-live" | "ending" | null;
-    /** Why the last Go Live or End Stream did not happen, until the next press. */
+    /**
+     * Why the last Go Live or End Stream did not happen, or End Stream's
+     * unlist failed (`unlist-when-ended.ts`), until the next press.
+     */
     refusal: string | null;
+    /** Each Video's **Unlist When Ended** choice, once read or toggled. */
+    unlistWhenEnded: Record<string, boolean>;
     /** The chat message on the Live Stream picture, if one is. */
     highlight: ChatHighlightState;
   };
@@ -86,6 +99,8 @@ export namespace liveStreamReducer {
     | { type: "broadcast-listing-failed"; message: string }
     | { type: "broadcast-clicked"; broadcastId: string }
     | { type: "change-broadcast-clicked" }
+    /** New Broadcast created this Broadcast on YouTube (`new-broadcast-reducer.ts`). */
+    | { type: "broadcast-created"; broadcast: Broadcast }
     /** Heard from the app server's chat (`GET /api/streaming/chat/events`). */
     | BroadcastChatEvent
     /** A reconnect's grace (`RECONNECT_GRACE_MS`) is over. */
@@ -103,8 +118,9 @@ export namespace liveStreamReducer {
     | { type: "go-live-answered" }
     | { type: "go-live-refused"; message: string }
     | { type: "end-stream-pressed"; videoId: string }
-    | { type: "end-stream-answered" }
+    | { type: "end-stream-answered"; unlist: UnlistResult }
     | { type: "end-stream-failed"; message: string }
+    | UnlistWhenEndedAction
     | ChatHighlightAction;
 
   export type Effect =
@@ -118,9 +134,11 @@ export namespace liveStreamReducer {
         broadcastId: string | null;
         silenceLength: SilenceLength;
       }
-    | { type: "end-stream"; videoId: string }
+    /** `unlistWhenEnded`: make the Broadcast Unlisted once it is complete. */
+    | { type: "end-stream"; videoId: string; unlistWhenEnded: boolean }
     /** Say `chat-reconnect-grace-ended` once the grace is over. */
     | { type: "await-reconnect-grace"; broadcastId: string; reconnect: number }
+    | UnlistWhenEndedEffect
     | ChatHighlightEffect;
 }
 
@@ -136,6 +154,7 @@ export const createInitialLiveStreamState = (): State => ({
   stream: null,
   pending: null,
   refusal: null,
+  unlistWhenEnded: {},
   highlight: NO_CHAT_HIGHLIGHT,
   chat: { broadcastId: null, connection: { state: "idle" }, messages: [] },
   chatReconnect: { reconnect: 0, shown: false },
@@ -222,6 +241,29 @@ const broadcastClicked = (
 };
 
 /**
+ * A Broadcast New Broadcast created joins the list (in place of any listed
+ * copy) and is picked, as a click on it would.
+ */
+const broadcastCreated = (
+  state: State,
+  broadcast: Broadcast,
+  exec: Exec
+): State => {
+  const listed =
+    state.broadcastList.status === "listed"
+      ? state.broadcastList.broadcasts.filter((b) => b.id !== broadcast.id)
+      : [];
+  return broadcastClicked(
+    {
+      ...state,
+      broadcastList: { status: "listed", broadcasts: [...listed, broadcast] },
+    },
+    broadcast.id,
+    exec
+  );
+};
+
+/**
  * A chat now reconnecting that wasn't starts its grace; any other state ends
  * the last reconnect.
  */
@@ -288,6 +330,10 @@ const chatHeard = (state: State, event: BroadcastChatEvent): State => {
 export const isLiveOn = (state: State, videoId: string) =>
   state.stream?.videoId === videoId && isStreamOn(state.stream.status);
 
+/** The Live Timer's start, while the Live Stream on `videoId` is on; else null. */
+export const liveSinceOf = (state: State, videoId: string): string | null =>
+  isLiveOn(state, videoId) ? (state.stream?.liveSince ?? null) : null;
+
 /** The Live indicator every page shows while live, linking back to its Streaming tab. */
 export type LiveIndicator = { videoId: string; href: string; words: string };
 
@@ -330,6 +376,8 @@ export const liveStreamReducer: EffectReducer<State, Action, Effect> = (
       return broadcastClicked(state, action.broadcastId, exec);
     case "change-broadcast-clicked":
       return { ...state, changingBroadcast: true };
+    case "broadcast-created":
+      return broadcastCreated(state, action.broadcast, exec);
     case "chat-attached":
     case "chat-message-received":
     case "chat-connection-changed":
@@ -356,6 +404,10 @@ export const liveStreamReducer: EffectReducer<State, Action, Effect> = (
     case "end-stream-failed":
     case "end-stream-pressed":
       return goLiveReducer(state, action, exec);
+    case "streaming-tab-shown":
+    case "unlist-preference-read":
+    case "unlist-when-ended-toggled":
+      return unlistWhenEndedReducer(state, action, exec);
     case "chat-message-clicked":
     case "chat-highlight-shown":
     case "chat-highlight-hidden":
@@ -392,8 +444,16 @@ const goLiveReducer = (
       });
       return { ...state, pending: "going-live", refusal: null };
     case "go-live-answered":
-    case "end-stream-answered":
       return { ...state, pending: null };
+    case "end-stream-answered":
+      return {
+        ...state,
+        pending: null,
+        refusal:
+          action.unlist.status === "failed"
+            ? unlistFailedWords(action.unlist.message)
+            : null,
+      };
     case "go-live-refused":
     case "end-stream-failed":
       return { ...state, pending: null, refusal: action.message };
@@ -404,7 +464,11 @@ const goLiveReducer = (
         state.stream?.status.kind === "ending"
       )
         return state;
-      exec({ type: "end-stream", videoId: action.videoId });
+      exec({
+        type: "end-stream",
+        videoId: action.videoId,
+        unlistWhenEnded: unlistAtEndStream(state, action.videoId),
+      });
       return { ...state, pending: "ending", refusal: null };
   }
 };

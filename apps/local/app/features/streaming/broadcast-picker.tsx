@@ -1,5 +1,7 @@
 import { useEffect } from "react";
 import { useLocation } from "react-router";
+import { useContextSelector } from "use-context-selector";
+import { VideoEditorContext } from "@/features/video-editor/video-editor-context";
 import {
   AlertTriangleIcon,
   CheckIcon,
@@ -13,7 +15,17 @@ import {
   broadcastPickerView,
 } from "./live-stream-reducer";
 import { useLiveStream } from "./live-stream-context";
-import type { ReconnectReason } from "./broadcast";
+import {
+  broadcastSettingsWords,
+  type Broadcast,
+  type ReconnectReason,
+} from "./broadcast";
+import { NewBroadcastButton, NewBroadcastForm } from "./new-broadcast-form";
+import { BroadcastThumbnailControl } from "./broadcast-thumbnail-control";
+import type { NewBroadcastVideo } from "./new-stream-video";
+import { useNewBroadcastReducer } from "./use-new-broadcast-reducer";
+import { unlistWhenEndedBesidePick } from "./unlist-when-ended";
+import { UnlistWhenEndedCheckbox } from "./unlist-when-ended-checkbox";
 
 const RECONNECT_MESSAGES: Record<ReconnectReason, string> = {
   "not-connected": "Connect Google to list your YouTube Broadcasts.",
@@ -32,16 +44,38 @@ const formatScheduledStart = (iso: string | null) =>
         minute: "2-digit",
       });
 
+/** A Broadcast's scheduled start, privacy and latency, on one line. */
+const broadcastDetails = (broadcast: Broadcast) =>
+  [
+    formatScheduledStart(broadcast.scheduledStartTime),
+    broadcastSettingsWords(broadcast),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
 /**
  * The Streaming tab's Broadcast picker: Matt's active and upcoming YouTube
  * Broadcasts, a Refresh, and a reconnect prompt when Google's grant lacks
  * live-streaming access. The pick lives in the app-wide Live Stream surface.
  * Once a Broadcast is picked, only the pick shows, with Change to bring the
  * list back (`broadcastPickerView`), so the chat below gets the room.
+ * New Broadcast sits beside it either way: its form outlives the switch
+ * from the list to the pick it makes.
  */
-export const BroadcastPicker = () => {
+export const BroadcastPicker = (props: {
+  /** The Video the Streaming tab is open for: New Broadcast's defaults. */
+  video: NewBroadcastVideo;
+}) => {
   const { state, dispatch } = useLiveStream();
+  const videoId = useContextSelector(VideoEditorContext, (ctx) => ctx.videoId);
   const location = useLocation();
+  const [newBroadcast, newBroadcastDispatch] = useNewBroadcastReducer(
+    props.video,
+    dispatch
+  );
+  const newBroadcastForm = (
+    <NewBroadcastForm state={newBroadcast} dispatch={newBroadcastDispatch} />
+  );
 
   // Bridges the picker appearing to the surface, which decides whether to list.
   useEffect(() => {
@@ -59,17 +93,23 @@ export const BroadcastPicker = () => {
               {view.broadcast.title}
             </p>
             <p className="text-xs text-muted-foreground">
-              {formatScheduledStart(view.broadcast.scheduledStartTime)}
+              {broadcastDetails(view.broadcast)}
             </p>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="ml-auto shrink-0"
-            onClick={() => dispatch({ type: "change-broadcast-clicked" })}
-          >
-            Change
-          </Button>
+          <div className="ml-auto flex shrink-0 items-center gap-1">
+            <BroadcastThumbnailControl
+              broadcastId={view.broadcast.id}
+              video={props.video}
+            />
+            <NewBroadcastButton dispatch={newBroadcastDispatch} />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => dispatch({ type: "change-broadcast-clicked" })}
+            >
+              Change
+            </Button>
+          </div>
         </div>
         {view.refusal !== null && (
           <div className="flex gap-1 text-xs text-amber-600">
@@ -77,6 +117,10 @@ export const BroadcastPicker = () => {
             <span>{view.refusal}</span>
           </div>
         )}
+        {unlistWhenEndedBesidePick(state, videoId) !== null && (
+          <UnlistWhenEndedCheckbox id="unlist-when-ended-picked" />
+        )}
+        {newBroadcastForm}
       </div>
     );
   }
@@ -89,10 +133,11 @@ export const BroadcastPicker = () => {
       <div className="flex items-center gap-2">
         <YoutubeIcon className="size-4 text-red-500" />
         <h2 className="text-sm font-medium">Broadcast</h2>
+        <div className="ml-auto" />
+        <NewBroadcastButton dispatch={newBroadcastDispatch} />
         <Button
           variant="ghost"
           size="sm"
-          className="ml-auto"
           disabled={state.listing}
           onClick={() => dispatch({ type: "refresh-broadcasts-clicked" })}
           aria-label="Refresh Broadcasts"
@@ -130,8 +175,8 @@ export const BroadcastPicker = () => {
 
       {list.status === "listed" && rows.length === 0 && (
         <p className="text-sm text-muted-foreground">
-          No upcoming or active Broadcasts. Schedule one in YouTube Studio, then
-          refresh.
+          No upcoming or active Broadcasts. Create one with New Broadcast, or
+          schedule one in YouTube Studio, then refresh.
         </p>
       )}
 
@@ -163,7 +208,7 @@ export const BroadcastPicker = () => {
                   )}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  {formatScheduledStart(broadcast.scheduledStartTime)}
+                  {broadcastDetails(broadcast)}
                 </div>
                 {refusal !== null && (
                   <div className="mt-1 flex gap-1 text-xs text-amber-600">
@@ -176,6 +221,7 @@ export const BroadcastPicker = () => {
           ))}
         </ul>
       )}
+      {newBroadcastForm}
     </div>
   );
 };

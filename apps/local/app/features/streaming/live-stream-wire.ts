@@ -20,9 +20,16 @@ const StreamStatusSchema = Schema.Union(
   Schema.Struct({ kind: Schema.Literal("ended"), reason: Schema.String })
 ) satisfies Schema.Schema<StreamStatus, StreamStatus>;
 
-/** The Live Stream and the Video the recorder is open for; null while closed. */
+/**
+ * The Live Stream and the Video the recorder is open for; null while closed.
+ * `liveSince` is the Live Timer's start (`RecorderLiveStream`).
+ */
 export const LiveStreamHeard = Schema.NullOr(
-  Schema.Struct({ videoId: Schema.String, status: StreamStatusSchema })
+  Schema.Struct({
+    videoId: Schema.String,
+    status: StreamStatusSchema,
+    liveSince: Schema.NullOr(Schema.String),
+  })
 );
 export type LiveStreamHeard = typeof LiveStreamHeard.Type;
 

@@ -18,10 +18,94 @@ export type Broadcast = {
   boundStreamId: string | null;
   /** How far behind live its viewers watch, as set in YouTube Studio; null: not said. */
   latencyPreference: LatencyPreference | null;
+  /** Who can watch it (`status.privacyStatus`); null: not said. */
+  privacyStatus: PrivacyStatus | null;
 };
 
 /** A Broadcast's latency setting (`contentDetails.latencyPreference`). */
 export type LatencyPreference = "normal" | "low" | "ultraLow";
+
+/** A Broadcast's privacy (`status.privacyStatus`). */
+export type PrivacyStatus = "public" | "unlisted" | "private";
+
+const LATENCY_WORDS: Record<LatencyPreference, string> = {
+  normal: "Normal latency",
+  low: "Low latency",
+  ultraLow: "Ultra-low latency",
+};
+
+const PRIVACY_WORDS: Record<PrivacyStatus, string> = {
+  public: "Public",
+  unlisted: "Unlisted",
+  private: "Private",
+};
+
+/** A Broadcast's privacy and latency in words, as the picker shows them. */
+export const broadcastSettingsWords = (broadcast: Broadcast): string =>
+  [
+    broadcast.privacyStatus && PRIVACY_WORDS[broadcast.privacyStatus],
+    broadcast.latencyPreference && LATENCY_WORDS[broadcast.latencyPreference],
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+/**
+ * What **New Broadcast** asks YouTube for. CVM sets the rest itself: not
+ * made for kids, auto-start and auto-stop on, and a start 5 minutes after
+ * the submit (YouTube wants it in the future).
+ */
+export type NewBroadcastSettings = {
+  title: string;
+  description: string;
+  /** A new Broadcast is never private: Matt picks Public or Unlisted. */
+  privacyStatus: "public" | "unlisted";
+  latencyPreference: LatencyPreference;
+};
+
+/**
+ * The New Broadcast form's fields: the settings, and which of the CVM
+ * Video's thumbnails to set on it (null for none).
+ */
+export type NewBroadcastDraft = NewBroadcastSettings & {
+  thumbnailId: string | null;
+};
+
+/** How turning a new Broadcast's ads monetization off went. */
+export type MonetizationResult =
+  | { status: "off" }
+  /** YouTube refuses the change outside the YouTube Partner Program. */
+  | { status: "not-eligible" }
+  | { status: "failed"; message: string };
+
+/**
+ * Whether a new Broadcast was bound to the Stream Key's stream, and why not:
+ * Go Live then refuses with the same reason, and binds once it can.
+ */
+export type BindResult =
+  { status: "bound" } | { status: "not-bound"; reason: string };
+
+/**
+ * How setting a Broadcast's thumbnail went (`thumbnails.set`), at create or
+ * later: `none` when no thumbnail was picked. A failed thumbnail never
+ * stops the Broadcast being created.
+ */
+export type ThumbnailResult =
+  { status: "set" } | { status: "none" } | { status: "failed"; reason: string };
+
+/**
+ * What `POST /api/streaming/new-broadcast` answers: the Broadcast and how
+ * each step after the insert went (only a failed insert fails the route),
+ * or why Google needs reconnecting first.
+ */
+export type NewBroadcastAnswer =
+  | {
+      status: "created";
+      broadcast: Broadcast;
+      monetization: MonetizationResult;
+      bind: BindResult;
+      thumbnail: ThumbnailResult;
+    }
+  | { status: "needs-reconnect"; reason: ReconnectReason };
 
 /**
  * END STREAM'S WAIT (#2660): how long End Stream keeps the Live Stream
@@ -40,6 +124,15 @@ export const END_STREAM_WAIT_MS: Record<LatencyPreference, number> = {
 
 export const endStreamWaitMs = (broadcast: Broadcast): number =>
   END_STREAM_WAIT_MS[broadcast.latencyPreference ?? "normal"];
+
+/**
+ * How End Stream's **Unlist When Ended** went: not asked (the Broadcast was
+ * not public, or the Video's preference was off), made Unlisted, or why not.
+ */
+export type UnlistResult =
+  | { status: "not-asked" }
+  | { status: "unlisted" }
+  | { status: "failed"; message: string };
 
 /**
  * Why Google needs (re)connecting before Broadcasts can be listed: no stored

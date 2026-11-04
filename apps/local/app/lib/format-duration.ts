@@ -28,3 +28,14 @@ export function formatHoursMinutes(totalSeconds: number): string {
   const minutes = totalMinutes - hours * 60;
   return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
 }
+
+/**
+ * A running clock, every field always there: `HH:MM:SS` (`00:04:07`,
+ * `27:00:01`), so it never changes width as it counts. For the Live Timer.
+ * Seconds are floored; nothing below zero.
+ */
+export function formatRunningClock(totalSeconds: number): string {
+  const whole = Math.max(0, Math.floor(totalSeconds));
+  const two = (n: number) => String(n).padStart(2, "0");
+  return `${two(Math.floor(whole / 3600))}:${two(Math.floor((whole % 3600) / 60))}:${two(whole % 60)}`;
+}

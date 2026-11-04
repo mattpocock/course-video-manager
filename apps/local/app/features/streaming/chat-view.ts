@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { ChatConnection, ChatOverReason } from "./broadcast-chat";
 import { chatRows } from "./chat-highlight-reducer";
-import type { liveStreamReducer } from "./live-stream-reducer";
+import { liveSinceOf, type liveStreamReducer } from "./live-stream-reducer";
 
 /**
  * THE CHAT VIEW (#2558): everything the live chat panel draws, as plain data,
@@ -22,6 +22,11 @@ export const ChatView = z.object({
    * null while YouTube gives no count. The pop-out shows it too.
    */
   viewers: z.string().nullable(),
+  /**
+   * The Live Timer's start (ISO), while the Live Stream is on; else null.
+   * The pop-out draws the Live Timer from it (`live-timer.ts`).
+   */
+  liveSince: z.string().nullable(),
   rows: z.array(
     z.object({
       id: z.string(),
@@ -104,6 +109,7 @@ export const chatView = (
     ),
     waiting: messages.length === 0 && connection.state === "streaming",
     viewers: viewersWords(state.concurrentViewers),
+    liveSince: state.stream ? liveSinceOf(state, state.stream.videoId) : null,
     rows: chatRows(state).map(({ id, author, text, highlighted, pending }) => ({
       id,
       author,

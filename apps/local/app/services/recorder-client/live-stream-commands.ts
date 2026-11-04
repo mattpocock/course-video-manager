@@ -10,6 +10,7 @@ import type {
 } from "recorder-service/protocol";
 import {
   GO_LIVE_REFUSALS,
+  isStreamOn,
   type StreamStatus,
 } from "recorder-service/stream-protocol";
 import { END_STREAM_WAIT_MS } from "@/features/streaming/broadcast";
@@ -20,8 +21,34 @@ const LONGEST_END_STREAM_WAIT_MS = Math.max(
   ...Object.values(END_STREAM_WAIT_MS)
 );
 
-/** The Live Stream's status, and the Video the recorder is open for. */
-export type RecorderLiveStream = { videoId: string; status: StreamStatus };
+/**
+ * The Live Stream's status, and the Video the recorder is open for, with
+ * `liveSince`: the **Live Timer**'s start (`liveTimerStart`).
+ */
+export type RecorderLiveStream = {
+  videoId: string;
+  status: StreamStatus;
+  liveSince: string | null;
+};
+
+/**
+ * THE LIVE TIMER'S START (ISO): when the Live Stream first went `live` after
+ * Go Live, kept through `reconnecting` and `ending`, and null once it is not
+ * on. The app server stamps it, so a reload or a second tab reads the same;
+ * the recorder service never hears of it. Told every status the recorder
+ * reports as it is heard (null: closed); read without changing it.
+ */
+const liveTimerStart = () => {
+  let liveSince: string | null = null;
+  return {
+    hear(status: StreamStatus | null) {
+      if (!isStreamOn(status)) liveSince = null;
+      else if (status?.kind === "live" && liveSince === null)
+        liveSince = new Date().toISOString();
+    },
+    since: () => liveSince,
+  };
+};
 
 /** A state message: the recorder in `kind`, for `videoId`. */
 const isStateOf = (
@@ -41,32 +68,49 @@ const refuseUnlessLive = (state: RecorderState, videoId: string) => {
  * Go Live and End Stream, each one command that waits until the recorder
  * service has carried it out.
  */
-export const liveStreamCommands = (o: {
-  /** Sends a command and waits for the message that says it was done. */
-  command: (
-    sent: RecorderCommand,
-    done: (message: RecorderMessage) => boolean,
-    extraMs?: number
-  ) => Promise<void>;
-  /** What a Record goes by (ADR 0038). */
-  calibration: () => Promise<LastPassedCalibration | null>;
-  /** The recorder service as the client last heard it. */
-  recorder: () => {
-    reachable: boolean;
-    problem: string | null;
-    state: RecorderState;
-  };
-}) => ({
+export const liveStreamCommands = (
+  o: {
+    /** Sends a command and waits for the message that says it was done. */
+    command: (
+      sent: RecorderCommand,
+      done: (message: RecorderMessage) => boolean,
+      extraMs?: number
+    ) => Promise<void>;
+    /** What a Record goes by (ADR 0038). */
+    calibration: () => Promise<LastPassedCalibration | null>;
+    /** The recorder service as the client last heard it. */
+    recorder: () => {
+      reachable: boolean;
+      problem: string | null;
+      state: RecorderState;
+    };
+  },
+  liveTimer = liveTimerStart()
+) => ({
+  /**
+   * Hears the recorder's state as the client is told it (`hello`, `state`),
+   * which is when it stamps the Live Timer's start. Cut off, the recorder
+   * may well be live still: nothing is heard, so the stamp is kept.
+   */
+  recorderStateHeard() {
+    const { state } = o.recorder();
+    liveTimer.hear(state.kind === "closed" ? null : state.stream);
+  },
+
   /**
    * The Live Stream as the recorder last said, and the Video it is open
    * for; null while it is closed or not running. Read by every page, for
-   * the Live indicator (ADR 0055).
+   * the Live indicator (ADR 0055), after every change of the recorder's
+   * state.
    */
   liveStream(): RecorderLiveStream | null {
     const { reachable, state } = o.recorder();
-    return reachable && state.kind !== "closed"
-      ? { videoId: state.videoId, status: state.stream }
-      : null;
+    if (!reachable || state.kind === "closed") return null;
+    return {
+      videoId: state.videoId,
+      status: state.stream,
+      liveSince: liveTimer.since(),
+    };
   },
 
   /**

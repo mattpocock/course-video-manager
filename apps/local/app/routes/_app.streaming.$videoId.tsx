@@ -14,6 +14,7 @@ import {
   chatHighlightsUnavailable,
 } from "@/services/card-browser.server";
 import { installLocationRepoRoot } from "@/services/repo-env";
+import { ThumbnailOperationsService } from "@/services/db-thumbnail-operations.server";
 import type { Route } from "./+types/_app.streaming.$videoId";
 
 export const handle = { fullscreen: true };
@@ -23,7 +24,8 @@ export const meta: Route.MetaFunction = () => [{ title: "CVM - Streaming" }];
 /**
  * The Streaming tab for one Landscape Video: the video editor's wiring
  * (`loadVideoEditor`) in the stream studio's layout. A Short is never
- * streamed: its URL goes back to the Video picker. The Video Files read is
+ * streamed: its URL goes back to the Video picker. The Video's thumbnails
+ * are what a Broadcast's thumbnail is picked from. The Video Files read is
  * awaited here rather than streamed after the page, which keeps the run in
  * `makeLoader`.
  */
@@ -34,9 +36,17 @@ export const loader = makeLoader({
       if (data.video.format !== "landscape") {
         return yield* Effect.die(redirect("/streaming"));
       }
+      const thumbnails = yield* ThumbnailOperationsService;
+      const videoThumbnails = yield* thumbnails.getThumbnailsByVideoId(
+        params.videoId!
+      );
       return {
         ...data,
         fsData: yield* fsData,
+        thumbnails: videoThumbnails.map((t) => ({
+          id: t.id,
+          selectedForUpload: t.selectedForUpload,
+        })),
         highlightsUnavailable: chatHighlightsUnavailable(
           cardBrowserPath(installLocationRepoRoot())
         ),
@@ -57,6 +67,12 @@ const StreamingStudio = (props: Route.ComponentProps) => {
     [props.loaderData]
   );
   const wiring = useVideoEditorWiring(loaderData);
+  const { id, title, description } = props.loaderData.video;
+  const { thumbnails } = props.loaderData;
+  const newBroadcastVideo = useMemo(
+    () => ({ id, title, description, thumbnails }),
+    [id, title, description, thumbnails]
+  );
 
   return (
     <VideoEditor
@@ -65,6 +81,7 @@ const StreamingStudio = (props: Route.ComponentProps) => {
       layout={() => (
         <StreamingLayout
           highlightsUnavailable={props.loaderData.highlightsUnavailable}
+          video={newBroadcastVideo}
         />
       )}
     />

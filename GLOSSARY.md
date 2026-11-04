@@ -329,6 +329,10 @@ _Avoid_: Recording mode, Capture backend, New recorder (its old name; stored as 
 The composite of the open recorder's camera, screen and mic, drawn in the scene the preview shows and pushed to one YouTube **Broadcast**. It starts with **Go Live** and ends with **End Stream**. A Live Stream always runs with exactly one **Recording Session**, which it starts and stops: if that Recording Session ends on its own (the camera lost), the Live Stream ends with it, saying why. It keeps no file and never stops or changes the recording: a Live Stream that fails only ends (or restarts) itself (ADR 0054).
 _Avoid_: Stream (alone; it clashes with the Stream Deck and the preview streams), Livestream recording, Broadcast
 
+**Live Timer**:
+How long the **Live Stream** has been live, as `HH:MM:SS`, shown beside Go Live / End Stream on the Streaming tab and in the chat pop-out. It counts from the moment the Live Stream first went live after **Go Live** (not the press), which the app server stamps, so a reconnect doesn't reset it and a reload reads the same. It goes once the Live Stream has ended. It is only in CVM's own UI: never on the Live Stream picture or in an Overlay.
+_Avoid_: Stream clock, Uptime, Duration (alone)
+
 **Streamed Recording Session**:
 A **Recording Session** started by **Go Live**. It differs from others only in that its camera writer and screen recorder also feed the **Live Stream** (behind fifos that drop rather than wait), and leaving the page doesn't stop it. Every other Recording Session runs exactly as it always did, with no extra process.
 _Avoid_: Stream recording, Live take
@@ -342,8 +346,16 @@ The gestures that start and stop a **Live Stream** and its **Streamed Recording 
 _Avoid_: Start/Stop stream, Stop Stream, Go Offline
 
 **Broadcast**:
-A YouTube live event on Matt's channel (upcoming or active), picked before Go Live. The Live Stream is pushed to it, and its live chat is the chat shown. CVM lists Broadcasts, and at Go Live binds the picked one to the YouTube stream whose ingest name is the **Stream Key** if it isn't already, but never creates one or moves it between states: YouTube's auto-start and auto-stop start and end it, so one with either turned off is marked in the picker and Go Live refuses it.
+A YouTube live event on Matt's channel (upcoming or active), picked before Go Live. The Live Stream is pushed to it, and its live chat is the chat shown. CVM lists Broadcasts, showing each one's privacy and latency, and at Go Live binds the picked one to the YouTube stream whose ingest name is the **Stream Key** if it isn't already. CVM can create one (**New Broadcast**), always with auto-start and auto-stop on. It never starts one or moves it between states, other than **End Stream** completing it: YouTube's auto-start and auto-stop start and end it, so one with either turned off is marked in the picker and Go Live refuses it.
 _Avoid_: Stream, Event, Destination (YouTube is the only one)
+
+**New Broadcast**:
+Creating a **Broadcast** from the Streaming tab, with the button beside the Broadcast picker, rather than in YouTube Studio. Its form starts from the **Video** the tab is open for: its title and description, Unlisted (or Public), Ultra-low latency (or Low, or Normal), and a thumbnail picked from the Video's thumbnails (the one selected for upload, or none). The Broadcast is never made for kids, and auto-start and auto-stop are on. CVM then turns its ads monetization off, binds it to the **Stream Key**'s stream, sets the thumbnail and picks it, so its chat starts. The thumbnail can be changed later, from the Video's thumbnails, with the button beside the picked Broadcast, before or during the **Live Stream**. The form says how each step went: "Monetization: off", off because the channel is not in the YouTube Partner Program, or a failure to fix in YouTube Studio before going live; whether it was bound, and why not; and whether the thumbnail was set. Only a failed create is an error: the Broadcast is picked whatever the later steps said.
+_Avoid_: Create stream, New event, Schedule stream
+
+**Unlist When Ended**:
+Whether **End Stream** makes a public **Broadcast** Unlisted once it has completed it, so a public stream doesn't stay public after it is over. It is a checkbox, on by default, kept per **Video** in the browser (localStorage), shown only for a public Broadcast: in the **New Broadcast** form when Public is picked, and beside the picked Broadcast (one made in YouTube Studio too). Only the privacy changes; the rest of the Broadcast's video is left as it was. It unlists whether or not completing the Broadcast went through. When it fails, the Streaming tab says so until the next press, so Matt can make it Unlisted in YouTube Studio. A Live Stream that ended any other way (the camera lost) is never unlisted.
+_Avoid_: Auto-unlist, Make private
 
 **Concurrent Viewers**:
 How many people are watching a **Broadcast** right now, as YouTube counts them (`liveStreamingDetails.concurrentViewers`). The app server reads it every 30 s from the pick until **End Stream** or YouTube says the Broadcast ended, at 1 quota unit a read. The Streaming tab's chat and its pop-out show it as "N watching", and show nothing while YouTube gives no count (before live, or hidden by the channel). A read that fails keeps the last count, with no error shown (#2659).

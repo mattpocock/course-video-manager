@@ -194,7 +194,7 @@
     {
       "file": "apps/local/app/services/youtube-upload-service.ts",
       "count": 4,
-      "reason": "The posting path: the YouTube upload and its thumbnail ask for SidecarContext and run only as posting Jobs, plus the read-only post check."
+      "reason": "The posting path: the YouTube upload asks for SidecarContext and runs only as a posting Job, plus the read-only post check. Its thumbnails.set is one quick call, shared with the app server, which sets a Broadcast's thumbnail while Matt waits on the Streaming tab (#2680)."
     },
     {
       "file": "apps/local/app/features/jobs/use-jobs.ts",
@@ -220,6 +220,11 @@
       "file": "apps/local/app/features/streaming/use-live-stream-reducer.ts",
       "count": 1,
       "reason": "Quick, and watched: the Streaming tab's Broadcast picker asks the app server for Matt's YouTube Broadcasts while he looks at the picker, before Go Live (#2451). Nothing is left to finish if he walks away."
+    },
+    {
+      "file": "apps/local/app/features/streaming/use-new-broadcast-reducer.ts",
+      "count": 1,
+      "reason": "Quick, and watched: New Broadcast (#2679) asks the app server to create a Broadcast while Matt waits on its form, which then shows how monetization and the bind went and picks it. A few small YouTube calls, before Go Live. The same one fetch sets a picked Broadcast's thumbnail (#2680) while Matt waits on its dialog."
     },
     {
       "file": "apps/local/app/services/youtube-live-service.ts",

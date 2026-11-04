@@ -12,6 +12,7 @@ import {
   type Broadcast,
   broadcastRefusal,
   endStreamWaitMs,
+  type UnlistResult,
 } from "@/features/streaming/broadcast";
 import { dbCall } from "@/services/clip-service-handler.helpers";
 import type { Database } from "@/services/drizzle-service.server";
@@ -26,6 +27,7 @@ import {
   listBroadcasts,
   YouTubeLiveError,
 } from "@/services/youtube-live-service";
+import { unlistBroadcast } from "@/services/youtube-live-broadcast-writes";
 import {
   readStreamKey,
   STREAM_KEY_SETTING,
@@ -212,8 +214,17 @@ export const goLive = Effect.fn("goLive")(function* (o: {
  * is completed, so it ends now and not a minute later by auto-stop. The stream
  * has ended either way: a refused transition is only logged, and auto-stop
  * still ends the Broadcast.
+ *
+ * With `unlistWhenEnded` (**Unlist When Ended**: the Broadcast is public and
+ * the Video's choice is on), the Broadcast's video is then made Unlisted,
+ * whether the transition went or not. A failed unlist is answered, so the
+ * Streaming tab says it: never only logged.
  */
-export const endStream = (client: RecorderClient, videoId: string) =>
+export const endStream = (
+  client: RecorderClient,
+  videoId: string,
+  o: { unlistWhenEnded: boolean }
+) =>
   Effect.gen(function* () {
     const { broadcastId } = yield* recorderCommand(() =>
       client.endStream(videoId)
@@ -223,6 +234,13 @@ export const endStream = (client: RecorderClient, videoId: string) =>
         Effect.logWarning(
           `End Stream: could not complete the Broadcast with YouTube, so auto-stop ends it: ${e.message}`
         )
+      )
+    );
+    if (!o.unlistWhenEnded) return { status: "not-asked" } as UnlistResult;
+    return yield* unlistBroadcast(broadcastId).pipe(
+      Effect.as<UnlistResult>({ status: "unlisted" }),
+      Effect.catchTag("YouTubeLiveError", (e) =>
+        Effect.succeed<UnlistResult>({ status: "failed", message: e.message })
       )
     );
   });

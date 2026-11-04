@@ -35,13 +35,14 @@ export function useThumbnailMenu({
   onDelete,
 }: {
   onEdit: (thumbnailId: string) => void;
-  onDelete: (thumbnailId: string) => void;
+  /** Absent where the surface only picks a Thumbnail: no Delete then. */
+  onDelete?: (thumbnailId: string) => void;
 }) {
   const confirmDelete = useConfirmDelete<string>({
     title: "Delete Thumbnail",
     description: () =>
       "Delete this Thumbnail and its image files? This cannot be undone.",
-    onConfirm: onDelete,
+    onConfirm: (thumbnailId) => onDelete?.(thumbnailId),
   });
 
   const groupsFor = (thumbnail: {
@@ -65,7 +66,7 @@ export function useThumbnailMenu({
       },
     ],
     danger: [
-      {
+      onDelete !== undefined && {
         ...STANDARD_ACTIONS.delete,
         opensDialog: true,
         onSelect: () => confirmDelete.request(thumbnail.id),

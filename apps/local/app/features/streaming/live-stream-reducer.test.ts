@@ -23,6 +23,7 @@ const broadcast = (
   liveChatId: `chat-${id}`,
   boundStreamId: null,
   latencyPreference: null,
+  privacyStatus: null,
   ...overrides,
 });
 
@@ -218,6 +219,54 @@ const listed = (...broadcasts: Broadcast[]) =>
       type: "broadcasts-answered",
       answer: { status: "listed", broadcasts },
     });
+
+describe("New Broadcast on the Live Stream surface", () => {
+  it("adds the created Broadcast to the list and picks it, starting its chat", () => {
+    const created = broadcast("new-one", { boundStreamId: "keys-stream" });
+    const tester = start()
+      .send({ type: "broadcast-picker-shown" })
+      .send({
+        type: "broadcasts-answered",
+        answer: { status: "listed", broadcasts: [officeHours] },
+      })
+      .send({ type: "broadcast-clicked", broadcastId: "office-hours" })
+      .send({ type: "change-broadcast-clicked" })
+      .resetExec()
+      .send({ type: "broadcast-created", broadcast: created });
+
+    expect(
+      broadcastPickerRows(tester.getState()).map((r) => r.broadcast.id)
+    ).toEqual(["office-hours", "new-one"]);
+    expect(broadcastPickerView(tester.getState())).toEqual({
+      kind: "picked",
+      broadcast: created,
+      refusal: null,
+    });
+    expect(tester.getEffects()).toEqual([
+      {
+        type: "pick-broadcast",
+        pick: { broadcastId: "new-one", liveChatId: "chat-new-one" },
+      },
+    ]);
+    expect(tester.getState().chat).toEqual({
+      broadcastId: "new-one",
+      connection: { state: "connecting" },
+      messages: [],
+    });
+  });
+
+  it("picks the created Broadcast even before the list has answered", () => {
+    const created = broadcast("new-one");
+    const tester = start()
+      .send({ type: "broadcast-picker-shown" })
+      .send({ type: "broadcast-created", broadcast: created });
+
+    expect(broadcastPickerView(tester.getState())).toMatchObject({
+      kind: "picked",
+      broadcast: created,
+    });
+  });
+});
 
 describe("the Live Stream surface's chat buffer", () => {
   it("picking a Broadcast hands its chat to the app server, and its messages fill the buffer as they arrive", () => {
@@ -415,12 +464,16 @@ describe("Go Live and End Stream on the Live Stream surface", () => {
       .send({ type: "go-live-pressed", videoId: VIDEO, silenceLength: "short" })
       .send({
         type: "live-stream-heard",
-        stream: { videoId: VIDEO, status: { kind: "starting" } },
+        stream: {
+          videoId: VIDEO,
+          status: { kind: "starting" },
+          liveSince: null,
+        },
       })
       .send({ type: "go-live-answered" })
       .send({
         type: "live-stream-heard",
-        stream: { videoId: VIDEO, status: { kind: "live" } },
+        stream: { videoId: VIDEO, status: { kind: "live" }, liveSince: null },
       });
 
     expect(goLiveControl(tester.getState(), VIDEO)).toMatchObject({
@@ -444,17 +497,20 @@ describe("Go Live and End Stream on the Live Stream surface", () => {
         broadcastId: "office-hours",
         silenceLength: "short",
       },
-      { type: "end-stream", videoId: VIDEO },
+      { type: "end-stream", videoId: VIDEO, unlistWhenEnded: false },
     ]);
     expect(goLiveControl(tester.getState(), VIDEO).busy).toBe(true);
 
-    tester.send({ type: "end-stream-answered" }).send({
-      type: "live-stream-heard",
-      stream: {
-        videoId: VIDEO,
-        status: { kind: "ended", reason: "End Stream." },
-      },
-    });
+    tester
+      .send({ type: "end-stream-answered", unlist: { status: "not-asked" } })
+      .send({
+        type: "live-stream-heard",
+        stream: {
+          videoId: VIDEO,
+          status: { kind: "ended", reason: "End Stream." },
+          liveSince: null,
+        },
+      });
 
     expect(goLiveControl(tester.getState(), VIDEO)).toEqual({
       press: "go-live",
@@ -468,7 +524,7 @@ describe("Go Live and End Stream on the Live Stream surface", () => {
     // A tab reloaded during End Stream's wait: no press of its own is out.
     const tester = picked().send({
       type: "live-stream-heard",
-      stream: { videoId: VIDEO, status: { kind: "ending" } },
+      stream: { videoId: VIDEO, status: { kind: "ending" }, liveSince: null },
     });
 
     expect(goLiveControl(tester.getState(), VIDEO)).toEqual({
@@ -487,7 +543,7 @@ describe("Go Live and End Stream on the Live Stream surface", () => {
     const tester = picked()
       .send({
         type: "live-stream-heard",
-        stream: { videoId: VIDEO, status: { kind: "live" } },
+        stream: { videoId: VIDEO, status: { kind: "live" }, liveSince: null },
       })
       .send({
         type: "live-stream-heard",
@@ -498,6 +554,7 @@ describe("Go Live and End Stream on the Live Stream surface", () => {
             reason:
               "The Recording Session ended on its own: the camera was lost.",
           },
+          liveSince: null,
         },
       });
 
@@ -516,7 +573,11 @@ describe("the Live indicator, on every page while live", () => {
 
   it("shows on any page while the recorder says it is live, linking back to that Video's Streaming tab, and goes once it ends, however it ends", () => {
     const tester = start().send(
-      heardFromAppServer({ videoId: "v1", status: { kind: "live" } })
+      heardFromAppServer({
+        videoId: "v1",
+        status: { kind: "live" },
+        liveSince: null,
+      })
     );
     expect(liveIndicator(tester.getState())).toEqual({
       videoId: "v1",
@@ -525,7 +586,11 @@ describe("the Live indicator, on every page while live", () => {
     });
 
     tester.send(
-      heardFromAppServer({ videoId: "v1", status: { kind: "reconnecting" } })
+      heardFromAppServer({
+        videoId: "v1",
+        status: { kind: "reconnecting" },
+        liveSince: null,
+      })
     );
     expect(liveIndicator(tester.getState())?.words).toBe(
       "Reconnecting to YouTube…"
@@ -535,6 +600,7 @@ describe("the Live indicator, on every page while live", () => {
       heardFromAppServer({
         videoId: "v1",
         status: { kind: "ended", reason: "End Stream." },
+        liveSince: null,
       })
     );
     expect(liveIndicator(tester.getState())).toBeNull();

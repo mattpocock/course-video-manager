@@ -218,6 +218,51 @@ describe("the stream reconnects for ever, and the recording carries on", () => {
   });
 });
 
+describe("the Live Timer", () => {
+  it("is stamped at the first live, not at Go Live; kept through reconnecting and ending; cleared once ended", async () => {
+    const r = await live();
+    const stream = r.windows.streams[0]!;
+    await vi.waitFor(() =>
+      expect(r.liveStreams.at(-1)?.status.kind).toMatch(/starting|connecting/)
+    );
+    expect(r.liveStreams.at(-1)?.liveSince).toBeNull();
+
+    const beforeLive = Date.now();
+    stream.stdout(progress({ frame: 60 }));
+    await vi.waitFor(() =>
+      expect(r.liveStreams.at(-1)?.status.kind).toBe("live")
+    );
+    const liveSince = r.liveStreams.at(-1)!.liveSince!;
+    expect(Date.parse(liveSince)).toBeGreaterThanOrEqual(beforeLive);
+    expect(Date.parse(liveSince)).toBeLessThanOrEqual(Date.now());
+
+    stream.stderr(
+      "[fifo @ 0001] [error] Error opening rtmps://a.rtmps.youtube.com:443/live2/key: I/O error\r\n"
+    );
+    await vi.waitFor(() =>
+      expect(r.liveStreams.at(-1)?.status.kind).toBe("reconnecting")
+    );
+    stream.stderr("[fifo @ 0001] [info] Recovery successful\r\n");
+    await vi.waitFor(() =>
+      expect(r.liveStreams.at(-1)?.status.kind).toBe("live")
+    );
+    await r.client.endStream(r.video.id);
+    await vi.waitFor(() =>
+      expect(r.liveStreams.at(-1)?.status.kind).toBe("ended")
+    );
+
+    const heard = r.liveStreams.map((l) => [l?.status.kind, l?.liveSince]);
+    const firstLive = heard.findIndex(([kind]) => kind === "live");
+    expect(heard.slice(firstLive, -1)).toEqual(
+      heard.slice(firstLive, -1).map(([kind]) => [kind, liveSince])
+    );
+    expect(heard.slice(firstLive).map(([kind]) => kind)).toEqual(
+      expect.arrayContaining(["reconnecting", "ending"])
+    );
+    expect(heard.at(-1)).toEqual(["ended", null]);
+  });
+});
+
 describe("the Live Stream's health", () => {
   it("says fps, speed, drops, dups and the bitrate pushed, from -progress, and writes each beside the Recording Session's log, never in it", async () => {
     const r = await live();
