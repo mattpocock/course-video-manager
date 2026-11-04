@@ -1,0 +1,1 @@
+ALTER TABLE "course-video-manager_overlay" DROP COLUMN "chat_spin";

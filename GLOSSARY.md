@@ -468,7 +468,7 @@ The fourth **Overlay Kind** (`callToAction`), for a **Short** only: a branded ca
 _Avoid_: CTA (as the term), Advert, Promo, Pill
 
 **Chat Spin**:
-Superseded (#2669): it was a **Chat Card**'s slot-machine intro, with the same Recording Session's other **Chat Highlights** flying past before it landed on the pick. Matt preferred "a single chat message displayed in a nice way", so a Chat Card now just fades in. Its old `overlay.chat_spin` column is unused, and is waiting to be dropped.
+Superseded (#2669): it was a **Chat Card**'s slot-machine intro, with the same Recording Session's other **Chat Highlights** flying past before it landed on the pick. Matt preferred "a single chat message displayed in a nice way", so a Chat Card now just fades in. Its old `overlay.chat_spin` column was dropped in #2671.
 _Avoid_: Slot machine, Spinner, reel
 
 **Animation Toggles**:
