@@ -21,6 +21,10 @@ KEY FIELDS
   path             The lesson's slug/segment (often number-prefixed, e.g.
                    "01-intro"). Unique per section among non-archived lessons.
   title            Human-readable lesson title (may be empty; untitled lesson).
+  optional         true for an Optional Lesson: a learner may skip it and still
+                   finish the Course (a Section's FAQ, say). Default false
+                   (required). Published as "optional": true in course.json,
+                   and only when true. Set with 'update --optional'.
   order            Sort position within the section (lower sorts first).
   priority         Lesson Priority: 1, 2 or 3 (default 2; lower is more
                    important). Set with 'update --priority'.
@@ -41,10 +45,10 @@ VERBS
   create --section <id> --title <t> [--before|--after <lessonId>]
                         Create a lesson in a Section (WRITE).
   update <id> [--title <t>] [--description <d>] [--authoring-status todo|done]
-         [--priority 1|2|3]
+         [--priority 1|2|3] [--optional true|false]
                         Rename a lesson, rewrite its description, set its
-                        authoring status and/or its priority (WRITE; slug
-                        unchanged).
+                        authoring status, its priority and/or whether it is
+                        optional (WRITE; slug unchanged).
   move <id> [--section <id>] [--before|--after <lessonId>]
                         Reorder within a section, or re-home to another (WRITE).
   archive <id>          Hide the lesson (WRITE; 'unarchive' undoes it).
@@ -148,7 +152,7 @@ Examples:
   cvm lesson create --section sec_123 --title "Setup" --before les_abc`;
 
 export const UPDATE_HELP = `Update a lesson by id. Change its display TITLE, its DESCRIPTION, its
-AUTHORING STATUS and/or its PRIORITY.
+AUTHORING STATUS, its PRIORITY and/or whether it is OPTIONAL.
 
 Flags (pass at least one — an update with none is invalid input, exit 3):
   --title <text>              new display title. The lesson's 'path' (its slug)
@@ -168,6 +172,12 @@ Flags (pass at least one — an update with none is invalid input, exit 3):
                               new lessons) or 3; lower is more important. It
                               is what the Placeholder Floor reads at publish.
                               Any other value is invalid input (exit 3).
+  --optional <true|false>     "true" makes it an Optional Lesson: a learner may
+                              skip it and still finish the Course. "false"
+                              makes it required again (the default for new
+                              lessons). Publish writes "optional": true on its
+                              course.json node, and nothing for a required
+                              lesson. Any other value is invalid input (exit 3).
 
 This is a partial patch: only the flags you pass are changed; the rest are left
 as-is. Editing a lesson in a published (frozen) version is refused (exit 3);
@@ -182,7 +192,8 @@ Examples:
   cvm lesson update les_abc --authoring-status done
   cvm lesson update les_abc --authoring-status todo
   cvm lesson update les_abc --title "Setup" --authoring-status todo
-  cvm lesson update --priority 3 les_abc`;
+  cvm lesson update --priority 3 les_abc
+  cvm lesson update --optional true les_abc           # an Optional Lesson`;
 
 export const ARCHIVE_HELP = `WRITE. Archive a lesson — the only way to delete one.
 

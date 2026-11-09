@@ -51,6 +51,7 @@ describe("duplicateCourse — schema-drift guard", () => {
         "priority",
         "dependencies",
         "authoringStatus",
+        "optional",
         "order",
       ],
       notCopied: [
@@ -234,6 +235,7 @@ describe("duplicateCourse — schema-drift guard", () => {
         priority: 5,
         dependencies: ["dep-a", "dep-b"],
         authoringStatus: "in-progress",
+        optional: true,
         order: 7,
         previousVersionLessonId: "old-lesson-id",
       })
