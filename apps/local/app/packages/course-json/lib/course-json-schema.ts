@@ -8,7 +8,7 @@
 // reads these annotations verbatim. Keep them in the domain's language (see
 // GLOSSARY.md).
 
-import { JSONSchema, Schema } from "effect";
+import { JSONSchema, Option, Schema, SchemaAST } from "effect";
 
 const CourseJsonChapter = Schema.Struct({
   title: Schema.String.annotations({
@@ -261,7 +261,8 @@ const TextLessonSchema = Schema.Struct({
 // TWO VERSIONS OF THE DOCUMENT, chosen per manifest (ADR 0059). Version 4 is
 // exactly the contract every published Course already speaks, and a manifest
 // that needs nothing newer is still stamped and described by it, byte for
-// byte. Version 5 is a strict superset: version 4 plus the Text Lesson. A
+// byte. Version 5 is a strict superset: version 4 plus the Text Lesson and
+// the Optional Lesson's `optional` key. A
 // manifest is stamped 5 only when it holds something version 4 cannot say.
 
 const lessonUnion = <Members extends ReadonlyArray<Schema.Schema.Any>>(
@@ -329,11 +330,37 @@ const CourseJsonV4LessonSchema = lessonUnion(
   PlaceholderLessonSchema
 );
 
+// The Optional Lesson's key, version 5 only. Present only when true: absent
+// means required, in every version, so a required Lesson's node is unchanged.
+const optionalLessonField = Schema.optional(
+  Schema.Literal(true).annotations({
+    description:
+      "Present, and true, only on an Optional Lesson: one a learner may skip and still finish the course. Absent means the lesson is required.",
+  })
+);
+
+// A version 4 member with the Optional Lesson's key added, its description
+// kept. Version 4's members are left exactly as they were.
+const withOptionalKey = <
+  Fields extends Schema.Struct.Fields & { type: Schema.Schema.Any },
+>(
+  member: Schema.Struct<Fields>
+) =>
+  Schema.Struct({
+    ...member.fields,
+    optional: optionalLessonField,
+  }).annotations({
+    description: Option.getOrElse(
+      SchemaAST.getDescriptionAnnotation(member.ast),
+      () => ""
+    ),
+  });
+
 export const CourseJsonLessonSchema = lessonUnion(
-  ExplainerLessonSchema,
-  ProblemLessonSchema,
-  PlaceholderLessonSchema,
-  TextLessonSchema
+  withOptionalKey(ExplainerLessonSchema),
+  withOptionalKey(ProblemLessonSchema),
+  withOptionalKey(PlaceholderLessonSchema),
+  withOptionalKey(TextLessonSchema)
 );
 
 export const CourseJsonSectionSchema = sectionOf(CourseJsonLessonSchema);
@@ -354,9 +381,13 @@ export const CourseJsonDocumentSchema = Schema.Union(
   CourseJsonV5DocumentSchema
 );
 
-export type CourseJsonDocument = typeof CourseJsonDocumentSchema.Type;
-
-export type CourseJsonV4Document = typeof CourseJsonV4DocumentSchema.Type;
+// One shape for either version, so a reader walks one tree: every version 4
+// document is a version 5 document but for its number, because version 5 only
+// adds.
+export type CourseJsonDocument = Omit<
+  typeof CourseJsonV5DocumentSchema.Type,
+  "schemaVersion"
+> & { readonly schemaVersion: CourseJsonSchemaVersion };
 
 // The JSON Schema sidecar (`course.schema.json`) generated from the document
 // schema of one version. A pure function of the version — invariant across
