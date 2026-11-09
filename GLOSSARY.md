@@ -7,115 +7,99 @@ A tool for authoring courses as structured collections of sections, lessons, and
 ### Course structure
 
 **Course**:
-The primary domain entity: a structured collection of versions, sections, lessons, and videos. It is not backed by any repository on disk (ADR 0018).
+A structured collection of versions, sections, lessons and videos.
 _Avoid_: Repo, Project
 
 **Section**:
-An ordered group of Lessons within a Course Version. A Section is known by its title, which is unique among its siblings.
+An ordered group of Lessons within a Course Version.
 _Avoid_: Module, Unit
 
 **Lesson**:
-A single learning unit within a Section. A Lesson is known by its title, which is unique among its siblings.
+A single learning unit within a Section.
 _Avoid_: Exercise, Tutorial, Step
 
 **Learning Goal**:
-One thing a learner should come away knowing from a **Section**, written BEFORE the Section's Lessons, Videos and Beats are planned. It has a title, a description and a priority, and is ordered within its Section. It is the first step of the authoring flow: Learning Goals → Lessons, Videos and Beats → Script → recording → article. Every **Beat** in the Section is expected to serve at least one Learning Goal (see **Learning Goal Warning**). The link between the two is set from the Beat side, not from the Learning Goal. Deleting one is an **Archive**, and it removes its links to Beats. A new Draft (**Submit**) and a duplicated Course get a copy of every live Learning Goal, with its links to the copied Beats; a duplicated Video keeps serving the same Learning Goals.
-_Avoid_: Objective, Outcome (used loosely elsewhere in course-authoring writing; this is the specific planning-stage entity)
+One thing a learner should come away knowing from a **Section**, written before its Lessons and Beats are planned. Every **Beat** in the Section should serve at least one.
+_Avoid_: Objective, Outcome
 
 ### Course versions
 
 **CourseVersion**:
-A snapshot of a course's section, lesson and video structure. Its lifecycle state is always recorded, never inferred: Draft Version → Pending Version → Published Version.
+A snapshot of a course's section, lesson and video structure, which moves from Draft to Pending to Published.
 _Avoid_: Version (too vague), Revision
 
 **Draft Version**:
-The one CourseVersion that can still change, and the only one that accepts writes to sections, lessons, videos and clips. There is exactly one per course. It has no name or description.
+The one CourseVersion of a course that can still change.
 _Avoid_: Current version, Working version
 
 **Lineage**:
-What makes a **Section**, **Lesson** or **Video** "the same one" across CourseVersions. Every **Submit** copies the Draft with fresh ids, so an id names one row in one CourseVersion; the `lineageId` is carried unchanged by every copy and never changes. It is the id to store outside the CVM. A duplicated Course or Video starts a new Lineage. Any `cvm` command that takes one of these ids also takes the `lineageId`, and resolves an id from an older CourseVersion to the Draft's row of the same Lineage.
-_Avoid_: Stable id (say lineageId), Original id
-
-**Has Changes**:
-Whether a Draft Version has had any write since it was created, which answers "does this Draft need a **Publish**?" without comparing it to the last **Published Version**. Once set, it stays set for the life of that Draft. The fresh Draft that **Submit** creates starts without it. It has no meaning on a Pending or Published Version.
-_Avoid_: Dirty, Modified, Needs publish
+What makes a **Section**, **Lesson** or **Video** "the same one" across CourseVersions, even though each version has its own copy.
+_Avoid_: Stable id, Original id
 
 **Pending Version**:
-A submitted CourseVersion whose release has not yet been confirmed as landed. It is immutable, named and short-lived: it is either Promoted (the release landed) or Discarded (the release failed). There is at most one per course. One that is left over after a crash waits for the author, who resolves it on the publish page or Discards it with `cvm course publish discard`.
-_Avoid_: Frozen version (ambiguous with Published), In-flight version
+A submitted CourseVersion whose release has not yet been confirmed as landed. It is either Promoted or Discarded.
+_Avoid_: Frozen version, In-flight version
 
 **Published Version**:
-An immutable CourseVersion with a name and description, created by Promoting a Pending Version. It cannot be deleted.
+An immutable, named CourseVersion whose release landed.
 _Avoid_: Released version, Committed version
 
 **Submit**:
-The Draft → Pending transition: it gives the release its name and description, marks the Draft as Pending, and creates a fresh Draft from it. It is refused while a Pending Version exists. A write that arrives at the same time either lands before the copy or is refused.
-_Avoid_: Freeze (only half the story), Snapshot
+Turning the Draft into a Pending Version with a name and description, and starting a fresh Draft from it.
+_Avoid_: Freeze, Snapshot
 
 **Promote**:
-The Pending → Published transition, made once the release is confirmed as landed.
+Turning a Pending Version into a Published Version once its release has landed.
 _Avoid_: Finalize, Confirm
 
 **Discard**:
-Deletes a Pending Version whose release did not land. It never deletes a Draft or a Published Version. The content lives on in the fresh Draft, every **Clip** of a live Video included, archived ones still archived. What Submit leaves out of the fresh Draft is lost: archived Sections, Lessons and Videos (with their Clips), and archived Learning Goals, Chapters, Beats and Clip Mockups. A failed release is Discarded automatically. A stranded one, left by a Publish that was cut off, is Discarded by the author: on the publish page, or with `cvm course publish discard`. Neither will Discard one whose release landed, or whose Publish is still queued or running.
+Throwing away a Pending Version whose release did not land. Its content lives on in the fresh Draft.
 _Avoid_: Rollback, Delete version
 
 **Publish**:
-The release flow: check the Course, **Submit**, render and upload the videos, then **Promote**. Submit comes first so that the release is fixed before any work starts, because a Draft still accepts writes. The Publish renders any **Unexported Video** itself. Every shipping **Video** must be complete: its **Clips** render, and it has a **Body** and a description (ADR 0019). A **Text Lesson's** Video has no Clips and ships no video (ADR 0059). An unfinished Video does not stop a Publish: it decides its Lesson's **Lesson Publish Status**, so the Lesson ships as a **Placeholder Lesson** or is **withheld** (ADR 0029). Only two things stop a release: a Lesson whose Videos make an invalid combination of roles, and a shipping Video with no description. A failed release Discards the Pending Version.
-_Avoid_: Commit (that is one phase of it), Deploy, Push
+The whole release flow: **Submit**, render and upload the videos, then **Promote**.
+_Avoid_: Commit, Deploy, Push
 
 **Bundle**:
-What a **Publish** produces: one self-contained, immutable release that holds every shipping Video and a description of the course. Its address is known before any video is rendered, because it comes only from the state of the Course. The same inputs always give the same address, and a Bundle is never changed. A Publish that stops partway is never resumed: it leaves a Pending Version for the author to **Promote** or **Discard**, and a later Publish re-uploads nothing that already landed. The course has one pointer to the Bundle that is current, and it moves only when a new Bundle is complete. Old Bundles are removed by the site that reads them, never by this system (ADR 0023).
-_Avoid_: Asset folder, Release folder, Blob pool (deliberately rejected — see ADR 0023)
+What a **Publish** produces: one immutable release holding every shipping Video and a description of the course.
+_Avoid_: Asset folder, Release folder, Blob pool
 
 **Publish Readiness**:
-The answer to "what stands between this Course and shipping?" for a **CourseVersion**, given as four lists of outstanding work: **Unexported Videos**, lint warnings (including every **Video Warning**), Lessons with an invalid combination of roles, and incomplete **Videos**. It looks only at the Lessons that ship in full, so it changes with the to-do setting and never with the **Placeholder Floor**. Only three of the four lists stop a release: an **Unexported Video** blocks nothing, because the Publish renders it. So a single "can this ship?" answer must leave the unexported list out. It is different from authoring progress, which counts work no Publish would ship.
-_Avoid_: Publish status, Readiness check, Blockers (only three of the four lists block)
+The answer to "what stands between this Course and shipping?": the outstanding work on the Lessons that would ship in full.
+_Avoid_: Publish status, Readiness check, Blockers
 
 **Lesson Publish Status**:
-What a **Publish** does with one **Lesson**: it ships (the Lesson and its **Videos** in full), it is a **Placeholder Lesson** (title only), or it is **withheld** (not in the release at all, always with a reason). The answer turns on a **hard gap**, which is a gap the **Autofill** cannot close. There are exactly three: the Lesson has no Video, a Video has no **Clips**, or a Video has no **Body**. A **Text Lesson** is the one exception to the second: its only Video has no Clips by design, so it ships. A missing description and **Missing Chapters** are not hard gaps, because the Autofill writes both. An **Unexported Video** is not a gap, because the Publish renders it. A Lesson is all or nothing: one hard gap on any of its Videos decides the whole Lesson. Every surface that shows what a Publish will do reads the same answer, so they can never disagree.
-_Avoid_: Publish Fate, announced, Lesson state, Effective lesson
+What a **Publish** does with one **Lesson**: ships it in full, ships it as a **Placeholder Lesson**, or withholds it.
+_Avoid_: Publish Fate, Lesson state, Effective lesson
 
 **Placeholder Lesson**:
-A **Lesson** in a release that has a title and nothing else: no video, no **Body**, no description (ADR 0029). It lets a learner read the name of a Lesson that is not yet filmed, in its real place in the Course, before the Course launches. It keeps the Lesson's identity, so when the Lesson later ships in full it replaces the placeholder rather than appearing twice. A Lesson becomes one when it has a **hard gap** and the **Placeholder Floor** reaches its **Lesson Priority**. It adds no video to the **Bundle**. A **Section** whose Lessons are all Placeholder Lessons still ships; a Section with nothing in it does not.
-_Avoid_: Coming Soon Lesson (that is the consumer's rendering choice, not the contract's word), Stub lesson, Ghost Lesson (a different, retired idea), Empty lesson
+A **Lesson** in a release with a title and nothing else, so learners can see what is coming before it is filmed.
+_Avoid_: Coming Soon Lesson, Stub lesson, Ghost Lesson, Empty lesson
 
 **Text Lesson**:
-A **Lesson** whose only active **Video** has no **Clips** and has a **Body**: a written lesson, such as a Section's FAQ, that nobody films (ADR 0059). It ships in full, as `type: "text"` in `course.json`, carrying the Body and description inline and no video entry. It adds no video to the **Bundle**, so a Publish never exports or uploads anything for it, but it still needs a description, which the **Autofill** writes from the Body. A Lesson with a second active Video is never one, so a half-filmed problem and solution keeps its **hard gap**. A release that holds one is stamped `schemaVersion: 5`; filming it later turns it into an explainer with the same identity.
-_Avoid_: Article lesson, Video-less lesson, Placeholder Lesson (that one has no Body)
+A **Lesson** that is written, not filmed: its Video has an article and no Clips.
+_Avoid_: Article lesson, Video-less lesson
 
 **Optional Lesson**:
-A **Lesson** a learner may skip and still finish the Course, such as a Section's FAQ **Text Lesson**. Every Lesson is required unless the author marks it optional (`cvm lesson update --optional true`). The mark is kept on the Lesson, so **Submit** and duplicating a Course carry it. It changes completion and nothing else: an Optional Lesson ships, is a **Placeholder Lesson**, or is **withheld** exactly as a required one would be. In `course.json` its node carries `"optional": true`, whichever kind of Lesson it is; a required Lesson's node carries no key at all. A release that reaches one is stamped `schemaVersion: 5` (ADR 0059).
+A **Lesson** a learner may skip and still finish the Course.
 _Avoid_: Bonus lesson, Extra, Elective
 
 **Placeholder Floor**:
-The lowest **Lesson Priority** whose unfinished Lessons ship as **Placeholder Lessons**: the author's answer to "how far down the Course does this release announce?". It has four positions: announce nothing (the default), P1, P2, P3. Inside the priorities it names, it wins over the to-do setting ("withhold to-do Lessons, except announce the P1s and P2s"), and the two settings work together. It is the author's choice for one Publish and is not recorded on the **Published Version**. It changes which assets ship, so it is part of the **Bundle** address (ADR 0023, ADR 0029).
+The author's choice, for one Publish, of how far down the Lesson priorities unfinished Lessons are announced as **Placeholder Lessons**.
 _Avoid_: Priority cutoff, Announce level, Publish depth, Preview mode
 
-**withheld**:
-The **Lesson Publish Status** of a **Lesson** that is not in a release at all. It always gives one of two reasons: the Lesson has a **hard gap** and sits below the **Placeholder Floor**, or the Lesson is finished but the to-do setting holds it back. The reason is the point: a Lesson the author believed was finished must never disappear from a release without a word. Withholding can always be undone and never changes a **Published Version**: move the floor, change the to-do setting, or mark the Lesson done, and publish again.
-_Avoid_: Excluded, Skipped, Filtered out, Unpublished
-
 **Autofill**:
-A generation pass, with no review step, that writes every missing description and missing **Chapters** for the shipping **Videos** of a **Draft Version** in one go. It is the hidden first step of a **Publish** from the publish page: pressing Publish starts the Autofill, when it has work, and a Publish that waits on it. It is still a job of its own and never a stage inside the Publish (ADR 0024): a failed Autofill fails the waiting Publish before it starts, and a Video it could not fill is still a blocker, so it can never leave a **Pending Version** behind. Each Video's two fields are written together or not at all, and one Video's failure never stops the others. A field the author changes while it runs keeps the author's text: the Autofill writes a field only if it is unchanged since the run read it, and otherwise offers its text on the Video's row in the Upload Manager instead. The same word names the single-Video actions (**Autofill chapters**, **Autofill description**), which keep a preview and a confirm step.
-_Avoid_: Generate, Suggest (the former names), Auto-publish, Batch generate
-
-**Autofill Candidate**:
-A **Video** the **Autofill** has work for, under the current to-do setting: a shipping Video of the **Draft Version** that has a **Body** and is missing its description, or raises **Missing Chapters** with every **Clip** transcribed, or both. A Video with no Body is never a candidate, because the description is written from it. An existing description is never overwritten, so running the Autofill twice is safe. A Video that is not a candidate is listed with the reason it was skipped.
-_Avoid_: Eligible video, Pending video, Autofill target
-
-**Export Version Key**:
-A number, set by hand in the code, that is part of every **Export Hash**. Changing it makes every video need a new export.
-_Avoid_: Version number, Build version
+A pass that writes every missing description and missing **Chapters** for the Videos about to ship, with no review step.
+_Avoid_: Generate, Suggest, Auto-publish, Batch generate
 
 ### Authoring lifecycle
 
 **Lesson Authoring Status**:
-A marker on a **Lesson** in each version: todo (the default for a new Lesson) or done. A Published Version keeps the status each Lesson had when it was published. A Lesson with no stored status (a legacy Lesson) is done: null means done everywhere, read through one shared helper. It is different from **Pitch State**. Its changes appear in the **Marked Ready** and **Marked TODO** changelog groups.
+Whether the author considers a **Lesson** todo or done.
 _Avoid_: TODO flag, Completion
 
 **Marked Ready** / **Marked TODO**:
-The changelog groups for changes to **Lesson Authoring Status** between **Published Versions**: todo → done, and done → todo.
+The changelog groups for Lessons whose **Lesson Authoring Status** changed between **Published Versions**.
 _Avoid_: Completed, Reopened
 
 ### Video and clips
@@ -125,608 +109,418 @@ A container of clips and chapters that represents a single producible video outp
 _Avoid_: Recording
 
 **Standalone Video**:
-A Video that belongs to no Lesson, used for reference or temporary content. It has a **Body** like any Video, edited on its Post tab under **Article** (a lesson-bound Video's is under **Lesson**). It is a SEPARATE axis from **Video Format**: a Standalone Video can be **Landscape** or **Short**, and every **Short** is Standalone. Never use "Standalone" to mean a format.
+A Video that belongs to no Lesson. Every Short is one.
 _Avoid_: Orphan video, Unlinked video
 
 **Video Format**:
-An axis on every **Video**, with two values: **Landscape** or **Short**. The default is Landscape.
-
-**Landscape**:
-The **Video Format** of a horizontal, long-form video. The default.
-_Avoid_: Standard (the old value name)
-
-**Short**:
-The **Video Format** of a vertical, short-form video (the kind posted to YouTube Shorts, TikTok and similar). "Short" is the name to use everywhere. Like every Video it records with the CVM recorder (ADR 0051); its older OBS Clips still export. It is planned with an **Animatic** like a Landscape Video, opening with one Camera **Clip Mockup** and then Code ones (ADR 0052). Its render draws its captions, its **Chat Cards** and its **Calls to Action**; `cvm clip frame` and the Portrait Studio preview draw the same.
-_Avoid_: TikTok (reserved for the actual TikTok platform, and NOT the name for a Short)
+Whether a **Video** is a Landscape (horizontal, long-form; the default) or a Short (vertical, posted to YouTube Shorts and TikTok).
+_Avoid_: Standard (the old name for Landscape), TikTok (the platform, never the name for a Short)
 
 **Clip**:
-A segment of **Footage** within a Video, defined by a start time and an end time in one source file. A Clip with no **Recording Session** (an OBS Clip, or one cut from **Imported Footage**) is drawn from that one file, picture and sound. Deleting a Clip is an **Archive**, but unlike most archived nouns it can be reviewed and restored, so a Clip deleted by mistake can be found again. So an archived Clip is never left behind by a copy: a new Draft (**Submit**), a duplicated Course and a copied Video carry it, still archived. A Clip is what was FILMED; a **Clip Mockup** is its PRE-IMAGE: the still and the line that stood in for it before filming. Clip Mockups are kept after filming, so the plan can be compared with the Clips really cut.
-A Clip can be split in two at a word boundary (`cvm clip split`): the original becomes the left Clip, a new one right after it the right, each keeping its own Layers, words and the Overlays on its side; the right one keeps the Clip Origin, since it is the same filming.
-_Avoid_: Segment, Cut, Take (a **Take** is the speech that leaves a Clip, before it is saved)
+A segment of **Footage** within a Video, from a start time to an end time. A Clip is what was filmed; a **Clip Mockup** is what was planned.
+_Avoid_: Segment, Cut, Take
 
 **Clip Origin**:
-How a **Clip** came to exist, stored on the Clip: **video editor** (filmed or cut in the app: the CVM **Recorder**, an OBS import, the editor), **CLI** (created by the `cvm` CLI, as `cvm clip add` does from **Footage** that was already filmed; a Clip cut from **Imported Footage** is CLI too) or **copy** (the new Clip of a user-made copy: Create video from selection, a duplicated Video or Course). Only video-editor Clips count in the footage stats in the sidebar: neither a Clip that the CLI builds nor a copy is new filming, and the original of a copy still counts. Every Clip from before Clip Origin existed is video editor. **Submit** is not a copy: its new **Draft** holds new Versions of the same Videos, so each Clip keeps its original's Clip Origin; the stats count only the Draft's Clips, so stamping copy there would drop every Submitted take. Create video from selection in move mode is not a copy either: it archives the originals, so the moved Clip keeps its Clip Origin. If the original of a copy is later archived or deleted, the copy alone does not count.
-_Avoid_: Clip Source (the media a Clip's picture and sound are read from, through the `clip-source` package), Recorder (what filmed the Clip, a different question)
+How a **Clip** came to exist: filmed in the video editor, created by the CLI, or copied. Only filmed Clips count as new footage.
+_Avoid_: Clip Source, Recorder
 
 **Footage**:
-A raw source video file (a camera capture, a screen recording) before it is cut into **Clips**: the input to editing, not a product of it. Unlike every other noun here, Footage is not a record: it is known only by where the file is, its path relative to a **Storage Root**, whichever drive holds it. CVM deletes it only two ways: **Unused Footage** (which **Imported Footage** never is), for good after a confirmation (#2423), and the copy a move left behind, by **Delete originals**, which never deletes the last copy (ADR 0041). Otherwise it can only be moved between Storage Roots. It is transcribed as a whole file, and a new **Clip** takes its text from that transcript. The transcription is a **Job** the **Sidecar** runs; a long file goes through Whisper in pieces, each kept beside the file once it is done, so a transcription cut off by a Sidecar restart picks up where it stopped instead of starting again. A Clip points at the Footage it was cut from.
-_Avoid_: Raw footage (informal prose ok), Source video
+A raw source video file, such as a camera capture or a screen recording, before it is cut into **Clips**.
+_Avoid_: Raw footage, Source video
 
 **Imported Footage**:
-**Footage** CVM did not film, copied in by `cvm footage import`, from a file or downloaded from a YouTube URL (named `<title> [<video id>].mp4`, its title and URL kept beside it; the same video id is never downloaded twice). It is always 16:9. Like all Footage it is not a record: it is Imported Footage because of where it is, anywhere under `raw-footage/imported/` on any **Storage Root**. It is never **Unused Footage**, so CVM never deletes it.
-_Avoid_: External footage, Uploaded footage, B-roll (that is one use of it)
-
-**Effect Clip**:
-A special clip for non-speech content (white noise, transitions) put into the timeline by hand. Superseded by **Transition**, which sits at the boundary between two Clips instead of taking a Clip's place; kept until that change ships.
-_Avoid_: Filler, Spacer
+**Footage** CVM did not film, brought in from a file or from YouTube.
+_Avoid_: External footage, Uploaded footage
 
 **Chapter**:
 A named divider in a Video's timeline that groups the Clips below it. Maps one to one to YouTube chapters.
-_Avoid_: Clip group, Divider, Marker, Section (ambiguous with course Section), Clip Mockup Chapter (a different noun: the **Animatic**'s dividers, which group **Clip Mockups** before filming)
+_Avoid_: Clip group, Divider, Marker, Section, Clip Mockup Chapter
 
 **Video Post**:
-A record of a **Video** posted to an external platform: which platform, where, and when. It belongs to the Video, and to that Video row only: no copy of a Video (a new Draft, a duplicated Course or Video) carries it, because the copy was never posted.
-
-**Optimistic Clip**:
-A clip shown during recording before it is saved: the editor's picture of a **Take** in progress. It appears at the **Insertion Point** when the Take starts, on either **Recorder**, and the saved Clip fills it in where it stands. Deleting it (the Stream Deck's delete) archives the Take: its Clip is still saved, arrives archived, and can be restored; its **Footage** is kept. One whose Take ended with nothing saved is orphaned.
-_Avoid_: Pending clip, Temporary clip
+A record of a **Video** being posted to an external platform: which platform, where, and when.
 
 **Take**:
-One stretch of speech a **Recorder** hears long enough to be a **Clip**, from that moment until its Clip is saved (or it ends with none). The editor's clip logic handles every Take: the CVM recorder turns its own signals (the recorder service's `take-started`, then the end of the speech) into its events, so delete, restore and the **Insertion Point** behave as they always have (ADRs 0044, 0051). While it is in progress it is shown as an **Optimistic Clip**. Only the recorder service decides that speech is a Take, by the very rule its Clip is cut with: it says so once the mic file has run the minimum Clip length and a **Silence Length** past the speech's start with no silence heard (1.8 s on short, 3 s on long), so every Take leaves a Clip and speech too short for one (an "um") is never a Take. A Take is not a Clip: a Clip is what it leaves, and a **Recording Session** holds many Takes.
+One stretch of speech the **Recorder** hears that is long enough to become a **Clip**.
 _Avoid_: Speech part, Sound detection
 
 **Clip Web Link**:
-A web page that was on screen while a **Clip** was recorded. A Clip can have many. They are shown with the Clip and noted in the **Transcript**, so the writer knows which page went with each moment. Different from the global **Link** list: a Clip Web Link belongs to one Clip and one moment. Every copy of the Clip (a new Draft, a duplicated Course or Video) carries its Clip Web Links.
-_Avoid_: Link (reserved for the global reference-URL list), Clip URL, On-screen link (informal, ok in prose)
+A web page that was on screen while a **Clip** was recorded.
+_Avoid_: Link, Clip URL
 
 **Transcript**:
-The ordered text of a **Video**: its **Clips** and **Chapters** together, in timeline order. It is what changelog comparisons are made on. A change to a Chapter (rename, add, delete, reorder) is a Transcript change in the same way that a change to a Clip's text is.
-_Avoid_: Clip text (only covers Clips), Joined clips, Caption (reserved for the per-clip transcription product)
-
-**Transcript Word**:
-One spoken word of a **Clip**, with the start and end time it was said at. The times are measured from the Clip's own start, not from the Footage and not from the finished Video. A Clip's words are written all at once, by a **Transcription** or when the author edits the Clip's text by hand (Edit Transcript, in the editor or with `cvm clip edit-transcript`), and are never edited one by one. A hand edit keeps them in step with the text: each new word takes its old word's times when the word count is unchanged, otherwise the old words' span is shared out by letter count; a Clip with none keeps none. A Clip transcribed before Transcript Words existed has none, which is a normal state; transcribing it again fixes it. Its purpose is to point at an exact spoken moment inside a Clip, which the Transcript cannot do. A **Short**'s subtitles are timed by them: the text shown is the Clip's own text, never a second transcription. Recutting the Clip moves its words with it (see **Retiming Cascade**). Every copy of the Clip carries its words.
-_Avoid_: Word timing / Timestamped word (informal, ok in prose), Caption, Subtitle (a rendered product, not this timing data)
+The ordered text of a **Video**: its **Clips** and **Chapters** together, in timeline order.
+_Avoid_: Clip text, Joined clips, Caption
 
 **Video File**:
-A file attached to a **Video** as **writer context**. It is not a record: the files that are there are the state, and deleting one is permanent. It belongs to the Video, never the Lesson. The Article Writer reads a Video's **Transcript**, **Script**, **Animatic** (with its **Clip Mockup Comments**), **Beats** and Video Files, ranked by the fidelity ladder (see **Script**): only the Transcript decides what the article may claim, and Video Files are supporting material (code samples, notes, session logs) that give detail and evidence, never claims of their own. The one exception is a Clip Mockup Comment about the article itself, which is the author's instruction (see **Clip Mockup Comment**). A duplicated Video or Course gets its own copy of the files; a new Draft Version shares them with the version it came from.
-_Avoid_: Attachment, Asset (reserved for exported/published artifacts), Standalone file / Lesson file (the old split, now one concept)
+A file attached to a **Video** as supporting material for writing its article, such as code samples or notes.
+_Avoid_: Attachment, Asset
 
 ### On-screen sessions
 
 **Agent Session**:
-One Claude Code session that was on screen while **Clips** were filmed, as its **Agent Session Entries**. It belongs to no **Video**: every Clip its entries are on shows it, and every copy of those Clips (a new Draft, a duplicated **Course**) shares it rather than copying it. Claude Code's own id for the session only finds it again when the same session is given once more; it is never what names it to a learner.
-_Avoid_: Session (alone; that is a **Recording Session**), Session extract (what course.json carries of it), Transcript (that is the spoken text), Conversation
+A Claude Code session that was on screen while **Clips** were filmed.
+_Avoid_: Session, Conversation
 
 **Agent Session Entry**:
-One thing an **Agent Session** showed on screen: a prompt, a text block of Claude's reply, an interrupt, a skill being loaded, or a stub of a tool call. It is stored on the **Clip** that shows it, at the moment in that Clip's **Footage** it was written, so it moves with the Clip when the cut is edited; when it shows in a Video (its visibleFrom) is worked out from the current cut. A skill's text and a tool's output are never part of one. Its paths are relative to the session's working directory (`.` for the directory itself); any other path is kept, with its home directory written as `~`.
-_Avoid_: Message (one message can hold several entries), Event, Line
+One thing an **Agent Session** showed on screen, such as a prompt or a reply, tied to the moment in a **Clip** it appeared.
+_Avoid_: Message, Event, Line
 
 ### Video planning
 
 **Beat**:
-A single planning unit of a **Video**, classified by its **job** for the viewer (the screenwriting sense of _beat_). A Video's plan is an ordered list of Beats written _before_ recording. A Beat belongs to the **Video**, not the Lesson or Pitch, and can move between Videos. It is deliberately different from a **Chapter**: a Beat is "what I planned to shoot", a Chapter groups "what I shot". There are six kinds: **Definition**, **Walkthrough**, **Playthrough**, **Quest**, **Reaction** (from the Mise en Place glossary), and **Setup**, a production note that is not a job for the viewer and is never published. A Beat can serve several **Learning Goals** of its Video's Section, and is expected to serve at least one whenever its Section has any (see **Beat Warning**). A Beat is the JOB a part of the video does for the viewer; a **Clip Mockup** is the PICTURE and the WORDS. One Beat can become several Clip Mockups, and a Clip Mockup that serves no Beat is legitimate.
-_Avoid_: Chapter (the recorded YouTube grouping), Segment (now only the transcript/silence homonym), Section (course Section), Block, Unit
+A single planning unit of a **Video**, classified by the job it does for the viewer. A Beat is what was planned; a **Chapter** groups what was shot.
+_Avoid_: Chapter, Segment, Section, Block, Unit
 
 **Beat Description**:
-A free-text planning note on a **Beat**: "what I'm actually going to do or say here", separate from its short title. Like the Beat, it is never published.
+A free-text planning note on a **Beat**: what the author is actually going to do or say there.
 _Avoid_: Notes, Summary, Body, Caption
 
 **Clip Mockup**:
-One still image and one spoken line of a **Video**'s plan: a single moment of the video decided BEFORE filming, with the picture that is on screen and the words said over it. It belongs to the **Video**, beside its **Beats**, and is ordered like a Beat. An authoring agent writes it: it decides what is on screen, makes the picture, and writes the line in the author's voice. Both parts are required, so a moment nobody has decided is visible instead of hidden. A Clip Mockup does NOT point at a **Beat**: one that serves no Beat is useful, because it shows the plan missed a moment. Clip Mockups are written a RUN at a time, never one by one: a run of moments, in the order they play, is added to the end of the Animatic together, and a round of changes to many of them is one write. All of a run lands, or none of it does. Its line is VOICED IN THE BACKGROUND, after the write: a Clip Mockup's voice is pending until a **Job** in the **Sidecar** makes it, then ready (with its measured length) or, once every attempt is spent, failed (with the reason). Changing the line, or any change to a Clip Mockup whose voice failed, queues it again. Until the voice is ready, the Clip Mockup's length is a guess from its word count. It is internal, like the **Beat Description** and the **Script**: it is kept in version snapshots and in a duplicated Video, but never published. It is kept after filming, so the plan can be compared with the **Clips** really cut. Deleting one is an **Archive** and cannot be undone. A **Short** has Clip Mockups too, and its Animatic plays at 9:16: each frame is a whole 1080x1920 picture that CVM COMPOSES from the Short's recorder layout, so the agent never draws the layout and cannot break it. A Short's Clip Mockups come in the recorder's two scenes, in a FIXED ORDER: the first is the **Camera** moment (the author to camera, drawn by CVM, with no picture of the agent's), and every one after it is a **Code** moment (the agent's picture in the 1080x1080 screen square, above the camera band). Every write keeps that order, so a Short's Clip Mockup's scene is its position and is not stored (ADR 0052).
-_Avoid_: Clip (what was filmed — a Clip Mockup is its pre-image), Beat (the job, not the picture), Storyboard (the CVM has no such noun, and the playback is an **Animatic**), Frame (ok in prose for the image alone, never for the record), Mock / Mockup (unqualified), Slide, Shot
+One still image and one spoken line planned for a moment of a **Video**, decided before filming.
+_Avoid_: Clip, Beat, Storyboard, Frame, Mockup (unqualified), Slide, Shot
 
 **Animatic**:
-A **Video**'s ordered **Clip Mockups**, watched as a timed playback or read as lines. The word comes from film, where an animatic is a timed cut of the storyboard with scratch audio, made before the shoot. Watched, each Clip Mockup stays on screen for as long as its line takes to say. Read, it is the Clip Mockup lines one clip at a time, grouped under their **Clip Mockup Chapters**, so the author can film from the Clip Mockups instead of the **Script**. THERE IS NO ANIMATIC RECORD: the word names a way of seeing those Clip Mockups and nothing else. Nothing is stored under this name, and nothing is addressed by it. It can be rendered to a file, the **Exported Animatic**, which is a file and not a record. The author gives notes on it by position ("number 14 is too dense"), or pins a **Clip Mockup Comment** to the moment itself. Its purpose is to see the Lesson from the student's seat before a filming day, when its problems are still cheap to fix. Once the author is happy, the agent writes the Video's **Script** from the Clip Mockup lines. The Article Writer reads it too, as text only (the lines, Chapters and comments, never the stills): a plan one rung below the Script, which the **Transcript** overrules. Before filming, when there is no Transcript, the Article Writer drafts from the Animatic alone: its lines take the Transcript's place and set the article's scope and order, still never quoted as words said on camera. So an article can test an idea before it is filmed.
-_Avoid_: Preview (an unqualified word the app uses for other playback), Mock video, Rough cut (an edit of real footage; an Animatic has none), Storyboard (the stills alone, not the timed playback), Animation, Animatic record (there is no such record)
+A **Video**'s **Clip Mockups** played in order as a timed preview, or read as lines. It is a way of viewing them, not a record of its own.
+_Avoid_: Preview, Mock video, Rough cut, Storyboard
 
 **Clip Mockup Chapter**:
-A named divider in a **Video**'s **Animatic** that groups the **Clip Mockups** below it. It has a title and a position and nothing else. It belongs to the **Video**, as a Clip Mockup does, NOT to the Animatic, because THERE IS NO ANIMATIC RECORD. Chapters and Clip Mockups share ONE ORDER, as **Chapters** and **Clips** do, so a divider goes between two moments and nothing else moves (ADR 0030). MEMBERSHIP IS IMPLICIT: a Clip Mockup belongs to the last Chapter above it. So a Chapter can never disagree with the order, and the Clip Mockups above the first divider belong to no Chapter, which is a legitimate state. Deleting a Chapter is an **Archive** and changes nothing else: its Clip Mockups join the Chapter above, or have no Chapter if it was the first. It has NO LINK TO A **BEAT**, and its title must not add one: a title names a broad part of the plan for the author, never a Beat and never a **Learning Goal**. It is for finding your way, like a YouTube chapter, and is internal like a Clip Mockup: kept in version snapshots and in a duplicated Video or Course, never published. It adds no time to the Animatic. Its main use is to fold away runs of Clip Mockups that are already settled, so the moments still being judged sit next to each other; which Chapters are folded is a passing choice of the author, never stored.
-_Avoid_: Chapter (unqualified — the filmed timeline's divider over **Clips**; a separate noun with no relation to this one), Animatic Chapter (there is no Animatic record to hold it), Section (ambiguous with course **Section**), Beat (the job, and there is no link to one), Clip Mockup Group / Group / Divider / Marker (say which noun's divider), Act, Storyboard section
+A named divider in an **Animatic** that groups the **Clip Mockups** below it.
+_Avoid_: Chapter (unqualified), Animatic Chapter, Section, Group, Divider
 
 **Clip Mockup Comment**:
-A note the author pins to exactly one **Clip Mockup** or one **Clip Mockup Chapter**, as a comment is pinned to a passage in a Google Doc. It is a body of text and nothing else: THERE IS NO AUTHOR, because the CVM has no users. A Clip Mockup or a Chapter can have many. It is for the filming day: the Animatic shows it under the line or divider it hangs off, and an agent reads it before it reviews or rewrites the **Animatic**. It is also for the article: the Article Writer reads every comment under its line or divider, as part of the **Animatic**. A comment about the article (a point to stress, a correction, a thing to add or leave out) is an instruction, and it is the one source that can take the article past the **Transcript**. A comment about the take is a plan: the Transcript records whether it happened, and it wins on what was said. A comment is never quoted as words said on camera. It belongs to the Video through its parent, and a write goes through the Draft guard like any other noun a Version owns. When its parent is archived it is hidden. Deleting one is a real delete, not an **Archive**. It is internal like its parent: copied into version snapshots and a duplicated Video, never published.
-_Avoid_: Note (the Animatic's notes by position are a spoken habit, not this record), Annotation, Feedback, Review comment, Clip Mockup note field (there is no such field)
+A note the author pins to a **Clip Mockup** or a **Clip Mockup Chapter**.
+_Avoid_: Note, Annotation, Feedback, Review comment
 
 **Script**:
-The high-fidelity, screenplay-style plan of a **Video**: one flowing document per Video (word-for-word prose for definition and framing beats, bracketed cues for improvised playthroughs) read off the teleprompter while filming. Every note to the teacher — setup before the take, what to do or show during it — sits in an `<instructions>` region, and anything to copy and paste sits in a fenced code block. It is written from the **Clip Mockups**, one rung above them. THE FIDELITY LADDER: **Beat** (what this part of the video does for the viewer) → **Clip Mockup** (the picture and the words) → **Script** (written out from the Clip Mockup lines) → **Transcript** (what was actually said on camera). Each rung is written from the one below it, and the Transcript, the top rung, supersedes all of them once the Video is filmed. The Script is internal, like the **Beat Description**: kept in version snapshots and in a duplicated Video, but never published. It is different from the **Body** (the published lesson article) and the **Beat Description** (a note on one beat).
-_Avoid_: Body (the published article), Beat Description (the per-beat note), Transcript (what was actually said), Caption
+The screenplay-style plan of a **Video**, read off the teleprompter while filming. It is written from the **Clip Mockups**, and the **Transcript** replaces it once the Video is filmed.
+_Avoid_: Body, Beat Description, Transcript, Caption
 
 **Section Workbench**:
-The authoring view of one **Section**, reached from the course view. It shows the same things as the course view, filtered and shown the same way, but for one Section only. Other Sections are not shown.
-_Avoid_: Section page, Lesson page (the workbench is section-level; there is no lesson-level page), Section editor
-
-**Course View Display Settings**:
-The author's choice of which parts of the course tree are shown on the course view and the **Section Workbench**: **Section** descriptions, **Learning Goals**, **Lesson** details, **Lesson Dependencies**, **Videos**, **Beats** and their details. It lets a phase of work that only needs, say, Learning Goals and Beats hide the rest. Hiding a part also hides the parts inside it. Sections themselves are never hidden. A filter works only on a field that is shown. The setting belongs to the author, not to a Course. It is different from view mode (Compact or Expanded), which decides how a shown field looks, not whether it is shown.
-_Avoid_: View mode (that is Compact/Expanded, a different setting)
+The authoring view of a single **Section**.
+_Avoid_: Section page, Lesson page, Section editor
 
 ### Video warnings
 
 **Video Warning**:
-A derived authoring problem on a **Video**, calculated from its clips and chapters and never stored. Each warning has a kind (for example **Missing Chapters**). The kinds the **Autofill** clears (missing chapters, missing description) are not shown while authoring, because they are not the author's work, but they still block in **Publish Readiness** (ADR 0024).
-_Avoid_: Lint warning, Lint error, Danger (reserved for the per-clip text-similarity signal until it is renamed to a Video Warning kind), Authoring issue
+An authoring problem on a **Video**, worked out from its clips and chapters.
+_Avoid_: Lint warning, Lint error, Danger, Authoring issue
 
 **Missing Chapters**:
-The Video Warning raised when a **Video** has at least one **Clip** but no **Chapter** before its first Clip. It follows the YouTube convention that every published video opens with a named chapter. A Video with no Clips does not raise it. It stops a **Publish** and is cleared by the **Autofill**.
-_Avoid_: Missing Opening Chapter (the former name), Missing opening section, No intro chapter, Missing 0:00 chapter
+The Video Warning raised when a **Video** with Clips has no **Chapter** before its first Clip.
+_Avoid_: Missing Opening Chapter, No intro chapter
 
 **Beat Warning** / **Learning Goal Warning**:
-Derived planning problems on a **Beat** and a **Learning Goal**, calculated from a Section's Learning Goals and Beats and never stored. They apply only when the Section has Learning Goals. A Beat Warning is raised on a Beat that serves none of its Section's Learning Goals. A Learning Goal Warning is raised on a Learning Goal that no Beat in the Section serves. Unlike a Video Warning, they are never part of **Publish Readiness**: Beats and Learning Goals are never published, so this is a planning reminder, not something that blocks a release.
-_Avoid_: Lint warning, Lint error, Publish blocker (this never blocks a Publish)
+Planning reminders: a **Beat** that serves no **Learning Goal**, or a Learning Goal that no Beat serves. They never block a Publish.
+_Avoid_: Lint warning, Publish blocker
 
 ### Video export and hashing
 
 **Export Hash**:
-A fingerprint of everything that decides how a Video is rendered: its clips and their order and timing, **Pauses**, **Clip Zoom**, **Overlays**, format, and the **Export Version Key**. A CVM-recorder Clip also adds what its picture is drawn from: its **Recording Session**, the scenes in its range, its **Scene Override**, the mic offset, the **Mic EQ** and the layout version; an OBS Clip's part never changes. A Clip's Footage is named in it by its path relative to its **Storage Root**, never by the drive it is on, so moving Footage between drives never changes it (ADR 0040). It decides whether a Video needs a new export, names the **Exported Video**, and is part of the **Bundle** address (ADR 0023). It names what the render was asked to do, not what it produced, so it must include everything that changes the render. It leaves out a Clip's text, which only a Short's captions draw: the **Short Export Hash** adds it. Whether a Video is uploaded is decided by the **Byte Hash** instead (ADR 0027).
-_Avoid_: Content hash (that is an encoding of the **Byte Hash**, not of this), Video hash, Byte Hash (the recipe and the result are different things)
+A fingerprint of everything that decides how a Video is rendered. When it changes, the Video needs a new export.
+_Avoid_: Content hash, Video hash
 
 **Short Export Hash**:
-The **Export Hash** of a Short widened to cover what only the vertical render draws: its captions, which are each **Clip**'s text timed by its **Transcript Words**. The Export Hash leaves a Clip's text out on purpose, because a Landscape export draws no words. Everything else the vertical render draws (the Clips, their order and timing, **Pauses**, **Clip Zoom**, its Chat Cards, the format and the **Export Version Key**) is already in the Export Hash. The vertical render writes it beside its file, as `{videoId}.mp4.export-hash`. A Short's vertical export is stale when it has no such file or a different hash in it, and the **Posting Queue** renders a stale Short at its **Posting Slot**, before posting it.
+The **Export Hash** of a Short, widened to cover its captions.
 _Avoid_: Caption hash, Vertical hash
 
-**Mic EQ**:
-The equaliser the export applies to the mic of every CVM-recorder **Recording Session**, one setting for all of them: OBS's 3-band EQ gains, initially Matt's OBS mic EQ (highs down 6.1 dB). It is applied with the mic offset in the same pass that draws the picture; the raw mic **Footage** is never changed. It is part of the **Export Hash** of CVM-recorder Clips only, so changing it makes every CVM-recorder Video need a new export. Matt sets it, and a Recording Session's mic offset, from a CVM-recorder Clip's Mic Settings in the editor.
-
-**Byte Hash**:
-The fingerprint of an **Exported Video**'s actual contents: the result, where the **Export Hash** is the recipe. It decides whether a **Video** is sent: a Video whose contents match a file the previous **Bundle** already holds is copied from there, and every other Video is uploaded. The two hashes must never be merged: the Bundle address must be known before any render, and a Byte Hash is known only after it (ADR 0027).
-_Avoid_: Content hash (only one of its two encodings), SHA256 (likewise), Export Hash (that addresses the file; this decides the send), File hash, Output hash
-
 **Exported Video**:
-A rendered video file, named by its **Export Hash**, whose length has been checked. A file is not enough: an export that is more than a second shorter than its **Clips** is cut short and is refused. The check is recorded with the file, so later Publishes do not repeat it.
+A rendered video file for a Video's current **Export Hash**, checked to be full length.
 _Avoid_: Finished video, Output video
 
 **Exported Animatic**:
-A **Video**'s **Animatic** rendered to one video file, from the Export button on the Animatic page: each **Clip Mockup**'s frame held for as long as the player holds it, with its voice over it. It follows the **Exported Video**'s rules: it is named by its own **Export Hash** (the **Export Version Key**, the format, and each Clip Mockup's frame, voice and measured length, in order), as `{courseId}-{hash}.animatic.mp4` in `finished-videos/`, found on any **Storage Root** and written to the first, skipped when it is already there and not short, and collected by the export garbage collector once no Version's Animatic has its hash. It is not an Exported Video: no **Publish** reads it, and nothing uploads it. It is refused while any Clip Mockup's voice is not ready or its frame is missing, because it would keep a guess as if it were the plan.
-_Avoid_: Animatic video, Rendered Animatic, Animatic record (there is still none)
+An **Animatic** rendered to a single video file. It is never published.
+_Avoid_: Animatic video, Rendered Animatic
 
 **Unexported Video**:
-A **Video** with no **Exported Video** for its current **Export Hash**: either there is no file, or the file is shorter than its **Clips**, or its length was never checked. It blocks publishing only in the sense that the **Publish** renders it.
+A **Video** with no **Exported Video** for its current **Export Hash**.
 _Avoid_: Dirty video, Stale video
 
 **Purge**:
-Deliberately deleting an Exported Video's file, so that it becomes an Unexported Video again. Undone by exporting again. It is also done from the Storage page, for a whole **Storage Bucket** or for chosen files, and only for a Video whose **Footage** is all found, so that it can always be exported again (ADR 0041).
-_Avoid_: Clear, Delete from file system, Unexport, Delete Exported Videos
+Deliberately deleting an Exported Video's file, so it becomes an Unexported Video again.
+_Avoid_: Clear, Unexport, Delete Exported Videos
 
 **Overlay Render Cache**:
-The kept renders of **Overlay** content: one render for each distinct piece of content, of any **Overlay Kind**. A render is named by exactly what it draws, plus the **Overlay Renderer Version**. It exists because a Video is exported again whenever any of its **Clips** moves, and rendering every Overlay again each time would be slow. Two Overlays with the same content in the same Course share one render. Everything in it can be made again from the Course, so losing it costs only render time.
-_Avoid_: Overlay cache (it holds renders, not **Overlays**), Definition Card cache, Render directory
-
-**Overlay Renderer Version**:
-A number, set by hand in the code, that is part of every **Overlay Render Cache** name. Changing it makes every Overlay render again. It is deliberately separate from the **Export Version Key**: a change to how content is drawn should render the content again and leave exported videos alone, and a change to how videos are encoded should do the opposite. A new **Overlay Kind** does not change it.
-_Avoid_: Renderer version, Export Version Key (that addresses the export; this addresses the card render)
+The kept renders of **Overlay** content, so an Overlay isn't rendered again each time its Video is exported.
+_Avoid_: Overlay cache, Definition Card cache, Render directory
 
 ### Storage
 
 **Storage Root**:
-One of the drives CVM's files may be on (`/mnt/d`, `/mnt/e`), listed in order in the one `STORAGE_ROOTS` setting. Every Storage Root has the same fixed folders (`raw-footage/`, `finished-videos/`, `clip-mockups/`, `overlay-renders/`, `video-files/`). The database stores a file's path relative to a Storage Root, with no drive in it. A file is read from the first Storage Root that has it, and a new file is written to the first. So moving a file between drives changes no row and no **Export Hash** (ADR 0040). A path under no Storage Root (an old **Recording Session** in `~/Videos`, from before new ones went to `raw-footage/`) is used exactly as stored. A Storage Root that is not mounted or can't be read (a stale WSL mount too) is **Offline**: its files are "not found" (the editor and the export say "Footage not found (E: offline?)"), every page still renders under a banner naming the drive ("Storage Root /mnt/e is offline — reconnect drive E:, then remount /mnt/e") with the command that remounts it ready to copy (`sudo umount -l /mnt/e; sudo mount -t drvfs E: /mnt/e -o uid=1000,gid=1000`, also under "Footage not found" and on the Storage page; shown, never logged), anything that must read or write on it fails with that message rather than the filesystem's error (ENODEV), and nothing is moved to it. One whose Windows volume has its dirty bit set is **Dirty**, a warning to run chkdsk and keep originals; CVM only ever queries that bit. A Dirty drive is not the same thing as **Has Changes**.
-_Avoid_: Drive (a Storage Root is the folder CVM uses on it), Storage location, Volume
+One of the drives CVM keeps its files on. A file can move between Storage Roots without anything else changing.
+_Avoid_: Drive, Storage location, Volume
 
 **Storage Bucket**:
-The unit the Storage page counts and moves: each **Course**, **Standalone Videos**, **Shorts**, **Shared Footage**, **Unused Footage**, **Used Imported Footage**, **Unused Imported Footage**, and the Other buckets (**Clip Mockups**, the **Overlay Render Cache**, export scratch, and **Exported Videos** of no current Video). Every file CVM keeps is in exactly one. A Storage Bucket's size is counted on every **Storage Root** and never stored (ADR 0041); what a count found is kept in memory for five minutes while the app is open, so opening the page or coming back to it counts again only once that is older, and Refresh counts at once (#2423). A delete takes what it deleted off the count rather than counting again. Its Footage or its Exported Videos are moved between Storage Roots as one.
-_Avoid_: Block, Group, Folder (a Storage Bucket is not a folder on disk)
+A group of files the Storage page counts and moves together, such as one Course's footage, or all **Unused Footage**.
+_Avoid_: Block, Group, Folder
 
 **Shared Footage**:
-The **Storage Bucket** of **Footage** used by **Clips** in more than one **Course**. It is counted once, lists the Courses that use it, and is moved as one, so moving one Course's Footage never moves Footage out from under another Course.
+The **Storage Bucket** of **Footage** used by more than one **Course**.
 _Avoid_: Common footage, Reused footage
 
 **Unused Footage**:
-The **Storage Bucket** of **Footage** under `raw-footage/`, except **Imported Footage** under `raw-footage/imported/`, that no **Clip**, live or archived, in any **Video** uses. A **Recording Session** no Clip uses is Unused only once it has stopped and is at least 7 days old. It can be moved between **Storage Roots**, and it is the only Footage that can be deleted outright: for good, after a confirmation, and only files at least 7 days old that no **AV Calibration** or Video names, each checked again when the delete runs (#2423; there is no trash).
+The **Storage Bucket** of filmed **Footage** that no **Clip** uses. It is the only Footage CVM will delete outright.
 _Avoid_: Orphaned footage, Unreferenced footage, Dead footage
 
 **Used Imported Footage**:
-The **Storage Bucket** of **Imported Footage** that a **Clip** (live or archived) or a **Footage Layer** uses. Its transcript and Whisper pieces are counted with it. It is never counted in a **Course**'s bucket, so moving a Course does not carry it: it is moved on its own, as one, like **Shared Footage**, and it lists the Courses whose Videos use it, as Shared Footage does.
+The **Storage Bucket** of **Imported Footage** that something uses.
 
 **Unused Imported Footage**:
-The **Storage Bucket** of **Imported Footage** that nothing uses, with its transcripts and Whisper pieces. It can be moved between **Storage Roots** as one, and CVM never deletes it, at any age: the page offers no delete, and a delete of it is refused.
-_Avoid_: Unused Footage (a different bucket, and the only deletable one)
+The **Storage Bucket** of **Imported Footage** that nothing uses. CVM never deletes it.
+_Avoid_: Unused Footage
 
 **Delete originals**:
-The second step of freeing a drive after a move: deleting a **Storage Bucket**'s files on one **Storage Root** that have an identical copy on another. Each file is deleted only after both copies are read again in full and their checksums match, and only if they are different files on different roots; a file with no identical copy elsewhere stays, so the last copy of anything, **Footage** included, is never deleted. Always Matt's click on the per-bucket page, behind a confirmation with the count and GB, and never automatic. Confirming queues a Storage delete **Job** at once, and that Job does all the checking and deleting, with progress and a Cancel. Refused while an export, a **Publish**, a move, a transcription or a **Recording Session** is under way. A file Windows holds open is left and reported: the Job fails with "N files still on D:, retry", and its Retry checks every file again (ADR 0041).
+Deleting the files left behind on one **Storage Root** after they were moved to another, once their copies are verified.
 _Avoid_: Cleanup, Finish the move, Delete source
 
 ### Recording
 
 **Recording Session**:
-A period of time, from start to stop, during which clips are captured for one **Video**. In the editor it groups Optimistic Clips before they are saved. Filmed with the CVM **Recorder** it is also stored: three **Footage** files (camera, screen and mic, on one shared clock), its scene timeline (which scene was live from each moment), its speech events, its mic offset (how much later the mic's sound is played at export: it starts with the **Mic Offset** of its camera + mic pair, taken from the latest passed **AV Calibration** on that pair, and 150 ms only when the pair was never measured; a later AV Calibration never changes it, only Mic Settings does), its **Silence Length**, a link to the **AV Calibration** it was recorded under (whose silence threshold it cut with; none for one from before AV Calibration) and whether it stopped cleanly or crashed. It is filmed in its Video's **Video Format**, which it remembers (the Video's format can change later). It supplies its Clips' **Scene Layer**: the files, the scene timeline, the mic offset and the **Mic EQ**. The layout is the Video's: a Landscape Recording Session's Clip on a **Short** is drawn in the Short layout (its screen's left square on top, the camera band below), in export, editor playback and stills alike. A Short Recording Session's Clip on a **Landscape** Video keeps its own Short layout. A **Short**'s may be camera-only (no screen file), when the screen could not be captured. Its Clips point at it, and their picture is drawn from its files and scene timeline at export instead of being baked into the Footage. An old OBS Recording Session was never stored. Getting the camera ready before a Recording Session starts is "opening the recorder for a Video", not opening a Recording Session. While one records (a **Live Stream** always does), no GPU work starts: a **Transcription**, an export or a **Short**'s render (NVENC) and a **Clip Mockup**'s voice (Kokoro) each wait for the Stop; one already running finishes its current file, ffmpeg run or line first (#2631, #2644).
-_Avoid_: Session, Take session, Recording (a Video's _Avoid_)
+A period of time, from start to stop, during which clips are captured for one **Video**.
+_Avoid_: Session, Take session, Recording
 
 **Recorder**:
-What films a **Clip**. The **CVM recorder** (CVM's own, which stores a **Recording Session** of separate camera, screen and mic Footage) is the only Recorder: every **Video** records with it (ADR 0051). Older Clips were filmed with **OBS** (one Footage file with the scene baked in), which no longer records. A Clip's Recorder is its own (a Clip with a Recording Session was filmed with the CVM recorder; a Clip with no Recording Session is an OBS Clip, or one cut from **Imported Footage**), so one Video may hold both, and each Clip exports from its own Footage (ADR 0036).
-_Avoid_: Recording mode, Capture backend, New recorder (its old name; stored as `cvm`, formerly `new-recorder`)
+What films a **Clip**: CVM's own recorder today, or OBS for older Clips.
+_Avoid_: Recording mode, Capture backend, New recorder
 
 **Live Stream**:
-The composite of the open recorder's camera, screen and mic, drawn in the scene the preview shows and pushed to one YouTube **Broadcast**. It starts with **Go Live** and ends with **End Stream**. A Live Stream always runs with exactly one **Recording Session**, which it starts and stops: if that Recording Session ends on its own (the camera lost), the Live Stream ends with it, saying why. It keeps no file and never stops or changes the recording: a Live Stream that fails only ends (or restarts) itself (ADR 0054).
-_Avoid_: Stream (alone; it clashes with the Stream Deck and the preview streams), Livestream recording, Broadcast
-
-**Live Timer**:
-How long the **Live Stream** has been live, as `HH:MM:SS`, shown beside Go Live / End Stream on the Streaming tab and in the chat pop-out. It counts from the moment the Live Stream first went live after **Go Live** (not the press), which the app server stamps, so a reconnect doesn't reset it and a reload reads the same. It goes once the Live Stream has ended. It is only in CVM's own UI: never on the Live Stream picture or in an Overlay.
-_Avoid_: Stream clock, Uptime, Duration (alone)
+The recorder's camera, screen and mic sent live to YouTube while a **Recording Session** runs.
+_Avoid_: Stream (alone), Livestream recording, Broadcast
 
 **Streamed Recording Session**:
-A **Recording Session** started by **Go Live**. It differs from others only in that its camera writer and screen recorder also feed the **Live Stream** (behind fifos that drop rather than wait), and leaving the page doesn't stop it. Every other Recording Session runs exactly as it always did, with no extra process.
+A **Recording Session** that also feeds a **Live Stream**.
 _Avoid_: Stream recording, Live take
 
-**Stream Key**:
-The YouTube ingest key, kept in the local `.env` only (`YOUTUBE_STREAM_KEY`), read from that file at **Go Live** and held redacted. It is never stored in the database, never shown and never logged: it appears only on the Live Stream process's command line.
-_Avoid_: Stream name, Ingest key (YouTube's own words for it)
-
 **Go Live** / **End Stream**:
-The gestures that start and stop a **Live Stream** and its **Streamed Recording Session** together, from the Streaming tab's one main button. Go Live is refused, with every reason that applies, when the recorder couldn't record or the stream couldn't go out. End Stream lets the last **Take** go exactly as Stop does. Reconnecting is not ending.
+Starting and stopping a **Live Stream** together with its **Streamed Recording Session**.
 _Avoid_: Start/Stop stream, Stop Stream, Go Offline
 
-**Broadcast**:
-A YouTube live event on Matt's channel (upcoming or active), picked before Go Live. The Live Stream is pushed to it, and its live chat is the chat shown. CVM lists Broadcasts, showing each one's privacy and latency, and at Go Live binds the picked one to the YouTube stream whose ingest name is the **Stream Key** if it isn't already. CVM can create one (**New Broadcast**), always with auto-start and auto-stop on. It never starts one or moves it between states, other than **End Stream** completing it: YouTube's auto-start and auto-stop start and end it, so one with either turned off is marked in the picker and Go Live refuses it.
-_Avoid_: Stream, Event, Destination (YouTube is the only one)
-
-**New Broadcast**:
-Creating a **Broadcast** from the Streaming tab, with the button beside the Broadcast picker, rather than in YouTube Studio. Its form starts from the **Video** the tab is open for: its title and description, Unlisted (or Public), Ultra-low latency (or Low, or Normal), and a thumbnail picked from the Video's thumbnails (the one selected for upload, or none). The Broadcast is never made for kids, and auto-start and auto-stop are on. CVM then turns its ads monetization off, binds it to the **Stream Key**'s stream, sets the thumbnail and picks it, so its chat starts. The thumbnail can be changed later, from the Video's thumbnails, with the button beside the picked Broadcast, before or during the **Live Stream**. The form says how each step went: "Monetization: off", off because the channel is not in the YouTube Partner Program, or a failure to fix in YouTube Studio before going live; whether it was bound, and why not; and whether the thumbnail was set. Only a failed create is an error: the Broadcast is picked whatever the later steps said.
-_Avoid_: Create stream, New event, Schedule stream
-
-**Unlist When Ended**:
-Whether **End Stream** makes a public **Broadcast** Unlisted once it has completed it, so a public stream doesn't stay public after it is over. It is a checkbox, on by default, kept per **Video** in the browser (localStorage), shown only for a public Broadcast: in the **New Broadcast** form when Public is picked, and beside the picked Broadcast (one made in YouTube Studio too). Only the privacy changes; the rest of the Broadcast's video is left as it was. It unlists whether or not completing the Broadcast went through. When it fails, the Streaming tab says so until the next press, so Matt can make it Unlisted in YouTube Studio. A Live Stream that ended any other way (the camera lost) is never unlisted.
-_Avoid_: Auto-unlist, Make private
-
-**Concurrent Viewers**:
-How many people are watching a **Broadcast** right now, as YouTube counts them (`liveStreamingDetails.concurrentViewers`). The app server reads it every 30 s from the pick until **End Stream** or YouTube says the Broadcast ended, at 1 quota unit a read. The Streaming tab's chat and its pop-out show it as "N watching", and show nothing while YouTube gives no count (before live, or hidden by the channel). A read that fails keeps the last count, with no error shown (#2659).
-_Avoid_: Viewer count, Live viewers, Audience size
-
 **Chat Highlight**:
-A **Broadcast** chat message Matt showed on the **Live Stream** picture, StreamYard-style, by clicking it: clicking it again hides it, and clicking another replaces it, so at most one shows. It stores the author and text as shown, and when the card went on and off the picture, on the recorder's clock (the one T0 is on). It belongs to the **Streamed Recording Session**; one still showing when that ends is closed with its end. It is not an **Overlay**, and never changes an **Export Hash**. It may be made into a **Chat Card** on request.
-_Avoid_: Pinned message (a YouTube feature), Overlay, Callout
+A live chat message Matt showed on the **Live Stream**.
+_Avoid_: Pinned message, Overlay, Callout
 
 **Scene Override**:
-A marker on a **Clip** from a CVM-recorder **Recording Session** naming one scene (Camera, Code or No Face) to draw the whole Clip in, in place of the scenes that were live while it was filmed. With none, the Clip follows its Recording Session's scene timeline. An OBS Clip cannot have one: its scene is baked into its Footage.
-_Avoid_: Scene change (a live switch during a Recording Session), Layout
+A marker on a **Clip** that draws the whole Clip in one scene (Camera, Code or No Face), instead of the scenes that were live while it was filmed.
+_Avoid_: Scene change, Layout
 
 **No face** / **Diagram** / **With face** / **Custom**:
-How the Article Writer's Choose Screenshot takes a still of a CVM-recorder **Clip**, picked from a select and cycled with P in that order. No face, the default, is the **Recording Session**'s screen frame alone, at its native size. Diagram is that screen frame cut to the **Diagram Frame**, also at native size. It is always offered: with no Diagram Frame remembered, it uses the one the playground would remember, full screen on that **Video Format**'s recorded screen. With face is the composite the export draws, with the face in its scene, at the composite's full size (1920x1080 Landscape). Custom is the screen frame cut to a **Custom Crop**. The choice is saved per screenshot, on its `<ChooseScreenshot>` placeholder. OBS Clips get none of these options, because the face is baked into their **Footage**. A camera-only Short session gets none either, because it has no screen.
-_Avoid_: Scene Override (that changes what the Clip exports), Hide camera, Screen-only mode, Crop box
-
-**Custom Crop**:
-A crop box the author draws on Choose Screenshot's screen frame himself, as fractions of the frame, saved on the placeholder as `face="custom" crop="x,y,w,h"`. Only Diagram and Custom have a crop: No face is the whole screen frame and With face is the composite, so entering Custom from either starts from the whole frame, and from Diagram it starts from the Diagram Frame. A drag outside the box draws a new one and a drag inside moves it. Any of its eight handles (four edges, four corners) resizes it. Alt resizes about the centre, Shift on a corner keeps the aspect ratio, and the two combine, as in tldraw. The box stays inside the frame and has a minimum size. Changing the Diagram box this way also makes it Custom.
-_Avoid_: Manual crop, Crop box (alone), Diagram Frame (that one is fixed)
-
-**Revive**:
-Turning a screenshot captured in the Article Writer's document back into the `<ChooseScreenshot>` placeholder it came from, with what it held at capture: its Clip, its frame (it opens there), its face and, with Custom, its **Custom Crop**. Only a screenshot captured in this browser tab since it was loaded can be revived. The tab remembers them in memory and nothing persists them, so an older image, or one written in by hand, shows no Revive button. The captured PNG stays where it is; capturing again writes a new one.
-_Avoid_: Undo (it is not the editor's undo), Restore, Re-pick
+The four ways the Article Writer can take a screenshot from a **Clip**: the screen alone, the screen cut to the **Diagram Frame**, the screen with the face, or a hand-drawn crop.
+_Avoid_: Scene Override, Hide camera, Screen-only mode, Crop box
 
 **Diagram Frame**:
-The recorded screen the Diagram Playground draws every diagram on, less only the full-height strip on the right reserved for the face. It runs to the screen's top, bottom and left edges, so the centring padding stays in as margin around the diagram. On the square Short screen nothing is reserved, so it is the whole screen. It is the same for every diagram. The playground remembers it in the browser, once per **Video Format**, as fractions of the screen, each time it centres while full screen. Full screen means the window covers exactly the recorded monitor, so the fractions hold at any device pixel ratio. It assumes the playground is full screen on the monitor the recorder captures: nothing stored records which monitor that was. Until the playground has remembered one, it is computed the same way for the recorded screen (1920x1080 for Landscape, 1080x1080 for a Short) from the centring settings.
-_Avoid_: Safe area (the centring code's own word for it), Diagram view, Crop
-
-**Silence Length**:
-A setting of each Recording Session (short or long) for how long a silence must be to end a clip: short (the default) cuts on brief pauses in a sentence, long only on long ones. It is fixed when recording starts.
-_Avoid_: Pause Length (former name — reused "Pause", now the clip-level held pause), Silence mode, Silence sensitivity, Pause threshold
+The part of the recorded screen that diagrams are drawn on, leaving room for the face.
+_Avoid_: Safe area, Diagram view, Crop
 
 **AV Calibration**:
-A scripted check of Matt's mic and its sync with the camera, measuring the mic's noise floor and speech loudness and the **Mic Offset**. It sets the silence threshold the recorder cuts with, and it gates recording: a Recorder can start only under a passed AV Calibration less than 7 days old, taken on the current camera + mic pair (a changed camera or mic blocks recording until one passes on the new pair). It measures the mic the CVM recorder records (Voicemeeter Out B1, raw, before the **Mic EQ**), never the browser's copy. On the AV Calibration page Matt first sets his level by hand against a live level meter and the target band (-27 LUFS ± 2: quiet on purpose, since his voice is dynamic and the export normalizes loudness), on the Scarlett's gain knob or the Voicemeeter fader; CVM reads levels and never writes a Windows, OBS or Voicemeeter setting. Then the scripted session, on camera, with the camera recorded beside the mic for the whole of it on one shared clock (stamped as a Recording Session stamps them): 5 s of silence, then the clap step (one clap, hands in front of the face, prompted), then 2 rounds of "Read line N" and "Pause", each with a countdown, then one line read as loudly as Matt gets when animated. The **Mic Offset** is how much later the mic's sound is played at export (the camera's time of a clap less the mic's), measured per camera + mic pair (the pair's Mic Offset is its latest passed AV Calibration's, which a new **Recording Session** on that pair starts with). Matt sets it by hand in the clap step, after the run, on the latest AV Calibration only: a sound slider over the mic's waveform, starting at the loudest point of the clap window (1 ms steps), and a video slider over the camera's frames, starting at that time shifted by the pair's current Mic Offset (one-frame steps); the Mic Offset between them shows live, Play loops about 2 s around the clap with it applied, and Save stores it. Nothing detects claps automatically any more (#2137). The clap window counts towards neither the speech loudness nor the true peak. The loudness check passes when the speech loudness (of the 2 lines, not the loud one) is inside the band, edges included, and the true peak anywhere outside the clap window is at most -6 dBTP; otherwise it fails with every reason that applies ("too quiet" or "too loud" by so many dB, "peaked at" its true peak), and the whole ceremony is run again. The AV Calibration passes once its loudness check has passed and its clap step is saved. Either way it is stored, with its true peak, its threshold (speech - 16 dB, clamped), the devices (the recorder service's mic and camera), the Mic Offset once saved, the script version, and its mic and camera files, their ffmpeg logs and its script file (the prompt schedule and measurement windows). A cancelled session stores nothing. The meter, a session and a recording never run together. The recorder cuts with the threshold of the AV Calibration a recording started under, read once when a Recording Session starts and kept for all of it; work that is not recording (chunking or re-cutting old **Footage**) cuts with the fixed default, -38 dB. The gate (ADR 0038) counts only a calibration that passes under today's rules, re-judged from its stored measurements, so a pass under an older target, or one from before the clap step (with no Mic Offset), does not count. It is checked only when recording starts, from the editor and the Stream Deck, and never stops a take already running. There is no skip.
-_Avoid_: Audio Calibration (its old name), Sync calibration or clap test (that is the clap step, part of an AV Calibration), Mic check, Level check (that is the meter step, part of an AV Calibration), Sound check, Calibration (unqualified)
+A scripted check of Matt's mic level and its sync with the camera. Recording needs a recent one that passed.
+_Avoid_: Audio Calibration, Sync calibration, Clap test, Mic check, Level check, Sound check
 
 **Pause**:
-A marker on a **Clip** (none or long) that adds a short held pause after it in the edit. It has values rather than on/off, so more lengths can be added later. Different from **Silence Length** (the recording cut setting).
-_Avoid_: Beat (former name), Silence Length, Gap, Hold
+A marker on a **Clip** that holds a short pause after it in the edit.
+_Avoid_: Beat, Gap, Hold
 
 **Clip Zoom**:
-A marker on a **Clip** (none or subtle) that shows the Clip slightly zoomed in, so a run of camera-only clips has some visual change across its cuts. It zooms only the Clip's **Scene Layer**; its **Footage Layers** keep their **Placement**. It is allowed only on Clips in a camera scene (the Clip's **Scene Override** if it has one, else the scene it was recorded in) whose **Layers** have a Scene Layer. An override that moves a zoomed Clip off a camera scene drops its zoom, and so does removing its Scene Layer. It has values rather than on/off, so more levels can be added later. What the author sees in the editor is what the **Publish** will ship. It is part of the **Export Hash**. Superseded by **Transform**, which can move across Clips; kept until that change ships.
-_Avoid_: Punch-in, Ken Burns (implies an animated move; this one is static — reserved as an informal synonym for **Transform** instead), Scale, Crop
-
-**Insertion Point**:
-The position in a video timeline where new clips or chapters will be added (start, after a clip, after a chapter, end). The editor owns it: on either **Recorder**, each save of a **Take** carries it, and the app server keeps none of its own (ADR 0044).
-_Avoid_: Cursor, Drop target
+A marker on a **Clip** that shows it slightly zoomed in, for visual variety across camera-only cuts.
+_Avoid_: Punch-in, Ken Burns, Scale, Crop
 
 **Suggestion**:
-A next line the author could say, with a title of two to four words naming where it goes. The Video Editor's Suggestions tab streams three at a time while that tab is open, one call to the model: three different paths, the first following the plan, the others going somewhere else the author might improvise to. They show as tabs labelled with their titles; the first is picked whenever a new request starts, and the picked one's text alone (no title, no tabs) is shown on the teleprompter in place of the **Script**. It is made from the author's Notes for the Video (free text kept in the browser, never stored, which outrank the rest), the Video's repo files the author picked in the tab's Context modal (kept in the browser per Video, ranked just below the Notes), the **Script**, **Animatic** and **Beats** the author ticked, plus the transcripts of every **Clip** before the **Insertion Point**, numbered, with the last three marked as where the author is. It can carry the **Diagram Text** of the **Active Diagram** too; when the Clip just before the Insertion Point has a **DiagramSnapshot** pinned, that text goes as a unified diff against the snapshot's, one line per shape (`+` added and `-` removed since that Clip), so the model sees what changed on screen. At the start of a Video it can carry the transcripts of the previous **Video**'s Clips too (the one before it in course order, its end kept), ticked like the other sources but left out once five Clips are before the Insertion Point. Its few key words come back in **bold**. The model answers with an object of one field, the three Suggestions, and only that field is streamed to the editor, so no commentary around them can reach the author. On the teleprompter it sits centred, under those last three Clips' transcripts, which are set in exactly its type. They are never stored, nor is which one was picked: closing the tab forgets them.
-_Avoid_: Autofill (a different feature that writes a Video's description and Chapters), Prompt
+A next line the author could say while recording, offered three at a time and shown on the teleprompter.
+_Avoid_: Autofill, Prompt
 
 **Transcription**:
-The process of getting a clip's text from its audio, by Local Whisper in the **Sidecar**. A **Clip** is queued for it as soon as it is saved and transcribed at once, mid-take too, in a **Recording Session** and in a **Live Stream**: the recording workflow needs each Clip's text as it arrives. A **Footage** file's Transcription is heavier, so it waits for the GPU: it does not start until the Recording Session stops, and one already running finishes the chunk it is on and waits before the next (#2631).
+Getting a **Clip**'s or **Footage**'s text from its audio.
 _Avoid_: Caption, Subtitle
 
 **Transcription Status**:
-Where a **Clip**'s **Transcription** stands, stored on the Clip: **queued** (recorded, no text yet, a Transcription asked for), **transcribing** (running), **failed** (the last attempt did not finish) or **done** (it finished; the text may be empty, because nothing was said). A failed Transcription changes nothing but the status: the Clip keeps any text and **Transcript Words** it had, and transcribing it again is the fix, so the editor shows it as failed with a retry, never as still transcribing. A Clip that gets its text another way (an **Effect Clip**, a Clip cut from **Footage**) starts done. Every copy of the Clip carries its status.
-_Avoid_: transcribedAt (only says when text last landed, not whether one is coming)
+Where a **Clip**'s **Transcription** stands: queued, transcribing, failed or done.
+_Avoid_: transcribedAt
 
 ### Layers
 
 **Layer**:
-One piece of a **Clip**'s picture. A Clip's picture is its **Layers**, drawn bottom to top; there is no collective noun for them, they are just "the Clip's Layers". Each Layer has a Kind (a **Scene Layer** or a **Footage Layer**) and a volume. A Clip with no Layers stored is exactly one Scene Layer, and draws, plays, stills and hashes as it always has. Layers are set per Clip, explicitly: copying one Clip's Layers to another is a copy, and nothing is linked. On both **Video Formats** any mix is allowed: a Scene Layer alone, a Scene Layer with Footage Layers above it, or Footage Layers only. A Clip has at least one Layer and at most one Scene Layer, which is always its bottom Layer, so the stored order is the order drawn (#2604). **Overlays** and captions always draw above every Layer (ADR 0056).
-_Avoid_: Track, Stack, Composition, Layout (that is the scene layout a Scene Layer draws)
+One piece of a **Clip**'s picture. A Clip's Layers are drawn bottom to top.
+_Avoid_: Track, Stack, Composition, Layout
 
 **Scene Layer**:
-The **Layer** that draws a **Clip**'s own source in its scene layout: an OBS or **Imported Footage** Clip's file, or a **Recording Session**'s camera and screen in the scenes of its timeline (or its **Scene Override**). The Clip's own sound (the mic, read the mic offset earlier with its **Mic EQ**, or the file's own sound) is carried by it, at full volume (with no Scene Layer, by the Clip itself). It is what every Clip's picture was before Layers, and an untouched Clip's only Layer. It is drawn in the **Video**'s **Video Format**: on a **Short**, a Recording Session filmed Landscape is drawn in the Short layout, and a single file (OBS, **Imported Footage**) covers the 1080x1920 frame, centre-cropped, never stretched. On a **Landscape** Video every Clip keeps its own Recording Session's layout.
-_Avoid_: Base layer, Background, Scene (one of Camera, Code or No Face, which a Scene Layer draws)
+The **Layer** that draws a **Clip**'s own recording in its scene layout. A Clip has at most one, at the bottom.
+_Avoid_: Base layer, Background, Scene
 
 **Footage Layer**:
-A **Layer** that draws one **Footage** file: a **Source Crop** of it, scaled to its **Placement**, with a volume (muted by default) and a start time in that file. The file plays along with the Clip: the frame shown is the latest one at or before the start time plus the time elapsed in the Clip, the same in preview and export. It may name a file, or the camera or screen of the Clip's own **Recording Session**, which plays on the Clip's clock. It may cover only a span of the Clip. A B-roll is a full-frame, muted Footage Layer over part of a Clip (one per Clip it runs across); migration 0049 turned every B-roll Overlay into these. Authored with `cvm clip layer`.
-_Avoid_: B-roll (as a term: it was an Overlay Kind, now one use of a Footage Layer; fine in prose), Cutaway, Picture-in-picture, Inset
-
-**Source Crop**:
-The part of a **Footage Layer**'s file it draws: x, y, width and height as fractions (0 to 1) of the file's frame. The whole frame is 0, 0, 1, 1.
-_Avoid_: Crop (alone), Region, Viewport
-
-**Placement**:
-Where a **Footage Layer** is drawn: x, y, width and height in output pixels of the **Video**'s frame (1920x1080 for **Landscape**, 1080x1920 for a **Short**). A full-frame Placement covers the whole frame.
-_Avoid_: Position, Rect, Frame (a single picture)
-
-**Face Area**:
-Where Matt's face can be in his camera's frame: a fixed fraction of it (x 0.30 to 0.70, y 0 to 0.55), because the camera's framing never changes. A **Clip**'s Face Areas are that fraction as each of its camera pictures draws it, in pixels of the **Video**'s frame. These are the camera in each scene its **Scene Layer** draws over its range (Clip Zoom included), and every **Footage Layer** of its **Recording Session**'s camera, whatever its span. A Footage Layer of a file is not a camera. A **Chat Card** is never drawn over one.
-_Avoid_: Face box, Head, Safe area (the platforms' UI margins)
+A **Layer** that draws a cropped, positioned piece of a **Footage** file over part of a **Clip**.
+_Avoid_: B-roll, Cutaway, Picture-in-picture, Inset
 
 ### Overlays and transitions
 
-**Overlay Template** and **Transition** are **not yet implemented**: they are a design in progress, the planned replacement for today's **Effect Clip** and **Clip Zoom**. Treat those two terms as proposed. **Transform** exists today in one narrow form only (see that entry).
-
 **Overlay**:
-A rendered graphic shown on top of a Video's picture, always drawn above every **Layer** of the **Clips** under it (and below the captions). Overlays are graphics only: footage drawn in a Clip's picture is a **Footage Layer**, not an Overlay. It starts at a moment inside a specific **Clip**, so moving or trimming earlier Clips carries it along. Its length does not depend on that Clip: it can run on across later Clips, but never past the end of the Video. Different from a **Transition**, which replaces footage at a cut instead of sitting on top of it. It can carry a **Transform**, visible content, or both; its **Overlay Kind** names which content it carries and whether it has a Transform. Each Kind needs its own content. Its **Animation Toggles** control how it enters and leaves. At most one Overlay is visible at any moment in the whole Video: Overlays never overlap, and one that would is refused. The one exception is a **Call to Action** and a **Chat Card**, which may be on screen together, because on a **Short** the Chat Card usually sits at the top and the Call to Action in the lower half. (A Chat Card moved below the captions, clear of the **Face Area**, is not checked against a Call to Action.) Two Calls to Action may not overlap, and a Call to Action may not overlap any other Kind. Shortening an Overlay is refused if a **Bullet** would no longer fit. An Overlay cannot move to another Video. Deleting one is permanent, because nothing else refers to it. Recutting its Clip moves it with the Clip (see **Retiming Cascade**). Every copy of the Clip carries its Overlays, except a **Short** cut from a Landscape Video, which leaves them behind; a Short cut from a Short keeps the ones its range holds, at the same moment of footage, each cut to end by its range's end.
-_Avoid_: Layer (a piece of a Clip's picture, under every Overlay), Track, Effect
+A rendered graphic shown on top of a Video's picture, starting at a moment in a **Clip**. Only one is visible at a time.
+_Avoid_: Layer, Track, Effect
 
 **Overlay Kind**:
-Which content an **Overlay** carries: a **Definition Card** (the default), a **Bullet Panel**, a **Chat Card** or a **Call to Action**. Every Kind is a graphic: B-roll, once a Kind, is now **Footage Layers**. It is part of the **Export Hash**, because it changes what is rendered. The Kind also decides the Overlay's **Transform**: the camera move comes from the Kind and is never written separately, so a Bullet Panel always gets its panel and its camera move together.
+Which content an **Overlay** carries: a **Definition Card**, a **Bullet Panel**, a **Chat Card** or a **Call to Action**.
 _Avoid_: Type, Variant, Overlay Type
 
-**B-roll**:
-Footage shown over part of a Clip in place of its own picture. It was an **Overlay Kind**. Superseded by **Footage Layers**: a B-roll is now a full-frame, muted Footage Layer over part of a Clip, and migration 0049 turned every B-roll Overlay into these. `--kind bRoll` is refused.
-_Avoid_: B-roll Overlay (no longer exists)
-
 **Definition Card**:
-An **Overlay**'s visible content: a small, AI Hero branded card on screen that defines a term at the moment it is said. It has exactly a title (the term) and a description (the definition). It is written on the Overlay itself: there is no shared glossary to pick a definition from, so two Overlays that define the same term each have their own copy. The default **Overlay Kind**.
-_Avoid_: Term, Definition, Glossary Entry, Card (reserved for an eventual family of card-shaped content-kinds), Tooltip
+An **Overlay** that defines a term on screen at the moment it is said.
+_Avoid_: Term, Definition, Glossary Entry, Card, Tooltip
 
 **Bullet Panel**:
-An **Overlay**'s visible content, and the second **Overlay Kind**: a title plus at most four **Bullets**, shown as a list down the LEFT of the frame. The side is always the left, because its camera move clears room on that side only. Four is the limit so the panel stays readable, and a fifth Bullet is refused. The panel's dark background covers only its own column, so the presenter is never darkened. A Bullet Panel has no description.
+An **Overlay** with a title and up to four **Bullets**, shown down the left of the frame.
 _Avoid_: Bullet List, Side Panel, Callout, List Overlay
 
 **Bullet**:
-One line of a **Bullet Panel**: an icon, its text, and the time it appears, measured from the Overlay's own start. The time is set for each Bullet so that it can appear exactly as its words are said. Bullets must appear in the order they are read, and no two at the same moment, because a staggered reveal is the point. Each Bullet must have time to appear fully before the panel starts to leave. Each Bullet appears on its own, except one that appears at the very start, which arrives with the panel. The panel leaves all at once.
+One line of a **Bullet Panel**, timed to appear as its words are said.
 _Avoid_: Item, Point, Row, Line
 
 **Chat Card**:
-The third **Overlay Kind** (`chatCard`), for a **Short** only: one **Chat Highlight**, its author and text drawn as the Chat Highlight card (colour emoji included), with a very subtle fade in (about 200 ms, rising 10 px) and out (about 150 ms). It is made on request from a Chat Highlight, by default the one showing at its anchor point when its Clip is from a **Streamed Recording Session**. Its author and text are COPIED onto the Overlay, with no link back, so it outlives its Recording Session and is copied with its Clip. It is never drawn over Matt's face: it sits at the top of the Short, or, when its box there (the card at its tallest, plus its entrance's rise) meets the **Face Area** of any **Clip** it is drawn over, just below the captions. When both places meet one, the Short's render and `cvm clip frame` refuse it, and the Portrait Studio preview says so in its place. Nothing is stored for where it sits: it is decided from the Clips' **Layers** each time it is drawn, by the one rule the preview and the render share. It is drawn only in the Shorts editor and the Short's render; there is no Landscape one.
-_Avoid_: Chat Overlay, Comment Card, Chat Highlight (the stream's own card)
+An **Overlay** on a Short that shows one **Chat Highlight**.
+_Avoid_: Chat Overlay, Comment Card, Chat Highlight, Chat Spin
 
 **Call to Action**:
-The fourth **Overlay Kind** (`callToAction`), for a **Short** only: a branded card in the lower half of the frame, with a headline (the Overlay's title, e.g. a URL) and a subline (its description), drawn from text. With neither given it says the old AI Hero card's words, "AIhero.dev" and "Go from Zero To AI Hero"; with one given, the other is empty and the card draws that line alone. It fades in, drifts up and fades out, and follows the **Animation Toggles**. It moves no camera. A Short has none unless one is added. It cannot be turned into another Kind, or another Kind into one. There is no Landscape one.
-_Avoid_: CTA (as the term), Advert, Promo, Pill
-
-**Chat Spin**:
-Superseded (#2669): it was a **Chat Card**'s slot-machine intro, with the same Recording Session's other **Chat Highlights** flying past before it landed on the pick. Matt preferred "a single chat message displayed in a nice way", so a Chat Card now just fades in. Its old `overlay.chat_spin` column was dropped in #2671.
-_Avoid_: Slot machine, Spinner, reel
-
-**Animation Toggles**:
-Two settings on an **Overlay**: no enter animation and no exit animation. Each turns one end of the Overlay into a hard cut. The change still happens at the same moment, so turning one off does not move any **Bullet**. They are on the Overlay, not on its content, because they control the content and the camera move TOGETHER, so the two can never get out of step. They are part of the **Export Hash**.
-_Avoid_: Instant, No-animate, Hard cut (the effect, not the field)
+An **Overlay** on a Short: a branded card with a headline and a subline.
+_Avoid_: CTA, Advert, Promo, Pill
 
 **Retiming Cascade**:
-What recutting a **Clip** does to everything placed relative to that Clip's start. Moving the Clip's start moves the footage under every stored time, so each **Transcript Word** and each **Overlay** on the Clip moves by the same amount, at the same time as the recut. They differ on what happens to one pushed outside the Clip's new range, and the reason is whether it can be recovered. A Transcript Word can be made again by transcribing, so one outside the range is DROPPED; one the new range cuts into is kept, held to the range's edge, when most of it is inside or the cut is within 0.15 s of its edge (#2670), so a **Short** cut there still captions it. An Overlay holds content the author wrote, which nothing can make again, so it is moved back inside the range and never deleted. An Overlay in the wrong place is a visible problem that can be fixed; a deleted one is just gone.
+What recutting a **Clip** does to everything timed from its start, such as its **Overlays** and transcript words.
+
+**Transform**:
+An **Overlay**'s pan or zoom on the picture under it. Today it comes only from the **Overlay Kind**.
+_Avoid_: Framing, Clip Zoom, Ken Burns, Pan
 
 **Overlay Template** (not yet implemented):
-A named, reusable Overlay (or small group of them) that an agent picks and applies to a run of Clips, rather than designing one from scratch each time. It would own its own **Transform**, if any. Today a Transform comes from the **Overlay Kind** instead.
+A named, reusable **Overlay** an agent applies to a run of Clips.
 _Avoid_: Treatment, Preset, Style
 
 **Transition** (not yet implemented):
-A rendered effect at the boundary between two **Clips** that replaces footage at the cut, instead of sitting on top of footage like an **Overlay**. Supersedes the transition use of **Effect Clip**.
-_Avoid_: Effect Clip (see that entry), Bumper, Wipe (a specific Transition style, not the category)
-
-**Transform**:
-An **Overlay**'s pan or zoom move on the Clip's whole picture under it, every **Layer** included (with the black base when the Clip has no **Scene Layer**): a sequence of framings, moved through in order across the Overlay's length. It does not depend on the Overlay's content: it can move the frame with nothing on top, or make room for a card or panel. Supersedes **Clip Zoom**, which was a single fixed zoom that could not cross Clips. Until that change happens, the two cannot be used together: an Overlay over a Clip with a Clip Zoom is refused.
-
-What exists today is the narrowest form: not a sequence the author writes, but a fixed move that comes from the **Overlay Kind**. A Definition Card has none. A Bullet Panel slides the picture, every Layer together, to the right by the panel's width, to clear the left of the frame for the panel. It is a SLIDE, never a zoom. It eases in and back out, unless the **Animation Toggles** make that end a cut. The panel and the picture move at one speed, because they are one move seen twice.
-_Avoid_: Framing, Clip Zoom (see that entry), Ken Burns, Pan
+A rendered effect at the cut between two **Clips** that replaces footage, rather than sitting on top of it.
+_Avoid_: Effect Clip, Bumper, Wipe
 
 ### Pitches
 
 **Pitch**:
-A reusable packaging artifact — the YouTube, newsletter and tweet copy and the thumbnail idea for a video — written _before_ the video is recorded. A Pitch is outside the Course structure; it relates only to **Standalone Videos**.
-_Avoid_: Idea, Concept, Draft (overloaded with Draft Version)
+The packaging for a video (the YouTube, newsletter and tweet copy, plus the thumbnail idea), written before the video is recorded.
+_Avoid_: Idea, Concept, Draft
 
 **Pitch State**:
-A Pitch's state, derived (never stored) from the **Deliverable Status** of its linked **Deliverables**: **Idle** (none linked), **Scheduled** (some linked, not all finished), **Shipped** (all done or cancelled). Giving up on a Pitch is separate: a Pitch is hidden by **Archive**, not by Pitch State.
-_Avoid_: Pitch Status (no stored status field), Desk State, Pipeline state
+Whether a **Pitch** is Idle, Scheduled or Shipped, worked out from its linked **Deliverables**.
+_Avoid_: Pitch Status, Desk State, Pipeline state
 
 **Effort**:
-An estimate on a **Pitch** of how much work the video will be: low, medium (the default) or high. It is on the Pitch because it is used to choose work _before_ the video exists. Within one priority, low effort comes first ("low-hanging fruit"); effort never overrides priority.
+An estimate on a **Pitch** of how much work the video will be: low, medium or high.
 _Avoid_: Estimate, Cost, Size, Complexity
-
-**Default Pitch Filter**:
-The pitch list shows **Idle** and **Scheduled** Pitches by default; the author can choose to show **Shipped** ones as well.
 
 ### Reference video
 
 **Reference Video**:
-Another **Video** on the same **Lesson**, opened beside the one being recorded so the author can read its **Clip** transcripts (grouped by **Chapter**) while recording again. It is not stored as a link: any other Video on the Lesson can be one. The author chooses it each time; it is never chosen automatically.
-_Avoid_: Previous Take (implies take-history we don't model), Reference Take, Source Video
+Another **Video** on the same **Lesson**, opened beside the one being recorded so the author can read its transcript.
+_Avoid_: Previous Take, Reference Take, Source Video
 
 ### Diagrams
 
 **Diagram**:
-A named, lasting identity: the "home" for a series of snapshots that change across the **Clips** it appears in. It is outside the Course structure; any **Video** can use it.
-_Avoid_: Drawing, Sketch, Canvas, Scene (reserved for the drawing tool's own term)
+A named drawing whose snapshots change across the **Clips** it appears in.
+_Avoid_: Drawing, Sketch, Canvas, Scene
 
 **DiagramSnapshot**:
-A copy of a Diagram's drawing at the moment a specific **Clip** was filmed. It is pinned to that Clip, so going back to the Clip later shows the diagram as it was filmed, even after the Diagram has changed. Once a Clip that is not archived pins it, it is FILMED and never changes. Before that it can be redrawn in place (`cvm diagram snapshot update`) to fix its layout, keeping its id and its place in the timeline.
-_Avoid_: Frame, Revision, Checkpoint, Version (overloaded with **CourseVersion**)
-
-**Diagram Text**:
-All the words written on a **DiagramSnapshot**'s shapes, flattened into one line. It is derived from the drawing and stored beside it, so the same text powers search and the Article Writer. The Article Writer reads it inside the **Transcript**, right after the marker of the **Clip** the snapshot is pinned to, so the model knows which diagram was on screen for which words. It is given again only when it changes, because most snapshots of one Diagram differ only in layout. It is on by default and can be switched off like the writer's other context. It is supporting material, like a **Video File**: it shows what was on screen and is never quoted as words said on camera.
-_Avoid_: Diagram labels, Diagram transcript, search text (the column's name, not the concept)
+A copy of a Diagram's drawing at the moment a **Clip** was filmed.
+_Avoid_: Frame, Revision, Checkpoint, Version
 
 **Active Diagram**:
-The Diagram the author is drawing on now. There may be none, in which case the author is on **Playground Home**. It stays the same across **Clips** until the author changes it.
+The Diagram the author is drawing on now.
 _Avoid_: Current diagram, Open diagram
 
-**Playground Home**:
-The place to browse Diagrams and create new ones, shown when there is no **Active Diagram**.
-_Avoid_: Diagram picker, Diagrams page
-
 **Preserved Snapshot**:
-A **DiagramSnapshot** marked to stay in its Diagram's timeline even when no **Clip** pins it. The author can preserve one by hand, and one is made automatically when a **Restore to Head** would otherwise lose unsaved work. A snapshot that is not preserved disappears when all its Clips are archived; a Preserved one does not. Preserved and pinned are two separate reasons to keep a snapshot.
-_Avoid_: Manual snapshot, Saved snapshot, Standalone snapshot, Bookmark
+A **DiagramSnapshot** kept in its Diagram's timeline even when no **Clip** uses it.
+_Avoid_: Manual snapshot, Saved snapshot, Bookmark
 
 **Restore to Head**:
-Loading an older **DiagramSnapshot** back as the Active Diagram's current drawing. The current drawing's last edit is saved first, and if no snapshot on the timeline holds it, it is kept as a Preserved snapshot, so a restore never loses work. If a snapshot already holds it, no new one is made. It does nothing if the drawing already matches the snapshot.
+Loading an older **DiagramSnapshot** back as the Active Diagram's current drawing, without losing the current one.
 _Avoid_: Revert, Roll back, Undo
 
-**Snapshot Step**:
-Moving one place along the Active Diagram's timeline, older or newer, with a **Restore to Head** on the snapshot it lands on. The position is read from the current drawing, not stored. Snapshots with identical content count as one place, and a step always changes the drawing. The timeline is a ring: stepping past one end comes back at the other.
-_Avoid_: Undo/redo (this walks the timeline, not the drawing tool's history), Prev/next snapshot, Scrub
-
 **Component**:
-A named, immutable piece of a drawing, saved from a selection and able to be put into any Diagram. It has no history and no relationship to any Diagram: saving one copies the shapes out, so the Diagram it came from can change or be deleted without affecting it. It can only be renamed or deleted; deleting is permanent.
-_Avoid_: template, stencil, symbol, DiagramComponent (there is no such record on a Diagram), "saved selection"
-
-**Command Palette**:
-The single keyboard way, inside the **Active Diagram**, to insert an **Icon** or a **Component**, replace an Icon, save a selection as a Component, search all Diagrams by content, and reach the snapshot and diagram actions (ADR 0004). It exists only with an Active Diagram, never on **Playground Home**. It is the Diagram Playground's only: the main app's Ctrl/Cmd+K is **Global Search**.
-_Avoid_: Command bar, Quick actions, Spotlight, Omnibox
+A named, unchanging piece of a drawing that can be put into any Diagram.
+_Avoid_: Template, Stencil, Symbol
 
 **Icon**:
-A named glyph on a Diagram. It stores only the icon's **name**, never its shape, and the set of icons only ever grows, so a Diagram shows its icons exactly as they were when it was filmed. An Icon's name is found by content search.
-_Avoid_: Glyph, Symbol, Image (icons are deliberately not assets — ADR 0003)
-
-**Replace Icon**:
-Pointing an **Icon** already on a Diagram at a different glyph. Only the name changes, so its size, position, style and connections all stay: that is the difference from adding a new Icon and deleting the old one. It is possible only when exactly one Icon is selected.
-_Avoid_: Swap icon, Change icon, Edit icon (an Icon has no edit mode)
+A named glyph on a Diagram.
+_Avoid_: Glyph, Symbol, Image
 
 ### Lesson body
 
 **Quiz**:
-A block of questions in a **Video**'s **Body**, answered by the reader on aihero.dev. It is kept word for word in the form AI Hero expects, and a **Publish** ships it unchanged. The CVM only shows it, cuts single questions out of it, and checks it. Every question has an id unique across the **Course**, because reader answers are recorded against the id, not the question text. The Article Writer writes one when writing an article. A Solution Video's Body never holds one: the Article Writer opens on a mode named after the Video's role (Problem, Explainer or Solution), and its Solution mode is never taught to write a Quiz and cuts any it finds on Apply. An Explainer Video's Body holds at least one: the Article Writer's Explainer mode flags a Body with none (a lint, which never blocks Apply).
-_Avoid_: Test, Assessment, Question block, Exercise (reserved for the course's practical work)
+A block of questions in a Lesson's article, answered by the reader on aihero.dev.
+_Avoid_: Test, Assessment, Question block, Exercise
 
 **Commit Map**:
-The list of commits a lesson uses, at the top of a **Video**'s **Body**. Each entry names a lesson commit in the course project repo, which the CVM never reads; `main` is the one entry that is not a lesson commit. The first entry is where a reader starts the lesson. It can also name the course repo's package manager. Like a **Quiz**, it is kept word for word and shipped unchanged. It is written by hand; the Article Writer writes one only when asked.
-_Avoid_: Checkpoint, Commit list, Course Version commit state (release state, unrelated). "Reset point" names what the first entry is _for_, never an entry in general — a later entry is a cherry-pick target too.
+The list of commits in the course repo that a lesson uses, at the top of its article.
+_Avoid_: Checkpoint, Commit list
 
 ### Video destinations
 
 **Skills Changelog**:
-A published AI Hero entry that bundles an article and a newsletter draft for one **Video**. It is published at once and creates a newsletter draft, which is never sent automatically. The newsletter is required. Its public page links back to the skills page.
-_Avoid_: Changelog (ambiguous with course publish changelog), Skill post, Changelog entry
+A published AI Hero entry for one **Video**: an article plus a newsletter draft.
+_Avoid_: Changelog, Skill post, Changelog entry
 
 ### Posting Shorts
 
 **Posting Queue**:
-CVM's ordered list of **Shorts** waiting to be posted, oldest queued first unless moved (ADR 0057). A Short joins it through `cvm short post` or the Shorts page's Add to Posting Queue, and the Sidecar of the author's main checkout posts its head at each **Posting Slot**: to YouTube, public and direct, and to TikTok through Buffer with "share now". Each time a Short is queued is one entry, in one of the states below. **Queued**, **Posting** and **Held** entries are live, and a Short has at most one live entry. Entries are kept after they end, because the **Slot Schedule** reads past days from them. A channel that went out is never posted again: a Short Posted on one channel only, queued again, posts only to the other.
-_Avoid_: Queue, unqualified (the Sidecar's Job queue is the queue), Buffer Queue (Buffer holds at most one post)
-
-**Queued**:
-A **Posting Queue** entry waiting for its **Posting Slot**. Only a Queued entry can be moved.
-
-**Posting**:
-A **Posting Queue** entry that has claimed its **Posting Slot**: its posting Jobs, one per channel not Posted yet, are running or waiting to be retried. While an entry is Posting nothing else is claimed, and it cannot be moved or taken off. A just-in-time render asked for while a **Recording Session** records waits for the Stop: the entry stays Posting, and the wait is never a failure.
-
-**Posted**:
-A **Posting Queue** entry whose Short both YouTube and TikTok have: it has left the queue.
-
-**Held**:
-A **Posting Queue** entry with a channel whose outcome is unknown: the post check could not say whether it went out. Nothing is retried; the author checks (the link is in its reason), then presses Retry on the Job or takes it off the queue. It has settled its slot, so the next Short may claim the next one.
-_Avoid_: Stuck, Paused
-
-**Failed**:
-A **Posting Queue** entry with a channel that failed 3 times. Its slot stays used, and it stays listed, with its reason, until it is taken off the queue. Posting the Short again makes a new entry.
+CVM's ordered list of Shorts waiting to be posted to YouTube and TikTok. Each entry is Queued, Posting, Posted, Held (the outcome of a post is unknown and waits for the author), Failed or Removed.
+_Avoid_: Queue (unqualified), Buffer Queue
 
 **Post Now**:
-A **Queued** entry marked to go out at the Sidecar's next check, ahead of the **Posting Slots** (`cvm short post --now`, #2692). It goes first, one per check like any claim, in the order asked, through the same post path. It claims the instant it goes out, never a Posting Slot: every other Short moves up one place, and its day can still be missed (so catch-up still applies). Stored as the Queued entry's claim time; only a Posting or Held entry has really claimed.
+Sending a Queued Short out at the next opportunity, ahead of the **Posting Slots**.
 _Avoid_: Post immediately, Skip the queue
 
-**Removed**:
-A **Posting Queue** entry taken off the queue with `cvm short unqueue`, from Queued, Held or Failed. Nothing is deleted from YouTube or TikTok, and the Short can be posted again.
-_Avoid_: Unqueued, Taken off, Deleted (as names of the state; "take off the queue" is fine for the act)
-
-**Queue panel**:
-The panel on the Shorts page that shows the **Posting Queue** as `cvm short queue` prints it: each entry's state, when it goes out, and the reason a Held or Failed one gives. It is read-only.
-_Avoid_: Queue, unqualified; Posting panel
-
 **Posting Slot**:
-One time on one UK (Europe/London) day when the head of the **Posting Queue** is posted. The times are UK wall-clock times and stay so across the clock changes. A slot missed earlier in the day is taken at the Sidecar's next check, one at a time, by a Short queued before it; one not taken by the end of its day is dropped.
+A time of day when the head of the **Posting Queue** is posted.
 _Avoid_: Schedule slot, Time slot
 
 **Slot Schedule**:
-The rule that turns the **Posting Queue**'s length, the date and the queue's history into a day's **Posting Slots**. The count comes from how many Shorts were in the queue at 00:00 UK time, so Shorts queued later that day never change it: none when the queue was empty, so a Short queued onto an empty queue waits for the next day; otherwise 1 on a weekday (13:00), 2 when more than 14 are queued (09:00, 18:00), 3 when more than 21 are (09:00, 13:00, 18:00); Saturday and Sunday always 1. A slot posts the oldest Short in the queue at the slot; a Short queued after a slot never takes it. Catch-up: a weekday after a day that had a Short to post and posted nothing takes the next pattern up (3 stays 3), and Monday looks back over Friday and the weekend; the weekend never catches up. One pure function answers both "what is due now?" and "when does each Queued Short go out?", so the Sidecar, `cvm short queue` and the Shorts page agree.
+The rule that decides how many **Posting Slots** a day gets, and when they are.
 _Avoid_: Posting schedule, Buffer schedule
 
 ### Deliverables and scheduling
 
 **Deliverable**:
-An entry the author writes on the **Deliverables Calendar**, fixed to one date. That date is the only deadline in the domain. It can link to any number of **Courses** and **Pitches**. A Deliverable's own state is never derived, but a linked Pitch's **Pitch State** is derived from it. An archived Deliverable is hidden everywhere; archiving is the only way to hide one.
+An entry on the calendar, fixed to one date. That date is the only deadline in the domain.
 _Avoid_: Task, Item, Scheduled work, Ship target
 
 **Deliverable Status**:
-A marker on a **Deliverable**: planned (the default), done, or cancelled. Every change can be undone, and it is never derived from linked entities. "Manual" means _not derived_: the author and an agent set it the same way (ADR 0022). Different from **Archive**: a cancelled Deliverable stays on the calendar; archiving is what hides it.
+Whether a **Deliverable** is planned, done or cancelled, set by hand.
 _Avoid_: Completion, Deliverable state
-
-**Deliverables Calendar**:
-The view of all **Deliverables** across past and future dates, used for planning ahead and for looking back.
-_Avoid_: Delivery calendar, Schedule, Roadmap, Content calendar
-
-**ISO Week**:
-ISO 8601 week numbering (weeks start on Monday; week 1 contains the year's first Thursday). Shown as "Week N".
-_Avoid_: Calendar week, Week number (without "ISO" qualifier)
-
-### Ordering and lifecycle
-
-**Fractional Index**:
-An ordering value that lets an item go between two others without renumbering the rest.
-_Avoid_: Sort order, Position
-
-**Archive**:
-Soft deletion: hiding an entity from active views while keeping it. What can be done after depends on the noun. For most (Beat, Clip Mockup, Chapter, Learning Goal, Section) it cannot be undone. Archived Courses, Videos and Lessons can be listed and restored: an unarchived Video goes back to its Lesson, or comes back Standalone if that Lesson has been archived too. An unarchived Lesson goes back to its Section with its Videos, in its old place if no Lesson has taken it since and at the end of the Section if one has; only a Lesson of the **Draft Version** can be restored, and doing so counts as a write (**Has Changes**). A Lesson whose Section is archived cannot come back. A **Clip** can be reviewed and restored too, so a Clip deleted by mistake can be found and brought back.
-_Avoid_: Delete, Remove
 
 ### Dependencies
 
 **Lesson Dependency**:
-A link from one **Lesson** to an earlier one it builds on. It points backward (a Lesson depends on prerequisites above it); a dependency on a _later_ Lesson is an **Order Violation**, which is warned about but allowed. Circular dependencies are refused.
-_Avoid_: Prerequisite link, Edge (unqualified)
+A link from a **Lesson** to an earlier one it builds on.
+_Avoid_: Prerequisite link, Edge
 
 **Order Violation**:
-A saved state where a **Lesson** depends on a Lesson ordered _after_ it (in the same Section or a later one). It is shown as a warning but never prevented, so it can exist in saved work.
+A **Lesson** that depends on a Lesson ordered after it. It is warned about, never prevented.
 _Avoid_: Broken dependency, Invalid order
 
 **Dependency Group**:
-The longest run of lessons next to each other in one **Section**, in display order, linked by **Lesson Dependencies**: going from top to bottom, a Lesson joins the group only if it depends directly on a Lesson already in it. Dependencies that skip over lessons or point forward are not part of it. It is only a visual grouping, different from a **Section**.
+A run of adjacent Lessons in a **Section**, linked by **Lesson Dependencies**, grouped visually.
 _Avoid_: Dependency block, Cluster, Chain, Lesson group
-
-### Search
-
-**Global Search**:
-The main app's Ctrl/Cmd+K dialog (also opened from the sidebar's Search button) that finds any non-archived **Course**, **Section**, **Lesson**, **Video** (either **Video Format**, **Standalone Videos** included) or **Pitch**, in each Course's **Draft Version**, and opens it. It runs the same search as `cvm search`, without **Beats**. It exists on every page under the app layout, never in the Diagram Playground, whose **Command Palette** keeps that key.
-_Avoid_: Command Palette (the Diagram Playground's), Omnibox, Spotlight, Quick open
 
 ### Remote access
 
 **API Token**:
-A credential the author creates so that a machine other than theirs can work with the domain data. It has a **name** (which machine it is on), an **expiry**, and can be **revoked** at any moment; its **last used** time makes a forgotten token easy to find. The secret is shown only once, when it is created. In this first version a token allows every operation.
-_Avoid_: API key, Password, Secret (unqualified)
+A credential the author creates so a machine other than theirs can work with the domain data.
+_Avoid_: API key, Password, Secret
 
 **Remote Box**:
-Any machine that is not the author's, working with the domain data through an **API Token**. It can reach every domain noun — Course, Course Version, Section, Lesson, Video, Clip, Beat, Pitch, Deliverable — so it can find work, write a **Script** and a **Body**, plan **Beats**, draft **Pitches**, change the **Draft Version** and keep the **Deliverables Calendar**. It can never do anything that needs the author's own machine: the finished videos, Video Files, Clip Mockup images, Footage, rendering, or recording.
+Any machine that is not the author's, working with the domain data through an **API Token**.
 _Avoid_: Server, Agent machine
 
 **Local-only Command**:
-A command that needs the author's own **machine** rather than only the domain data, and so can never run on a **Remote Box**: working with Video Files, Footage, Clip Mockups, Publish Readiness, and Publish. It refuses before doing any work and says what it needed. Refusing first means an agent stops rather than retrying, and a **Course** is never left half-changed. A machine is treated as remote unless it says it is the author's.
+A command that needs the author's own machine and refuses to run on a **Remote Box**.
 _Avoid_: Offline command, Machine command, Disabled command
-
-**Schema Version**:
-The version of the data structure a copy of the tool was built for, compared on every request with the version the shared service runs. Any difference is refused, with both numbers and a request to update, so an out-of-date machine can never write data it does not understand. Changes to the data structure only add, so a machine already working when one arrives keeps working.
-_Avoid_: API version, Migration number, Protocol version
 
 ### Background work
 
 **Job**:
-A piece of background work, kept as a row in the database: something the author starts and walks away from, such as an export, a render, a post or a **Publish**. It has a kind, a title, the parameters it was started with, and a status (queued, running, succeeded, failed, interrupted, cancelled). Only a Job that cleans up after itself offers Cancel, and today that is a **Storage move** and a Storage delete: a queued one ends cancelled at once; a running move is asked to stop, removes its partial copies, and ends cancelled (never retried, never failed); a running delete stops before its next file. A Job may wait on another Job and starts only once that one has succeeded; when the one it waits on fails, it fails too. A failed attempt is run again at once while the Job has attempts left, and the number of attempts is copied from what the Upload Manager allowed for that kind. Two kinds are exceptions. A Job that **posts** (to YouTube, Buffer or AI Hero, a Skills Changelog included) runs exactly once, is never retried or re-queued on its own, and a post cut off mid-run ends interrupted ("check before retrying") until the author presses Retry — which is never offered once the post went out, because posting twice would be worse than not posting. The one automatic second attempt is a **Posting Queue** Short's: when one of its channels fails, the Sidecar checks that channel read-only, and only if the post did not go out does it start a new Job for that channel, up to 3 failures; if the check can't tell, the Short is Held for the author (ADR 0057). A **Publish** has one attempt and is never re-run on its own either: one cut off after Submit leaves a Pending Version, which the author Promotes or Discards from the publish page (or Discards with `cvm course publish discard`). Closing the browser never stops a Job. A Storage move (a **Storage Bucket**'s Footage, Exported Videos or **Clip Mockups** copied to another **Storage Root** and checked by checksum, originals kept), a Storage delete (every delete on the Storage page, one `operation` each; today **Delete originals**), a Video export, an **Exported Animatic**'s export, a Batch export, a vertical Shorts render, every post (YouTube, YouTube Shorts, Buffer, AI Hero, Skills Changelog), a Course **Autofill**, a **Publish**, a Clip transcription, a **Footage** transcription and a **Clip Mockup**'s voice run as one, beside a test kind (`noop`) (docs/plans/background-jobs-sidecar.md). A Clip transcription and a Clip Mockup's voice show on what they work on, not as a row or a toast of their own; a Clip Mockup's voice is retried on its own (three attempts), and never toasted: its final failure shows on the Clip Mockup and in the Jobs list.
-_Avoid_: Task, Upload (the Upload Manager's word for all of them), Background request
+Work the author starts and walks away from, such as an export, a render, a post or a **Publish**. It keeps going when the browser closes.
+_Avoid_: Task, Upload, Background request
 
 **Sidecar**:
-The process beside the app that runs **Jobs**: one per database, which it proves by holding that database's lease. `pnpm dev` and `pnpm start` start it, and a verify-cvm run starts one of its own on its clone. A worktree's Sidecar never touches production. While it is down, Jobs wait in the queue. A Job it was running when it was stopped on purpose (a restart after an edit, Ctrl-C) goes back to the queue without spending an attempt; one it was running when it died is run again if it has attempts left, and is marked interrupted if it does not. A post or a **Publish** is never put back or run again either way: it is marked interrupted. For a post, the Sidecar looks at the service, read-only, to say whether it went out; a Publish cut off after Submit leaves a Pending Version for the author to Promote or Discard. A short database outage does not stop it: it keeps its Jobs running for up to five minutes without an answer from its database, and its Jobs' queries wait for the database to come back. It stops at once only when the database answers that another Sidecar holds the lease.
-_Avoid_: Worker, Daemon (the Clip Mockup daemon is something else), Queue
-
-**Lane**:
-A queue inside the **Sidecar** with its own limit on how many **Jobs** run at once. There are two, both copied from limits the app already had: the default lane, unlimited as the Upload Manager was, and the Publish lane, one at a time as Publishes always were.
-_Avoid_: Pool, Channel, Concurrency group
-
-**Dismiss**:
-The author hiding a settled **Job**'s row (its X, or "Clear finished"). It is a dismissed **Job Event**, so the Job stays hidden in every tab and after a restart; a Job still queued or running cannot be dismissed, and dismissing never cancels anything.
-_Avoid_: Delete, Clear (for one row), Cancel
-
-**Job Event**:
-One thing that happened to a **Job**, in order: queued, started, stage, progress, posted, retrying, requeued, succeeded, failed, interrupted, cancel-requested, cancelled, post-check, dismissed — and, for a Batch export or a Course Autofill, one per Video (videos, video-stage, video-progress, video-succeeded, video-failed, video-handed-off). A **Publish** writes stage, then submitted once **Submit** lands (from here a failure may leave a **Pending Version**), videos, the per-Video video-stage, video-progress, video-upload-queued, video-upload-progress, video-succeeded and video-failed, then published or publish-failed. A **Footage** transcription writes chunk-settled once per piece of the file Whisper has heard, then footage-transcribed with what the command prints. A Storage move writes storage-moved with what it copied, what was already there, and each file it left. A Storage delete writes storage-deleted with what it deleted, what it kept, and each file it left. Every open tab follows them as they happen, and the Upload Manager draws a Job from them. The record a screen replays to show a Job's progress, and the answer to "what ran, and why did it fail?" after the fact. Each Job also has its own log file.
-_Avoid_: Job log (that is the file), Progress update, Status change
+The process beside the app that runs **Jobs**.
+_Avoid_: Worker, Daemon, Queue
