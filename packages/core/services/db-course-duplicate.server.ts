@@ -240,6 +240,7 @@ export const makeDuplicateCourse = (db: Database) =>
           priority: sourceLesson.priority,
           dependencies: sourceLesson.dependencies,
           authoringStatus: sourceLesson.authoringStatus,
+          optional: sourceLesson.optional,
         });
 
         for (const sourceVideo of sourceLesson.videos) {

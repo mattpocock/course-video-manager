@@ -1,0 +1,1 @@
+ALTER TABLE "course-video-manager_lesson" ADD COLUMN "optional" boolean DEFAULT false NOT NULL;

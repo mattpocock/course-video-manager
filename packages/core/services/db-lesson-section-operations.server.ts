@@ -244,6 +244,7 @@ const createLessonSectionOperationsUnwrapped = (db: Database) => {
       icon?: string | null;
       priority?: number;
       authoringStatus?: string | null;
+      optional?: boolean;
     }
   ) {
     yield* requireDraftVersionForLesson(db, lessonId);
@@ -259,6 +260,7 @@ const createLessonSectionOperationsUnwrapped = (db: Database) => {
           icon: lesson.icon,
           priority: lesson.priority,
           authoringStatus: lesson.authoringStatus,
+          optional: lesson.optional,
         })
         .where(eq(lessons.id, lessonId))
     );

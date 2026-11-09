@@ -5,6 +5,7 @@ import { Effect, Option } from "effect";
 import { lessonSearchCmd } from "./search";
 import { LessonSectionOperationsService } from "@/services/db-lesson-section-operations.server";
 import { AUTHORING_STATUSES } from "@/services/lesson-authoring-status";
+import { lessonPatch, OPTIONAL_VALUES } from "./lesson.patch";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { CourseWriteService } from "@/services/course-write-service";
@@ -333,6 +334,14 @@ const updatePriority = Options.integer("priority").pipe(
   Options.optional
 );
 
+const updateOptional = Options.choice("optional", [...OPTIONAL_VALUES]).pipe(
+  Options.withDescription(
+    'Mark an Optional Lesson: "true" (a learner may skip it and still finish ' +
+      'the Course) or "false" (required — the default for new lessons).'
+  ),
+  Options.optional
+);
+
 const updateCmd = Command.make(
   "update",
   {
@@ -341,23 +350,23 @@ const updateCmd = Command.make(
     description: updateDescription,
     authoringStatus: updateAuthoringStatus,
     priority: updatePriority,
+    optional: updateOptional,
   },
-  ({ id: ref, title, description, authoringStatus, priority }) =>
+  ({ id: ref, title, description, authoringStatus, priority, optional }) =>
     Effect.gen(function* () {
       const id = yield* ref;
-      const titleValue = Option.getOrUndefined(title);
-      const descriptionValue = Option.getOrUndefined(description);
-      const statusValue = Option.getOrUndefined(authoringStatus);
-      const priorityValue = Option.getOrUndefined(priority);
+      const patch = lessonPatch({
+        title,
+        description,
+        authoringStatus,
+        priority,
+        optional,
+      });
+      const { title: titleValue, priority: priorityValue } = patch;
 
-      if (
-        titleValue === undefined &&
-        descriptionValue === undefined &&
-        statusValue === undefined &&
-        priorityValue === undefined
-      ) {
+      if (Object.keys(patch).length === 0) {
         return yield* parseError(
-          "update needs at least one of --title, --description, --authoring-status or --priority",
+          "update needs at least one of --title, --description, --authoring-status, --priority or --optional",
           "lesson"
         );
       }
@@ -385,14 +394,7 @@ const updateCmd = Command.make(
 
       yield* assertDraftLesson(lesson);
 
-      yield* svc.updateLesson(id, {
-        ...(titleValue !== undefined ? { title: titleValue } : {}),
-        ...(descriptionValue !== undefined
-          ? { description: descriptionValue }
-          : {}),
-        ...(statusValue !== undefined ? { authoringStatus: statusValue } : {}),
-        ...(priorityValue !== undefined ? { priority: priorityValue } : {}),
-      });
+      yield* svc.updateLesson(id, patch);
 
       const updated = yield* svc.getLessonWithHierarchyById(id);
       yield* emitObject(updated);

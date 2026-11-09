@@ -20,7 +20,6 @@ import {
   CourseJsonSectionSchema,
   type CourseJsonDocument,
   type CourseJsonSchemaVersion,
-  type CourseJsonV4Document,
 } from "./course-json-schema";
 import {
   computeLessonWarnings,
@@ -147,6 +146,8 @@ type InputLesson = {
   authoringStatus: string | null;
   // The Lesson Priority band the Placeholder Floor is compared against.
   priority: number;
+  // An Optional Lesson: its node carries `"optional": true`, and only then.
+  optional: boolean;
   videos: InputVideo[];
 };
 
@@ -298,7 +299,8 @@ export const collectPublishBlockers = (
 
 /**
  * The manifest version this release needs: the lowest version that can say
- * everything in it (ADR 0059). A release holding a Text Lesson needs 5; every
+ * everything in it (ADR 0059). A release holding a Text Lesson or an Optional
+ * Lesson needs 5; every
  * other release is stamped 4 and is byte-for-byte the manifest it was before
  * version 5 existed. The Dropbox publish reads this to pick the sidecar (and
  * so the Bundle address) before the manifest is built, and `buildCourseJson`
@@ -315,10 +317,10 @@ export const courseJsonSchemaVersion = (
     input.includeTodoLessons,
     input.placeholderFloor
   );
-  const holdsTextLesson = reached.some((section) =>
-    section.lessons.some(isTextLesson)
+  const needsVersion5 = reached.some((section) =>
+    section.lessons.some((lesson) => isTextLesson(lesson) || lesson.optional)
   );
-  return holdsTextLesson ? 5 : 4;
+  return needsVersion5 ? 5 : 4;
 };
 
 // ── Builder ─────────────────────────────────────────────────────────────
@@ -435,6 +437,10 @@ export const buildCourseJson = (
       const lessons: Array<typeof CourseJsonLessonSchema.Type> = [];
 
       for (const lesson of section.lessons) {
+        // `"optional": true` on an Optional Lesson's node, whichever member it
+        // is; nothing at all on a required one, so its bytes are unchanged.
+        const optionalKey = lesson.optional ? { optional: true as const } : {};
+
         const verdict = classifyLessonPublishStatus(lesson, {
           includeTodoLessons: input.includeTodoLessons,
           placeholderFloor: input.placeholderFloor,
@@ -450,6 +456,7 @@ export const buildCourseJson = (
             type: "placeholder",
             id: lesson.lineageId,
             title: lesson.title,
+            ...optionalKey,
           });
           continue;
         }
@@ -467,6 +474,7 @@ export const buildCourseJson = (
             type: "text",
             id: lesson.lineageId,
             title: lesson.title,
+            ...optionalKey,
             body: video!.body!,
             description: video!.description!,
           });
@@ -480,6 +488,7 @@ export const buildCourseJson = (
               type: "problem",
               id: lesson.lineageId,
               title: lesson.title,
+              ...optionalKey,
               problem: yield* makeVideoEntry(
                 selected.problem,
                 section.path,
@@ -496,6 +505,7 @@ export const buildCourseJson = (
               type: "problem",
               id: lesson.lineageId,
               title: lesson.title,
+              ...optionalKey,
               problem: yield* makeVideoEntry(
                 selected.problem,
                 section.path,
@@ -508,6 +518,7 @@ export const buildCourseJson = (
             type: "explainer",
             id: lesson.lineageId,
             title: lesson.title,
+            ...optionalKey,
             explainer: yield* makeVideoEntry(
               selected.video,
               section.path,
@@ -533,23 +544,13 @@ export const buildCourseJson = (
       });
     }
 
-    const header = {
+    return {
       $schema: `${input.assetBasePath}/course.schema.json`,
+      schemaVersion: courseJsonSchemaVersion(input),
       courseId: input.courseId,
       courseVersionId: input.courseVersionId,
       archiveTTL: "90d" as const,
       courseName: input.courseName,
+      sections,
     };
-    // Key order is part of the bytes: `schemaVersion` stays second, exactly
-    // where every version 4 manifest has always carried it.
-    const { $schema, ...rest } = header;
-    return courseJsonSchemaVersion(input) === 5
-      ? { $schema, schemaVersion: 5 as const, ...rest, sections }
-      : {
-          $schema,
-          schemaVersion: 4 as const,
-          ...rest,
-          // Version 4 cannot say "text", and this release holds none.
-          sections: sections as CourseJsonV4Document["sections"],
-        };
   });

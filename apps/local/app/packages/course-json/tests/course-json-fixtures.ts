@@ -82,6 +82,7 @@ export const makeLesson = (
   description: "",
   authoringStatus: null as string | null,
   priority: 2,
+  optional: false,
   ...overrides,
 });
 

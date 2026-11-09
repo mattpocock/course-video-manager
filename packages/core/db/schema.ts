@@ -194,6 +194,9 @@ export const lessons = createTable(
     priority: integer("priority").notNull().default(2),
     dependencies: text("dependencies").array(),
     authoringStatus: text("authoring_status"),
+    // An Optional Lesson: a learner may skip it and still finish the Course.
+    // It reaches course.json as `"optional": true`, and only when true.
+    optional: boolean("optional").notNull().default(false),
     createdAt: timestamp("created_at", {
       mode: "date",
       withTimezone: true,
