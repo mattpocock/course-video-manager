@@ -1,0 +1,91 @@
+{
+  "$schema": "versions/course-version-1-assets/course.schema.json",
+  "schemaVersion": 4,
+  "courseId": "course-1",
+  "courseVersionId": "course-version-1",
+  "archiveTTL": "90d",
+  "courseName": "Test Course",
+  "sections": [
+    {
+      "id": "section-lineage-01-intro",
+      "title": "Intro",
+      "lessons": [
+        {
+          "type": "explainer",
+          "id": "lesson-lineage-01.01-welcome",
+          "title": "Welcome",
+          "explainer": {
+            "id": "vid-lineage-Explainer",
+            "relativePath": "versions/course-version-1-assets/01-intro/01.01-welcome/Explainer.mp4",
+            "body": "Video body",
+            "description": "Video description",
+            "hash": "f9b521ee7f55723f9208fbb3b9388311",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "bytes": 123,
+            "chapters": [
+              {
+                "title": "Intro",
+                "startTime": 0
+              },
+              {
+                "title": "Start",
+                "startTime": 10
+              }
+            ]
+          }
+        },
+        {
+          "type": "placeholder",
+          "id": "lesson-lineage-01.02-unfilmed",
+          "title": "Unfilmed"
+        }
+      ]
+    },
+    {
+      "id": "section-lineage-02-practice",
+      "title": "Practice",
+      "lessons": [
+        {
+          "type": "problem",
+          "id": "lesson-lineage-02.01-pair",
+          "title": "Pair",
+          "problem": {
+            "id": "vid-lineage-Problem",
+            "relativePath": "versions/course-version-1-assets/02-practice/02.01-pair/Problem.mp4",
+            "body": "Video body",
+            "description": "Video description",
+            "hash": "f9b521ee7f55723f9208fbb3b9388311",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "bytes": 123,
+            "chapters": []
+          },
+          "solution": {
+            "id": "vid-lineage-Solution",
+            "relativePath": "versions/course-version-1-assets/02-practice/02.01-pair/Solution.mp4",
+            "body": "Video body",
+            "description": "Video description",
+            "hash": "f9b521ee7f55723f9208fbb3b9388311",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "bytes": 123,
+            "chapters": []
+          }
+        },
+        {
+          "type": "problem",
+          "id": "lesson-lineage-02.02-alone",
+          "title": "Alone",
+          "problem": {
+            "id": "vid-lineage-Problem",
+            "relativePath": "versions/course-version-1-assets/02-practice/02.02-alone/Problem.mp4",
+            "body": "Video body",
+            "description": "Video description",
+            "hash": "f9b521ee7f55723f9208fbb3b9388311",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "bytes": 123,
+            "chapters": []
+          }
+        }
+      ]
+    }
+  ]
+}

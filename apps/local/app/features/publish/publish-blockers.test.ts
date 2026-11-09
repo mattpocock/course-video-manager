@@ -343,7 +343,8 @@ describe("the publish page's Placeholder Floor cards", () => {
     const result = statuses(
       [
         lesson("no-video", { videos: [] }),
-        lesson("no-clips", { videos: [video({ clips: 0 })] }),
+        // Beside a filmed Video: alone, with a Body, it is a Text Lesson.
+        lesson("no-clips", { videos: [video(), video({ clips: 0 })] }),
         lesson("no-body", { videos: [video({ body: null })] }),
         lesson("unmarked", { authoringStatus: "todo" }),
       ],

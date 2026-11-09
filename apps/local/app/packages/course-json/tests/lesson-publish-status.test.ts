@@ -3,6 +3,7 @@ import {
   ANNOUNCE_NOTHING,
   ANNOUNCE_NOTHING_BAND,
   classifyLessonPublishStatus,
+  isTextLesson,
   lessonHardGaps,
   placeholderFloorFromBand,
   type LessonPublishStatus,
@@ -52,9 +53,16 @@ const GAP_CASES = [
     hardGap: true,
     videos: [video({ archived: true })],
   },
+  // A clipless Video is a hard gap only beside another Video. Alone, with a
+  // Body, it is a Text Lesson, which ships (see below).
   {
-    name: "a video with no clips",
+    name: "a second video with no clips",
     hardGap: true,
+    videos: [video(), video({ clips: [] })],
+  },
+  {
+    name: "a text lesson",
+    hardGap: false,
     videos: [video({ clips: [] })],
   },
   {
@@ -243,7 +251,7 @@ describe("classifyLessonPublishStatus", () => {
 
   it("names the hard gaps on a lesson the to-do toggle withholds", () => {
     const verdict = classifyLessonPublishStatus(
-      lesson({ videos: [video({ clips: [] })] }),
+      lesson({ videos: [video(), video({ clips: [] })] }),
       { includeTodoLessons: false, placeholderFloor: ANNOUNCE_NOTHING }
     );
     expect(verdict).toEqual({
@@ -274,6 +282,53 @@ describe("the floor as a band", () => {
     expect(placeholderFloorFromBand(ANNOUNCE_NOTHING_BAND)).toBe(
       ANNOUNCE_NOTHING
     );
+  });
+});
+
+describe("a Text Lesson", () => {
+  const done = { authoringStatus: "done" };
+  const options = {
+    includeTodoLessons: true,
+    placeholderFloor: ANNOUNCE_NOTHING,
+  } as const;
+
+  it("ships when its only active video has no clips and has a body", () => {
+    const textLesson = lesson({ ...done, videos: [video({ clips: [] })] });
+    expect(label(classifyLessonPublishStatus(textLesson, options))).toBe(
+      "ships"
+    );
+    expect(isTextLesson(textLesson)).toBe(true);
+  });
+
+  it("ignores archived videos beside it", () => {
+    const textLesson = lesson({
+      ...done,
+      videos: [video({ clips: [] }), video({ archived: true })],
+    });
+    expect(isTextLesson(textLesson)).toBe(true);
+    expect(lessonHardGaps(textLesson)).toEqual([]);
+  });
+
+  it("is not a clipless video with no body, which stays a hard gap", () => {
+    const empty = lesson({
+      ...done,
+      videos: [video({ clips: [], body: " " })],
+    });
+    expect(isTextLesson(empty)).toBe(false);
+    expect(lessonHardGaps(empty)).toEqual(["no-clips", "no-body"]);
+  });
+
+  it("is not a lesson with two videos where one has no clips", () => {
+    const halfFilmed = lesson({
+      ...done,
+      videos: [video(), video({ clips: [] })],
+    });
+    expect(isTextLesson(halfFilmed)).toBe(false);
+    expect(lessonHardGaps(halfFilmed)).toEqual(["no-clips"]);
+  });
+
+  it("is not a filmed lesson", () => {
+    expect(isTextLesson(lesson({ ...done }))).toBe(false);
   });
 });
 

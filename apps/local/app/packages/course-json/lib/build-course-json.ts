@@ -11,6 +11,7 @@ import {
 } from "./effective-sections";
 import {
   classifyLessonPublishStatus,
+  isTextLesson,
   type PlaceholderFloor,
 } from "./lesson-publish-status";
 import {
@@ -18,6 +19,8 @@ import {
   CourseJsonLessonSchema,
   CourseJsonSectionSchema,
   type CourseJsonDocument,
+  type CourseJsonSchemaVersion,
+  type CourseJsonV4Document,
 } from "./course-json-schema";
 import {
   computeLessonWarnings,
@@ -186,9 +189,15 @@ export type BuildCourseJsonInput = {
 // The gaps that make a Video unshippable — no exportable clips, no body, or no
 // description. An empty result means the Video is complete and may be emitted.
 // This is the single gate that lets `toVideoEntry` treat every field as present.
-function videoGaps(video: InputVideo): IncompleteVideo["missing"] {
+//
+// A Text Lesson's Video has no clips by design (it ships no .mp4), so only its
+// body and description are checked.
+function videoGaps(
+  video: InputVideo,
+  textLesson: boolean
+): IncompleteVideo["missing"] {
   const missing: IncompleteVideo["missing"] = [];
-  if (video.clips.length === 0) missing.push("clips");
+  if (!textLesson && video.clips.length === 0) missing.push("clips");
   // Blank is absent, for both fields: an empty string is what the
   // `missingBody` / `missingDescription` lints read as missing, and what the
   // `no-body` hard gap reads as missing, so nothing here may read it as text.
@@ -267,8 +276,9 @@ export const collectPublishBlockers = (
         continue;
       }
 
+      const textLesson = isTextLesson(lesson);
       for (const video of shippingVideos(selectLessonVideos(activeVideos))) {
-        const missing = videoGaps(video);
+        const missing = videoGaps(video, textLesson);
         if (missing.length > 0) {
           incompleteVideos.push({
             sectionPath: section.path,
@@ -282,6 +292,33 @@ export const collectPublishBlockers = (
   }
 
   return { invalidLessonCombos, incompleteVideos };
+};
+
+// ── Schema version ──────────────────────────────────────────────────────
+
+/**
+ * The manifest version this release needs: the lowest version that can say
+ * everything in it (ADR 0059). A release holding a Text Lesson needs 5; every
+ * other release is stamped 4 and is byte-for-byte the manifest it was before
+ * version 5 existed. The Dropbox publish reads this to pick the sidecar (and
+ * so the Bundle address) before the manifest is built, and `buildCourseJson`
+ * reads it to stamp the manifest, so the two can never disagree.
+ */
+export const courseJsonSchemaVersion = (
+  input: Pick<
+    BuildCourseJsonInput,
+    "sections" | "includeTodoLessons" | "placeholderFloor"
+  >
+): CourseJsonSchemaVersion => {
+  const reached = computeEffectiveSections(
+    input.sections,
+    input.includeTodoLessons,
+    input.placeholderFloor
+  );
+  const holdsTextLesson = reached.some((section) =>
+    section.lessons.some(isTextLesson)
+  );
+  return holdsTextLesson ? 5 : 4;
 };
 
 // ── Builder ─────────────────────────────────────────────────────────────
@@ -420,6 +457,22 @@ export const buildCourseJson = (
         const activeVideos = lesson.videos.filter((v) => !v.archived);
         if (activeVideos.length === 0) continue;
 
+        // A TEXT LESSON: its one Video's Body and description, inline, and no
+        // video entry — it has no .mp4, so no receipt is asked for. Both
+        // fields are present: the body by the Text Lesson rule itself, the
+        // description by the gate at the top of this build.
+        if (isTextLesson(lesson)) {
+          const [video] = activeVideos;
+          lessons.push({
+            type: "text",
+            id: lesson.lineageId,
+            title: lesson.title,
+            body: video!.body!,
+            description: video!.description!,
+          });
+          continue;
+        }
+
         const selected = selectLessonVideos(activeVideos);
         if (selected.type === "problem") {
           if (selected.solution) {
@@ -480,13 +533,23 @@ export const buildCourseJson = (
       });
     }
 
-    return {
+    const header = {
       $schema: `${input.assetBasePath}/course.schema.json`,
-      schemaVersion: 4 as const,
       courseId: input.courseId,
       courseVersionId: input.courseVersionId,
       archiveTTL: "90d" as const,
       courseName: input.courseName,
-      sections,
     };
+    // Key order is part of the bytes: `schemaVersion` stays second, exactly
+    // where every version 4 manifest has always carried it.
+    const { $schema, ...rest } = header;
+    return courseJsonSchemaVersion(input) === 5
+      ? { $schema, schemaVersion: 5 as const, ...rest, sections }
+      : {
+          $schema,
+          schemaVersion: 4 as const,
+          ...rest,
+          // Version 4 cannot say "text", and this release holds none.
+          sections: sections as CourseJsonV4Document["sections"],
+        };
   });

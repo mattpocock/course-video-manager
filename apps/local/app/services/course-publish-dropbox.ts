@@ -3,7 +3,8 @@ import { FileSystem } from "@effect/platform";
 import {
   buildCourseJson,
   buildCourseJsonSchema,
-  computeShippingSections,
+  computeAssetSections,
+  courseJsonSchemaVersion,
   type PlaceholderFloor,
 } from "@/packages/course-json";
 import { computeBundleAddress } from "./course-publish-bundle-address";
@@ -99,10 +100,11 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
     versionId: input.courseVersionId,
   });
 
-  // The ASSET SET: only the Lessons that ship in full. A Placeholder Lesson
-  // contributes no .mp4, so its Videos must never reach the roster below —
-  // Publish would otherwise encode and upload a file no manifest names.
-  const shippingSections = computeShippingSections(
+  // The ASSET SET: only the Lessons that ship an .mp4. A Placeholder Lesson
+  // and a Text Lesson contribute none, so their Videos must never reach the
+  // roster below — Publish would otherwise encode and upload a file no
+  // manifest names.
+  const shippingSections = computeAssetSections(
     repoWithSections.sections,
     input.includeTodoLessons
   );
@@ -117,7 +119,20 @@ export const syncFrozenCourseVersionToDropbox = Effect.fn(
     storageRoots,
   });
 
-  const schemaJson = JSON.stringify(buildCourseJsonSchema(), null, 2);
+  // The sidecar of the version this manifest will be stamped with — the same
+  // pure decision `buildCourseJson` stamps by — so a Course with no Text
+  // Lesson keeps the version 4 sidecar, and with it its Bundle address.
+  const schemaJson = JSON.stringify(
+    buildCourseJsonSchema(
+      courseJsonSchemaVersion({
+        sections: repoWithSections.sections,
+        includeTodoLessons: input.includeTodoLessons,
+        placeholderFloor: input.placeholderFloor,
+      })
+    ),
+    null,
+    2
+  );
   const { assetBasePath } = computeBundleAddress({
     schemaJson,
     courseId: input.courseId,

@@ -313,7 +313,25 @@ export const setupUploads = async (opts?: {
       .where(eq(videosTable.id, videoId));
   };
 
-  return { course, version, videos, run, commit, sync, unfilm, refilm };
+  /**
+   * Make a seeded Video's Lesson a Text Lesson: take its Clips away and keep
+   * its `body`. The Lesson then ships as `type: "text"` and adds no .mp4.
+   */
+  const unclip = async (videoId: string) => {
+    await testDb.delete(clipsTable).where(eq(clipsTable.videoId, videoId));
+  };
+
+  return {
+    course,
+    version,
+    videos,
+    run,
+    commit,
+    sync,
+    unfilm,
+    refilm,
+    unclip,
+  };
 };
 
 /** A Lesson as the published `course.json` carries it. */

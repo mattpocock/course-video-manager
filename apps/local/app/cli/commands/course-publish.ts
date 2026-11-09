@@ -200,7 +200,8 @@ THE PLACEHOLDER FLOOR (--placeholders)
     A gap Autofill can close never makes a Lesson a Placeholder Lesson. Only
     three HARD GAPS count — no active Video, a Video with no Clips, a Video with
     no body. A missing description, missing Chapters and an unexported .mp4 are
-    not gaps at all.
+    not gaps at all. A Text Lesson (its only Video has no Clips and has a body)
+    is not missing its Clips: it ships as a written lesson, with no .mp4.
     A Lesson is all-or-nothing: one hard gap on any active Video decides the
     whole Lesson.
     The floor BEATS the to-do toggle inside the bands it names: a to-do,

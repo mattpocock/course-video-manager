@@ -14,8 +14,10 @@
 // There are two: `computeEffectiveSections` is every Lesson the release reaches
 // (shipping plus Placeholder Lessons — the manifest's tree), and
 // `computeShippingSections` is only the Lessons that ship in full (the asset
-// set). Anything that exports, uploads, gap-checks or Autofills a Video reads
-// the second; anything that describes the release reads the first.
+// set). Anything that gap-checks or Autofills a Video reads the second;
+// anything that exports or uploads one reads `computeAssetSections`, the
+// second less its Text Lessons; anything that describes the release reads
+// the first.
 //
 // `classifyLessonPublishStatus` is that one notion, stated once: it decides a
 // Lesson's Lesson Publish Status — `ships`, `placeholder` or `withheld`, with a
@@ -41,6 +43,7 @@
 export {
   buildCourseJson,
   collectPublishBlockers,
+  courseJsonSchemaVersion,
   IncompleteShippingVideoError,
   InvalidLessonRoleComboError,
   MissingVideoAssetReceiptError,
@@ -56,9 +59,14 @@ export {
   buildCourseJsonSchema,
   CourseJsonDocumentSchema,
   type CourseJsonDocument,
+  type CourseJsonSchemaVersion,
 } from "./lib/course-json-schema";
 
-export { computeEffectiveSections, computeShippingSections } from "./client";
+export {
+  computeAssetSections,
+  computeEffectiveSections,
+  computeShippingSections,
+} from "./client";
 
 // Through `./client`, not straight from `./lib/lesson-publish-status`, so this
 // surface has ONE definition and the two entry points cannot drift. Server-side
@@ -69,6 +77,7 @@ export {
   ANNOUNCE_NOTHING,
   ANNOUNCE_NOTHING_BAND,
   classifyLessonPublishStatus,
+  isTextLesson,
   lessonHardGaps,
   PLACEHOLDER_FLOOR_BANDS,
   placeholderFloorFromBand,

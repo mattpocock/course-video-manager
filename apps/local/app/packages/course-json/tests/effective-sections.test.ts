@@ -67,7 +67,7 @@ describe("computeEffectiveSections", () => {
   // announced one, so it has to reach this walk rather than being fixed inside
   // it (ADR 0029).
   it("withholds a lesson with a hard gap when the floor announces nothing", () => {
-    const gapped = lesson("done", [{ ...video(), clips: [] }]);
+    const gapped = lesson("done", [video(), { ...video(), clips: [] }]);
     expect(computeEffectiveSections([section([gapped])], true, NONE)).toEqual(
       []
     );
@@ -78,7 +78,7 @@ describe("computeEffectiveSections", () => {
   });
 
   it("keeps a lesson with a hard gap once the floor reaches its priority", () => {
-    const gapped = lesson("done", [{ ...video(), clips: [] }], 2);
+    const gapped = lesson("done", [video(), { ...video(), clips: [] }], 2);
     expect(computeEffectiveSections([section([gapped])], true, 1)).toEqual([]);
     expect(computeEffectiveSections([section([gapped])], true, 2)).toHaveLength(
       1
@@ -92,7 +92,7 @@ describe("computeEffectiveSections", () => {
     const sections = [
       section([
         lesson("done", [{ ...video(), body: null }], 1),
-        lesson("done", [{ ...video(), clips: [] }], 1),
+        lesson("done", [video(), { ...video(), clips: [] }], 1),
       ]),
     ];
     const result = computeEffectiveSections(sections, true, 1);
@@ -143,7 +143,7 @@ describe("computeShippingSections", () => {
     const sections = [
       section([
         lesson("done"),
-        lesson("done", [{ ...video(), clips: [] }]),
+        lesson("done", [video(), { ...video(), clips: [] }]),
         lesson("done", [{ ...video(), body: null }]),
         lesson("todo"),
       ]),
@@ -155,7 +155,10 @@ describe("computeShippingSections", () => {
 
   it("is unmoved by the floor that announces a gapped lesson", () => {
     const sections = [
-      section([lesson("done"), lesson("done", [{ ...video(), clips: [] }], 1)]),
+      section([
+        lesson("done"),
+        lesson("done", [video(), { ...video(), clips: [] }], 1),
+      ]),
     ];
     // The floor turns the gapped lesson into a Placeholder Lesson, which ships
     // no .mp4 — so this walk returns the same one lesson either way.

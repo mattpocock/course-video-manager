@@ -20,6 +20,7 @@ export {
   ANNOUNCE_NOTHING,
   ANNOUNCE_NOTHING_BAND,
   classifyLessonPublishStatus,
+  isTextLesson,
   lessonHardGaps,
   PLACEHOLDER_FLOOR_BANDS,
   placeholderFloorFromBand,
@@ -39,6 +40,7 @@ export {
 // `computeShippingSections` and is itself read by a component, which is the
 // second way the manifest builder used to reach the browser.
 export {
+  computeAssetSections,
   computeEffectiveSections,
   computeShippingSections,
 } from "./lib/effective-sections";

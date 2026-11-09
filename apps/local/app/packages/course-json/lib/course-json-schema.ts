@@ -235,65 +235,137 @@ const PlaceholderLessonSchema = Schema.Struct({
     "A Placeholder Lesson: a lesson announced by title alone. It carries no video, no body and no description, because nobody has filmed it yet. Exactly these three keys, never a fourth.",
 });
 
-export const CourseJsonLessonSchema = Schema.Union(
+const TextLessonSchema = Schema.Struct({
+  type: Schema.Literal("text").annotations({
+    description:
+      "Discriminant marking this lesson as a Text Lesson — a written lesson with no video.",
+  }),
+  id: Schema.String.annotations({
+    description:
+      "Stable lineage id of the lesson, carried across course versions. The same id the lesson carries if it is later filmed and ships as an explainer, so the consumer updates one resource rather than creating a second.",
+  }),
+  title: Schema.String.annotations({
+    description: "The lesson title shown to learners.",
+  }),
+  body: Schema.String.annotations({
+    description: "The lesson's article — for a Text Lesson, the whole lesson.",
+  }),
+  description: Schema.String.annotations({
+    description: "Short description of the lesson.",
+  }),
+}).annotations({
+  description:
+    "A Text Lesson: a lesson whose Video has no clips and has a body, so it ships as text alone. No video entry, and no .mp4 in the Bundle.",
+});
+
+// TWO VERSIONS OF THE DOCUMENT, chosen per manifest (ADR 0059). Version 4 is
+// exactly the contract every published Course already speaks, and a manifest
+// that needs nothing newer is still stamped and described by it, byte for
+// byte. Version 5 is a strict superset: version 4 plus the Text Lesson. A
+// manifest is stamped 5 only when it holds something version 4 cannot say.
+
+const lessonUnion = <Members extends ReadonlyArray<Schema.Schema.Any>>(
+  ...members: Members
+) =>
+  Schema.Union(...members).annotations({
+    description: "A single learning unit within a section.",
+  });
+
+const sectionOf = <Lesson extends Schema.Schema.Any>(lesson: Lesson) =>
+  Schema.Struct({
+    id: Schema.String.annotations({
+      description:
+        "Stable lineage id of the section, carried across course versions.",
+    }),
+    title: Schema.String.annotations({
+      description: "The section title shown to learners.",
+    }),
+    lessons: Schema.Array(lesson).annotations({
+      description:
+        "The lessons this release carries in this section, in display order — the ones that ship in full and the ones announced as Placeholder Lessons.",
+    }),
+  }).annotations({
+    description: "A grouping of lessons within the course, in display order.",
+  });
+
+const documentOf = <Version extends 4 | 5, Section extends Schema.Schema.Any>(
+  version: Version,
+  section: Section
+) =>
+  Schema.Struct({
+    $schema: Schema.String.annotations({
+      description:
+        "Relative path to the JSON Schema describing this document (course.schema.json).",
+    }),
+    schemaVersion: Schema.Literal(version).annotations({
+      description: "Version of the course.json manifest format.",
+    }),
+    courseId: Schema.String.annotations({
+      description: "Stable identifier of the course this manifest snapshots.",
+    }),
+    courseVersionId: Schema.String.annotations({
+      description:
+        "Immutable Course Version identifier whose structure this manifest snapshots.",
+    }),
+    archiveTTL: Schema.Literal("90d").annotations({
+      description:
+        "Retention window for this immutable Course Version bundle, starting when the manifest is written to Dropbox. After this duration Course Builder may remove the bundle.",
+    }),
+    courseName: Schema.String.annotations({
+      description: "Human-readable name of the course.",
+    }),
+    sections: Schema.Array(section).annotations({
+      description: "The sections that ship in this course, in display order.",
+    }),
+  }).annotations({
+    title: "Course Manifest",
+    description:
+      "The published manifest of a course — an immutable snapshot of its sections, lessons, and videos, emitted alongside the exported .mp4 files at publish time.",
+  });
+
+const CourseJsonV4LessonSchema = lessonUnion(
   ExplainerLessonSchema,
   ProblemLessonSchema,
   PlaceholderLessonSchema
-).annotations({
-  description: "A single learning unit within a section.",
-});
+);
 
-export const CourseJsonSectionSchema = Schema.Struct({
-  id: Schema.String.annotations({
-    description:
-      "Stable lineage id of the section, carried across course versions.",
-  }),
-  title: Schema.String.annotations({
-    description: "The section title shown to learners.",
-  }),
-  lessons: Schema.Array(CourseJsonLessonSchema).annotations({
-    description:
-      "The lessons this release carries in this section, in display order — the ones that ship in full and the ones announced as Placeholder Lessons.",
-  }),
-}).annotations({
-  description: "A grouping of lessons within the course, in display order.",
-});
+export const CourseJsonLessonSchema = lessonUnion(
+  ExplainerLessonSchema,
+  ProblemLessonSchema,
+  PlaceholderLessonSchema,
+  TextLessonSchema
+);
 
-export const CourseJsonDocumentSchema = Schema.Struct({
-  $schema: Schema.String.annotations({
-    description:
-      "Relative path to the JSON Schema describing this document (course.schema.json).",
-  }),
-  schemaVersion: Schema.Literal(4).annotations({
-    description: "Version of the course.json manifest format.",
-  }),
-  courseId: Schema.String.annotations({
-    description: "Stable identifier of the course this manifest snapshots.",
-  }),
-  courseVersionId: Schema.String.annotations({
-    description:
-      "Immutable Course Version identifier whose structure this manifest snapshots.",
-  }),
-  archiveTTL: Schema.Literal("90d").annotations({
-    description:
-      "Retention window for this immutable Course Version bundle, starting when the manifest is written to Dropbox. After this duration Course Builder may remove the bundle.",
-  }),
-  courseName: Schema.String.annotations({
-    description: "Human-readable name of the course.",
-  }),
-  sections: Schema.Array(CourseJsonSectionSchema).annotations({
-    description: "The sections that ship in this course, in display order.",
-  }),
-}).annotations({
-  title: "Course Manifest",
-  description:
-    "The published manifest of a course — an immutable snapshot of its sections, lessons, and videos, emitted alongside the exported .mp4 files at publish time.",
-});
+export const CourseJsonSectionSchema = sectionOf(CourseJsonLessonSchema);
+
+const CourseJsonV4DocumentSchema = documentOf(
+  4,
+  sectionOf(CourseJsonV4LessonSchema)
+);
+
+const CourseJsonV5DocumentSchema = documentOf(5, CourseJsonSectionSchema);
+
+/** The manifest versions the CVM writes. */
+export type CourseJsonSchemaVersion = 4 | 5;
+
+/** Either version of the manifest; `schemaVersion` says which. */
+export const CourseJsonDocumentSchema = Schema.Union(
+  CourseJsonV4DocumentSchema,
+  CourseJsonV5DocumentSchema
+);
 
 export type CourseJsonDocument = typeof CourseJsonDocumentSchema.Type;
 
-// The JSON Schema sidecar (`course.schema.json`) generated from
-// `CourseJsonDocumentSchema`. A pure function of the schema — invariant across
-// courses and publishes — so callers can write it verbatim next to course.json.
-export const buildCourseJsonSchema = (): JSONSchema.JsonSchema7Root =>
-  JSONSchema.make(CourseJsonDocumentSchema);
+export type CourseJsonV4Document = typeof CourseJsonV4DocumentSchema.Type;
+
+// The JSON Schema sidecar (`course.schema.json`) generated from the document
+// schema of one version. A pure function of the version — invariant across
+// courses and publishes — so callers can write it verbatim next to a
+// course.json of that version. It feeds the Bundle address, which is why a
+// version 4 manifest must keep getting the version 4 sidecar, unchanged.
+export const buildCourseJsonSchema = (
+  version: CourseJsonSchemaVersion
+): JSONSchema.JsonSchema7Root =>
+  version === 4
+    ? JSONSchema.make(CourseJsonV4DocumentSchema)
+    : JSONSchema.make(CourseJsonV5DocumentSchema);
