@@ -287,8 +287,25 @@ describe("buildCourseJson – validation and filtering", () => {
     }),
   ];
 
-  it("withholds a lesson whose video has no exportable clips", async () => {
-    const result = await run(makeInput(gappedCourse({ clips: [] })));
+  // Beside a filmed Video, that is. A Video alone with no Clips and a Body is
+  // a Text Lesson, which ships (see course-json-text-lesson.test.ts).
+  it("withholds a lesson whose second video has no exportable clips", async () => {
+    const result = await run(
+      makeInput([
+        makeSection({
+          path: "01-intro",
+          lessons: [
+            makeLesson({
+              path: "01.01-welcome",
+              videos: [
+                makeVideo({ title: "Problem" }),
+                makeVideo({ title: "Solution", clips: [] }),
+              ],
+            }),
+          ],
+        }),
+      ])
+    );
     expect(result.sections).toEqual([]);
   });
 
@@ -576,7 +593,10 @@ describe("collectPublishBlockers", () => {
           lessons: [
             makeLesson({
               path: "01.01-welcome",
-              videos: [makeVideo({ title: "Explainer", clips: [] })],
+              videos: [
+                makeVideo({ title: "Problem" }),
+                makeVideo({ title: "Solution", clips: [] }),
+              ],
             }),
             makeLesson({
               path: "01.02-next",

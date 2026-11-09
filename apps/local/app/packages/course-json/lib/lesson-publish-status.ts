@@ -7,7 +7,10 @@
 // manifest are decided by the same walk and can never disagree.
 //
 // A HARD GAP is a gap Autofill cannot close. There are exactly three: the
-// Lesson has no active Video, a Video has no Clips, a Video has no `body`. A
+// Lesson has no active Video, a Video has no Clips, a Video has no `body`.
+// One exception to the second: a TEXT LESSON — a Lesson whose only active
+// Video has no Clips and has a `body` — is not missing its Clips. It is a
+// written lesson by design, and it ships with no .mp4 (ADR 0059). A
 // missing `description` and missing Chapters are NOT hard gaps, because
 // Autofill writes both — a gap Autofill can close never makes a Lesson a
 // Placeholder Lesson. An Unexported Video is not a gap either, because Publish
@@ -123,12 +126,30 @@ export type ClassifyLessonOptions = {
   readonly placeholderFloor: PlaceholderFloor;
 };
 
+const hasBody = (video: ClassifiableVideo): boolean => !!video.body?.trim();
+
+/**
+ * A Text Lesson: its only active Video has no Clips and has a `body`. It ships
+ * as a written lesson — the Body is the whole lesson — and adds no .mp4 to the
+ * Bundle. A Lesson with a second active Video is never one, so a half-filmed
+ * problem/solution pair keeps its `no-clips` hard gap.
+ */
+export const isTextLesson = (lesson: ClassifiableLesson): boolean => {
+  const activeVideos = lesson.videos.filter((video) => !video.archived);
+  return (
+    activeVideos.length === 1 &&
+    activeVideos[0]!.clips.length === 0 &&
+    hasBody(activeVideos[0]!)
+  );
+};
+
 /** Every hard gap on the Lesson, in a stable order. Empty means shippable. */
 export const lessonHardGaps = (
   lesson: ClassifiableLesson
 ): readonly LessonHardGap[] => {
   const activeVideos = lesson.videos.filter((video) => !video.archived);
   if (activeVideos.length === 0) return ["no-active-video"];
+  if (isTextLesson(lesson)) return [];
 
   const gaps: LessonHardGap[] = [];
   if (activeVideos.some((video) => video.clips.length === 0)) {
@@ -138,7 +159,7 @@ export const lessonHardGaps = (
   // way too, so a Video whose body is `""` must be a hard gap here — otherwise
   // it would ship, trip that lint, and refuse the release with no floor
   // position able to rescue it.
-  if (activeVideos.some((video) => !video.body?.trim())) {
+  if (activeVideos.some((video) => !hasBody(video))) {
     gaps.push("no-body");
   }
   return gaps;

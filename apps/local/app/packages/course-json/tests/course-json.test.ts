@@ -617,7 +617,9 @@ describe("buildCourseJson — Placeholder Lessons", () => {
         1
       )
     );
-    const sidecar = JSON.parse(JSON.stringify(buildCourseJsonSchema()));
+    const sidecar = JSON.parse(
+      JSON.stringify(buildCourseJsonSchema(doc.schemaVersion))
+    );
 
     // The version the consumer checks first is the version we stamp.
     expect(sidecar.properties.schemaVersion.enum).toEqual([doc.schemaVersion]);

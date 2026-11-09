@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 import { FileSystem } from "@effect/platform";
-import { computeShippingSections } from "@/packages/course-json";
+import { computeAssetSections } from "@/packages/course-json";
 import {
   computeExportHash,
   exportFilename,
@@ -65,8 +65,8 @@ const isKnownSoundExport = Effect.fn("isKnownSoundExport")(function* (
  * The shared walk behind batchExport and publish: which Videos a Course
  * Version ships under the given to-do toggle, titled
  * `section/lesson/videoTitle`. Withheld to-do Lessons' Videos are not
- * included, and neither are a Placeholder Lesson's — a Lesson that is only
- * announced ships no bytes.
+ * included, and neither are a Placeholder Lesson's or a Text Lesson's — a
+ * Lesson that is only announced, or only written, ships no bytes.
  *
  * Two rosters come out of one walk, because the two phases of a Publish need
  * different halves of it:
@@ -91,10 +91,10 @@ export const findShippingVideos = Effect.fn("findShippingVideos")(function* (
 
   const version = yield* versionOps.getVersionWithSections(versionId);
   const courseId = version.repo.id;
-  // Only the Lessons that SHIP in full: a Placeholder Lesson has no .mp4 in the
-  // Bundle, so its Videos must be absent from both rosters or Publish would
-  // encode and upload a file no manifest names.
-  const shippingSections = computeShippingSections(
+  // Only the Lessons that ship an .mp4: a Placeholder Lesson and a Text Lesson
+  // have none in the Bundle, so their Videos must be absent from both rosters
+  // or Publish would encode and upload a file no manifest names.
+  const shippingSections = computeAssetSections(
     version.sections,
     includeTodoLessons
   );

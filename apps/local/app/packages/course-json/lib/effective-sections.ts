@@ -15,12 +15,15 @@
 //     manifest's tree. It needs the Placeholder Floor, because the floor is
 //     what decides whether an unshippable Lesson is announced or withheld.
 //
-//   computeShippingSections — only the Lessons that ship IN FULL. This is the
-//     asset set: the .mp4 files uploaded, the Videos exported, the Videos
+//   computeShippingSections — only the Lessons that ship IN FULL: the Videos
 //     Autofill counts, and the Videos gap-checked. It takes no floor, because
 //     the floor can only ever turn a withheld Lesson into a Placeholder Lesson
 //     — it never makes an unshippable Lesson ship, so the shipping set is
 //     floor-independent by construction.
+//
+//   computeAssetSections — the shipping Lessons that ship an .mp4: the asset
+//     set, the Videos exported and uploaded. It is the shipping walk less its
+//     Text Lessons (ADR 0059), which ship their Body alone.
 //
 // The toggle never touches the frozen Published Version snapshot — these
 // filters affect only what reaches Dropbox and course.json, so withholding is
@@ -30,6 +33,7 @@
 import {
   ANNOUNCE_NOTHING,
   classifyLessonPublishStatus,
+  isTextLesson,
   type ClassifiableLesson,
   type PlaceholderFloor,
 } from "./lesson-publish-status";
@@ -113,3 +117,24 @@ export const computeShippingSections = <
     ANNOUNCE_NOTHING,
     (status) => status === "ships"
   );
+
+/**
+ * The release's ASSET SET: the shipping Lessons that ship an .mp4. A Text
+ * Lesson ships in full but has no Clips to export, so its Video must be absent
+ * from here or Publish would wait on, and upload, a file that cannot exist.
+ * Gap checks and Autofill keep reading `computeShippingSections`, so a Text
+ * Lesson is still description-checked and autofilled.
+ */
+export const computeAssetSections = <
+  L extends EffectiveLesson,
+  S extends EffectiveSection<L>,
+>(
+  sections: readonly S[],
+  includeTodoLessons: boolean
+): S[] =>
+  computeShippingSections<L, S>(sections, includeTodoLessons)
+    .map((section) => ({
+      ...section,
+      lessons: section.lessons.filter((lesson) => !isTextLesson(lesson)),
+    }))
+    .filter((section) => section.lessons.length > 0);
