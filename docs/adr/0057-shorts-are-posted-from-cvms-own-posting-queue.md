@@ -18,10 +18,10 @@ Matt wants to "live stream for an hour and end up with content for a week". A Sh
 4. **A Short is Posted only when both channels have it.** Each channel's post is still a Video Post.
 5. **The Slot Schedule is one pure function** in core, given `now`, the entries and the slot patterns, reading no clock and no database:
    - the day's count comes from the queue length at 00:00 UK time (Europe/London), worked out from the entries' `queued_at` and `ended_at`, so nothing is stored per day and a day CVM was off still has a known length;
-   - an empty queue at 00:00 gives the day no slot (#2612, as written: "an empty queue gives 0"); otherwise a weekday gets 1, 2 when more than 14 are queued, 3 when more than 21; Saturday and Sunday always 1. So a Short queued onto an empty queue goes out the next day;
+   - a weekday gets 1 slot, 2 when more than 14 are queued, 3 when more than 21; Saturday and Sunday always 1. An empty queue at 00:00 still gets the day's 1 slot, 13:00 (amended 2026-11-10, #2700), so a Short queued onto it that morning goes out the same day;
    - a slot posts the oldest Short in the queue AT the slot: a Short queued after a slot never takes it, even when the slot is still open;
    - slot times live in one constant: 1/day 13:00; 2/day 09:00 and 18:00; 3/day 09:00, 13:00 and 18:00, as UK wall-clock times turned into instants across the clock changes (none falls in the 01:00–02:00 hour the clocks skip or repeat);
-   - catch-up: a weekday after a day that had a Short to post (one was in the queue at its first slot) and claimed no slot takes the next pattern up, one extra Short at most, and 3 stays 3. Monday looks back over Friday, Saturday and Sunday; the weekend never catches up;
+   - there is no catch-up (removed 2026-11-10, #2700): a day's count depends only on its own queue length at 00:00, never on whether an earlier day posted;
    - a slot missed earlier in the day is claimed at the next check, one claim per check and only once the previous claim has settled; a slot not claimed by the end of its UK day is dropped.
      The same function answers "what is due now?" for the Sidecar and "when does each Queued Short go out?" for `cvm short queue`, `cvm short post --dry-run` and the Shorts page, so they cannot disagree.
 6. **Order is oldest first**, by a Fractional Index that moving a Short changes.
@@ -46,8 +46,16 @@ Matt wants to "live stream for an hour and end up with content for a week". A Sh
 Matt reversed the "no post now" call: "Can you post junior engineers now?" `cvm short post --now <videoId…>` marks a Short **Post Now**: one already Queued is marked, one not in the queue is checked and queued as usual and marked too; a Posting or Held Short is refused (it has its slot).
 
 - **The decision stays in the pure Slot Schedule.** An entry carries `postNowAt`. `dueNow` claims the earliest-asked Post Now entry, at `now`, before any due slot, and still only once the previous claim settled: one post per check. `projectPostingQueue` puts Post Now entries first, at `now`, and walks the days without them, so `cvm short queue`, `--dry-run` and the Queue panel show what the tick will do, and every other Short moves up by exactly one place.
-- **It claims no Posting Slot.** Its `claimedSlot` is the tick's instant. A day's claims now count only claims of that day's Posting Slot instants, so a Post Now is one extra post: it takes no slot from the Short due at it, and a day whose slot then went unclaimed is still missed and still brings catch-up.
+- **It claims no Posting Slot.** Its `claimedSlot` is the tick's instant. A day's claims now count only claims of that day's Posting Slot instants, so a Post Now is one extra post: it takes no slot from the Short due at it. (Catch-up, which this also kept counting a day as missed for, was removed on 2026-11-10.)
 - **No migration.** The request is stored on `claimed_at` of a QUEUED entry (`toScheduleEntry` reads it as `postNowAt`). Before this, only Posting and Held entries had a `claimedAt`, and every reader of it filters to those states, so an older Sidecar ignores the mark and posts the Short at its normal slot. The claim overwrites `claimedAt`, as it always has. The rest of the post path (just-in-time render, YouTube direct, Buffer "share now", retries, Held, Failed) is unchanged.
+
+## Amendment 2026-11-10: same-day slot, no catch-up (#2700)
+
+Matt's decisions of 2026-11-10, settled:
+
+- **An empty queue at 00:00 still gets the day's 13:00 Posting Slot.** As written in #2612 ("an empty queue gives 0"), a Short queued onto an empty queue in the morning waited for the next day. Now it goes out at 13:00 that day. A slot still posts only a Short queued before it: one queued at 14:00 waits for the next day's slot.
+- **Weekday catch-up is removed.** A missed weekday brings no extra post on the next one. The Slot Schedule now reads only today's history (its queue length at 00:00 and its claims), so `SLOT_SCHEDULE_HISTORY_DAYS` drops from 4 to 1.
+- Unchanged: retry only after a read-only post check, the slot times as a code constant, the one-time re-render of old exports, and Post Now. No migration.
 
 ## Considered
 
@@ -59,8 +67,8 @@ Matt reversed the "no post now" call: "Can you post junior engineers now?" `cvm 
 ## Consequences
 
 - An entry is never deleted while it can matter to the schedule: past days' queue lengths and claims are read from it.
-- The day's slots are fixed at 00:00, so Shorts queued onto an empty queue wait for the next day, and a stream queued at lunchtime only raises the day after's count.
+- The day's slots are fixed at 00:00, so a stream queued at lunchtime only raises the day after's count; a Short queued onto an empty queue before 13:00 still goes out that day.
 - Failed entries stay in `cvm short queue` and the Queue panel until they are taken off with `cvm short unqueue`, however long ago they failed.
-- A day whose queue stayed empty claimed nothing but missed nothing: it never triggers catch-up.
+- A day CVM was off at its slots loses those posts: a slot not claimed by the end of its UK day is dropped, and no later day makes it up.
 - A channel that keeps failing costs its Short at most 3 tries, then the queue moves on. A post whose outcome is unknown waits for Matt and never blocks the queue.
 - The `youtube-shorts` post check finds an upload by title, so two Shorts of the same title posted close together could confuse it. Held is the safety net.

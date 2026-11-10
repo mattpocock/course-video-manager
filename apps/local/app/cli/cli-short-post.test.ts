@@ -157,12 +157,12 @@ describe("cvm short post", () => {
 
     const result = await run(["short", "post", "--dry-run", a, landscape]);
 
-    // The queue was empty at 00:00, so today has no slot: tomorrow's 13:00.
+    // The queue was empty at 00:00, and today still has its 13:00 slot.
     expect(ndjson(result.stdout)).toEqual([
       expect.objectContaining({
         videoId: a,
         verdict: "queued",
-        goesOutAt: "Wed 2026-11-04 13:00",
+        goesOutAt: "Tue 2026-11-03 13:00",
       }),
       expect.objectContaining({
         videoId: landscape,
@@ -393,10 +393,10 @@ describe("cvm short post --now (#2692)", () => {
         ),
       },
     ]);
-    // Unchanged: Monday missed its slot, so Tuesday is 09:00 and 18:00.
+    // Unchanged: One, Two and Three keep their slots.
     expect(await queueOrder()).toEqual([
       "Going Tue 2026-11-03 09:00",
-      "One Tue 2026-11-03 18:00",
+      "One Tue 2026-11-03 13:00",
       "Two Wed 2026-11-04 13:00",
       "Three Thu 2026-11-05 13:00",
     ]);
@@ -607,7 +607,7 @@ describe("the Shorts page", () => {
       })
     );
     expect(queued).toEqual(preview.verdict);
-    expect(await queueOrder()).toEqual(["Generics Wed 2026-11-04 13:00"]);
+    expect(await queueOrder()).toEqual(["Generics Tue 2026-11-03 13:00"]);
     // The CLI sees the entry the modal made, and refuses it again.
     expect((await run(["short", "post", a])).exitCode).toBe(3);
   });

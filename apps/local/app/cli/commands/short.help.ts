@@ -45,10 +45,8 @@ THE POSTING QUEUE:
   empty at 00:00. On weekdays more than 14 queued at 00:00 gives 2 (09:00,
   18:00) and more than 21 gives 3 (09:00, 13:00, 18:00); Saturday and Sunday
   always 1. A slot posts the oldest Short queued at that time: one queued
-  after 13:00 on a one-a-day day goes out the next day. A weekday after a day
-  that had a Short to post and posted nothing takes the next pattern up
-  (catch-up; Monday looks back over the weekend). At a
-  slot this machine's Sidecar posts the oldest Queued Short to YouTube
+  after 13:00 on a one-a-day day goes out the next day. A missed day is not
+  made up: there is no catch-up. At a slot this machine's Sidecar posts the oldest Queued Short to YouTube
   (public, direct) and to TikTok (through Buffer, "share now").`;
 
 export const RENDER_HELP = `Render a Short's vertical file into finished-videos/ and print its path.
@@ -132,8 +130,9 @@ when each goes out. Prints one NDJSON line per Short:
   { videoId, title, verdict: "queued" | "refused", reason, slot, goesOutAt }
 'slot' is the ISO instant, 'goesOutAt' the UK wall-clock time ("Wed
 2026-11-04 13:00"). A slot already missed today shows as now: it goes out at
-the Sidecar's next check. A day's slots are set by the queue at 00:00 UK, so a
-Short queued onto an empty queue goes out the next day.
+the Sidecar's next check. A day's slots are set by the queue at 00:00 UK; an
+empty queue still gets 13:00, so a Short queued onto it that morning goes out
+that day.
 
 Nothing is posted here: the Sidecar posts each Short at its Posting Slot. A
 Short is checked before it is queued; it needs a title of its own and a
