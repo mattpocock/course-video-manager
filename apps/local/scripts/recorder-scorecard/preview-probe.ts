@@ -78,6 +78,7 @@ const tick = () => {
       last = v;
       window.__latencies.push((((drawnAt % MOD) - v) % MOD + MOD) % MOD);
     })
+    // A failed copy drops this one reading; the details' frame count shows it.
     .catch(() => {})
     .finally(() => f.close());
 };

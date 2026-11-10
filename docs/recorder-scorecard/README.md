@@ -12,7 +12,7 @@ pnpm recorder:scorecard --quick    # 60 s take, 10 cycles, 3 preview kills, ~6 m
   [--only <scenario,…>]  # idle, longTake, previewKill, eventLogFailure, stillsMidTake, streamed, cycles, crash
 ```
 
-The command runs under `nice -n 19 taskset -c 6-9`. The baseline is in [`baseline/`](./baseline/): a run on 2026-11-04, `584bfdd4`, with camera.mkv's frames on its ticks (#2442). Its camera preview latency tails are within that night's main-vs-main spread, not a change (#2440 makes the probe's tails noisy). It was run in three parts, merged into one report: `--only idle,longTake --long-take 360`, then `--only previewKill,eventLogFailure,crash`, then `--only cycles`. Each part has full-mode cycles and fault repeats, but the long take is 360 s, not 600 s, so that each part fits an agent's 600 s foreground limit. To compare a run with it, diff the two `scorecard.json` files: each metric sits on its own line, in a fixed order. The `ranking` list names the failing metrics, worst first.
+The command runs under `nice -n 19 taskset -c 6-9`. The baseline is in [`baseline/`](./baseline/): a run on 2026-11-04, `584bfdd4`, with camera.mkv's frames on its ticks (#2442). Its preview latencies were read by the old probe, before #2440 and #2675, so they are not comparable with a run today: judge those as in "Judging preview metrics" below. It was run in three parts, merged into one report: `--only idle,longTake --long-take 360`, then `--only previewKill,eventLogFailure,crash`, then `--only cycles`. Each part has full-mode cycles and fault repeats, but the long take is 360 s, not 600 s, so that each part fits an agent's 600 s foreground limit. To compare a run with it, diff the two `scorecard.json` files: each metric sits on its own line, in a fixed order. The `ranking` list names the failing metrics, worst first.
 
 ## What it runs
 
@@ -82,6 +82,15 @@ Only a real-device take (#2463's ship gate) proves those.
 - **Synthetic sources.** The synthetic camera never repeats frames, but the real Cam Link does (ADR 0042). CPU figures include the cost of making the synthetic pictures.
 - **Drops and repeats.** These are read from each frame's index, never its clock (#2239). The source runs inside the capture process at Idle priority; when it is starved it makes its late frames back to back, so the clock jumps and bunches with no frame lost. Those jumps are reported as `sourceStalls` in the details: on a real Cam Link a capture stall sits in dshow's buffer.
 - **Footage location.** Footage goes to WSL's own disk, while Matt's real footage goes to a Windows drive. Finalisation times therefore include the `\\wsl.localhost` share.
+
+## Judging preview metrics
+
+Preview latency is the Windows time at the first animation frame that has a decoded frame to draw, less the time burned into it (`preview-probe.ts`).
+
+- **The probe reads the decoded frame (#2440).** It copies only the clock's rows out of each `VideoFrame` (`copyTo`), once per new frame, and draws nothing. It used to `drawImage` every 4K camera frame into a software canvas, about 31 ms a frame on cores 6-9, so it drew only about 6 of the camera's 30 fps and its tail tracked the machine's load, not the recorder.
+- **Each latency is the median of 5 s windows (#2675).** Idle has 6 windows after a 2 s warm-up; the long take has every window from 1.5 s after Record. A burst of machine load moves one window, not the median. Each window's p95, and every frame pooled, are in the details (`windowP95sMs`, `p95RangeMs`, `pooled`).
+- **A Record's preview gap is judged over many Records.** `preview_gap_on_record_ms` is one maximum, from the long take's one Record. `cycles_preview_gap_on_record_p50_ms` and `_p90_ms` are over every Record of the cycles scenario (50 in full mode), and they are the ones to judge a change on.
+- **Compare with main on the same night, never with the baseline.** Run `--only idle,longTake` at least three times on main and three on the branch, one after another on the same machine. Call it a change only when the two sides' ranges do not overlap.
 
 ## For an agent fixing the worst gap
 
