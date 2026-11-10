@@ -8,8 +8,8 @@ import {
 } from "../time/london-time.js";
 
 /**
- * The Slot Schedule: the rule that turns the Posting Queue's length, the date
- * and the queue's history into a UK day's Posting Slots (ADR 0057).
+ * The Slot Schedule: the rule that turns the Posting Queue's length at 00:00
+ * UK time, and the date, into a UK day's Posting Slots (ADR 0057).
  *
  * Pure: it is GIVEN `now`, the entries and the patterns, and reads no clock
  * and no database. It answers two questions from the same rules, so the
@@ -60,7 +60,7 @@ export type SlotScheduleEntry = {
 };
 
 /** How many Posting Slots a UK day has. */
-type SlotCount = 0 | 1 | 2 | 3;
+type SlotCount = 1 | 2 | 3;
 
 /** UK wall-clock slot times for a day of 1, 2 and 3 Posting Slots. */
 export type SlotPatterns = Readonly<Record<1 | 2 | 3, ReadonlyArray<string>>>;
@@ -77,8 +77,11 @@ const TWO_A_DAY_ABOVE = 14;
 /** …and more than this, 3. */
 const THREE_A_DAY_ABOVE = 21;
 
-/** How far back history can matter: Monday looks back to Friday. */
-export const SLOT_SCHEDULE_HISTORY_DAYS = 4;
+/**
+ * How far back history can matter: only today's 00:00 and today's claims,
+ * so one day (a UK day can be 25 hours long) is enough.
+ */
+export const SLOT_SCHEDULE_HISTORY_DAYS = 1;
 
 export type SlotScheduleInput = {
   readonly now: number;
@@ -118,16 +121,10 @@ const isWeekend = (date: LondonDate) => {
   return day === 0 || day === 6;
 };
 
-/** The days a weekday's catch-up looks back over: Monday's are Fri–Sun. */
-const lookbackDays = (date: LondonDate): LondonDate[] =>
-  londonWeekday(date) === 1
-    ? [-3, -2, -1].map((n) => addLondonDays(date, n))
-    : [addLondonDays(date, -1)];
-
 /**
- * The walk both questions share. Past days and today are read from history;
- * days after today are simulated: each Posting Slot takes the head of the
- * queue, a Posting entry is taken to settle, and a Held one stays.
+ * The walk both questions share. Today is read from history; days after
+ * today are simulated: each Posting Slot takes the head of the queue, a
+ * Posting entry is taken to settle, and a Held one stays.
  */
 const walk = ({ now, entries, patterns }: SlotScheduleInput) => {
   const today = londonDateOf(now);
@@ -139,80 +136,34 @@ const walk = ({ now, entries, patterns }: SlotScheduleInput) => {
       (e) => e.queuedAt < ms && (e.endedAt === null || e.endedAt > ms)
     ).length;
 
-  /**
-   * History: how many Posting Slots on `date` were claimed. A Post Now
-   * claimed the instant it went out, never a Posting Slot, so it is not
-   * counted: it is one extra post, and its day can still be missed.
-   */
-  const claimedOn = (date: LondonDate) => {
-    const slots = new Set(
-      Object.values(patterns)
-        .flat()
-        .map((hhmm) => londonInstant(date, hhmm))
-    );
-    return entries.filter(
-      (e) => e.claimedSlot !== null && slots.has(e.claimedSlot)
-    ).length;
-  };
-
   const postNow = postNowQueue(entries);
   /** Queued entries that wait for a Posting Slot, in queue order. */
   const queued = entries
     .filter((e) => e.state === "queued" && e.postNowAt === null)
     .sort(byOrder);
   const held = entries.filter((e) => e.state === "held").length;
-  const simulatedClaims = new Map<LondonDate, number>();
   /** Queued entries the walk has not given a slot yet, in queue order. */
   const remaining = [...queued];
 
-  const isHistory = (date: LondonDate) => londonMidnight(date) <= todayStart;
-
   const queueLengthAt = (date: LondonDate) =>
-    isHistory(date) ? liveAt(londonMidnight(date)) : held + remaining.length;
-
-  const claimsOn = (date: LondonDate) =>
-    claimedOn(date) + (simulatedClaims.get(date) ?? 0);
+    londonMidnight(date) <= todayStart
+      ? liveAt(londonMidnight(date))
+      : held + remaining.length;
 
   /**
-   * The day's count before catch-up, from its queue length at 00:00: an
-   * empty queue gives 0, so a Short queued onto it waits for the next day.
+   * The day's count, from its queue length at 00:00. An empty queue still
+   * gives the day its 13:00 slot, so a Short queued onto it that morning goes
+   * out that day. A missed day adds nothing to the next: there is no
+   * catch-up.
    */
-  const baseCount = (date: LondonDate): SlotCount => {
+  const slotCount = (date: LondonDate): SlotCount => {
     const length = queueLengthAt(date);
-    if (length === 0) return 0;
     if (isWeekend(date)) return 1;
     return length > THREE_A_DAY_ABOVE ? 3 : length > TWO_A_DAY_ABOVE ? 2 : 1;
   };
 
-  /**
-   * Whether `date` had a Short to post: it had a slot, and a Short was in
-   * the queue at its first one. A day whose queue emptied before then
-   * claimed nothing, but missed nothing.
-   */
-  const hadAShortToPost = (date: LondonDate) => {
-    const base = baseCount(date);
-    if (base === 0) return false;
-    return isHistory(date)
-      ? liveAt(londonInstant(date, patterns[base][0]!)) > 0
-      : true;
-  };
-
-  /** Catch-up adds one slot to a weekday with any (3 stays 3). */
-  const slotCount = (date: LondonDate): SlotCount => {
-    const base = baseCount(date);
-    if (base === 0 || isWeekend(date)) return base;
-    const missed = lookbackDays(date).some(
-      (day) => hadAShortToPost(day) && claimsOn(day) === 0
-    );
-    return missed ? (Math.min(base + 1, 3) as 2 | 3) : base;
-  };
-
-  const slotsOn = (date: LondonDate): number[] => {
-    const count = slotCount(date);
-    return count === 0
-      ? []
-      : patterns[count].map((hhmm) => londonInstant(date, hhmm));
-  };
+  const slotsOn = (date: LondonDate): number[] =>
+    patterns[slotCount(date)].map((hhmm) => londonInstant(date, hhmm));
 
   /** Today's slots no entry has claimed yet, in time order. */
   const openSlotsToday = () => {
@@ -235,26 +186,24 @@ const walk = ({ now, entries, patterns }: SlotScheduleInput) => {
       entryId: e.id,
       slot: now,
     }));
-    const take = (date: LondonDate, slot: number) => {
+    const take = (slot: number) => {
       const next = takerOf(slot, remaining);
       if (!next) return;
       remaining.splice(remaining.indexOf(next), 1);
       projected.push({ entryId: next.id, slot: Math.max(slot, now) });
-      simulatedClaims.set(date, (simulatedClaims.get(date) ?? 0) + 1);
     };
 
     for (const slot of openSlotsToday()) {
       if (remaining.length === 0) break;
-      take(today, slot);
+      take(slot);
     }
-    // Every simulated day with a Short left has at least one slot, and every
-    // queued Short was queued before it, so the walk ends within
-    // `queued.length` days.
+    // Every simulated day has at least one slot, and every queued Short was
+    // queued before it, so the walk ends within `queued.length` days.
     for (let day = 1; remaining.length > 0 && day <= queued.length + 7; day++) {
       const date = addLondonDays(today, day);
       for (const slot of slotsOn(date)) {
         if (remaining.length === 0) break;
-        take(date, slot);
+        take(slot);
       }
     }
     // Slots are walked in time order, so this is posting order. It can
@@ -275,7 +224,7 @@ export const projectPostingQueue = (
  * entry at `now`, or else today's earliest due slot for
  * the oldest Short queued at that slot — one claim per check, and only once
  * the previous claim has settled — or nothing. A slot not claimed by the end
- * of its UK day is dropped; catch-up is how a lost day comes back.
+ * of its UK day is dropped: a lost day is not made up.
  */
 export const dueNow = (input: SlotScheduleInput): DueNow => {
   const schedule = walk(input);

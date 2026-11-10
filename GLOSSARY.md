@@ -474,7 +474,7 @@ A time of day when the head of the **Posting Queue** is posted.
 _Avoid_: Schedule slot, Time slot
 
 **Slot Schedule**:
-The rule that decides how many **Posting Slots** a day gets, and when they are.
+The rule that decides how many **Posting Slots** a day gets, and when they are, from the **Posting Queue**'s length at 00:00 UK time. Every day gets at least one (13:00), even when the queue was empty at 00:00; a missed day is not made up.
 _Avoid_: Posting schedule, Buffer schedule
 
 ### Deliverables and scheduling

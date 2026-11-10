@@ -91,8 +91,8 @@ export const toScheduleEntry = (
 
 /**
  * Every entry the Slot Schedule needs at `now`: the live ones, and those that
- * ended recently enough for their day's queue length or claim to matter
- * (catch-up looks back at most to last Friday).
+ * ended recently enough for today's queue length at 00:00 or today's claims
+ * to matter.
  */
 export const selectScheduleRows = (db: Database, now: number) =>
   makeDbCall(() =>
