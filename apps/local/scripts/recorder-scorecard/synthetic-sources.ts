@@ -42,6 +42,12 @@ const BLOCK_HEIGHT = 28;
 const PAD_X = (CLOCK_WIDTH - GRID_COLUMNS * BLOCK_WIDTH) / 2;
 const PAD_Y = (CLOCK_HEIGHT - GRID_ROWS * BLOCK_HEIGHT) / 2;
 
+/**
+ * The share of the frame's height above the clock's last row's bottom edge:
+ * the preview probe copies only these rows out of each decoded frame.
+ */
+export const CLOCK_SHARE = (PAD_Y + CLOCK_ROWS * BLOCK_HEIGHT) / CLOCK_HEIGHT;
+
 /** Centre of grid block `k` (row-major) in the 320x180 frame. */
 const blockCentre = (k: number) => ({
   x: PAD_X + (k % GRID_COLUMNS) * BLOCK_WIDTH + BLOCK_WIDTH / 2,

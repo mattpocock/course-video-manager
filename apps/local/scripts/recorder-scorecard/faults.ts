@@ -61,6 +61,7 @@ export const cycles = async (ctx: Ctx, n: number) => {
   const before = await footprint(ctx);
   const acks: number[] = [];
   const finals: number[] = [];
+  const recordGaps: number[] = [];
   const failures: string[] = [];
   let pid = await capturePid(ctx);
   const firstPid = pid;
@@ -76,6 +77,13 @@ export const cycles = async (ctx: Ctx, n: number) => {
       });
       acks.push(take.ackMs);
       finals.push(take.stopToFinalMs);
+      // The camera preview's longest gap around this Record, up to its Stop.
+      recordGaps.push(
+        ctx.feeds.camera.longestGap(
+          take.pressAt - 500,
+          Math.min(take.pressAt + 2500, take.stopAt)
+        )
+      );
       if (take.stopped.reason !== "requested")
         failures.push(`cycle ${i + 1}: stopped ${take.stopped.reason}`);
     } catch (e) {
@@ -109,6 +117,14 @@ export const cycles = async (ctx: Ctx, n: number) => {
   ctx.measured.cycles_memory_growth_mb = after.memoryMb - before.memoryMb;
   ctx.measured.cycles_record_ack_p90_ms = percentile(acks, 0.9);
   ctx.measured.cycles_stop_final_p90_ms = percentile(finals, 0.9);
+  ctx.measured.cycles_preview_gap_on_record_p50_ms = percentile(
+    recordGaps,
+    0.5
+  );
+  ctx.measured.cycles_preview_gap_on_record_p90_ms = percentile(
+    recordGaps,
+    0.9
+  );
   ctx.details.cycles = {
     n,
     failures,
@@ -125,6 +141,12 @@ export const cycles = async (ctx: Ctx, n: number) => {
       p50: percentile(finals, 0.5),
       p90: percentile(finals, 0.9),
       max: percentile(finals, 1),
+    },
+    previewGapOnRecordMs: {
+      p50: percentile(recordGaps, 0.5),
+      p90: percentile(recordGaps, 0.9),
+      max: percentile(recordGaps, 1),
+      over100: recordGaps.filter((g) => g > 100).length,
     },
     firstTenAckMs: acks.slice(0, 10).map(Math.round),
     lastTenAckMs: acks.slice(-10).map(Math.round),
