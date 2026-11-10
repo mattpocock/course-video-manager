@@ -5,6 +5,7 @@ import { useRequestCreateBeat } from "@/features/beats/create-beat-dialog";
 import { useVideoDialogs } from "@/features/video-menu/video-dialogs";
 import { videoMenuGroups } from "@/features/video-menu/video-menu";
 import { Suspense, use, type ReactNode } from "react";
+import { toast } from "@/components/ui/toast";
 import type { useFetcher } from "react-router";
 import type { LoaderData, Section, Lesson, Video } from "./course-view-types";
 import { useAutofillChaptersAction } from "./autofill-chapters-context";
@@ -83,11 +84,16 @@ function VideoMenu({
       menu="context"
       entity={{ type: "video", id: video.id }}
       groups={videoMenuGroups({
-        revealInFileSystem: () =>
-          revealVideoFetcher.submit(
-            {},
-            { method: "post", action: `/api/videos/${video.id}/reveal` }
-          ),
+        revealInFileSystem: () => {
+          revealVideoFetcher
+            .submit(
+              {},
+              { method: "post", action: `/api/videos/${video.id}/reveal` }
+            )
+            .catch(() => {
+              toast.error("Failed to reveal the video in the file system");
+            });
+        },
         ...(canEdit && {
           rename: () =>
             dispatch({

@@ -29,6 +29,7 @@ export function DiagramRail({
   onCreateDiagram,
   onCopyContents,
   onDelete,
+  onRenameError,
 }: {
   diagrams: readonly RailDiagram[];
   activeDiagramId: string | undefined;
@@ -37,6 +38,7 @@ export function DiagramRail({
   onCreateDiagram: () => void;
   onCopyContents: (id: string) => void;
   onDelete: (id: string) => void;
+  onRenameError: (message: string) => void;
 }) {
   // Deleting archives the Diagram, and nothing in the app brings one back.
   const confirmDelete = useConfirmDelete<RailDiagram>({
@@ -99,6 +101,7 @@ export function DiagramRail({
                           (isActive ? "text-zinc-100" : "text-zinc-300")
                         }
                         inputClassName="w-full rounded bg-zinc-900 px-1 text-sm text-zinc-100 outline-none ring-1 ring-zinc-500"
+                        onRenameError={onRenameError}
                       />
                     </div>
                   </div>

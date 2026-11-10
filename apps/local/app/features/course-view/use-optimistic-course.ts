@@ -85,6 +85,9 @@ export function useCourseEditorFailureToast() {
                 return;
               }
               setDivergenceReport(message);
+            })
+            .catch(() => {
+              toast.error("Action failed — your change was reverted.");
             });
         } else {
           toast.error("Action failed — your change was reverted.");

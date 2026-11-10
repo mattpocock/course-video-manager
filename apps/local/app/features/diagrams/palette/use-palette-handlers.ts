@@ -86,7 +86,9 @@ export function usePaletteHandlers(opts: PaletteWiring): PaletteHandlers {
           return;
         }
         status.reportSuccess();
-        revalidator.revalidate();
+        revalidator.revalidate().catch(() => {
+          status.reportError("Failed to refresh after renaming the diagram");
+        });
       },
 
       onNewDiagram: handleCreateDiagram,
@@ -127,7 +129,11 @@ export function usePaletteHandlers(opts: PaletteWiring): PaletteHandlers {
           reloadScene(diagramId);
           return;
         }
-        navigate(`/diagram-playground/${target.diagramId}`);
+        Promise.resolve(
+          navigate(`/diagram-playground/${target.diagramId}`)
+        ).catch(() => {
+          status.reportError("Failed to open that diagram");
+        });
       },
     }),
     [

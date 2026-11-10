@@ -28,6 +28,18 @@ import { footagePlaybackFrame } from "./footage-playback-frame";
 import { useStillsWaitForVideo } from "./components/queued-still";
 import { usePreloadableClipReducer } from "./hooks/use-preloadable-clip-reducer";
 
+/**
+ * play() rejects when a pause or a new src interrupts it (AbortError); the
+ * next render plays it again, so nothing is lost. Anything else is a real
+ * failure, and is logged.
+ */
+const playVideo = (video: HTMLVideoElement) => {
+  video.play().catch((error: unknown) => {
+    if (error instanceof DOMException && error.name === "AbortError") return;
+    console.error("A Clip would not play", error);
+  });
+};
+
 const PRELOAD_PLAY_AMOUNT = 0.1;
 
 export const PreloadableClip = (props: {
@@ -139,7 +151,7 @@ export const PreloadableClip = (props: {
 
     if (preloadState === "preloading" && props.aggressivePreload) {
       ref.current.muted = true;
-      ref.current.play();
+      playVideo(ref.current);
       return;
     }
 
@@ -151,7 +163,7 @@ export const PreloadableClip = (props: {
     }
 
     if (isPlaying) {
-      ref.current.play();
+      playVideo(ref.current);
     } else {
       ref.current.pause();
     }

@@ -11,6 +11,7 @@ import { useFetcher } from "react-router";
 import { ChevronRight, Maximize2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { toast } from "@/components/ui/toast";
 import { scriptPreview } from "./section-scripts-utils";
 
 const SAVE_DEBOUNCE_MS = 700;
@@ -66,10 +67,14 @@ export function SectionScriptField({
 
   const persistScript = useCallback(
     (value: string) => {
-      saveFetcher.submit(
-        { intent: "updateScript", script: value },
-        { method: "post", action: `/api/videos/${videoId}/script` }
-      );
+      saveFetcher
+        .submit(
+          { intent: "updateScript", script: value },
+          { method: "post", action: `/api/videos/${videoId}/script` }
+        )
+        .catch(() => {
+          toast.error("Failed to save the script");
+        });
     },
     [saveFetcher, videoId]
   );

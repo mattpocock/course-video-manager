@@ -7,9 +7,15 @@ export function EditableDiagramName({
   className,
   inputClassName,
   onClickWhenIdle,
+  onRenameError,
 }: {
   diagramId: string;
   name: string;
+  /**
+   * The rename's request failed. Toasts are off on the Diagram Playground, so
+   * the page decides where the error goes (the status line, where it has one).
+   */
+  onRenameError: (message: string) => void;
   className?: string;
   inputClassName?: string;
   onClickWhenIdle?: (e: React.MouseEvent) => void;
@@ -37,10 +43,14 @@ export function EditableDiagramName({
       setEditing(false);
       return;
     }
-    fetcher.submit(
-      { name: trimmed },
-      { method: "post", action: `/api/diagrams/${diagramId}/update` }
-    );
+    fetcher
+      .submit(
+        { name: trimmed },
+        { method: "post", action: `/api/diagrams/${diagramId}/update` }
+      )
+      .catch(() => {
+        onRenameError("Failed to rename diagram");
+      });
     setEditing(false);
   };
 

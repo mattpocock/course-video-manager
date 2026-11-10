@@ -228,6 +228,9 @@ export default function DiagramPlaygroundHome({
                       name={tile.name}
                       className="block truncate rounded text-sm font-medium hover:bg-zinc-700/60"
                       inputClassName="w-full rounded bg-zinc-900 px-1 text-sm font-medium text-zinc-100 outline-none ring-1 ring-zinc-500"
+                      // Home has no status line and toasts are off here; the
+                      // tile keeps showing the saved name.
+                      onRenameError={(message) => console.error(message)}
                     />
                     <span className="text-xs text-zinc-400">
                       {formatTimeAgo(new Date(tile.updatedAt))}

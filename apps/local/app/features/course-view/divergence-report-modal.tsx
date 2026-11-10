@@ -14,14 +14,16 @@ export function DivergenceReportModal(props: {
   report: string | null;
   onClose: () => void;
 }) {
-  const handleCopy = async () => {
+  const handleCopy = () => {
     if (!props.report) return;
-    try {
-      await navigator.clipboard.writeText(props.report);
-      toast("Divergence report copied to clipboard");
-    } catch {
-      toast.error("Failed to copy to clipboard");
-    }
+    navigator.clipboard.writeText(props.report).then(
+      () => {
+        toast("Divergence report copied to clipboard");
+      },
+      () => {
+        toast.error("Failed to copy to clipboard");
+      }
+    );
   };
 
   return (

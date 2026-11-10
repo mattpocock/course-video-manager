@@ -7,6 +7,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { toastError } from "@/components/ui/toast";
 import { ChevronDown, ChevronRight, Loader2, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -111,14 +112,17 @@ export const AutofillChaptersModal = (props: {
     visibleSections.map((s) => [s.beforeClipId, s.title])
   );
 
-  const handleConfirm = async () => {
+  const handleConfirm = () => {
     if (state.status !== "done") return;
     setConfirming(true);
-    try {
-      await props.onConfirm(visibleSections);
-    } finally {
-      setConfirming(false);
-    }
+    props
+      .onConfirm(visibleSections)
+      .catch((error: unknown) => {
+        toastError(error, "Failed to autofill chapters");
+      })
+      .finally(() => {
+        setConfirming(false);
+      });
   };
 
   const isInitialLoading =

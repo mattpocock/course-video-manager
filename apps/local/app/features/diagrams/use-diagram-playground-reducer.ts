@@ -289,9 +289,16 @@ export function useDiagramPlaygroundReducer() {
           });
         })();
       },
-      "continue-leaving": (_state, effect) => {
-        navigate(effect.destination.to, {
-          replace: effect.destination.replace,
+      "continue-leaving": (_state, effect, dispatch) => {
+        Promise.resolve(
+          navigate(effect.destination.to, {
+            replace: effect.destination.replace,
+          })
+        ).catch(() => {
+          dispatch({
+            type: "error-reported",
+            message: "Failed to leave the diagram",
+          });
         });
       },
       "create-diagram": (_state, _effect, dispatch) => {
@@ -307,8 +314,15 @@ export function useDiagramPlaygroundReducer() {
           }
         })();
       },
-      "go-to-diagram": (_state, effect) => {
-        navigate(`/diagram-playground/${effect.diagramId}`);
+      "go-to-diagram": (_state, effect, dispatch) => {
+        Promise.resolve(
+          navigate(`/diagram-playground/${effect.diagramId}`)
+        ).catch(() => {
+          dispatch({
+            type: "error-reported",
+            message: "Failed to open the diagram",
+          });
+        });
       },
       "take-clip-snapshot": (_state, effect, dispatch) => {
         const { clipId, diagramId, diagramName } = effect;

@@ -40,13 +40,16 @@ export function TimelinePanel({
   const fetchSnapshots = useCallback(() => {
     let cancelled = false;
 
-    fetchSnapshotList(diagramId).then((data) => {
+    const apply = (data: Awaited<ReturnType<typeof fetchSnapshotList>>) => {
       if (cancelled) return;
       if (data) {
         setSnapshots(data.snapshots);
       }
       setHasLoadedOnce(true);
-    });
+    };
+    // fetchSnapshotList answers null for a failed fetch; a rejection means
+    // the same thing: keep the timeline that is showing.
+    fetchSnapshotList(diagramId).then(apply, () => apply(null));
 
     return () => {
       cancelled = true;
@@ -61,40 +64,48 @@ export function TimelinePanel({
     onRestoreRequest(snapshot, snapshots);
   };
 
-  const handleCopy = async (snapshot: Snapshot) => {
-    const result = await copySceneToClipboard(snapshot.scene);
-    switch (result) {
-      case "ok":
-        status.reportSuccess();
-        return;
-      case "empty":
-        status.reportError("Snapshot has no shapes to copy");
-        return;
-      case "error":
+  const handleCopy = (snapshot: Snapshot) => {
+    copySceneToClipboard(snapshot.scene).then(
+      (result) => {
+        switch (result) {
+          case "ok":
+            status.reportSuccess();
+            return;
+          case "empty":
+            status.reportError("Snapshot has no shapes to copy");
+            return;
+          case "error":
+            status.reportError("Failed to copy snapshot");
+            return;
+        }
+      },
+      () => {
         status.reportError("Failed to copy snapshot");
-        return;
-    }
+      }
+    );
   };
 
-  const handleArchive = async (snapshot: Snapshot) => {
+  const handleArchive = (snapshot: Snapshot) => {
     setArchivingId(snapshot.id);
-    try {
-      const res = await fetch(`/api/diagram-snapshots/${snapshot.id}/archive`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ archived: true }),
-      });
-      if (!res.ok) {
+    fetch(`/api/diagram-snapshots/${snapshot.id}/archive`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ archived: true }),
+    })
+      .then((res) => {
+        if (!res.ok) {
+          status.reportError("Failed to archive snapshot");
+          return;
+        }
+        status.reportSuccess();
+        setSnapshots((prev) => prev.filter((s) => s.id !== snapshot.id));
+      })
+      .catch(() => {
         status.reportError("Failed to archive snapshot");
-        return;
-      }
-      status.reportSuccess();
-      setSnapshots((prev) => prev.filter((s) => s.id !== snapshot.id));
-    } catch {
-      status.reportError("Failed to archive snapshot");
-    } finally {
-      setArchivingId(null);
-    }
+      })
+      .finally(() => {
+        setArchivingId(null);
+      });
   };
 
   if (!hasLoadedOnce) {
