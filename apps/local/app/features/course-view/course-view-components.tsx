@@ -8,6 +8,7 @@ import { RenameVideoModal } from "@/components/rename-video-modal";
 import { VersionSelectorModal } from "@/components/version-selector-modal";
 import { LessonBodyWriterModal } from "@/features/lesson-writer/lesson-body-writer-modal";
 import { ScriptWriterModal } from "@/features/video-editor/script-writer-modal";
+import { toast } from "@/components/ui/toast";
 import { AutofillDescriptionModal } from "@/features/lesson-writer/autofill-description-modal";
 import { computeCourseStats } from "@/features/course-view/course-editor-helpers";
 import { courseViewReducer } from "@/features/course-view/course-view-reducer";
@@ -480,8 +481,12 @@ export function RouteModals({
             dispatch({ type: "set-version-selector-modal-open", open })
           }
           onSelectVersion={(versionId) => {
-            navigate(`/courses/${selectedCourseId}?versionId=${versionId}`, {
-              preventScrollReset: true,
+            Promise.resolve(
+              navigate(`/courses/${selectedCourseId}?versionId=${versionId}`, {
+                preventScrollReset: true,
+              })
+            ).catch(() => {
+              toast.error("Failed to open the version");
             });
           }}
         />

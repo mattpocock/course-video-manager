@@ -7,6 +7,7 @@ import { AnimaticCommentsProvider } from "@/features/animatic/animatic-comments"
 import { AnimaticPlayer } from "@/features/animatic/animatic-player";
 import type { loader as animaticLoader } from "@/routes/_app.videos.$videoId.animatic";
 import { VideoEditorContext } from "../video-editor-context";
+import { toast } from "@/components/ui/toast";
 
 /**
  * The Animatic player OVER the Video Editor, opened by a click on a Clip
@@ -50,7 +51,9 @@ function OpenAnimatic(props: {
   // A bridge, not a decision: load the Animatic once, for this Video.
   useEffect(() => {
     if (fetcher.state === "idle" && !fetcher.data) {
-      fetcher.load(`/videos/${props.videoId}/animatic`);
+      fetcher.load(`/videos/${props.videoId}/animatic`).catch(() => {
+        toast.error("Failed to load the Animatic");
+      });
     }
   }, [props.videoId, fetcher]);
 

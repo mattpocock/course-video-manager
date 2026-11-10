@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { useSubmit } from "react-router";
+import { toast } from "@/components/ui/toast";
 import { courseEditorFetcherKeyForEvent } from "@/features/course-view/optimistic-applier";
 import type { CourseEditorEvent } from "@/services/course-editor-service";
 
@@ -19,6 +20,8 @@ export const useSubmitBeatEvent = () => {
         action: "/api/course-editor",
         navigate: false,
         fetcherKey: courseEditorFetcherKeyForEvent(event),
+      }).catch(() => {
+        toast.error("Failed to save the Beat");
       });
     },
     [submit]

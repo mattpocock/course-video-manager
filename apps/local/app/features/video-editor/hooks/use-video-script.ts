@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo } from "react";
 import { useFetcher, useRevalidator } from "react-router";
 import { postConfirmed } from "@/lib/post-confirmed";
+import { toast } from "@/components/ui/toast";
 import { pushTeleprompterScript } from "@/lib/teleprompter-window";
 import { toWriterContext } from "@/features/article-writer/use-writer-context";
 import type { WriterContext } from "@/features/article-writer/writer-engine";
@@ -30,7 +31,9 @@ export function useVideoScript(videoId: string, enabled = true) {
 
   useEffect(() => {
     if (enabled && dataFetcher.state === "idle" && !dataFetcher.data) {
-      dataFetcher.load(`/api/videos/${videoId}/script`);
+      dataFetcher.load(`/api/videos/${videoId}/script`).catch(() => {
+        toast.error("Failed to load the script");
+      });
     }
   }, [enabled, videoId, dataFetcher]);
 
@@ -42,10 +45,14 @@ export function useVideoScript(videoId: string, enabled = true) {
 
   const persistScript = useCallback(
     (newValue: string) => {
-      saveFetcher.submit(
-        { intent: "updateScript", script: newValue },
-        { method: "post", action: `/api/videos/${videoId}/script` }
-      );
+      saveFetcher
+        .submit(
+          { intent: "updateScript", script: newValue },
+          { method: "post", action: `/api/videos/${videoId}/script` }
+        )
+        .catch(() => {
+          toast.error("Failed to save the script");
+        });
       // Straight onto the glass, without waiting for the save to land and the
       // popup to poll for it. A no-op when no teleprompter is open.
       pushTeleprompterScript(videoId, newValue);

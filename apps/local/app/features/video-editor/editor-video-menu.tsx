@@ -189,37 +189,59 @@ function useEditorVideoActions(): {
     duplicate: () => modalDispatch({ type: "copy-video-clicked" }),
     export: () => startExportUpload(videoId, videoTitle),
     copyTranscript: {
-      onSelect: () =>
-        void copyTranscriptToClipboard().then(() =>
-          toast("Transcript copied to clipboard")
-        ),
+      onSelect: () => {
+        copyTranscriptToClipboard().then(
+          () => {
+            toast("Transcript copied to clipboard");
+          },
+          () => {
+            toast.error("Failed to copy transcript to clipboard");
+          }
+        );
+      },
       disabled: !allClipsHaveText,
       description: allClipsHaveText
         ? undefined
         : "Waiting for transcription to complete",
     },
     revealInFileSystem: exportFileExists
-      ? () =>
-          revealVideoFetcher.submit(
-            {},
-            { method: "post", action: `/api/videos/${videoId}/reveal` }
-          )
+      ? () => {
+          revealVideoFetcher
+            .submit(
+              {},
+              { method: "post", action: `/api/videos/${videoId}/reveal` }
+            )
+            .catch(() => {
+              toast.error("Failed to reveal the video in the file system");
+            });
+        }
       : undefined,
     renderVerticalShort: () => startRenderVerticalUpload(videoId, videoTitle),
     retranscribeAllClips,
     copyYouTubeChapters:
       youtubeChapters.length > 0
-        ? () =>
-            void copyYoutubeChaptersToClipboard().then(() =>
-              toast("YouTube chapters copied to clipboard")
-            )
+        ? () => {
+            copyYoutubeChaptersToClipboard().then(
+              () => {
+                toast("YouTube chapters copied to clipboard");
+              },
+              () => {
+                toast.error("Failed to copy YouTube chapters to clipboard");
+              }
+            );
+          }
         : undefined,
     copyLogPath: () => void copyLogPath(videoId),
-    openInVSCode: () =>
-      openInVSCodeFetcher.submit(
-        {},
-        { method: "post", action: `/api/videos/${videoId}/open-in-vscode` }
-      ),
+    openInVSCode: () => {
+      openInVSCodeFetcher
+        .submit(
+          {},
+          { method: "post", action: `/api/videos/${videoId}/open-in-vscode` }
+        )
+        .catch(() => {
+          toast.error("Failed to open the video in VS Code");
+        });
+    },
     reference: isReferenceOpen
       ? { close: () => setReferenceVideoId(null) }
       : { candidates: referenceCandidates, open: setReferenceVideoId },

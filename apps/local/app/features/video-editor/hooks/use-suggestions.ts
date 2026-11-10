@@ -122,10 +122,20 @@ export function useSuggestions(input: {
             const json = (await res.json()) as { script: string };
             return json.script;
           })
-          // No Script is still worth a suggestion from the other sources.
-          .catch(() => "")
-          .then((script) =>
-            dispatch({ type: "script-loaded", videoId: effect.videoId, script })
+          .then(
+            (script) =>
+              dispatch({
+                type: "script-loaded",
+                videoId: effect.videoId,
+                script,
+              }),
+            // No Script is still worth a suggestion from the other sources.
+            () =>
+              dispatch({
+                type: "script-loaded",
+                videoId: effect.videoId,
+                script: "",
+              })
           );
       },
       "stream-suggestion": (_state, effect, dispatch) => {

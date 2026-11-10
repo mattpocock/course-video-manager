@@ -70,9 +70,15 @@ export const useDiagramSnapshotMeta = (snapshotId: string | null) => {
     let cancelled = false;
     // Shown from the cache at once, then refetched: the drawing may have been
     // redrawn since it was cached (a snapshot is pinned again by content).
-    fetchMeta(snapshotId, { fresh: true }).then((m) => {
-      if (!cancelled) setMeta(m);
-    });
+    // fetchMeta answers EMPTY for a failed fetch; a rejection means the same.
+    fetchMeta(snapshotId, { fresh: true }).then(
+      (m) => {
+        if (!cancelled) setMeta(m);
+      },
+      () => {
+        if (!cancelled) setMeta(EMPTY);
+      }
+    );
     return () => {
       cancelled = true;
     };

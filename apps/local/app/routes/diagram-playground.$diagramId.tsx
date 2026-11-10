@@ -429,6 +429,7 @@ export default function DiagramPlaygroundActive({
                 onCreateDiagram={handleCreateDiagram}
                 onCopyContents={handleCopyDiagramContents}
                 onDelete={handleDeleteDiagram}
+                onRenameError={status.reportError}
               />
             </div>
           </div>

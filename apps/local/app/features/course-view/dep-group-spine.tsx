@@ -161,10 +161,15 @@ function MeasuredSpine({
     // The web font swapping in reflows rows after first paint but doesn't always
     // grow the container, so the ResizeObserver can miss it and leave a line
     // anchored to the pre-swap layout. Re-measure once fonts settle.
-    if (typeof document !== "undefined" && document.fonts?.ready) {
-      document.fonts.ready.then(() => {
-        if (!cancelled) scheduleMeasure();
-      });
+    if (typeof document !== "undefined" && document.fonts) {
+      document.fonts.ready
+        .then(() => {
+          if (!cancelled) scheduleMeasure();
+        })
+        .catch(() => {
+          // The re-measure is a refinement; the observers above still keep
+          // the lines anchored, so there is nothing to tell the user.
+        });
     }
     return () => {
       cancelled = true;

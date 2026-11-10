@@ -2,6 +2,7 @@ import { AutofillChaptersModal } from "@/features/video-editor/components/autofi
 import { createHttpClipService } from "@/services/clip-service";
 import { createContext, useCallback, useContext, useState } from "react";
 import { useRevalidator } from "react-router";
+import { toast } from "@/components/ui/toast";
 
 type OpenInput = { videoId: string; videoLabel: string };
 
@@ -46,7 +47,11 @@ export const AutofillChaptersProvider = ({
               videoId: open.videoId,
               sections,
             });
-            revalidator.revalidate();
+            revalidator.revalidate().catch(() => {
+              toast.error(
+                "Failed to refresh the course after autofilling chapters"
+              );
+            });
             setOpen(null);
           }}
         />

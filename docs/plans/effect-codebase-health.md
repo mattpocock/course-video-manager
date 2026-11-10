@@ -220,6 +220,27 @@ The two promise rules ratchet per directory with `overrides`, for example once
 >   `features/course-view` 9, `features/video-editor` 11,
 >   `features/diagrams` 12, `components` 19, `features/video-posting` 22,
 >   `.tsx` routes 66 (139).
+> - **Per-directory pass 3 (2026-11-10): every directory at 12 or fewer
+>   promoted.** Re-measured on main at 124: `features/course-view` 8,
+>   `features/video-editor` 10, `features/diagrams` 11, `components` 16,
+>   `features/video-posting` 22, `.tsx` routes 57. Fixed and promoted the
+>   first three (29 hits). Fetcher submits and loads, revalidates and
+>   navigates `.catch` with a toast saying what failed; on the Diagram
+>   Playground, where toasts are off, the same message goes to the status
+>   line (`usePlaygroundStatus` or the reducer's `error-reported`). The
+>   rename field `EditableDiagramName` now takes a required `onRenameError`:
+>   the rail passes the status line; Playground Home, which has neither a
+>   status line nor toasts, logs it. Async click handlers (the divergence
+>   report's Copy, the autofill modal's Confirm, the timeline's Copy and
+>   Archive) became sync functions that handle their own rejection; a failed
+>   autofill Confirm now toasts and leaves the modal open instead of an
+>   unhandled rejection. The editor menu's Copy transcript and Copy YouTube
+>   chapters dropped their `void` and toast a denied clipboard. A clip's
+>   `play()` ignores the AbortError a pause causes and logs anything else,
+>   as `footage-layers-preview.tsx` already did. Fetches that already
+>   resolve to a fallback (`fetchSnapshotList`, `fetchMeta`, the
+>   suggestions' Script) take the same fallback on a rejection. Remaining:
+>   `components` 16, `features/video-posting` 22, `.tsx` routes 57 (95).
 
 **Phase 3 — custom guards.** Add `scripts/check-effect-boundaries.sh` in the
 style of the existing guards.

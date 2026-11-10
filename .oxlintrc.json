@@ -117,9 +117,6 @@
       // ONLY SHRINKS — fix a directory's hits and delete its line. Do not add
       // one. Counts are in docs/plans/effect-codebase-health.md, phase 2.
       "files": [
-        "apps/local/app/features/course-view/**",
-        "apps/local/app/features/video-editor/**",
-        "apps/local/app/features/diagrams/**",
         "apps/local/app/components/**",
         "apps/local/app/features/video-posting/**",
         "apps/local/app/routes/**/*.tsx"
