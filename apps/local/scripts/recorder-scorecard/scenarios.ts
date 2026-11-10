@@ -8,6 +8,7 @@ import {
   isPlayable,
   playable,
 } from "./footage-analysis";
+import { windowedLatency } from "./preview-probe";
 import { CAMERA_FPS, SCREEN_FPS } from "./synthetic-sources";
 import {
   Aborted,
@@ -32,21 +33,51 @@ import {
  * saw into `ctx.details`.
  */
 
-const LATENCY_WINDOW_MS = 10_000;
+/**
+ * PREVIEW LATENCY is read in back-to-back windows this long, and each metric
+ * is the median window (#2675): one burst of machine load moves one window,
+ * not the median. The first seconds are left out as warm-up: in idle the
+ * probe's decoders settling, in a take the Record itself (its gap is
+ * `preview_gap_on_record_ms`).
+ */
+const LATENCY_WINDOW_MS = 5_000;
+const IDLE_WINDOWS = 6;
+const IDLE_WARMUP_MS = 2_000;
+/** From the take's start: 1.5 s held, then the Windows clock read (~1 s). */
+const TAKE_WARMUP_MS = 1_500;
+
+/** Preview latency on both feeds over `n` back-to-back windows. */
+const latencyWindows = async (ctx: Ctx, offset: number, n: number) => {
+  const camera: number[][] = [];
+  const screen: number[][] = [];
+  for (let i = 0; i < n; i++) {
+    await ctx.probe?.reset("camera", offset);
+    await ctx.probe?.reset("screen", offset);
+    await hold(ctx, LATENCY_WINDOW_MS);
+    if (!ctx.probe) continue;
+    camera.push(await ctx.probe.read("camera"));
+    screen.push(await ctx.probe.read("screen"));
+  }
+  return {
+    camera: windowedLatency(camera, LATENCY_WINDOW_MS),
+    screen: windowedLatency(screen, LATENCY_WINDOW_MS),
+  };
+};
 
 /** The recorder open and idle: preview latency, CPU, memory, GPU. */
 export const idle = async (ctx: Ctx, gpuBefore: GpuReading | null) => {
   ctx.log("idle: preview latency and resources, recorder open, no take");
   const offset = await windowsClockOffset();
-  await ctx.probe?.reset("camera", offset);
-  await ctx.probe?.reset("screen", offset);
-  const gpu = sampleGpu(LATENCY_WINDOW_MS);
+  await hold(ctx, IDLE_WARMUP_MS);
+  const gpu = sampleGpu(IDLE_WINDOWS * LATENCY_WINDOW_MS);
   const a = await sampleMarked(ctx.marker);
-  await hold(ctx, LATENCY_WINDOW_MS);
+  const { camera: cam, screen: scr } = await latencyWindows(
+    ctx,
+    offset,
+    IDLE_WINDOWS
+  );
   const b = await sampleMarked(ctx.marker);
   const gpuIdle = await gpu;
-  const cam = (await ctx.probe?.read("camera")) ?? null;
-  const scr = (await ctx.probe?.read("screen")) ?? null;
   const cpu = cpuBetween(a, b, ctx.cpus);
   ctx.measured.preview_camera_idle_p50_ms = cam?.medianMs ?? null;
   ctx.measured.preview_screen_idle_p50_ms = scr?.medianMs ?? null;
@@ -77,20 +108,19 @@ export const longTake = async (
   let rss = NaN;
   let latency: Record<string, unknown> = {};
   const take = await recordTake(ctx, async () => {
-    await hold(ctx, 1500);
+    // Windows across the whole take, after the warm-up and the clock read.
+    await hold(ctx, TAKE_WARMUP_MS);
     const offset = await windowsClockOffset();
-    await ctx.probe?.reset("camera", offset);
-    await ctx.probe?.reset("screen", offset);
     const a = await sampleMarked(ctx.marker);
-    await hold(ctx, LATENCY_WINDOW_MS);
-    const cam = (await ctx.probe?.read("camera")) ?? null;
-    const scr = (await ctx.probe?.read("screen")) ?? null;
+    const span = seconds * 1000 - TAKE_WARMUP_MS - 1500;
+    const n = Math.max(1, Math.floor(span / LATENCY_WINDOW_MS));
+    const { camera: cam, screen: scr } = await latencyWindows(ctx, offset, n);
     latency = { camera: cam, screen: scr };
     ctx.measured.preview_camera_take_p50_ms = cam?.medianMs ?? null;
     ctx.measured.preview_camera_take_p95_ms = cam?.p95Ms ?? null;
     ctx.measured.preview_screen_take_p50_ms = scr?.medianMs ?? null;
     ctx.measured.preview_screen_take_p95_ms = scr?.p95Ms ?? null;
-    await hold(ctx, Math.max(0, seconds * 1000 - 13_000));
+    await hold(ctx, Math.max(0, span - n * LATENCY_WINDOW_MS));
     const b = await sampleMarked(ctx.marker);
     cpu = cpuBetween(a, b, ctx.cpus);
     rss = rssMb(ctx.service.child.pid);

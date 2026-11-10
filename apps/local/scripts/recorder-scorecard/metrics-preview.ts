@@ -1,0 +1,128 @@
+import type { MetricDef } from "./metric-def";
+
+const RIG = "#1993 rig, OBS 30-min baseline (2026-10-11)";
+
+/**
+ * PREVIEW LATENCY AND GAPS. Each latency is the median of 5 s windows (6
+ * idle, every window of the long take), read by the preview probe from the
+ * decoded frame (#2440, #2675). A Record's gap is judged over the cycles
+ * scenario's Records, not the long take's one. How to judge a change against
+ * the noise: `docs/recorder-scorecard/README.md`, "Judging preview metrics".
+ */
+export const PREVIEW_METRICS: readonly MetricDef[] = [
+  {
+    id: "preview_camera_idle_p50_ms",
+    label: "Camera preview latency, idle (median)",
+    group: "speed",
+    unit: "ms",
+    better: "lower",
+    target: 70,
+    obs: null,
+    scale: 10,
+  },
+  {
+    id: "preview_camera_take_p50_ms",
+    label: "Camera preview latency, during a take (median)",
+    group: "speed",
+    unit: "ms",
+    better: "lower",
+    target: 70,
+    obs: null,
+    scale: 10,
+  },
+  {
+    id: "preview_camera_take_p95_ms",
+    label: "Camera preview latency, during a take (p95)",
+    group: "speed",
+    unit: "ms",
+    better: "lower",
+    target: 100,
+    obs: null,
+    scale: 10,
+  },
+  {
+    id: "preview_screen_idle_p50_ms",
+    label: "Screen preview latency, idle (median)",
+    group: "speed",
+    unit: "ms",
+    better: "lower",
+    target: 70,
+    obs: null,
+    scale: 10,
+  },
+  {
+    id: "preview_screen_take_p50_ms",
+    label: "Screen preview latency, during a take (median)",
+    group: "speed",
+    unit: "ms",
+    better: "lower",
+    target: 70,
+    obs: 89,
+    obsSource: `${RIG}: OBS Virtual Camera screen path p50 89 ms, recording`,
+    scale: 10,
+  },
+  {
+    id: "preview_screen_take_p95_ms",
+    label: "Screen preview latency, during a take (p95)",
+    group: "speed",
+    unit: "ms",
+    better: "lower",
+    target: 100,
+    obs: 111,
+    obsSource: `${RIG}: p95 111 ms`,
+    scale: 10,
+  },
+  {
+    id: "preview_gap_on_record_ms",
+    label: "Longest camera preview gap around Record",
+    group: "speed",
+    unit: "ms",
+    better: "lower",
+    target: 100,
+    obs: null,
+    scale: 33,
+    note: "OBS: prose only (its preview never reopens). One maximum from one Record: judge on cycles_preview_gap_on_record_p50_ms/p90_ms (#2675).",
+  },
+  {
+    id: "preview_gap_on_stop_ms",
+    label: "Longest camera preview gap around Stop",
+    group: "speed",
+    unit: "ms",
+    better: "lower",
+    target: 100,
+    obs: null,
+    scale: 33,
+  },
+  {
+    id: "screen_preview_gap_on_record_ms",
+    label: "Longest screen preview gap around Record",
+    group: "speed",
+    unit: "ms",
+    better: "lower",
+    target: 100,
+    obs: null,
+    scale: 33,
+  },
+  {
+    id: "cycles_preview_gap_on_record_p50_ms",
+    label: "Cycles: longest camera preview gap around each Record (p50)",
+    group: "speed",
+    unit: "ms",
+    better: "lower",
+    target: 100,
+    obs: null,
+    scale: 33,
+    note: "Over every Record of the cycles scenario (#2675).",
+  },
+  {
+    id: "cycles_preview_gap_on_record_p90_ms",
+    label: "Cycles: longest camera preview gap around each Record (p90)",
+    group: "speed",
+    unit: "ms",
+    better: "lower",
+    target: 100,
+    obs: null,
+    scale: 33,
+    note: "Over every Record of the cycles scenario (#2675).",
+  },
+];
