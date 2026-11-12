@@ -1032,6 +1032,33 @@ export const videoPosts = createTable("video_post", {
 });
 
 /**
+ * A Writer Chat: the conversation with the writer for one field of a Video,
+ * in one mode, as the AI SDK's UI messages. Like the local-storage chats it
+ * replaces, it belongs to that Video row only and no copy carries it.
+ */
+export const writerChats = createTable(
+  "writer_chat",
+  {
+    videoId: varchar("video_id", { length: 255 })
+      .references(() => videos.id, { onDelete: "cascade" })
+      .notNull(),
+    /** The WriterFieldId: "video-body", "video-description", … */
+    fieldId: text("field_id").notNull(),
+    mode: text("mode").notNull(),
+    messages: jsonb("messages").$type<unknown[]>().notNull(),
+    updatedAt: timestamp("updated_at", {
+      mode: "date",
+      withTimezone: true,
+    })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    primaryKey({ columns: [table.videoId, table.fieldId, table.mode] }),
+  ]
+);
+
+/**
  * A Posting Queue entry: one time a Short was added to the Posting Queue
  * (ADR 0057). Its state is one of POSTING_QUEUE_ENTRY_STATES
  * (features/posting-queue/slot-schedule.ts); Queued, Posting and Held are
@@ -1490,6 +1517,13 @@ export const clipTranscriptWordsRelations = relations(
     }),
   })
 );
+
+export const writerChatsRelations = relations(writerChats, ({ one }) => ({
+  video: one(videos, {
+    fields: [writerChats.videoId],
+    references: [videos.id],
+  }),
+}));
 
 export const videoPostsRelations = relations(videoPosts, ({ one }) => ({
   video: one(videos, {

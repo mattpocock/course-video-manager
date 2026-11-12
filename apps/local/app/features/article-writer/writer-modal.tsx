@@ -9,11 +9,9 @@ import { formatVideoBreadcrumb } from "@/lib/video-breadcrumb";
 import type { Mode, WriterView } from "./types";
 import type { MoreToggleProps } from "./apply-button";
 import type { WriterFieldId } from "./writer-engine-utils";
-import {
-  FIELD_LABELS,
-  saveFieldMessages,
-  loadFieldMessages,
-} from "./writer-engine-utils";
+import { FIELD_LABELS } from "./writer-engine-utils";
+import { loadWriterChats, restoreWriterChats } from "./writer-chat-requests";
+import { toast } from "@/components/ui/toast";
 
 export interface WriterModalProps {
   open: boolean;
@@ -92,7 +90,9 @@ export function WriterModal({
   const handleCtxTabChange = onCtxTabChange ?? setCtxTabInternal;
 
   const workingValueRef = useRef(value);
-  const snapshotMessagesRef = useRef<Map<string, unknown[]>>(new Map());
+  // The field's Writer Chats as they were when the writer opened; null until
+  // they load.
+  const snapshotChatsRef = useRef<Record<string, unknown[]> | null>(null);
   const [isDirty, setIsDirty] = useState(false);
   const [showConfirmClose, setShowConfirmClose] = useState(false);
 
@@ -106,14 +106,19 @@ export function WriterModal({
       workingValueRef.current = value;
       setIsDirty(false);
       setShowConfirmClose(false);
-      const snap = new Map<string, unknown[]>();
-      for (const m of modes) {
-        snap.set(m, loadFieldMessages(videoId, fieldId, m));
-      }
-      snapshotMessagesRef.current = snap;
+      snapshotChatsRef.current = null;
+      loadWriterChats(videoId, fieldId)
+        .then((chats) => {
+          snapshotChatsRef.current = chats;
+        })
+        .catch((error: unknown) =>
+          toast.error("Cancel will not undo this chat", {
+            description: error instanceof Error ? error.message : undefined,
+          })
+        );
     }
     if (!open) initedRef.current = false;
-  }, [open, context, value, modes, videoId, fieldId]);
+  }, [open, context, value, videoId, fieldId]);
 
   const handleApplied = useCallback(
     (finalValue: string) => {
@@ -126,8 +131,13 @@ export function WriterModal({
   );
 
   const handleCancel = useCallback(() => {
-    for (const [m, msgs] of snapshotMessagesRef.current) {
-      saveFieldMessages(videoId, fieldId, m as Mode, msgs);
+    const chats = snapshotChatsRef.current;
+    if (chats) {
+      restoreWriterChats({ videoId, fieldId, chats }).catch((error: unknown) =>
+        toast.error("The chat was not put back", {
+          description: error instanceof Error ? error.message : undefined,
+        })
+      );
     }
     workingValueRef.current = value;
     setIsDirty(false);
@@ -184,6 +194,7 @@ export function WriterModal({
         <div className="relative flex-1 overflow-hidden">
           {context ? (
             <WriterEngine
+              key={`${videoId}:${fieldId}`}
               videoId={videoId}
               fieldId={fieldId}
               modes={modes}

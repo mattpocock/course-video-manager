@@ -139,6 +139,10 @@ _Avoid_: Clip group, Divider, Marker, Section, Clip Mockup Chapter
 **Video Post**:
 A record of a **Video** being posted to an external platform: which platform, where, and when.
 
+**Writer Chat**:
+The conversation with the writer for one field of a **Video** (its Lesson Body, its SEO description, its Script, …) in one writing mode, kept on the Video.
+_Avoid_: Messages, Conversation (unqualified), Chat history
+
 **YouTube Draft**:
 The title and description written for a **Video** on its YouTube page, kept on the Video and saved as they are typed, until the upload sends them.
 _Avoid_: Post draft, Stored title

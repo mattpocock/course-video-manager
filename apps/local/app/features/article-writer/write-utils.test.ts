@@ -1,9 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   LEGACY_DOCUMENT_PURGE_KEY,
-  getMessagesStorageKey,
   purgeLegacyDocumentStorage,
-  saveMessagesToStorage,
 } from "./write-utils";
 
 function createMockLocalStorage() {
@@ -29,13 +27,13 @@ describe("purgeLegacyDocumentStorage", () => {
     vi.unstubAllGlobals();
   });
 
-  it("removes documents written by the retired persistence, keeping messages", () => {
+  it("removes documents written by the retired persistence, keeping other keys", () => {
     localStorage.setItem("article-writer-document-v1-article", "# Stale");
     localStorage.setItem(
       "writer-field-document-v1-ai-hero-body-article",
       "# Also stale"
     );
-    saveMessagesToStorage("v1", "article", []);
+    localStorage.setItem("recent-modes", "[]");
 
     purgeLegacyDocumentStorage();
 
@@ -45,9 +43,7 @@ describe("purgeLegacyDocumentStorage", () => {
     expect(
       localStorage.getItem("writer-field-document-v1-ai-hero-body-article")
     ).toBe(null);
-    expect(localStorage.getItem(getMessagesStorageKey("v1", "article"))).toBe(
-      "[]"
-    );
+    expect(localStorage.getItem("recent-modes")).toBe("[]");
   });
 
   it("does not run a second time", () => {

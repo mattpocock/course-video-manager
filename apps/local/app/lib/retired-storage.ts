@@ -15,6 +15,12 @@ const RETIRED_KEYS: ReadonlyArray<{ prefixes: string[]; doneKey: string }> = [
     prefixes: ["post-title-", "post-description-"],
     doneKey: "retired-post-drafts-removed",
   },
+  // The writers' chats: the Video's Writer Chats now. These filled local
+  // storage. `article-writer-messages-` was written but no longer read.
+  {
+    prefixes: ["writer-field-messages-", "article-writer-messages-"],
+    doneKey: "retired-writer-chats-removed",
+  },
 ];
 
 /** Safe to call on every load: each removal runs once, then no-ops. */

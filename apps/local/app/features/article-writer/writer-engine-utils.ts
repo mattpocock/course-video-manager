@@ -1,6 +1,5 @@
 import type { Mode } from "./types";
 import type { VideoRole } from "@/services/lesson-warnings";
-import { hasLocalStorage } from "@/hooks/use-local-storage";
 import { removeQuizBlocks } from "./quiz-syntax";
 
 export type WriterFieldId =
@@ -33,69 +32,6 @@ export const FIELD_LABELS: Record<WriterFieldId, string> = {
   "video-description": "SEO Description",
   "video-script": "Script",
 };
-
-export function getFieldMessagesStorageKey(
-  videoId: string,
-  fieldId: WriterFieldId,
-  mode: Mode
-): string {
-  return `writer-field-messages-${videoId}-${fieldId}-${mode}`;
-}
-
-// Only the conversation is persisted. A field's document is owned by the route
-// loader (i.e. the database) and held in memory for the life of the writer —
-// see `useDocumentFlow`.
-
-/**
- * The mode a lesson role's conversation was saved under before the role modes
- * existed: Problem was "skill-building", Explainer and Solution were "article".
- * Read only when nothing is saved under the new mode.
- */
-const RETIRED_MODE_KEYS: Partial<Record<Mode, string>> = {
-  problem: "skill-building",
-  explainer: "article",
-  solution: "article",
-};
-
-export function loadFieldMessages(
-  videoId: string,
-  fieldId: WriterFieldId,
-  mode: Mode
-): unknown[] {
-  if (!hasLocalStorage()) return [];
-  const retired = RETIRED_MODE_KEYS[mode];
-  const keys = [
-    getFieldMessagesStorageKey(videoId, fieldId, mode),
-    ...(retired
-      ? [`writer-field-messages-${videoId}-${fieldId}-${retired}`]
-      : []),
-  ];
-  try {
-    const saved = keys
-      .map((key) => localStorage.getItem(key))
-      .find((value) => value !== null);
-    return saved ? JSON.parse(saved) : [];
-  } catch {
-    return [];
-  }
-}
-
-export function saveFieldMessages(
-  videoId: string,
-  fieldId: WriterFieldId,
-  mode: Mode,
-  messages: unknown[]
-): void {
-  if (!hasLocalStorage()) return;
-  try {
-    localStorage.setItem(
-      getFieldMessagesStorageKey(videoId, fieldId, mode),
-      JSON.stringify(messages)
-    );
-  } catch {
-    // ignore
-  }
-}
 
 export function constrainModes(
   modes: Mode[],
