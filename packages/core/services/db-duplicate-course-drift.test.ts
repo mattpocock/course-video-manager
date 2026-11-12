@@ -82,6 +82,9 @@ describe("duplicateCourse — schema-drift guard", () => {
         "archived",
         "createdAt",
         "updatedAt",
+        // A YouTube Draft is for posting this Course's Video, not its copy.
+        "youtubeDraftTitle",
+        "youtubeDraftDescription",
       ],
     },
     clip: {

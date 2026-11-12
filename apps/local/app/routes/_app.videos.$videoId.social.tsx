@@ -30,8 +30,14 @@ const Video = (props: { src: string }) => {
 
 export default function SocialPage(props: Route.ComponentProps) {
   const { videoId } = props.params;
-  const { files, transcriptWordCount, chapters, links, courseStructure } =
-    props.loaderData;
+  const {
+    files,
+    transcriptWordCount,
+    chapters,
+    links,
+    courseStructure,
+    youtubeDraft,
+  } = props.loaderData;
 
   const {
     state: contextPanel,
@@ -88,6 +94,7 @@ export default function SocialPage(props: Route.ComponentProps) {
           includeTranscript={contextPanel.includeTranscript}
           includeCourseStructure={contextPanel.includeCourseStructure}
           courseStructure={courseStructure}
+          youtubeTitle={youtubeDraft.title}
         />
       </div>
 

@@ -4,13 +4,20 @@ import {
   createInitialPostPageState,
   postPageReducer,
   selectGenerateRequest,
+  selectYoutubeDraftStatus,
+  YOUTUBE_DRAFT_SAVE_DELAY_MS,
   type PostGenerationContext,
 } from "./post-page-reducer";
 
-const page = (selectedThumbnailId: string | null = "thumb-1") =>
+const page = (draft: { title?: string; description?: string } = {}) =>
   new ReducerTester(
     postPageReducer,
-    createInitialPostPageState(selectedThumbnailId)
+    createInitialPostPageState({
+      videoId: "video-1",
+      selectedThumbnailId: "thumb-1",
+      title: draft.title ?? "",
+      description: draft.description ?? "",
+    })
   );
 
 const context: PostGenerationContext = {
@@ -23,6 +30,14 @@ const context: PostGenerationContext = {
   includeCourseStructure: true,
 };
 
+const saved = (title: string, description: string) => ({
+  type: "save-youtube-draft",
+  videoId: "video-1",
+  title,
+  description,
+  delayMs: YOUTUBE_DRAFT_SAVE_DELAY_MS,
+});
+
 const generate = (field: postPageReducer.Field, currentText: string) =>
   ({
     type: "generate-clicked",
@@ -33,6 +48,45 @@ const generate = (field: postPageReducer.Field, currentText: string) =>
   }) as const;
 
 describe("postPageReducer", () => {
+  it("the YouTube Draft saves after each pause in typing; a failed save shows until Retry saves it", () => {
+    const save = (title: string, description: string, delayMs: number) => ({
+      type: "save-youtube-draft",
+      videoId: "video-1",
+      title,
+      description,
+      delayMs,
+    });
+    const tester = page()
+      .send({ type: "title-edited", title: "Learn" })
+      .send({ type: "title-edited", title: "Learn Zod" })
+      .send({ type: "description-edited", description: "All about Zod" });
+
+    expect(selectYoutubeDraftStatus(tester.getState())).toBe("saving");
+
+    tester.send({
+      type: "youtube-draft-save-failed",
+      message: "The server answered 500",
+    });
+
+    expect(selectYoutubeDraftStatus(tester.getState())).toBe("failed");
+    expect(tester.getState().draftSaveError).toBe("The server answered 500");
+
+    tester.send({ type: "youtube-draft-retry-clicked" }).send({
+      type: "youtube-draft-saved",
+      title: "Learn Zod",
+      description: "All about Zod",
+    });
+
+    expect(selectYoutubeDraftStatus(tester.getState())).toBe("saved");
+    // Each edit replaces the save still waiting; Retry sends at once.
+    expect(tester.getEffects()).toEqual([
+      save("Learn", "", YOUTUBE_DRAFT_SAVE_DELAY_MS),
+      save("Learn Zod", "", YOUTUBE_DRAFT_SAVE_DELAY_MS),
+      save("Learn Zod", "All about Zod", YOUTUBE_DRAFT_SAVE_DELAY_MS),
+      save("Learn Zod", "All about Zod", 0),
+    ]);
+  });
+
   it("a generated title fills a blank title straight away", () => {
     const tester = page()
       .send(generate("title", "  "))
@@ -56,12 +110,12 @@ describe("postPageReducer", () => {
           courseStructure: undefined,
         },
       },
-      { type: "apply-field-text", field: "title", text: "Learn Zod" },
+      saved("Learn Zod", ""),
     ]);
   });
 
   it("a generated description asks before replacing text; Cancel keeps it, Replace applies the new one", () => {
-    const tester = page()
+    const tester = page({ description: "Old words" })
       .send(generate("description", "Old words"))
       .send({ type: "text-generated", field: "description", text: "New one" });
 
@@ -86,15 +140,14 @@ describe("postPageReducer", () => {
     expect(tester.getEffects()).toEqual([
       generateDescription,
       generateDescription,
-      { type: "apply-field-text", field: "description", text: "Newer" },
+      saved("", "Newer"),
     ]);
   });
 
   it("Copy from Pitch asks before replacing a typed title, and fills a blank one", () => {
-    const tester = page().send({
+    const tester = page({ title: "Mine" }).send({
       type: "copy-from-pitch-clicked",
       pitchTitle: "Pitch title",
-      currentTitle: "Mine",
     });
 
     expect(tester.getState().fields.pendingOverwrite).toEqual({
@@ -104,14 +157,14 @@ describe("postPageReducer", () => {
     });
     expect(tester.getEffects()).toEqual([]);
 
-    tester.send({ type: "overwrite-cancelled" }).send({
-      type: "copy-from-pitch-clicked",
-      pitchTitle: "Pitch title",
-      currentTitle: "",
-    });
+    tester
+      .send({ type: "overwrite-cancelled" })
+      .send({ type: "title-edited", title: "" })
+      .send({ type: "copy-from-pitch-clicked", pitchTitle: "Pitch title" });
 
     expect(tester.getEffects()).toEqual([
-      { type: "apply-field-text", field: "title", text: "Pitch title" },
+      saved("", ""),
+      saved("Pitch title", ""),
     ]);
   });
 
@@ -138,20 +191,10 @@ describe("postPageReducer", () => {
   });
 
   it("Post checks for the Exported Video once, then queues the export ahead of the upload when there is none", () => {
-    const tester = page()
+    const tester = page({ title: "Learn Zod", description: "All about Zod" })
       .send({ type: "privacy-status-selected", privacyStatus: "public" })
-      .send({
-        type: "post-clicked",
-        videoId: "video-1",
-        title: "Learn Zod",
-        description: "All about Zod",
-      })
-      .send({
-        type: "post-clicked",
-        videoId: "video-1",
-        title: "Learn Zod",
-        description: "All about Zod",
-      })
+      .send({ type: "post-clicked" })
+      .send({ type: "post-clicked" })
       .send({ type: "export-checked", exists: false });
 
     expect(tester.getState().checkingExport).toBeNull();
@@ -175,31 +218,22 @@ describe("postPageReducer", () => {
   });
 
   it("Post does nothing without a Thumbnail, a description, or a title YouTube would accept", () => {
-    const tester = page()
+    const tester = page({ title: "Learn Zod", description: "All about Zod" })
       .send({ type: "thumbnail-delete-clicked", thumbnailId: "thumb-1" })
-      .send({
-        type: "post-clicked",
-        videoId: "video-1",
-        title: "Learn Zod",
-        description: "All about Zod",
-      })
+      .send({ type: "post-clicked" })
       .send({ type: "thumbnail-selected", thumbnailId: "thumb-2" })
-      .send({
-        type: "post-clicked",
-        videoId: "video-1",
-        title: "Learn Zod",
-        description: " ",
-      })
-      .send({
-        type: "post-clicked",
-        videoId: "video-1",
-        title: "x".repeat(101),
-        description: "All about Zod",
-      });
+      .send({ type: "description-edited", description: " " })
+      .send({ type: "post-clicked" })
+      .send({ type: "description-edited", description: "All about Zod" })
+      .send({ type: "title-edited", title: "x".repeat(101) })
+      .send({ type: "post-clicked" });
 
     expect(tester.getState().checkingExport).toBeNull();
     expect(tester.getEffects()).toEqual([
       { type: "delete-thumbnail", thumbnailId: "thumb-1" },
+      saved("Learn Zod", " "),
+      saved("Learn Zod", "All about Zod"),
+      saved("x".repeat(101), "All about Zod"),
     ]);
   });
 
@@ -230,18 +264,15 @@ describe("postPageReducer", () => {
   it("short links replace each aihero.dev URL in the description as it was when pressed", () => {
     const description =
       "See https://aihero.dev/a and https://aihero.dev/s/done and https://aihero.dev/a";
-    const tester = page()
+    const tester = page({ description: "No links here" })
+      .send({ type: "convert-short-links-clicked" })
       .send({
-        type: "convert-short-links-clicked",
-        title: "",
-        description: "No links here",
-      })
-      .send({
-        type: "convert-short-links-clicked",
-        title: "",
+        type: "description-edited",
         description: "Only https://aihero.dev/s/done",
       })
-      .send({ type: "convert-short-links-clicked", title: "", description })
+      .send({ type: "convert-short-links-clicked" })
+      .send({ type: "description-edited", description })
+      .send({ type: "convert-short-links-clicked" })
       .send({
         type: "short-links-created",
         links: [
@@ -259,26 +290,27 @@ describe("postPageReducer", () => {
         title: "No aihero.dev links found",
         description: "The description doesn't contain any aihero.dev URLs.",
       },
+      saved("", "Only https://aihero.dev/s/done"),
       {
         type: "show-toast",
         title: "All links already converted",
         description: "All aihero.dev links are already short links.",
       },
+      saved("", description),
       {
         type: "create-short-links",
         urls: ["https://aihero.dev/a"],
         linkDescription: "YouTube (Untitled)",
       },
       {
-        type: "apply-field-text",
-        field: "description",
-        text: "See https://aihero.dev/s/x and https://aihero.dev/s/done and https://aihero.dev/s/x",
-      },
-      {
         type: "show-toast",
         title: "Links converted",
         description: "Converted 1 aihero.dev URL to short links.",
       },
+      saved(
+        "",
+        "See https://aihero.dev/s/x and https://aihero.dev/s/done and https://aihero.dev/s/x"
+      ),
     ]);
   });
 });

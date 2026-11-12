@@ -50,6 +50,22 @@ export function writeStored(key: string, value: string): void {
 }
 
 /**
+ * Removes every key that starts with one of `prefixes`. Throws when storage
+ * is blocked, so a caller that records "done" can leave that unrecorded.
+ */
+export function removeStoredByPrefix(prefixes: readonly string[]): void {
+  if (!hasLocalStorage()) return;
+  const matching: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && prefixes.some((prefix) => key.startsWith(prefix))) {
+      matching.push(key);
+    }
+  }
+  for (const key of matching) localStorage.removeItem(key);
+}
+
+/**
  * Which value a render shows, given the one the hook is holding. The same key
  * keeps the held value — an unsaved edit must survive a re-render — and a new
  * key reads that key's own stored value instead.

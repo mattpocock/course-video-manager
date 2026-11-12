@@ -29,6 +29,8 @@ import type { CourseStructure } from "@/components/video-context-panel";
 export interface VideoPostingContext {
   videoTitle: string;
   pitchId: string | null;
+  /** The YouTube Draft as last saved; null fields were never saved. */
+  youtubeDraft: { title: string | null; description: string | null };
   transcriptWordCount: number;
   chapters: SectionWithWordCount[];
   files: Array<{ path: string; size: number; defaultEnabled: boolean }>;
@@ -66,11 +68,16 @@ export const loadVideoPostingContext = Effect.fn("loadVideoPostingContext")(
 
     const lesson = video.lesson;
     const files = yield* listVideoFiles(video.lineageId);
+    const youtubeDraft = {
+      title: video.youtubeDraftTitle,
+      description: video.youtubeDraftDescription,
+    };
 
     if (!lesson) {
       return {
         videoTitle: video.title,
         pitchId: video.pitchId ?? null,
+        youtubeDraft,
         transcriptWordCount,
         chapters: sectionsWithWordCount,
         files,
@@ -96,6 +103,7 @@ export const loadVideoPostingContext = Effect.fn("loadVideoPostingContext")(
     return {
       videoTitle: video.title,
       pitchId: video.pitchId ?? null,
+      youtubeDraft,
       transcriptWordCount,
       chapters: sectionsWithWordCount,
       files,

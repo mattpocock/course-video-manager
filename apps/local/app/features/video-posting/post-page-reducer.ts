@@ -1,4 +1,8 @@
-import type { EffectReducer } from "use-effect-reducer";
+import type {
+  EffectEntity,
+  EffectReducer,
+  EffectReducerExec,
+} from "use-effect-reducer";
 import type { CourseStructure } from "@/components/video-context-panel";
 import type { YouTubeUploadEntry } from "@/features/upload-manager/upload-entry";
 import { findYouTubeMetadataProblem } from "@/lib/youtube-metadata";
@@ -17,9 +21,9 @@ import type { CreatedShortLink, GenerateTextRequest } from "./posting-requests";
  * The post page: a Video's YouTube title and description (generated, copied
  * from the Pitch, or typed), its visibility and Thumbnail, the press that
  * checks for an Exported Video and starts the YouTube upload Job, and turning
- * aihero.dev links into short links. The title and description are stored
- * per Video by the page, so events carry them as they were when the user
- * acted. See docs/FRONTEND_STATE.md.
+ * aihero.dev links into short links. The title and description are the
+ * Video's YouTube Draft: kept here, and saved to the Video a moment after each
+ * edit. See docs/FRONTEND_STATE.md.
  */
 export namespace postPageReducer {
   export type Field = "title" | "description";
@@ -35,6 +39,15 @@ export namespace postPageReducer {
   };
 
   export interface State {
+    videoId: string;
+    title: string;
+    description: string;
+    /** The YouTube Draft as the Video last saved it. */
+    saved: { title: string; description: string };
+    /** The save waiting out its delay, so the next edit replaces it. */
+    draftSave: EffectEntity<State, Action> | null;
+    /** Why the last save failed; cleared by the next one that succeeds. */
+    draftSaveError: string | null;
     fields: generatedFieldReducer.State<Field>;
     privacyStatus: PrivacyStatus;
     selectedThumbnailId: string | null;
@@ -48,11 +61,12 @@ export namespace postPageReducer {
 
   export type Action =
     | generatedFieldReducer.Action<Field, GenerateTextRequest>
-    | {
-        type: "copy-from-pitch-clicked";
-        pitchTitle: string;
-        currentTitle: string;
-      }
+    | { type: "title-edited"; title: string }
+    | { type: "description-edited"; description: string }
+    | { type: "youtube-draft-saved"; title: string; description: string }
+    | { type: "youtube-draft-save-failed"; message: string }
+    | { type: "youtube-draft-retry-clicked" }
+    | { type: "copy-from-pitch-clicked"; pitchTitle: string }
     | { type: "video-opened"; videoId: string }
     | { type: "stored-youtube-video-id-read"; youtubeVideoId: string | null }
     /** This Video's YouTube upload Job succeeded, as the jobs list reports. */
@@ -64,25 +78,28 @@ export namespace postPageReducer {
     | { type: "privacy-status-selected"; privacyStatus: PrivacyStatus }
     | { type: "thumbnail-selected"; thumbnailId: string | null }
     | { type: "thumbnail-delete-clicked"; thumbnailId: string }
-    | {
-        type: "post-clicked";
-        videoId: string;
-        title: string;
-        description: string;
-      }
+    | { type: "post-clicked" }
     | { type: "export-checked"; exists: boolean }
     | { type: "export-check-failed" }
-    | {
-        type: "convert-short-links-clicked";
-        title: string;
-        description: string;
-      }
+    | { type: "convert-short-links-clicked" }
     | { type: "short-links-created"; links: CreatedShortLink[] }
     | { type: "short-links-failed"; message: string }
     | { type: "disconnect-clicked" };
 
   export type Effect =
-    | generatedFieldReducer.Effect<Field, GenerateTextRequest>
+    // An applied text lands in this state instead (`applyFieldText`).
+    | Exclude<
+        generatedFieldReducer.Effect<Field, GenerateTextRequest>,
+        { type: "apply-field-text" }
+      >
+    /** Wait `delayMs`, then save the YouTube Draft. Replaced by the next edit. */
+    | {
+        type: "save-youtube-draft";
+        videoId: string;
+        title: string;
+        description: string;
+        delayMs: number;
+      }
     | { type: "read-stored-youtube-video-id"; videoId: string }
     | {
         type: "store-youtube-video-id";
@@ -99,12 +116,25 @@ export namespace postPageReducer {
     | { type: "disconnect-youtube" };
 }
 
-export const createInitialPostPageState = (
-  selectedThumbnailId: string | null
-): postPageReducer.State => ({
+/** How long typing pauses before the YouTube Draft is saved. */
+export const YOUTUBE_DRAFT_SAVE_DELAY_MS = 500;
+
+export const createInitialPostPageState = (opts: {
+  videoId: string;
+  selectedThumbnailId: string | null;
+  /** The YouTube Draft the page opens with. */
+  title: string;
+  description: string;
+}): postPageReducer.State => ({
+  videoId: opts.videoId,
+  title: opts.title,
+  description: opts.description,
+  saved: { title: opts.title, description: opts.description },
+  draftSave: null,
+  draftSaveError: null,
   fields: createInitialGeneratedFieldState(),
   privacyStatus: "unlisted",
-  selectedThumbnailId,
+  selectedThumbnailId: opts.selectedThumbnailId,
   checkingExport: null,
   convertingShortLinks: null,
   storedYoutubeVideoId: "",
@@ -151,15 +181,33 @@ export const selectMetadataProblem = (title: string, description: string) =>
   title.trim() ? findYouTubeMetadataProblem({ title, description }) : null;
 
 /** Post can be pressed: both fields filled, a Thumbnail picked, nothing YouTube would refuse. */
-export const selectCanPost = (
-  state: postPageReducer.State,
-  title: string,
-  description: string
-) =>
-  !!title.trim() &&
-  !!description.trim() &&
+export const selectCanPost = (state: postPageReducer.State) =>
+  !!state.title.trim() &&
+  !!state.description.trim() &&
   !!state.selectedThumbnailId &&
-  !selectMetadataProblem(title, description);
+  !selectMetadataProblem(state.title, state.description);
+
+/** Whether the Video has the YouTube Draft the page shows. */
+export const selectYoutubeDraftStatus = (
+  state: postPageReducer.State
+): "saved" | "saving" | "failed" => {
+  if (state.draftSaveError !== null) return "failed";
+  return state.title === state.saved.title &&
+    state.description === state.saved.description
+    ? "saved"
+    : "saving";
+};
+
+/** The YouTube Draft the Video does not have yet, or null when it has it. */
+export const selectUnsavedYoutubeDraft = (state: postPageReducer.State) =>
+  state.title === state.saved.title &&
+  state.description === state.saved.description
+    ? null
+    : {
+        videoId: state.videoId,
+        title: state.title,
+        description: state.description,
+      };
 
 /**
  * How the upload reads on the page: from this Video's upload Job while there
@@ -191,37 +239,83 @@ export const selectUploadDisplay = (
   youtubeVideoId: upload?.youtubeVideoId ?? state.storedYoutubeVideoId,
 });
 
-type Exec = (effect: postPageReducer.Effect) => void;
+type State = postPageReducer.State;
+type Exec = EffectReducerExec<
+  postPageReducer.State,
+  postPageReducer.Action,
+  postPageReducer.Effect
+>;
 
-const postClicked = (
-  state: postPageReducer.State,
-  action: Extract<postPageReducer.Action, { type: "post-clicked" }>,
+/** A new YouTube Draft: shown at once, saved once `delayMs` passes without another. */
+const draftChanged = (
+  state: State,
+  draft: { title: string; description: string },
+  exec: Exec,
+  delayMs = YOUTUBE_DRAFT_SAVE_DELAY_MS
+): State => ({
+  ...state,
+  ...draft,
+  draftSave: exec.replace(state.draftSave ?? undefined, {
+    type: "save-youtube-draft",
+    videoId: state.videoId,
+    ...draft,
+    delayMs,
+  }),
+});
+
+/** A generated, copied or converted text lands in its field, and is saved. */
+const applyFieldText = (
+  state: State,
+  field: postPageReducer.Field,
+  text: string,
   exec: Exec
-): postPageReducer.State => {
+): State =>
+  draftChanged(
+    state,
+    {
+      title: field === "title" ? text : state.title,
+      description: field === "description" ? text : state.description,
+    },
+    exec
+  );
+
+const fieldAction = (
+  state: State,
+  action: generatedFieldReducer.Action<
+    postPageReducer.Field,
+    GenerateTextRequest
+  >,
+  exec: Exec
+): State => {
+  const applied: Array<{ field: postPageReducer.Field; text: string }> = [];
+  const fields = generatedFieldReducer(state.fields, action, (effect) => {
+    if (effect.type === "apply-field-text") applied.push(effect);
+    else exec(effect);
+  });
+  return applied.reduce(
+    (next, { field, text }) => applyFieldText(next, field, text, exec),
+    fields === state.fields ? state : { ...state, fields }
+  );
+};
+
+const postClicked = (state: State, exec: Exec): State => {
   const thumbnailId = state.selectedThumbnailId;
   if (state.checkingExport || !thumbnailId) return state;
-  if (!selectCanPost(state, action.title, action.description)) return state;
+  if (!selectCanPost(state)) return state;
   const upload: postPageReducer.Upload = {
-    videoId: action.videoId,
-    title: action.title,
-    description: action.description,
+    videoId: state.videoId,
+    title: state.title,
+    description: state.description,
     privacyStatus: state.privacyStatus,
     thumbnailId,
   };
-  exec({ type: "check-export", videoId: action.videoId });
+  exec({ type: "check-export", videoId: state.videoId });
   return { ...state, checkingExport: upload };
 };
 
-const convertShortLinksClicked = (
-  state: postPageReducer.State,
-  action: Extract<
-    postPageReducer.Action,
-    { type: "convert-short-links-clicked" }
-  >,
-  exec: Exec
-): postPageReducer.State => {
+const convertShortLinksClicked = (state: State, exec: Exec): State => {
   if (state.convertingShortLinks) return state;
-  if (!hasAiHeroUrls(action.description)) {
+  if (!hasAiHeroUrls(state.description)) {
     exec({
       type: "show-toast",
       title: "No aihero.dev links found",
@@ -229,7 +323,7 @@ const convertShortLinksClicked = (
     });
     return state;
   }
-  const urls = findConvertibleAiHeroUrls(action.description);
+  const urls = findConvertibleAiHeroUrls(state.description);
   if (urls.length === 0) {
     exec({
       type: "show-toast",
@@ -241,36 +335,37 @@ const convertShortLinksClicked = (
   exec({
     type: "create-short-links",
     urls,
-    linkDescription: `YouTube (${action.title || "Untitled"})`,
+    linkDescription: `YouTube (${state.title || "Untitled"})`,
   });
   return {
     ...state,
-    convertingShortLinks: { description: action.description },
+    convertingShortLinks: { description: state.description },
   };
 };
 
 const shortLinksCreated = (
-  state: postPageReducer.State,
+  state: State,
   action: Extract<postPageReducer.Action, { type: "short-links-created" }>,
   exec: Exec
-): postPageReducer.State => {
+): State => {
   const converting = state.convertingShortLinks;
   if (!converting) return state;
   const count = action.links.length;
-  exec({
-    type: "apply-field-text",
-    field: "description",
-    text: replaceUrls(
-      converting.description,
-      new Map(action.links.map((link) => [link.url, link.shortLinkUrl]))
-    ),
-  });
+  const description = replaceUrls(
+    converting.description,
+    new Map(action.links.map((link) => [link.url, link.shortLinkUrl]))
+  );
   exec({
     type: "show-toast",
     title: "Links converted",
     description: `Converted ${count} aihero.dev URL${count > 1 ? "s" : ""} to short links.`,
   });
-  return { ...state, convertingShortLinks: null };
+  return applyFieldText(
+    { ...state, convertingShortLinks: null },
+    "description",
+    description,
+    exec
+  );
 };
 
 export const postPageReducer: EffectReducer<
@@ -284,20 +379,45 @@ export const postPageReducer: EffectReducer<
     case "text-generation-failed":
     case "text-offered":
     case "overwrite-confirmed":
-    case "overwrite-cancelled": {
-      const fields = generatedFieldReducer(state.fields, action, exec);
-      return fields === state.fields ? state : { ...state, fields };
-    }
+    case "overwrite-cancelled":
+      return fieldAction(state, action, exec);
     case "copy-from-pitch-clicked":
-      return postPageReducer(
+      return fieldAction(
         state,
         {
           type: "text-offered",
           field: "title",
-          currentText: action.currentTitle,
+          currentText: state.title,
           text: action.pitchTitle,
         },
         exec
+      );
+    case "title-edited":
+      return draftChanged(
+        state,
+        { title: action.title, description: state.description },
+        exec
+      );
+    case "description-edited":
+      return draftChanged(
+        state,
+        { title: state.title, description: action.description },
+        exec
+      );
+    case "youtube-draft-saved":
+      return {
+        ...state,
+        saved: { title: action.title, description: action.description },
+        draftSaveError: null,
+      };
+    case "youtube-draft-save-failed":
+      return { ...state, draftSaveError: action.message };
+    case "youtube-draft-retry-clicked":
+      return draftChanged(
+        state,
+        { title: state.title, description: state.description },
+        exec,
+        0
       );
     case "video-opened":
       exec({ type: "read-stored-youtube-video-id", videoId: action.videoId });
@@ -323,7 +443,7 @@ export const postPageReducer: EffectReducer<
       if (action.thumbnailId !== state.selectedThumbnailId) return state;
       return { ...state, selectedThumbnailId: null };
     case "post-clicked":
-      return postClicked(state, action, exec);
+      return postClicked(state, exec);
     case "export-checked": {
       const upload = state.checkingExport;
       if (!upload) return state;
@@ -352,7 +472,7 @@ export const postPageReducer: EffectReducer<
       exec({ type: "show-error", title: "Failed to check export status" });
       return { ...state, checkingExport: null };
     case "convert-short-links-clicked":
-      return convertShortLinksClicked(state, action, exec);
+      return convertShortLinksClicked(state, exec);
     case "short-links-created":
       return shortLinksCreated(state, action, exec);
     case "short-links-failed":

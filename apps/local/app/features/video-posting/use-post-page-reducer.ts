@@ -1,49 +1,43 @@
-import { useContext, useEffect } from "react";
+import { useContext, useEffect, useRef } from "react";
 import { useFetcher } from "react-router";
 import { useEffectReducer } from "@/hooks/use-effect-reducer";
 import { toast } from "@/components/ui/toast";
-import {
-  readStored,
-  useLocalStorage,
-  writeStored,
-} from "@/hooks/use-local-storage";
+import { readStored, writeStored } from "@/hooks/use-local-storage";
 import { UploadContext } from "@/features/upload-manager/upload-context";
 import { findVideoJobRow } from "@/features/jobs/jobs-selectors";
 import { getAutoSelectThumbnailId } from "./auto-select-thumbnail";
-import { createShortLinks, generateText } from "./posting-requests";
+import {
+  createShortLinks,
+  generateText,
+  saveYoutubeDraft,
+  type YoutubeDraft,
+} from "./posting-requests";
 import {
   createInitialPostPageState,
   postPageReducer,
+  selectUnsavedYoutubeDraft,
 } from "./post-page-reducer";
 
-const POST_TITLE_STORAGE_KEY = (videoId: string) => `post-title-${videoId}`;
-const POST_DESCRIPTION_STORAGE_KEY = (videoId: string) =>
-  `post-description-${videoId}`;
 const YOUTUBE_VIDEO_ID_STORAGE_KEY = (videoId: string) =>
   `youtube-video-id-${videoId}`;
 
 /**
- * The post page's effect runner for `postPageReducer`, with the title and
- * description it keeps per Video in this browser and this Video's YouTube
- * upload Job.
+ * The post page's effect runner for `postPageReducer`, with this Video's
+ * YouTube upload Job. Mount it once per Video (the route keys the page by
+ * `videoId`): the YouTube Draft it opens with is that Video's.
  */
 export function usePostPageReducer({
   videoId,
   thumbnails,
   pitchYoutubeTitle,
+  youtubeDraft,
 }: {
   videoId: string;
   thumbnails: Array<{ id: string }>;
   pitchYoutubeTitle: string | null;
+  /** As the Video last saved it; a field never saved is null. */
+  youtubeDraft: { title: string | null; description: string | null };
 }) {
-  const [title, setTitle] = useLocalStorage(
-    POST_TITLE_STORAGE_KEY(videoId),
-    pitchYoutubeTitle ?? ""
-  );
-  const [description, setDescription] = useLocalStorage(
-    POST_DESCRIPTION_STORAGE_KEY(videoId)
-  );
-
   const { jobs, startUpload, startExportUpload } = useContext(UploadContext);
   // This Video's YouTube upload: a posting Job the Sidecar runs.
   const activeUpload = findVideoJobRow(jobs, videoId, "youtube");
@@ -56,7 +50,13 @@ export function usePostPageReducer({
     postPageReducer.Effect
   >(
     postPageReducer,
-    () => createInitialPostPageState(getAutoSelectThumbnailId(thumbnails)),
+    () =>
+      createInitialPostPageState({
+        videoId,
+        selectedThumbnailId: getAutoSelectThumbnailId(thumbnails),
+        title: youtubeDraft.title ?? pitchYoutubeTitle ?? "",
+        description: youtubeDraft.description ?? "",
+      }),
     {
       "generate-text": (_state, effect, dispatch) => {
         generateText(effect.request)
@@ -68,9 +68,25 @@ export function usePostPageReducer({
             dispatch({ type: "text-generation-failed", field: effect.field });
           });
       },
-      "apply-field-text": (_state, effect) => {
-        const setField = effect.field === "title" ? setTitle : setDescription;
-        setField(effect.text);
+      "save-youtube-draft": (_state, effect, dispatch) => {
+        const timer = setTimeout(() => {
+          saveYoutubeDraft(effect)
+            .then(() =>
+              dispatch({
+                type: "youtube-draft-saved",
+                title: effect.title,
+                description: effect.description,
+              })
+            )
+            .catch((error: unknown) =>
+              dispatch({
+                type: "youtube-draft-save-failed",
+                message:
+                  error instanceof Error ? error.message : "The save failed",
+              })
+            );
+        }, effect.delayMs);
+        return () => clearTimeout(timer);
       },
       "read-stored-youtube-video-id": (_state, effect, dispatch) => {
         dispatch({
@@ -158,13 +174,27 @@ export function usePostPageReducer({
     }
   }, [dispatch, videoId, succeededAs]);
 
-  return {
-    state,
-    dispatch,
-    title,
-    description,
-    editTitle: setTitle,
-    editDescription: setDescription,
-    activeUpload,
-  };
+  // Bridge: leaving the page (another page, or closing the tab) sends the
+  // YouTube Draft a save is still waiting to send.
+  const unsaved = useRef<YoutubeDraft | null>(null);
+  useEffect(() => {
+    unsaved.current = selectUnsavedYoutubeDraft(state);
+  });
+  useEffect(() => {
+    const flush = () => {
+      const draft = unsaved.current;
+      if (!draft) return;
+      // The page is going, so there is nowhere left to show a failure.
+      saveYoutubeDraft(draft, { keepalive: true }).catch((error: unknown) =>
+        console.error("Failed to save the YouTube Draft on leaving:", error)
+      );
+    };
+    window.addEventListener("pagehide", flush);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      flush();
+    };
+  }, []);
+
+  return { state, dispatch, activeUpload };
 }

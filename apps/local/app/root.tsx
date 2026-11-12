@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/card";
 import { useEffect, useState } from "react";
 import { purgeLegacyDocumentStorage } from "@/features/article-writer/write-utils";
+import { removeRetiredStorage } from "@/lib/retired-storage";
 import { FeedbackModal } from "@/components/feedback-modal";
 import { Loader2, MessageSquarePlus } from "lucide-react";
 import { slowRequestMiddleware } from "@/services/slow-request-log.server";
@@ -118,6 +119,8 @@ export default function App() {
   // Sweep up writer documents left behind by the retired localStorage
   // persistence, so no stale draft can resurface over a newer saved value.
   useEffect(purgeLegacyDocumentStorage, []);
+  // And free the space taken by keys whose data moved to the database.
+  useEffect(removeRetiredStorage, []);
   // The teleprompter window is pointed at a camera lens, and the pop-out chat
   // is a presenter view on a second screen, so no app chrome belongs on them.
   const { pathname } = useLocation();

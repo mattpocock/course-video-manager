@@ -4,11 +4,6 @@
       "file": "apps/local/app/features/video-posting/ai-hero-page.tsx",
       "count": 5,
       "reason": "Pre-dates the guard. Migrates in docs/plans/reducer-migration.md, batch 9."
-    },
-    {
-      "file": "apps/local/app/features/video-posting/social-page.tsx",
-      "count": 5,
-      "reason": "Pre-dates the guard. Migrates in docs/plans/reducer-migration.md, batch 9."
     }
   ],
   "effect-sets-state": [
