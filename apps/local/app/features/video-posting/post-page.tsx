@@ -37,6 +37,7 @@ import {
   selectGenerateRequest,
   selectMetadataProblem,
   selectUploadDisplay,
+  selectYoutubeDraftStatus,
   type postPageReducer,
 } from "./post-page-reducer";
 import { usePostPageReducer } from "./use-post-page-reducer";
@@ -52,6 +53,7 @@ export function PostPage({
   includeCourseStructure,
   chapters,
   pitchYoutubeTitle,
+  youtubeDraft,
 }: {
   videoId: string;
   isYoutubeAuthenticated: boolean;
@@ -63,16 +65,16 @@ export function PostPage({
   includeCourseStructure: boolean;
   chapters: SectionWithWordCount[];
   pitchYoutubeTitle: string | null;
+  youtubeDraft: { title: string | null; description: string | null };
 }) {
-  const {
-    state,
-    dispatch,
-    title,
-    description,
-    editTitle,
-    editDescription,
-    activeUpload,
-  } = usePostPageReducer({ videoId, thumbnails, pitchYoutubeTitle });
+  const { state, dispatch, activeUpload } = usePostPageReducer({
+    videoId,
+    thumbnails,
+    pitchYoutubeTitle,
+    youtubeDraft,
+  });
+  const { title, description } = state;
+  const draftStatus = selectYoutubeDraftStatus(state);
 
   const upload = selectUploadDisplay(state, activeUpload);
   const metadataProblem = selectMetadataProblem(title, description);
@@ -141,7 +143,6 @@ export function PostPage({
                     dispatch({
                       type: "copy-from-pitch-clicked",
                       pitchTitle: pitchYoutubeTitle,
-                      currentTitle: title,
                     })
                   }
                 >
@@ -172,7 +173,9 @@ export function PostPage({
           <Textarea
             id="title"
             value={title}
-            onChange={(e) => editTitle(e.target.value)}
+            onChange={(e) =>
+              dispatch({ type: "title-edited", title: e.target.value })
+            }
             placeholder="Enter video title..."
             className="text-lg min-h-[60px] resize-y"
           />
@@ -208,7 +211,12 @@ export function PostPage({
           <Textarea
             id="description"
             value={description}
-            onChange={(e) => editDescription(e.target.value)}
+            onChange={(e) =>
+              dispatch({
+                type: "description-edited",
+                description: e.target.value,
+              })
+            }
             placeholder="Enter video description..."
             className="min-h-[300px] resize-y"
           />
@@ -220,13 +228,7 @@ export function PostPage({
           <Button
             variant="outline"
             size="sm"
-            onClick={() =>
-              dispatch({
-                type: "convert-short-links-clicked",
-                title,
-                description,
-              })
-            }
+            onClick={() => dispatch({ type: "convert-short-links-clicked" })}
             disabled={!!state.convertingShortLinks || !description.trim()}
           >
             {state.convertingShortLinks ? (
@@ -242,6 +244,28 @@ export function PostPage({
             )}
           </Button>
         </div>
+
+        {draftStatus === "failed" ? (
+          <div
+            role="alert"
+            className="flex items-center justify-between gap-2 rounded-md border border-destructive p-3 text-sm text-destructive"
+          >
+            <span>
+              The title and description are not saved: {state.draftSaveError}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => dispatch({ type: "youtube-draft-retry-clicked" })}
+            >
+              Retry
+            </Button>
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            {draftStatus === "saving" ? "Saving…" : "Saved"}
+          </p>
+        )}
 
         {/* Visibility */}
         <div className="flex items-center gap-2">
@@ -281,13 +305,9 @@ export function PostPage({
         {/* Upload section */}
         <div className="space-y-3">
           <Button
-            onClick={() =>
-              dispatch({ type: "post-clicked", videoId, title, description })
-            }
+            onClick={() => dispatch({ type: "post-clicked" })}
             disabled={
-              !!activeUpload ||
-              isCheckingExport ||
-              !selectCanPost(state, title, description)
+              !!activeUpload || isCheckingExport || !selectCanPost(state)
             }
             className="w-full"
             size="lg"

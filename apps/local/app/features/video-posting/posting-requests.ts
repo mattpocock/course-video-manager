@@ -57,3 +57,33 @@ export const createShortLinks = async (
   }
   return links;
 };
+
+/** A Video's YouTube Draft, as the YouTube page sends it. */
+export interface YoutubeDraft {
+  videoId: string;
+  title: string;
+  description: string;
+}
+
+/**
+ * Saves the YouTube Draft. `keepalive` lets the last save outlive the page
+ * that sent it (leaving the page, closing the tab).
+ */
+export const saveYoutubeDraft = async (
+  { videoId, title, description }: YoutubeDraft,
+  options: { keepalive?: boolean } = {}
+): Promise<void> => {
+  const response = await fetch(`/api/videos/${videoId}/youtube-draft`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title, description }),
+    keepalive: options.keepalive,
+  });
+  if (!response.ok) {
+    throw new Error(
+      response.status === 409
+        ? "This Video is in a Version that is no longer the Draft"
+        : `The server answered ${response.status}`
+    );
+  }
+};

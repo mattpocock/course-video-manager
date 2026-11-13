@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { hasLocalStorage, useLocalStorage } from "@/hooks/use-local-storage";
+import { useState } from "react";
+import { useLocalStorage } from "@/hooks/use-local-storage";
 import { toast } from "@/components/ui/toast";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -29,6 +29,8 @@ export interface SocialPagePanelProps {
   includeTranscript: boolean;
   includeCourseStructure: boolean;
   courseStructure: CourseStructure | null;
+  /** The YouTube Draft's title; null when the YouTube page never saved one. */
+  youtubeTitle: string | null;
 }
 
 export const SocialPagePanel = (props: SocialPagePanelProps) => {
@@ -41,6 +43,7 @@ export const SocialPagePanel = (props: SocialPagePanelProps) => {
     includeCourseStructure,
     courseStructure,
   } = props;
+  const videoTitle = props.youtubeTitle || "Untitled";
 
   const [socialCaption, setSocialCaption] = useLocalStorage(
     SOCIAL_CAPTION_STORAGE_KEY(videoId)
@@ -102,16 +105,6 @@ export const SocialPagePanel = (props: SocialPagePanelProps) => {
     setConfirmOverwriteCaption(false);
     setPendingGeneratedCaption("");
   };
-
-  // Read the video title from localStorage (set by the YouTube tab)
-  const [videoTitle, setVideoTitle] = useState("");
-  useEffect(() => {
-    if (hasLocalStorage()) {
-      setVideoTitle(
-        localStorage.getItem(`post-title-${videoId}`) || "Untitled"
-      );
-    }
-  }, [videoId]);
 
   // Short link creation state
   const [creatingShortLink, setCreatingShortLink] = useState<string | null>(

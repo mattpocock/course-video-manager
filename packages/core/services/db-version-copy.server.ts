@@ -246,6 +246,8 @@ export const createVersionCopyOps = (db: Database) => {
                   body: sourceVideo.body,
                   description: sourceVideo.description,
                   script: sourceVideo.script,
+                  youtubeDraftTitle: sourceVideo.youtubeDraftTitle,
+                  youtubeDraftDescription: sourceVideo.youtubeDraftDescription,
                   format: sourceVideo.format,
                   recorder: sourceVideo.recorder,
                 })

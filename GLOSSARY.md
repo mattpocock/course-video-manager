@@ -139,6 +139,10 @@ _Avoid_: Clip group, Divider, Marker, Section, Clip Mockup Chapter
 **Video Post**:
 A record of a **Video** being posted to an external platform: which platform, where, and when.
 
+**YouTube Draft**:
+The title and description written for a **Video** on its YouTube page, kept on the Video and saved as they are typed, until the upload sends them.
+_Avoid_: Post draft, Stored title
+
 **Take**:
 One stretch of speech the **Recorder** hears that is long enough to become a **Clip**.
 _Avoid_: Speech part, Sound detection

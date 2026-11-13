@@ -379,6 +379,13 @@
       "when": 1794228186822,
       "tag": "0053_lesson_optional",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1794487170471,
+      "tag": "0054_video_youtube_draft",
+      "breakpoints": true
     }
   ]
 }

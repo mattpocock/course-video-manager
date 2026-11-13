@@ -308,6 +308,13 @@ export const videos = createTable(
     // filming. Internal like beats: copied into version snapshots but never
     // emitted into the shipped course.json.
     script: text("script"),
+    /**
+     * The YouTube Draft: the title and description typed on the Video's
+     * YouTube page, saved as they are typed. Null until first saved (the page
+     * then offers the Pitch's YouTube title). See migration 0054.
+     */
+    youtubeDraftTitle: text("youtube_draft_title"),
+    youtubeDraftDescription: text("youtube_draft_description"),
     archived: boolean("archived").notNull().default(false),
     format: text("format").notNull().default("landscape"),
     /**

@@ -24,6 +24,8 @@ export function makeVideo(
     originalFootagePath: "/footage/video-01",
     body: null,
     description: null,
+    youtubeDraftTitle: null,
+    youtubeDraftDescription: null,
     format: "landscape",
     recorder: null,
     updatedAt: new Date(),

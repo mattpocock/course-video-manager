@@ -5,9 +5,10 @@
  * these actions to it (`postPageReducer`, `shortsPostingReducer`; batch 9 of
  * docs/plans/reducer-migration.md reuses it for the other posting pages).
  *
- * The field's text itself stays with the page (it is stored per Video), so an
- * event carries the text as it was when the user acted, and the text is
- * changed by declaring `apply-field-text`. See docs/FRONTEND_STATE.md.
+ * The field's text itself is the surface reducer's, so an event carries the
+ * text as it was when the user acted, and the text is changed by declaring
+ * `apply-field-text`, which the surface reducer applies to its own state. See
+ * docs/FRONTEND_STATE.md.
  */
 export namespace generatedFieldReducer {
   export interface State<TField extends string> {

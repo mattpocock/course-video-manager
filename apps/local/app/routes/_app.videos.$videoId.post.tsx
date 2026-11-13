@@ -85,6 +85,7 @@ export default function PostPageRoute(props: Route.ComponentProps) {
     thumbnails,
     videoExists,
     pitchYoutubeTitle,
+    youtubeDraft,
   } = props.loaderData;
 
   const {
@@ -161,7 +162,9 @@ export default function PostPageRoute(props: Route.ComponentProps) {
 
         {/* Right panel: Tabbed posting interface */}
         <div className="w-3/4 flex flex-col p-6 overflow-y-auto scrollbar scrollbar-track-transparent scrollbar-thumb-muted hover:scrollbar-thumb-muted-foreground">
+          {/* One mount per Video: it opens with that Video's YouTube Draft. */}
           <PostPage
+            key={videoId}
             videoId={videoId}
             isYoutubeAuthenticated={isYoutubeAuthenticated}
             thumbnails={thumbnails}
@@ -172,6 +175,7 @@ export default function PostPageRoute(props: Route.ComponentProps) {
             includeCourseStructure={contextPanel.includeCourseStructure}
             chapters={chapters}
             pitchYoutubeTitle={pitchYoutubeTitle}
+            youtubeDraft={youtubeDraft}
           />
         </div>
       </div>

@@ -288,6 +288,35 @@ export const createVideoWriteOps = (db: Database) => {
     }
   );
 
+  /** The YouTube Draft, both fields at once, as the YouTube page has them. */
+  const updateYoutubeDraft = Effect.fn("updateYoutubeDraft")(function* (opts: {
+    videoId: string;
+    title: string;
+    description: string;
+  }) {
+    yield* requireDraftVersionForVideo(db, opts.videoId);
+    const [updated] = yield* makeDbCall(() =>
+      db
+        .update(videos)
+        .set({
+          youtubeDraftTitle: opts.title,
+          youtubeDraftDescription: opts.description,
+          updatedAt: new Date(),
+        })
+        .where(eq(videos.id, opts.videoId))
+        .returning({ id: videos.id })
+    );
+
+    if (!updated) {
+      return yield* new NotFoundError({
+        type: "updateYoutubeDraft",
+        params: { videoId: opts.videoId },
+      });
+    }
+
+    return updated;
+  });
+
   const unlinkVideoFromPitch = Effect.fn("unlinkVideoFromPitch")(function* (
     videoId: string
   ) {
@@ -415,6 +444,7 @@ export const createVideoWriteOps = (db: Database) => {
     updateVideoBody,
     updateVideoScript,
     updateVideoDescription,
+    updateYoutubeDraft,
     updateVideoFormat,
   };
 };
@@ -439,6 +469,7 @@ export const videoWriteMethods = [
   "updateVideoBody",
   "updateVideoScript",
   "updateVideoDescription",
+  "updateYoutubeDraft",
   "updateVideoFormat",
   // `cvm short create`: the Short and every Clip it copies or cuts, at once.
   "createShortFromRanges",
