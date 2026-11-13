@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { Output, streamText } from "ai";
 import {
   createFakeWriterModel,
-  FAKE_SUGGESTIONS,
+  FAKE_SUGGESTION,
 } from "@/services/fake-writer-model";
 import {
   generateSuggestNextClipPrompt,
@@ -13,7 +13,6 @@ import {
   readSuggestionLines,
   suggestionsLineStream,
   suggestionsSchema,
-  type Suggestion,
 } from "./generate-suggest-next-clip";
 
 describe("generateSuggestNextClipPrompt", () => {
@@ -59,30 +58,31 @@ describe("generateSuggestNextClipPrompt", () => {
     expect(prompt).toContain("opening line");
   });
 
-  it("puts the Notes first, as overriding the plan", () => {
-    const prompt = generateSuggestNextClipPrompt({
-      notes: "NOTES_MARKER",
+  it("puts the Steer with the Clips, outside the cached plan, as outranking the plan, and asks for one line", () => {
+    const { plan, now } = generateSuggestNextClipPromptParts({
+      steer: "STEER_MARKER",
       script: "SCRIPT_MARKER",
-      clips: [],
+      clips: ["CLIP_MARKER"],
     });
-    expect(prompt.indexOf("NOTES_MARKER")).toBeLessThan(
-      prompt.indexOf("SCRIPT_MARKER")
+    expect(plan).not.toContain("STEER_MARKER");
+    expect(now.indexOf("CLIP_MARKER")).toBeLessThan(
+      now.indexOf("STEER_MARKER")
     );
-    expect(prompt).toContain("PRIORITY");
+    expect(now).toContain("PRIORITY");
+    expect(now).not.toMatch(/different paths|title/i);
+    expect(generateSuggestNextClipPrompt({ clips: [] })).not.toContain(
+      "<steer>"
+    );
   });
 
-  it("puts the picked repo files in the cached plan, below the Notes and above the Script", () => {
+  it("puts the picked repo files in the cached plan, above the Script", () => {
     const { plan, now } = generateSuggestNextClipPromptParts({
-      notes: "NOTES_MARKER",
       script: "SCRIPT_MARKER",
       files: [{ path: "src/index.ts", content: "FILE_MARKER" }],
       clips: ["CLIP_MARKER"],
     });
     expect(plan).toContain('<file path="src/index.ts">\nFILE_MARKER\n</file>');
     expect(now).not.toContain("FILE_MARKER");
-    expect(plan.indexOf("NOTES_MARKER")).toBeLessThan(
-      plan.indexOf("FILE_MARKER")
-    );
     expect(plan.indexOf("FILE_MARKER")).toBeLessThan(
       plan.indexOf("SCRIPT_MARKER")
     );
@@ -162,7 +162,7 @@ describe("generateSuggestNextClipPrompt", () => {
 });
 
 describe("suggestionsLineStream", () => {
-  it("streams the three Suggestions from the model's answer, as they are written, and nothing else", async () => {
+  it("streams the one Suggestion from the model's answer, as it is written, and nothing else", async () => {
     const calls: Parameters<
       ReturnType<typeof createFakeWriterModel>["doStream"]
     >[0][] = [];
@@ -173,7 +173,7 @@ describe("suggestionsLineStream", () => {
     });
 
     let received = "";
-    const seen: (Suggestion[] | null)[] = [];
+    const seen: (string | null)[] = [];
     for await (const chunk of suggestionsLineStream(
       result.partialOutputStream
     )) {
@@ -181,19 +181,17 @@ describe("suggestionsLineStream", () => {
       seen.push(readSuggestionLines(received));
     }
 
-    // The editor reads every Suggestion's title and text, and no JSON keys.
-    expect(readSuggestionLines(received)).toEqual(FAKE_SUGGESTIONS);
-    expect(FAKE_SUGGESTIONS).toHaveLength(3);
-    // Still streams: the first Suggestion shows before the last arrives.
-    expect(seen.some((s) => s !== null && s.length < 3)).toBe(true);
+    // The editor reads the Suggestion's text, and no JSON keys.
+    expect(readSuggestionLines(received)).toBe(FAKE_SUGGESTION);
+    // Still streams: some of it shows before the rest arrives.
+    expect(
+      seen.some((s) => s !== null && s.length < FAKE_SUGGESTION.length)
+    ).toBe(true);
     expect(calls[0]!.responseFormat).toMatchObject({ type: "json" });
   });
 
-  it("keeps the first three, however many the model writes", () => {
-    const four = Array.from({ length: 4 }, (_, i) => ({
-      title: `T${i}`,
-      text: `S${i}`,
-    }));
-    expect(readSuggestionLines(`${JSON.stringify(four)}\n`)).toHaveLength(3);
+  it("skips a torn line, and reads nothing before the first", () => {
+    expect(readSuggestionLines('"Half')).toBeNull();
+    expect(readSuggestionLines('"One"\n"Two\n')).toBe("One");
   });
 });

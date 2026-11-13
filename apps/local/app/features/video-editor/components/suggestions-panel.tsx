@@ -5,13 +5,19 @@ import {
   estimateTokens,
   fmtTok,
 } from "@/features/article-writer/inline-context-strip";
-import { AlertCircleIcon, Layers, RefreshCwIcon } from "lucide-react";
+import {
+  AlertCircleIcon,
+  CompassIcon,
+  Layers,
+  RefreshCwIcon,
+  XIcon,
+} from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import {
   getPickedRepoFiles,
   getRepoFilesTokens,
-  getSelectedSuggestion,
   getSourceTexts,
+  getSteerInEffect,
   getSuggestionInput,
   getSuggestionText,
   isPreviousVideoInReach,
@@ -21,7 +27,6 @@ import {
 import { SuggestionsContextModal } from "./suggestions-context-modal";
 
 const SOURCE_LABELS: Record<suggestionsReducer.Source, string> = {
-  notes: "Notes",
   script: "Script",
   animatic: "Animatic",
   beats: "Beats",
@@ -39,7 +44,6 @@ const disabledReason = (
     return `Off once ${PREVIOUS_VIDEO_CLIP_LIMIT} clips are before the Insertion Point`;
   }
   if (present) return null;
-  if (source === "notes") return "Write some Notes below to include them";
   if (source === "previousVideo") return "No previous video with clips";
   return `This video has no ${SOURCE_LABELS[source]}`;
 };
@@ -49,17 +53,21 @@ const BOLD_ONLY = ["p", "strong"];
 
 /**
  * The side panel's **Suggestions** tab: which sources go in (with what each
- * one costs, as the Article Writer's context strip shows it), and three
- * Suggestions as they stream, one tab each, labelled with its title. The
- * picked one's text is on the teleprompter while this tab is open. **Context** opens a modal to pick the Video's repo files, which go in
+ * one costs, as the Article Writer's context strip shows it), the Steer in
+ * effect at the Insertion Point (with a button to give, edit or clear it),
+ * and the Suggestion as it streams, which is on the teleprompter while this
+ * tab is open. **Context** opens a modal to pick the Video's repo files, which go in
  * too. All state is in `suggestions-reducer.ts`.
  */
 export function SuggestionsPanel(props: {
   state: suggestionsReducer.State;
   onToggleSource: (source: suggestionsReducer.Source) => void;
   onRefresh: () => void;
-  onSuggestionTabClick: (index: number) => void;
-  onNotesChange: (notes: string) => void;
+  onSteerClick: () => void;
+  onSteerDraftChange: (text: string) => void;
+  onSteerSubmit: () => void;
+  onSteerDismiss: () => void;
+  onSteerClear: () => void;
   onContextClick: () => void;
   onContextDismiss: () => void;
   onFilesPicked: (paths: string[]) => void;
@@ -67,7 +75,8 @@ export function SuggestionsPanel(props: {
   const { state } = props;
   const texts = getSourceTexts(state);
   const input = getSuggestionInput(state);
-  const text = getSuggestionText(getSelectedSuggestion(state));
+  const text = getSuggestionText(state);
+  const steer = getSteerInEffect(state);
   const clipsTokens = estimateTokens(input.clips.join("\n"));
   const pickedFiles = getPickedRepoFiles(state);
   const totalTokens =
@@ -144,18 +153,14 @@ export function SuggestionsPanel(props: {
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto px-3 py-3">
-        <label
-          htmlFor="suggestion-notes"
-          className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
-        >
-          Notes
-        </label>
-        <textarea
-          id="suggestion-notes"
-          value={state.notes}
-          onChange={(e) => props.onNotesChange(e.target.value)}
-          placeholder="How this take departs from the Script or Animatic. Overrides them where they disagree. Kept in this browser, for this video only."
-          className="mb-6 mt-1 field-sizing-content min-h-20 max-h-[calc(100%-1.5rem)] w-full resize-none overflow-y-auto rounded-md border bg-background px-2 py-1.5 text-sm placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring"
+        <SteerBox
+          steer={steer?.text}
+          draft={state.steerDraft}
+          onClick={props.onSteerClick}
+          onDraftChange={props.onSteerDraftChange}
+          onSubmit={props.onSteerSubmit}
+          onDismiss={props.onSteerDismiss}
+          onClear={props.onSteerClear}
         />
         <div className="mb-2 flex items-center justify-between">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -172,27 +177,6 @@ export function SuggestionsPanel(props: {
             <RefreshCwIcon className={cn("size-3.5", busy && "animate-spin")} />
           </Button>
         </div>
-        {state.suggestions.length > 0 && state.status !== "failed" && (
-          <div role="tablist" className="mb-2 flex flex-wrap gap-1">
-            {state.suggestions.map((suggestion, index) => (
-              <button
-                key={index}
-                type="button"
-                role="tab"
-                aria-selected={index === state.selected}
-                onClick={() => props.onSuggestionTabClick(index)}
-                className={cn(
-                  "rounded-md border px-2 py-0.5 text-xs transition-colors",
-                  index === state.selected
-                    ? "bg-background font-semibold text-foreground"
-                    : "border-transparent text-muted-foreground hover:bg-muted hover:text-foreground"
-                )}
-              >
-                {suggestion.title.trim() || `Suggestion ${index + 1}`}
-              </button>
-            ))}
-          </div>
-        )}
         {state.awaitingRefresh ? (
           <p className="text-sm text-muted-foreground">
             Press Refresh for a suggestion.
@@ -215,7 +199,7 @@ export function SuggestionsPanel(props: {
           </div>
         )}
         <p className="mt-4 text-xs text-muted-foreground">
-          The picked one is shown on the teleprompter while this tab is open.
+          Shown on the teleprompter while this tab is open.
         </p>
       </div>
       <SuggestionsContextModal
@@ -224,5 +208,112 @@ export function SuggestionsPanel(props: {
         onFilesPicked={props.onFilesPicked}
       />
     </div>
+  );
+}
+
+/**
+ * The Steer at the Insertion Point: a button to give one, or the one in
+ * effect with Edit and Clear, or the box it is typed in. Enter submits,
+ * Escape closes the box, Shift+Enter breaks the line.
+ */
+function SteerBox(props: {
+  steer: string | undefined;
+  draft: string | null;
+  onClick: () => void;
+  onDraftChange: (text: string) => void;
+  onSubmit: () => void;
+  onDismiss: () => void;
+  onClear: () => void;
+}) {
+  if (props.draft !== null) {
+    return (
+      <form
+        className="mb-6"
+        onSubmit={(e) => {
+          e.preventDefault();
+          props.onSubmit();
+        }}
+      >
+        <label
+          htmlFor="suggestion-steer"
+          className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+        >
+          Steer
+        </label>
+        <textarea
+          id="suggestion-steer"
+          autoFocus
+          value={props.draft}
+          onChange={(e) => props.onDraftChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              props.onSubmit();
+            } else if (e.key === "Escape") {
+              e.preventDefault();
+              props.onDismiss();
+            }
+          }}
+          placeholder="Where the next clip goes, e.g. “show the error message next”. Used up once a clip is recorded here."
+          className="mt-1 field-sizing-content min-h-16 w-full resize-none rounded-md border bg-background px-2 py-1.5 text-sm placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring"
+        />
+        <div className="mt-1 flex justify-end gap-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={props.onDismiss}
+          >
+            Cancel
+          </Button>
+          <Button type="submit" size="sm">
+            Steer
+          </Button>
+        </div>
+      </form>
+    );
+  }
+  if (props.steer !== undefined) {
+    return (
+      <div className="mb-6 rounded-md border bg-muted/30 px-2 py-1.5">
+        <div className="flex items-center justify-between">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Steer
+          </p>
+          <div className="flex gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-1.5 text-xs"
+              onClick={props.onClick}
+            >
+              Edit
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="size-6 p-0"
+              onClick={props.onClear}
+              aria-label="Clear the Steer"
+            >
+              <XIcon className="size-3.5" />
+            </Button>
+          </div>
+        </div>
+        <p className="whitespace-pre-wrap text-sm">{props.steer}</p>
+      </div>
+    );
+  }
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      className="mb-6 gap-1.5"
+      onClick={props.onClick}
+      title="Tell the next suggestion where you're going. It applies at this Insertion Point until a clip is recorded here."
+    >
+      <CompassIcon className="size-3.5" />
+      Steer the next suggestion
+    </Button>
   );
 }

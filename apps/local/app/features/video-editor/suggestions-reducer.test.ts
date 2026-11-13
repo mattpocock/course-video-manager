@@ -3,6 +3,7 @@ import { ReducerTester } from "@/test-utils/reducer-tester";
 import {
   ALL_SOURCES_INCLUDED,
   createInitialSuggestionsState,
+  getSteerInEffect,
   getTeleprompterSuggestion,
   suggestionsStateReducer,
   type suggestionsReducer,
@@ -16,6 +17,8 @@ const context = (
   clips: ["So that's a type."],
   transcribedClipIds: ["c1"],
   diagramSnapshotId: null,
+  insertionAnchor: "c1",
+  previousItems: { c1: null },
   ...overrides,
 });
 
@@ -31,7 +34,6 @@ const tester = (
     createInitialSuggestionsState({
       videoId: "v1",
       included: ALL_SOURCES_INCLUDED,
-      notes: "",
       pickedFiles,
       previousVideoClips,
     })
@@ -47,14 +49,11 @@ const stream = (
   >["input"]
 ) => ({ type: "stream-suggestion", requestId, videoId: "v1", input });
 
-/** The Suggestions so far: the first with `text`, as the stream reports it. */
-const chunk = (requestId: number, text: string, ...others: string[]) => ({
+/** The Suggestion so far, as the stream reports it. */
+const chunk = (requestId: number, text: string) => ({
   type: "suggestion-chunk-received" as const,
   requestId,
-  suggestions: [text, ...others].map((t, i) => ({
-    title: `Path ${i + 1}`,
-    text: t,
-  })),
+  text,
 });
 
 describe("the Suggestions tab", () => {
@@ -231,53 +230,26 @@ describe("the Suggestions tab", () => {
     expect(getTeleprompterSuggestion(t.getState())).toBeNull();
   });
 
-  it("edited Notes are stored at once, and asked with after typing pauses", () => {
-    const t = tester()
-      .send({ type: "suggestions-tab-opened" })
-      .send({ type: "script-loaded", videoId: "v1", script: "" })
-      .resetExec();
-    vi.mocked(t.getExec()).mockReturnValue(runningStream);
-    t.send({ type: "notes-edited", notes: "Skip" })
-      .send({ type: "notes-edited", notes: "Skip the intro" })
-      // The first pause was superseded by the second edit.
-      .send({ type: "edit-pause-elapsed", editId: 1 })
-      .send({ type: "edit-pause-elapsed", editId: 2 });
-
-    expect(t.getEffects()).toEqual([
-      { type: "store-notes", videoId: "v1", notes: "Skip" },
-      { type: "wait-for-edit-pause", editId: 1 },
-      { type: "store-notes", videoId: "v1", notes: "Skip the intro" },
-      { type: "wait-for-edit-pause", editId: 2 },
-      stream(2, {
-        notes: "Skip the intro",
-        animatic: 'Mockup 1: "Hello"',
-        clips: ["So that's a type."],
-      }),
-    ]);
-  });
-
-  it("the on-screen Diagram's new text asks after the same pause as the Notes; unticked, it waits for nothing", () => {
+  it("the on-screen Diagram's new text asks once editing pauses; unticked, it waits for nothing", () => {
     const t = tester()
       .send({ type: "suggestions-tab-opened" })
       .send({ type: "script-loaded", videoId: "v1", script: "" })
       .resetExec();
     vi.mocked(t.getExec()).mockReturnValue(runningStream);
     t.send({ type: "diagram-text-changed", text: "Client" })
-      .send({ type: "notes-edited", notes: "Draw first" })
       .send({ type: "diagram-text-changed", text: "Client Server" })
       // The heartbeat repeats the text: not an edit.
       .send({ type: "diagram-text-changed", text: "Client Server" })
-      .send({ type: "edit-pause-elapsed", editId: 3 })
+      // The first pause was superseded by the second edit.
+      .send({ type: "edit-pause-elapsed", editId: 1 })
+      .send({ type: "edit-pause-elapsed", editId: 2 })
       .send({ type: "source-toggled", source: "diagram" })
       .send({ type: "diagram-text-changed", text: "Client Server DB" });
 
     expect(t.getEffects()).toEqual([
       { type: "wait-for-edit-pause", editId: 1 },
-      { type: "store-notes", videoId: "v1", notes: "Draw first" },
       { type: "wait-for-edit-pause", editId: 2 },
-      { type: "wait-for-edit-pause", editId: 3 },
       stream(2, {
-        notes: "Draw first",
         animatic: 'Mockup 1: "Hello"',
         diagram: "Client Server",
         clips: ["So that's a type."],
@@ -287,7 +259,6 @@ describe("the Suggestions tab", () => {
         included: { ...ALL_SOURCES_INCLUDED, diagram: false },
       },
       stream(3, {
-        notes: "Draw first",
         animatic: 'Mockup 1: "Hello"',
         clips: ["So that's a type."],
       }),
@@ -451,7 +422,6 @@ describe("the Suggestions tab", () => {
       createInitialSuggestionsState({
         videoId: "v1",
         included: ALL_SOURCES_INCLUDED,
-        notes: "",
         pickedFiles: [],
         openedOnTab: true,
       })
@@ -485,38 +455,144 @@ describe("the Suggestions tab", () => {
     });
   });
 
-  it("brings three Suggestions as tabs; the first is picked, and picking another puts its text alone on the teleprompter", () => {
+  it("brings one Suggestion, its text alone on the teleprompter; Refresh replaces it", () => {
     const t = tester()
       .send({ type: "suggestions-tab-opened" })
       .send({ type: "script-loaded", videoId: "v1", script: "" })
-      .send(chunk(1, "Follow the plan.", "Show an example.", "Ask them."))
+      .send(chunk(1, "Follow the plan."))
       .send({ type: "suggestion-finished", requestId: 1 });
 
-    expect(t.getState().suggestions.map((s) => s.title)).toEqual([
-      "Path 1",
-      "Path 2",
-      "Path 3",
-    ]);
-    expect(getTeleprompterSuggestion(t.getState())?.text).toBe(
-      "Follow the plan."
-    );
-
-    t.send({ type: "suggestion-tab-clicked", index: 2 });
     expect(getTeleprompterSuggestion(t.getState())).toEqual({
       id: 1,
-      text: "Ask them.",
+      text: "Follow the plan.",
       previousClips: ["So that's a type."],
     });
 
-    // A tab that never arrived cannot be picked.
-    t.send({ type: "suggestion-tab-clicked", index: 3 });
-    expect(t.getState().selected).toBe(2);
+    t.send({ type: "refresh-clicked" }).send(chunk(2, "Fresh plan."));
+    expect(getTeleprompterSuggestion(t.getState())).toEqual({
+      id: 2,
+      text: "Fresh plan.",
+      previousClips: ["So that's a type."],
+    });
+  });
 
-    // Refresh asks again, and the first is picked once more.
-    t.send({ type: "refresh-clicked" }).send(
-      chunk(2, "Fresh plan.", "Fresh example.")
-    );
-    expect(t.getState().selected).toBe(0);
-    expect(getTeleprompterSuggestion(t.getState())?.text).toBe("Fresh plan.");
+  describe("a Steer", () => {
+    const opened = () => {
+      const t = tester()
+        .send({ type: "suggestions-tab-opened" })
+        .send({ type: "script-loaded", videoId: "v1", script: "" })
+        .resetExec();
+      vi.mocked(t.getExec()).mockReturnValue(runningStream);
+      return t;
+    };
+
+    const steer = (t: ReturnType<typeof opened>, text: string) =>
+      t
+        .send({ type: "steer-button-clicked" })
+        .send({ type: "steer-draft-edited", text })
+        .send({ type: "steer-submitted" });
+
+    const asked = (t: ReturnType<typeof opened>) =>
+      t
+        .getEffects()
+        .flatMap((e) =>
+          e.type === "stream-suggestion" ? [e.input.steer] : []
+        );
+
+    it("guides the next Suggestion at once; giving it again at the same Insertion Point edits it, and clearing it asks without", () => {
+      const t = steer(opened(), "Show the error next");
+      expect(getSteerInEffect(t.getState())?.text).toBe("Show the error next");
+      expect(t.getState().steerDraft).toBeNull();
+
+      // The button opens the draft on the Steer in effect.
+      t.send({ type: "steer-button-clicked" });
+      expect(t.getState().steerDraft).toBe("Show the error next");
+      t.send({ type: "steer-draft-edited", text: "Show the fix next" }).send({
+        type: "steer-submitted",
+      });
+      expect(t.getState().steers).toHaveLength(1);
+
+      t.send({ type: "steer-cleared" });
+      expect(getSteerInEffect(t.getState())).toBeUndefined();
+      expect(asked(t)).toEqual([
+        "Show the error next",
+        "Show the fix next",
+        undefined,
+      ]);
+    });
+
+    it("is used up by the Clip recorded at its Insertion Point once its transcript arrives, and comes back when that Clip is deleted", () => {
+      const t = steer(opened(), "Show the error next");
+      const sent = () => asked(t).at(-1);
+      const clips = ["So that's a type."];
+
+      // Recording: the Clip is on the timeline, the Insertion Point after it.
+      t.send({
+        type: "editor-context-changed",
+        context: context({
+          insertionAnchor: "c2",
+          previousItems: { c1: null, c2: "c1" },
+        }),
+      });
+      expect(getSteerInEffect(t.getState())).toBeUndefined();
+
+      // Its transcript arrives: it is accepted, and uses the Steer up.
+      t.send({
+        type: "editor-context-changed",
+        context: context({
+          clips: [...clips, "Here's the error."],
+          transcribedClipIds: ["c1", "c2"],
+          insertionAnchor: "c2",
+          previousItems: { c1: null, c2: "c1" },
+        }),
+      });
+      expect(sent()).toBeUndefined();
+
+      // Back at the Steer's Insertion Point, it stays used up.
+      t.send({
+        type: "editor-context-changed",
+        context: context({
+          transcribedClipIds: ["c1", "c2"],
+          previousItems: { c1: null, c2: "c1" },
+        }),
+      });
+      expect(getSteerInEffect(t.getState())).toBeUndefined();
+
+      // The Clip deleted: the Steer is back, and asked with.
+      t.send({ type: "editor-context-changed", context: context() });
+      expect(getSteerInEffect(t.getState())?.text).toBe("Show the error next");
+      expect(sent()).toBe("Show the error next");
+    });
+
+    it("is not used up by a Clip that was already there, however its transcript comes back", () => {
+      const before = context({
+        clips: ["So that's a type.", "Later on."],
+        transcribedClipIds: ["c1", "c2"],
+        previousItems: { c1: null, c2: "c1" },
+      });
+      const t = opened().send({
+        type: "editor-context-changed",
+        context: before,
+      });
+      steer(t, "Add an aside here")
+        // Re-transcribed: its transcript goes, then comes back.
+        .send({
+          type: "editor-context-changed",
+          context: { ...before, transcribedClipIds: ["c1"] },
+        })
+        .send({ type: "editor-context-changed", context: before });
+      expect(getSteerInEffect(t.getState())?.text).toBe("Add an aside here");
+    });
+
+    it("dismissing the draft, or submitting it empty with no Steer in effect, asks nothing", () => {
+      const t = opened()
+        .send({ type: "steer-button-clicked" })
+        .send({ type: "steer-draft-edited", text: "Never mind" })
+        .send({ type: "steer-draft-dismissed" })
+        .send({ type: "steer-button-clicked" })
+        .send({ type: "steer-submitted" });
+      expect(t.getState().steers).toEqual([]);
+      expect(t.getEffects()).toEqual([]);
+    });
   });
 });
