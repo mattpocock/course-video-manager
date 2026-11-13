@@ -4,10 +4,9 @@
  *
  * The rules, all decided here:
  *
- *   - Every request brings three Suggestions, each a title and a text: three
- *     paths the author could take, shown as tabs labelled with their titles.
- *     The first is selected whenever a new request starts; picking another
- *     tab puts that one on the teleprompter, which shows its text alone.
+ *   - Every request brings one Suggestion, which the teleprompter shows
+ *     alone. The author guides it with a Steer rather than by picking among
+ *     alternatives (#2708).
  *   - Nothing runs unless the tab is open. The Script is loaded when the
  *     editor opens (the editor's loader leaves the Script text out), so
  *     opening the tab asks at once. It reloads the Script too, in case it was
@@ -15,9 +14,9 @@
  *   - Any change to what a suggestion is made from asks again AT ONCE, with
  *     no wait: a new Clip's transcript, a Clip deleted, moved or re-transcribed,
  *     the Insertion Point moved, the Animatic or Beats changed, a source
- *     ticked or unticked, or Refresh. The exceptions are the author's Notes
- *     and the on-screen Diagram's text, which ask once editing pauses for a
- *     second: one pause, restarted by an edit to either.
+ *     ticked or unticked, a Steer given, edited or cleared, or Refresh. The
+ *     exception is the on-screen Diagram's text, which asks once editing
+ *     pauses for a second.
  *   - A newer request stops the one in flight: only the newest Suggestions
  *     ever show.
  *   - Closing the tab stops the stream and forgets the suggestion, so the
@@ -30,14 +29,12 @@
  * Which sources are ticked is one global choice, not one per Video. A ticked
  * source this Video doesn't have is simply not sent; the tick is kept.
  *
- * The **Notes** are the fourth source: free text the author writes for this
- * Video only (how today's take will depart from the Script or Animatic). They
- * live in localStorage per Video, never the database, and outrank the other
- * sources in the prompt.
+ * The **Steer** in effect at the Insertion Point goes with the request; the
+ * rules for which one that is live in `steers.ts`.
  *
  * The **repo files** are picked one by one in the Context modal, from the
  * Video's own files (the Article Writer's `FileTree`). The pick is kept per
- * Video in localStorage like the Notes, and ranks just below them. The
+ * Video in localStorage. The
  * request names the picked paths; the route reads them. Changing the pick
  * asks again at once. A picked file the Video no longer has is not sent, but
  * stays picked.
@@ -64,14 +61,19 @@ import {
   capPreviousVideoText,
   type SuggestNextClipInput,
 } from "@/prompts/generate-suggest-next-clip";
-import type { Suggestion } from "@/prompts/generate-suggest-next-clip";
 import { closeOpenBold } from "@/lib/close-open-bold";
+import {
+  clearSteer as clearSteerAt,
+  findSteerInEffect,
+  giveSteer,
+  markSteersUsedUp,
+  type Steer as SteerEntry,
+} from "./steers";
 
 export namespace suggestionsReducer {
   export type Source =
-    "notes" | "script" | "animatic" | "beats" | "diagram" | "previousVideo";
+    "script" | "animatic" | "beats" | "diagram" | "previousVideo";
   export const SOURCES: readonly Source[] = [
-    "notes",
     "script",
     "animatic",
     "beats",
@@ -95,7 +97,19 @@ export namespace suggestionsReducer {
      * `null` when it has none, or there is no Clip before it.
      */
     diagramSnapshotId: string | null;
+    /**
+     * The item (Clip or Chapter) just before the Insertion Point; `null` at the
+     * start of the Video. A Steer belongs to it.
+     */
+    insertionAnchor: string | null;
+    /**
+     * Every Clip on the timeline, archived ones left out, with the item just
+     * before it; `null` for the first.
+     */
+    previousItems: Record<string, string | null>;
   };
+
+  export type Steer = SteerEntry;
 
   export type Status = "idle" | "waiting" | "streaming" | "done" | "failed";
 
@@ -113,8 +127,6 @@ export namespace suggestionsReducer {
     included: Included;
     /** `null` until the first load comes back. */
     script: string | null;
-    /** This Video's Notes, as typed. */
-    notes: string;
     /** The Active Diagram's Diagram Text; empty when there is none. */
     diagramText: string;
     /** Transcripts of the previous Video's Clips, oldest first; `[]` for none. */
@@ -125,16 +137,19 @@ export namespace suggestionsReducer {
     pickedFiles: string[];
     /** Whether the Context modal is showing. */
     contextModalOpen: boolean;
-    /** The pause after the last Notes or Diagram edit, before asking again. */
+    /** The pause after the last Diagram edit, before asking again. */
     editPause: EffectEntity<State, Action> | null;
     /** Which edit the running pause is for; an older one is late. */
     editId: number;
     context: EditorContext;
     status: Status;
-    /** The Suggestions so far, at most three; `[]` before the first arrives. */
-    suggestions: Suggestion[];
-    /** Which Suggestion's tab is picked, and so on the teleprompter. */
-    selected: number;
+    /** Every Steer given in this editor, oldest first. */
+    steers: Steer[];
+    nextSteerId: number;
+    /** The Steer being typed; `null` when its box is closed. */
+    steerDraft: string | null;
+    /** The Suggestion's text so far; empty before it arrives. */
+    suggestion: string;
     /** The request whose text is showing; outcomes for any other are late. */
     requestId: number | null;
     nextRequestId: number;
@@ -148,19 +163,18 @@ export namespace suggestionsReducer {
     | { type: "editor-context-changed"; context: EditorContext }
     | { type: "source-toggled"; source: Source }
     | { type: "refresh-clicked" }
-    | { type: "notes-edited"; notes: string }
     | { type: "diagram-text-changed"; text: string }
     | { type: "edit-pause-elapsed"; editId: number }
     | { type: "repo-files-listed"; videoId: string; files: RepoFile[] }
     | { type: "context-button-clicked" }
     | { type: "context-modal-dismissed" }
     | { type: "repo-files-picked"; paths: string[] }
-    | {
-        type: "suggestion-chunk-received";
-        requestId: number;
-        suggestions: Suggestion[];
-      }
-    | { type: "suggestion-tab-clicked"; index: number }
+    | { type: "steer-button-clicked" }
+    | { type: "steer-draft-edited"; text: string }
+    | { type: "steer-submitted" }
+    | { type: "steer-draft-dismissed" }
+    | { type: "steer-cleared" }
+    | { type: "suggestion-chunk-received"; requestId: number; text: string }
     | { type: "suggestion-finished"; requestId: number }
     | { type: "suggestion-failed"; requestId: number };
 
@@ -173,7 +187,6 @@ export namespace suggestionsReducer {
         input: SuggestNextClipInput;
       }
     | { type: "store-included-sources"; included: Included }
-    | { type: "store-notes"; videoId: string; notes: string }
     | { type: "store-picked-files"; videoId: string; paths: string[] }
     | { type: "wait-for-edit-pause"; editId: number };
 }
@@ -184,7 +197,6 @@ type Effect = suggestionsReducer.Effect;
 type Exec = Parameters<EffectReducer<State, Action, Effect>>[2];
 
 export const ALL_SOURCES_INCLUDED: suggestionsReducer.Included = {
-  notes: true,
   script: true,
   animatic: true,
   beats: true,
@@ -201,7 +213,6 @@ export const PREVIOUS_VIDEO_CLIP_LIMIT = 5;
 export const createInitialSuggestionsState = (input: {
   videoId: string;
   included: suggestionsReducer.Included;
-  notes: string;
   pickedFiles: string[];
   previousVideoClips?: string[];
   /** The editor opened on the Suggestions tab, remembered from another Video. */
@@ -212,7 +223,6 @@ export const createInitialSuggestionsState = (input: {
   awaitingRefresh: input.openedOnTab ?? false,
   included: input.included,
   script: null,
-  notes: input.notes,
   diagramText: "",
   previousVideoClips: input.previousVideoClips ?? [],
   repoFiles: [],
@@ -226,10 +236,14 @@ export const createInitialSuggestionsState = (input: {
     clips: [],
     transcribedClipIds: [],
     diagramSnapshotId: null,
+    insertionAnchor: null,
+    previousItems: {},
   },
+  steers: [],
+  nextSteerId: 1,
+  steerDraft: null,
   status: "idle",
-  suggestions: [],
-  selected: 0,
+  suggestion: "",
   requestId: null,
   nextRequestId: 1,
   stream: null,
@@ -239,7 +253,6 @@ export const createInitialSuggestionsState = (input: {
 export const getSourceTexts = (
   state: State
 ): Record<suggestionsReducer.Source, string> => ({
-  notes: state.notes,
   script: state.script ?? "",
   animatic: state.context.animatic,
   beats: state.context.beats,
@@ -269,6 +282,19 @@ export const getRepoFilesTokens = (files: suggestionsReducer.RepoFile[]) =>
   files.reduce((sum, file) => sum + Math.ceil(file.size / 4), 0);
 
 /**
+ * The Steer guiding the next Suggestion: the newest one at the Insertion
+ * Point's anchor that is not used up.
+ */
+export const getSteerInEffect = (
+  state: State
+): suggestionsReducer.Steer | undefined =>
+  findSteerInEffect(
+    state.steers,
+    state.context.insertionAnchor,
+    state.context.previousItems
+  );
+
+/**
  * What the request sends: the ticked sources this Video has, the picked repo
  * files it has, and the Clips.
  */
@@ -288,20 +314,18 @@ export const getSuggestionInput = (state: State): SuggestNextClipInput => {
   }
   const files = getPickedRepoFiles(state).map((file) => file.path);
   if (files.length > 0) input.files = files;
+  const steer = getSteerInEffect(state);
+  if (steer) input.steer = steer.text;
   return input;
 };
 
 /**
- * A Suggestion's text so far, as Markdown that is safe to render mid-stream: a
- * `**` whose closer has not arrived yet is closed, so it never shows as
+ * The Suggestion's text so far, as Markdown that is safe to render mid-stream:
+ * a `**` whose closer has not arrived yet is closed, so it never shows as
  * literal asterisks.
  */
-export const getSuggestionText = (suggestion: Suggestion | undefined): string =>
-  closeOpenBold(suggestion?.text ?? "");
-
-/** The Suggestion whose tab is picked; `undefined` before it arrives. */
-export const getSelectedSuggestion = (state: State): Suggestion | undefined =>
-  state.suggestions[state.selected];
+export const getSuggestionText = (state: State): string =>
+  closeOpenBold(state.suggestion);
 
 export type TeleprompterSuggestion = {
   /** A new id is a new suggestion, which the glass centres. */
@@ -312,10 +336,9 @@ export type TeleprompterSuggestion = {
 };
 
 /**
- * What the teleprompter shows instead of the Script: the picked Suggestion's
- * text alone, no title, while the tab is open (empty while its first words
- * are on their way), `null` when it
- * is closed. A failed suggestion hands the glass back to the Script too,
+ * What the teleprompter shows instead of the Script: the Suggestion's text
+ * alone while the tab is open (empty while its first words are on their way),
+ * `null` when it is closed. A failed suggestion hands the glass back to the Script too,
  * rather than leaving it waiting on words that are not coming.
  */
 export const getTeleprompterSuggestion = (
@@ -324,7 +347,7 @@ export const getTeleprompterSuggestion = (
   state.open && !state.awaitingRefresh && state.status !== "failed"
     ? {
         id: state.requestId ?? 0,
-        text: getSuggestionText(getSelectedSuggestion(state)),
+        text: getSuggestionText(state),
         previousClips: state.context.clips.slice(-MOST_RECENT_CLIP_COUNT),
       }
     : null;
@@ -340,8 +363,7 @@ const ask = (state: State, exec: Exec): State => {
   return {
     ...state,
     status: "waiting",
-    suggestions: [],
-    selected: 0,
+    suggestion: "",
     requestId,
     nextRequestId: requestId + 1,
     stream: exec({
@@ -380,6 +402,18 @@ const restartEditPause = (state: State, exec: Exec): State => {
   };
 };
 
+/** Remove the Steer in effect, asking again if that changes the request. */
+const clearSteer = (state: State, exec: Exec): State => {
+  const steers = clearSteerAt(
+    state.steers,
+    state.context.insertionAnchor,
+    state.context.previousItems
+  );
+  if (steers === state.steers) return state;
+  const next = { ...state, steers };
+  return asksDifferently(state, next) ? ask(next, exec) : next;
+};
+
 export const suggestionsStateReducer: EffectReducer<State, Action, Effect> = (
   state,
   action,
@@ -403,8 +437,7 @@ export const suggestionsStateReducer: EffectReducer<State, Action, Effect> = (
         open: false,
         awaitingRefresh: false,
         status: "idle",
-        suggestions: [],
-        selected: 0,
+        suggestion: "",
         requestId: null,
         stream: null,
       };
@@ -417,13 +450,22 @@ export const suggestionsStateReducer: EffectReducer<State, Action, Effect> = (
     }
 
     case "editor-context-changed": {
-      const next = { ...state, context: action.context };
       // A new Clip whose transcript is empty changes no text, but it is still
       // a new Clip, so it asks too.
       const known = new Set(state.context.transcribedClipIds);
-      const newTranscript = action.context.transcribedClipIds.some(
+      const accepted = action.context.transcribedClipIds.filter(
         (id) => !known.has(id)
       );
+      const newTranscript = accepted.length > 0;
+      const next = {
+        ...state,
+        context: action.context,
+        steers: markSteersUsedUp(
+          state.steers,
+          accepted,
+          action.context.previousItems
+        ),
+      };
       return (newTranscript && canAsk(next)) || asksDifferently(state, next)
         ? ask(next, exec)
         : next;
@@ -442,15 +484,6 @@ export const suggestionsStateReducer: EffectReducer<State, Action, Effect> = (
     case "refresh-clicked": {
       const next = { ...state, awaitingRefresh: false };
       return canAsk(next) ? ask(next, exec) : next;
-    }
-
-    case "notes-edited": {
-      exec({
-        type: "store-notes",
-        videoId: state.videoId,
-        notes: action.notes,
-      });
-      return restartEditPause({ ...state, notes: action.notes }, exec);
     }
 
     case "diagram-text-changed": {
@@ -489,16 +522,40 @@ export const suggestionsStateReducer: EffectReducer<State, Action, Effect> = (
       return asksDifferently(state, next) ? ask(next, exec) : next;
     }
 
+    case "steer-button-clicked":
+      return { ...state, steerDraft: getSteerInEffect(state)?.text ?? "" };
+
+    case "steer-draft-edited":
+      if (state.steerDraft === null) return state;
+      return { ...state, steerDraft: action.text };
+
+    case "steer-draft-dismissed":
+      return { ...state, steerDraft: null };
+
+    case "steer-submitted": {
+      if (state.steerDraft === null) return state;
+      const text = state.steerDraft.trim();
+      const closed = { ...state, steerDraft: null };
+      if (text === "") return clearSteer(closed, exec);
+      const next: State = {
+        ...closed,
+        nextSteerId: state.nextSteerId + 1,
+        steers: giveSteer(state.steers, {
+          id: state.nextSteerId,
+          anchor: state.context.insertionAnchor,
+          text,
+          previousItems: state.context.previousItems,
+        }),
+      };
+      return asksDifferently(state, next) ? ask(next, exec) : next;
+    }
+
+    case "steer-cleared":
+      return clearSteer(state, exec);
+
     case "suggestion-chunk-received":
       if (action.requestId !== state.requestId) return state;
-      return { ...state, status: "streaming", suggestions: action.suggestions };
-
-    case "suggestion-tab-clicked":
-      // Only a tab that has arrived can be picked.
-      if (action.index < 0 || action.index >= state.suggestions.length) {
-        return state;
-      }
-      return { ...state, selected: action.index };
+      return { ...state, status: "streaming", suggestion: action.text };
 
     case "suggestion-finished":
       if (action.requestId !== state.requestId) return state;
@@ -506,9 +563,7 @@ export const suggestionsStateReducer: EffectReducer<State, Action, Effect> = (
       // stream that ends with nothing said is a failure, not a suggestion.
       return {
         ...state,
-        status: state.suggestions.some((s) => s.text.trim() !== "")
-          ? "done"
-          : "failed",
+        status: state.suggestion.trim() !== "" ? "done" : "failed",
         stream: null,
       };
 

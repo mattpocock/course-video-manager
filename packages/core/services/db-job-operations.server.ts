@@ -596,19 +596,21 @@ export const createJobOperations = (db: Database) => {
     return rows.length > 0;
   });
 
-  /** Let the lease go at once, so the next sidecar need not wait it out. */
+  /**
+   * Let the lease go at once, so the next sidecar need not wait it out. The
+   * row goes, not just its time: a renewal still in flight when the sidecar
+   * stopped can land after this on another pooled connection, and it matches
+   * on `holder`, so a row left behind would be taken back for `leaseMs`.
+   */
   const releaseSidecarLease = Effect.fn("releaseSidecarLease")(function* (
     holder: string
   ) {
     yield* makeDbCall(() =>
-      db
-        .update(sidecarLease)
-        .set({ leaseUntil: sql`now()` })
-        .where(eq(sidecarLease.holder, holder))
+      db.delete(sidecarLease).where(eq(sidecarLease.holder, holder))
     );
   });
 
-  /** The database's sidecar lease, if any sidecar ever took it. */
+  /** The database's sidecar lease, if a sidecar holds it or lost it uncleanly. */
   const getSidecarLease = Effect.fn("getSidecarLease")(function* () {
     const [lease] = yield* makeDbCall(() => db.select().from(sidecarLease));
     return lease;

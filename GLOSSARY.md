@@ -331,8 +331,12 @@ A marker on a **Clip** that shows it slightly zoomed in, for visual variety acro
 _Avoid_: Punch-in, Ken Burns, Scale, Crop
 
 **Suggestion**:
-A next line the author could say while recording, offered three at a time and shown on the teleprompter.
+The next line the author could say while recording, shown on the teleprompter.
 _Avoid_: Autofill, Prompt
+
+**Steer**:
+A short instruction the author gives at an Insertion Point to guide the next **Suggestion** there. A Clip recorded and transcribed at that Insertion Point uses it up; deleting that Clip brings it back.
+_Avoid_: Prompt, Hint, Notes, Cue, Direction, Suggestion for the suggestion
 
 **Transcription**:
 Getting a **Clip**'s or **Footage**'s text from its audio.

@@ -542,3 +542,31 @@ export const getTranscribedClipIds = (items: TimelineItem[]): FrontendId[] =>
         item.type === "on-database" && item.transcriptionStatus === "done"
     )
     .map((clip) => clip.frontendId);
+
+/**
+ * Where a Steer belongs: the item just before the Insertion Point (`null` at
+ * the start of the Video), and every Clip with the item just before it.
+ * `items` are the timeline's, archived ones left out.
+ */
+export const getSteerAnchors = (
+  items: TimelineItem[],
+  insertionPoint: FrontendInsertionPoint
+): {
+  insertionAnchor: string | null;
+  previousItems: Record<string, string | null>;
+} => {
+  const previousItems: Record<string, string | null> = {};
+  items.forEach((item, i) => {
+    if (isClip(item))
+      previousItems[item.frontendId] = items[i - 1]?.frontendId ?? null;
+  });
+  const insertionAnchor =
+    insertionPoint.type === "start"
+      ? null
+      : insertionPoint.type === "end"
+        ? (items.at(-1)?.frontendId ?? null)
+        : insertionPoint.type === "after-clip"
+          ? insertionPoint.frontendClipId
+          : insertionPoint.frontendChapterId;
+  return { insertionAnchor, previousItems };
+};

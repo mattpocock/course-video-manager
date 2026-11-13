@@ -22,7 +22,7 @@ import { APICallError, type LanguageModel } from "ai";
  * | `slow-write`            | writes a document with Choose Screenshots, over ~40 seconds    |
  *
  * A request for structured output (the Suggestions tab's) gets
- * `FAKE_SUGGESTIONS` back as JSON, a few characters at a time, whatever the
+ * `FAKE_SUGGESTION` back as JSON, a few characters at a time, whatever the
  * scenario.
  */
 export const FAKE_WRITER_SCENARIOS = [
@@ -88,9 +88,7 @@ export function createFakeWriterModel(
 
       const parts: StreamPart[] = [{ type: "stream-start", warnings: [] }];
       if (options.responseFormat?.type === "json") {
-        parts.push(
-          ...textParts(JSON.stringify({ suggestions: FAKE_SUGGESTIONS }), 12)
-        );
+        parts.push(...textParts(JSON.stringify({ text: FAKE_SUGGESTION }), 12));
         parts.push(finish("stop"));
         return { stream: streamOf(parts) };
       }
@@ -232,21 +230,9 @@ function textParts(text: string, chunkSize = Infinity): StreamPart[] {
   ];
 }
 
-/** The fake's three Suggestions: three paths, each with a short title. */
-export const FAKE_SUGGESTIONS = [
-  {
-    title: "Follow the plan",
-    text: "Now let's look at the **next step** in the plan.",
-  },
-  {
-    title: "Show an example",
-    text: "Let me show you an **example** of this in action.",
-  },
-  {
-    title: "Ask the viewer",
-    text: "Before we go on, **what do you think** happens here?",
-  },
-];
+/** The fake's Suggestion. */
+export const FAKE_SUGGESTION =
+  "Now let's look at the **next step** in the plan.";
 
 const SLOW_DOCUMENT = [
   "# Slow draft",
