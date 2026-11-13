@@ -9,18 +9,23 @@ import { unifiedLineDiff } from "@/lib/unified-line-diff";
  * ticked); the **Beats** say what each part of the Video is for. Every Clip
  * recorded so far goes in, numbered in order; the last few are set apart as
  * where the author is now, matched against that guide. Every source is optional: an unticked or missing one is
- * simply left out. The author's **Notes** for this Video outrank the rest:
- * they say how today's take departs from the plan. Next come the repo files
- * the author picked in the Context modal, read by the route. The words on the
+ * simply left out. The repo files the author picked in the Context modal,
+ * read by the route, come first in the plan. The words on the
  * **Diagram** on screen right now go with the Clips, since they change from
  * one Clip to the next. When the Clip just before the Insertion Point has a
  * **DiagramSnapshot** pinned, they go as a diff against it, so the model sees
  * what the author has changed on screen since that Clip. The transcripts of
  * the **previous Video**'s Clips come last in the plan, straight before this
- * Video's Clips, so the conversation reads in order.
+ * Video's Clips, so the conversation reads in order. The **Steer** in effect,
+ * the author's own instruction for the next Clip, comes after the Clips and
+ * outranks everything.
  */
 export type SuggestNextClipInput = {
-  notes?: string;
+  /**
+   * The Steer in effect at the Insertion Point: the author's own instruction
+   * for the next Clip, which outranks everything else.
+   */
+  steer?: string;
   script?: string;
   animatic?: string;
   beats?: string;
@@ -119,7 +124,7 @@ const diagramSection = (
 ) => {
   if (!diagram || diagram.trim().length === 0) return "";
   const intro =
-    "The words on the diagram on screen right now, flattened into one line: what the viewer is looking at as the creator speaks. It shows where they are; it is not something they have said. The notes outrank it.";
+    "The words on the diagram on screen right now, flattened into one line: what the viewer is looking at as the creator speaks. It shows where they are; it is not something they have said.";
   if (lastClipDiagram === undefined) {
     return section(
       "diagram-on-screen",
@@ -138,7 +143,7 @@ const diagramSection = (
   }
   // Not through `section`: its trim would eat the first line's ` ` column.
   return [
-    "The diagram on screen right now, one line per shape, as a diff against the diagram that was on screen in the last clip: a line starting with + was added since the last clip, a line starting with - was removed, and a line starting with a space is unchanged. What changed is likely what the creator talks about next. It shows what the viewer sees; it is not something the creator has said. The notes outrank it.",
+    "The diagram on screen right now, one line per shape, as a diff against the diagram that was on screen in the last clip: a line starting with + was added since the last clip, a line starting with - was removed, and a line starting with a space is unchanged. What changed is likely what the creator talks about next. It shows what the viewer sees; it is not something the creator has said.",
     "",
     "<diagram-changes-since-last-clip>",
     capDiagramText(unifiedLineDiff(before, after)),
@@ -182,13 +187,8 @@ export const generateSuggestNextClipPromptParts = (
 ): { plan: string; now: string } => {
   const guides = [
     section(
-      "notes",
-      "The creator's own notes for this video. They take PRIORITY over everything below: where they conflict with the Script, the Animatic or the Beats, follow the notes.",
-      input.notes
-    ),
-    section(
       "repo-files",
-      "Files from this video's code repo that the creator picked as context: what the video is about, as code. The notes outrank them.",
+      "Files from this video's code repo that the creator picked as context: what the video is about, as code.",
       formatRepoFiles(input.files)
     ),
     section(
@@ -234,7 +234,7 @@ ${recent.join("\n")}
 
   const previousVideo = section(
     "previous-video-clips",
-    "What the creator said in the previous video of the course, clip by clip, oldest first: the viewer has just watched it. This video picks up where it left off, so open by carrying on from it, and do not repeat it. The notes outrank it.",
+    "What the creator said in the previous video of the course, clip by clip, oldest first: the viewer has just watched it. This video picks up where it left off, so open by carrying on from it, and do not repeat it.",
     input.previousVideo && capPreviousVideoText(input.previousVideo)
   );
 
@@ -248,24 +248,27 @@ ${previousVideo ? `\n${previousVideo}\n` : ""}`.trim();
 
   const diagram = diagramSection(input.diagram, input.lastClipDiagram);
 
+  const steer = section(
+    "steer",
+    "The creator's own instruction for the next clip: where they are going next. It takes PRIORITY over everything else: where it disagrees with the Script, the Animatic or the Beats, follow it.",
+    input.steer
+  );
+
   const now = `
 ${clips}
-${diagram ? `\n${diagram}\n` : ""}
+${diagram ? `\n${diagram}\n` : ""}${steer ? `\n${steer}\n` : ""}
 <the-ask>
-Work out where the most recent clips sit in the plan, then write ${SUGGESTION_COUNT} different things the creator could say next. The creator improvises around the plan rather than reading it to the letter, so give them ${SUGGESTION_COUNT} different paths to choose from.
+Work out where the most recent clips sit in the plan, then write the one thing the creator should say next.
 
-- The first follows the plan: the Script or the Animatic is the guide for what comes next. It is the best single guess.
-- The others each go somewhere genuinely different that the creator might plausibly go next: a different next point, an example, a question to the viewer, a step back. They are different paths, not rephrasings of the first.
-- If there are notes, they override the plan wherever the two disagree, for every one of them.
+- ${steer ? "Follow the creator's instruction for the next clip; use the plan only for what it leaves open." : "Follow the plan: the Script or the Animatic is the guide for what comes next. Give the best single guess."}
 - Do not repeat anything the creator has already recorded, in any clip. Skip what the clips already cover.
-- Keep each short: one clip's worth, one or two sentences at most.
-- Write each in the creator's own voice, as heard in the clips: conversational, natural when read aloud.
-- Bold the one to three words that matter most in each, the ones to stress, with Markdown: **like this**.
-- Give each a title of two to four words naming where it goes, so the creator can pick one at a glance.
+- Keep it short: one clip's worth, one or two sentences at most.
+- Write it in the creator's own voice, as heard in the clips: conversational, natural when read aloud.
+- Bold the one to three words that matter most, the ones to stress, with Markdown: **like this**.
 </the-ask>
 
 <output-format>
-Each text is the spoken words alone: no quotes around them, no stage directions. The only markdown allowed is **bold**. Each title is plain words, no markdown.
+The text is the spoken words alone: no quotes around them, no stage directions. The only markdown allowed is **bold**.
 </output-format>
 `.trim();
 
@@ -279,94 +282,52 @@ export const generateSuggestNextClipPrompt = (
   return `${plan}\n\n${now}`;
 };
 
-/** How many Suggestions one request asks for: different paths to pick from. */
-export const SUGGESTION_COUNT = 3;
-
-/** One **Suggestion**: a path the author could take next. */
-export type Suggestion = {
-  /** Two to four words naming where it goes; its tab's label. */
-  title: string;
-  /** The spoken words. The only markdown is **bold**. */
-  text: string;
-};
-
 /**
- * The shape of the model's answer: three Suggestions, each a title and a
- * text. Only this reaches the editor, so commentary the model might add
- * around them has nowhere to go. "Three" is said in words, not as
- * `minItems`/`maxItems`, which Anthropic's structured output may refuse; the
- * stream keeps the first three.
+ * The shape of the model's answer: one Suggestion's text. Only this reaches
+ * the editor, so commentary the model might add around it has nowhere to go.
  */
 export const suggestionsSchema = z.object({
-  suggestions: z
-    .array(
-      z.object({
-        title: z
-          .string()
-          .describe(
-            "Two to four plain words naming where this path goes, e.g. 'Show the diagram'."
-          ),
-        text: z
-          .string()
-          .describe(
-            "The very next words the creator says on this path, and nothing else. The only markdown allowed is **bold**."
-          ),
-      })
-    )
+  text: z
+    .string()
     .describe(
-      `Exactly ${SUGGESTION_COUNT} Suggestions. The first follows the plan; the others are genuinely different paths, not rephrasings.`
+      "The very next words the creator says, and nothing else. The only markdown allowed is **bold**."
     ),
 });
 
-type PartialSuggestions = {
-  suggestions?: (Partial<Suggestion> | undefined)[];
-};
-
-/** A partial answer as the Suggestions so far: at most three, every field a string. */
-const toSuggestions = (partial: PartialSuggestions): Suggestion[] =>
-  (partial.suggestions ?? [])
-    .slice(0, SUGGESTION_COUNT)
-    .map((item) => ({ title: item?.title ?? "", text: item?.text ?? "" }));
+type PartialSuggestion = { text?: string };
 
 /**
- * The Suggestions as the model writes them, as newline-delimited JSON: each
- * line is every Suggestion so far (`Suggestion[]`), sent whenever one of them
- * grows. Read it back with {@link readSuggestionLines}.
+ * The Suggestion as the model writes it, as newline-delimited JSON: each line
+ * is its text so far, as a JSON string, sent whenever it grows. Read it back
+ * with {@link readSuggestionLines}.
  */
 export const suggestionsLineStream = (
-  partials: ReadableStream<PartialSuggestions>
+  partials: ReadableStream<PartialSuggestion>
 ): ReadableStream<string> => {
-  let sent = "[]";
+  let sent = "";
   return partials.pipeThrough(
-    new TransformStream<PartialSuggestions, string>({
+    new TransformStream<PartialSuggestion, string>({
       transform(partial, controller) {
-        const line = JSON.stringify(toSuggestions(partial));
-        if (line === sent) return;
-        controller.enqueue(`${line}\n`);
-        sent = line;
+        const text = partial.text ?? "";
+        if (text === sent) return;
+        controller.enqueue(`${JSON.stringify(text)}\n`);
+        sent = text;
       },
     })
   );
 };
 
 /**
- * The newest Suggestions in what has arrived of a {@link suggestionsLineStream}:
- * the last complete line, or `null` before the first one. A line that does not
- * parse as Suggestions is skipped.
+ * The newest text in what has arrived of a {@link suggestionsLineStream}: the
+ * last complete line, or `null` before the first one. A line that does not
+ * parse as a string is skipped.
  */
-export const readSuggestionLines = (received: string): Suggestion[] | null => {
+export const readSuggestionLines = (received: string): string | null => {
   const lines = received.split("\n").slice(0, -1);
   for (let i = lines.length - 1; i >= 0; i--) {
     try {
       const parsed: unknown = JSON.parse(lines[i]!);
-      if (Array.isArray(parsed)) {
-        return parsed
-          .slice(0, SUGGESTION_COUNT)
-          .map((item: Partial<Suggestion> | null) => ({
-            title: typeof item?.title === "string" ? item.title : "",
-            text: typeof item?.text === "string" ? item.text : "",
-          }));
-      }
+      if (typeof parsed === "string") return parsed;
     } catch {
       // A torn line: try the one before.
     }

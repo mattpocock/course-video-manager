@@ -20,6 +20,7 @@ import {
   getAllClipsHaveSilenceDetected,
   getAllClipsHaveText,
   getClipTranscriptsBeforeInsertionPoint,
+  getSteerAnchors,
 } from "./video-editor-selectors";
 
 // ---------------------------------------------------------------------------
@@ -369,5 +370,28 @@ describe("getClipTranscriptsBeforeInsertionPoint", () => {
     expect(
       getClipTranscriptsBeforeInsertionPoint(items, { type: "start" })
     ).toEqual([]);
+  });
+});
+
+describe("getSteerAnchors", () => {
+  const items: TimelineItem[] = [
+    makeClipOnDatabase({ frontendId: id("a") }),
+    makeChapter(id("ch"), "Part two"),
+    makeClipOnDatabase({ frontendId: id("b") }),
+  ];
+
+  it("anchors the Insertion Point on the item just before it, and each Clip on the item before it", () => {
+    const anchor = (point: FrontendInsertionPoint) =>
+      getSteerAnchors(items, point).insertionAnchor;
+    expect(anchor({ type: "start" })).toBeNull();
+    expect(anchor({ type: "end" })).toBe("b");
+    expect(anchor({ type: "after-clip", frontendClipId: id("a") })).toBe("a");
+    expect(anchor({ type: "after-chapter", frontendChapterId: id("ch") })).toBe(
+      "ch"
+    );
+    expect(getSteerAnchors(items, { type: "end" }).previousItems).toEqual({
+      a: null,
+      b: "ch",
+    });
   });
 });

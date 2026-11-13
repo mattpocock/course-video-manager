@@ -28,24 +28,18 @@ import {
 import {
   getClipTranscriptsBeforeInsertionPoint,
   getDatabaseClipBeforeInsertionPoint,
+  getSteerAnchors,
   getTranscribedClipIds,
 } from "../video-editor-selectors";
 
 /** One choice for every Video, not one per Video. */
 const INCLUDED_SOURCES_KEY = "video-editor:suggestions-sources";
 
-/** The Notes are this Video's own, and never leave the browser. */
-const notesKey = (videoId: string) =>
-  `video-editor:suggestions-notes:${videoId}`;
-
 /** The repo files picked in the Context modal are this Video's own, too. */
 const pickedFilesKey = (videoId: string) =>
   `video-editor:suggestions-files:${videoId}`;
 
-/**
- * How long editing must pause (typing in the Notes, or drawing on the
- * on-screen Diagram) before a new suggestion.
- */
+/** How long drawing on the on-screen Diagram must pause before a new suggestion. */
 const EDIT_PAUSE_MS = 1000;
 
 const readIncludedSources = (): suggestionsReducer.Included => {
@@ -54,7 +48,6 @@ const readIncludedSources = (): suggestionsReducer.Included => {
     if (!raw) return ALL_SOURCES_INCLUDED;
     const parsed = JSON.parse(raw) as Partial<suggestionsReducer.Included>;
     return {
-      notes: parsed.notes !== false,
       script: parsed.script !== false,
       animatic: parsed.animatic !== false,
       beats: parsed.beats !== false,
@@ -106,7 +99,6 @@ export function useSuggestions(input: {
       return createInitialSuggestionsState({
         videoId: input.videoId,
         included: readIncludedSources(),
-        notes: readStored(notesKey(input.videoId)) ?? "",
         pickedFiles: readPickedFiles(input.videoId),
         previousVideoClips: input.previousVideoClips,
         // Opened on the tab: wait for Refresh rather than ask (#2415).
@@ -159,13 +151,9 @@ export function useSuggestions(input: {
             const { done, value } = await reader.read();
             if (done) break;
             received += decoder.decode(value, { stream: true });
-            const suggestions = readSuggestionLines(received);
-            if (suggestions) {
-              dispatch({
-                type: "suggestion-chunk-received",
-                requestId,
-                suggestions,
-              });
+            const text = readSuggestionLines(received);
+            if (text !== null) {
+              dispatch({ type: "suggestion-chunk-received", requestId, text });
             }
           }
           dispatch({ type: "suggestion-finished", requestId });
@@ -178,9 +166,6 @@ export function useSuggestions(input: {
       },
       "store-included-sources": (_state, effect) => {
         writeStored(INCLUDED_SOURCES_KEY, JSON.stringify(effect.included));
-      },
-      "store-notes": (_state, effect) => {
-        writeStored(notesKey(effect.videoId), effect.notes);
       },
       "store-picked-files": (_state, effect) => {
         writePickedFiles(effect.videoId, effect.paths);
@@ -265,6 +250,9 @@ export function useSuggestions(input: {
       ?.diagramSnapshotId ?? null;
   const clipsKey = JSON.stringify(clips);
   const transcribedKey = transcribedClipIds.join(",");
+  const anchorsKey = JSON.stringify(
+    getSteerAnchors(input.items, input.insertionPoint)
+  );
   useEffect(() => {
     dispatch({
       type: "editor-context-changed",
@@ -275,9 +263,18 @@ export function useSuggestions(input: {
         transcribedClipIds:
           transcribedKey === "" ? [] : transcribedKey.split(","),
         diagramSnapshotId,
+        ...(JSON.parse(anchorsKey) as ReturnType<typeof getSteerAnchors>),
       },
     });
-  }, [animatic, beats, clipsKey, transcribedKey, diagramSnapshotId, dispatch]);
+  }, [
+    animatic,
+    beats,
+    clipsKey,
+    transcribedKey,
+    diagramSnapshotId,
+    anchorsKey,
+    dispatch,
+  ]);
 
   return {
     state,
@@ -286,9 +283,12 @@ export function useSuggestions(input: {
     onToggleSource: (source: suggestionsReducer.Source) =>
       dispatch({ type: "source-toggled", source }),
     onRefresh: () => dispatch({ type: "refresh-clicked" }),
-    onSuggestionTabClick: (index: number) =>
-      dispatch({ type: "suggestion-tab-clicked", index }),
-    onNotesChange: (notes: string) => dispatch({ type: "notes-edited", notes }),
+    onSteerClick: () => dispatch({ type: "steer-button-clicked" }),
+    onSteerDraftChange: (text: string) =>
+      dispatch({ type: "steer-draft-edited", text }),
+    onSteerSubmit: () => dispatch({ type: "steer-submitted" }),
+    onSteerDismiss: () => dispatch({ type: "steer-draft-dismissed" }),
+    onSteerClear: () => dispatch({ type: "steer-cleared" }),
     onContextClick: () => dispatch({ type: "context-button-clicked" }),
     onContextDismiss: () => dispatch({ type: "context-modal-dismissed" }),
     onFilesPicked: (paths: string[]) =>

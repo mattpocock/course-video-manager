@@ -19,9 +19,9 @@ import { writerLanguageModel } from "@/services/fake-writer-model";
 export const SUGGEST_NEXT_CLIP_MODEL = "claude-haiku-5-5";
 
 /**
- * Streams the Suggestions tab's three Suggestions, each a title and a text, as
- * newline-delimited JSON (`suggestionsLineStream`): only the `suggestions`
- * field of the model's structured answer (`suggestionsSchema`), resent as it
+ * Streams the Suggestions tab's one Suggestion as newline-delimited JSON
+ * (`suggestionsLineStream`): only the `text` field of the model's structured
+ * answer (`suggestionsSchema`), resent as it
  * grows. With `CVM_FAKE_WRITER_MODEL=1` the fake writer answers. The editor sends the
  * sources the author ticked and the Clip transcripts it already holds, so
  * this route reads nothing and starts the model call at once, unless the
@@ -35,7 +35,7 @@ export const SUGGEST_NEXT_CLIP_MODEL = "claude-haiku-5-5";
  * the tab closing) aborts the model call.
  */
 const requestSchema = Schema.Struct({
-  notes: Schema.optional(Schema.String),
+  steer: Schema.optional(Schema.String),
   script: Schema.optional(Schema.String),
   animatic: Schema.optional(Schema.String),
   beats: Schema.optional(Schema.String),
