@@ -1,84 +1,10 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import {
-  getFieldMessagesStorageKey,
-  loadFieldMessages,
-  saveFieldMessages,
   constrainModes,
   defaultModeForRole,
   documentToApply,
   FIELD_MODES,
 } from "./writer-engine-utils";
-
-function createMockLocalStorage() {
-  const store = new Map<string, string>();
-  return {
-    getItem: (key: string) => store.get(key) ?? null,
-    setItem: (key: string, value: string) => store.set(key, value),
-    removeItem: (key: string) => store.delete(key),
-    clear: () => store.clear(),
-    get length() {
-      return store.size;
-    },
-    key: (index: number) => [...store.keys()][index] ?? null,
-  } satisfies Storage;
-}
-
-describe("conversation keying by (videoId, fieldId, mode)", () => {
-  it("generates distinct message keys for different modes on the same field", () => {
-    const k1 = getFieldMessagesStorageKey("v1", "ai-hero-body", "article");
-    const k2 = getFieldMessagesStorageKey("v1", "ai-hero-body", "article-plan");
-    expect(k1).not.toBe(k2);
-  });
-
-  it("generates distinct message keys for different videos on the same field", () => {
-    const k1 = getFieldMessagesStorageKey("v1", "ai-hero-body", "article");
-    const k2 = getFieldMessagesStorageKey("v2", "ai-hero-body", "article");
-    expect(k1).not.toBe(k2);
-  });
-});
-
-describe("field messages localStorage persistence", () => {
-  beforeEach(() => {
-    vi.stubGlobal("localStorage", createMockLocalStorage());
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
-  it("loads empty array when nothing stored", () => {
-    const msgs = loadFieldMessages("v1", "ai-hero-body", "article");
-    expect(msgs).toEqual([]);
-  });
-
-  it("round-trips messages through save and load", () => {
-    const messages = [{ role: "user", text: "hello" }];
-    saveFieldMessages("v1", "ai-hero-body", "article", messages);
-    const loaded = loadFieldMessages("v1", "ai-hero-body", "article");
-    expect(loaded).toEqual(messages);
-  });
-
-  it("does not bleed between fields", () => {
-    saveFieldMessages("v1", "ai-hero-body", "article", [{ id: 1 }]);
-    saveFieldMessages("v1", "skills-changelog-body", "article", [{ id: 2 }]);
-    expect(loadFieldMessages("v1", "ai-hero-body", "article")).toEqual([
-      { id: 1 },
-    ]);
-    expect(loadFieldMessages("v1", "skills-changelog-body", "article")).toEqual(
-      [{ id: 2 }]
-    );
-  });
-
-  it("stores nothing but conversations", () => {
-    saveFieldMessages("v1", "ai-hero-body", "article", [{ id: "msg" }]);
-
-    const keys: string[] = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      keys.push(localStorage.key(i)!);
-    }
-    expect(keys).toEqual(["writer-field-messages-v1-ai-hero-body-article"]);
-  });
-});
 
 describe("constrainModes", () => {
   it("returns the current mode if it is in the allowed list", () => {
@@ -141,50 +67,6 @@ describe("defaultModeForRole", () => {
       constrainModes(["article", "article-plan"], defaultModeForRole("problem"))
         .mode
     ).toBe("article");
-  });
-});
-
-describe("conversations saved under the retired modes", () => {
-  beforeEach(() => {
-    vi.stubGlobal("localStorage", createMockLocalStorage());
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
-  it("reads a skill-building conversation as the problem one", () => {
-    localStorage.setItem(
-      "writer-field-messages-v1-video-body-skill-building",
-      JSON.stringify([{ id: "old" }])
-    );
-    expect(loadFieldMessages("v1", "video-body", "problem")).toEqual([
-      { id: "old" },
-    ]);
-  });
-
-  it("reads an article conversation as the explainer and solution ones", () => {
-    localStorage.setItem(
-      "writer-field-messages-v1-video-body-article",
-      JSON.stringify([{ id: "old" }])
-    );
-    expect(loadFieldMessages("v1", "video-body", "explainer")).toEqual([
-      { id: "old" },
-    ]);
-    expect(loadFieldMessages("v1", "video-body", "solution")).toEqual([
-      { id: "old" },
-    ]);
-  });
-
-  it("prefers the conversation saved under the new mode", () => {
-    localStorage.setItem(
-      "writer-field-messages-v1-video-body-article",
-      JSON.stringify([{ id: "old" }])
-    );
-    saveFieldMessages("v1", "video-body", "solution", [{ id: "new" }]);
-    expect(loadFieldMessages("v1", "video-body", "solution")).toEqual([
-      { id: "new" },
-    ]);
   });
 });
 

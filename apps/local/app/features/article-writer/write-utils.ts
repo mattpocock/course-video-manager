@@ -88,41 +88,6 @@ export const DIAGRAM_TEXT_ENABLED_STORAGE_KEY =
  */
 export const LINKS_DISABLED_STORAGE_KEY = "article-writer-links-disabled";
 
-export const getMessagesStorageKey = (videoId: string, mode: Mode) =>
-  `article-writer-messages-${videoId}-${mode}`;
-
-export const loadMessagesFromStorage = (
-  videoId: string,
-  mode: Mode
-): DocumentAgentMessage[] => {
-  if (!hasLocalStorage()) return [];
-  try {
-    const saved = localStorage.getItem(getMessagesStorageKey(videoId, mode));
-    if (saved) {
-      return JSON.parse(saved) as DocumentAgentMessage[];
-    }
-  } catch (e) {
-    console.error("Failed to load messages from localStorage:", e);
-  }
-  return [];
-};
-
-export const saveMessagesToStorage = (
-  videoId: string,
-  mode: Mode,
-  messages: DocumentAgentMessage[]
-) => {
-  if (!hasLocalStorage()) return;
-  try {
-    localStorage.setItem(
-      getMessagesStorageKey(videoId, mode),
-      JSON.stringify(messages)
-    );
-  } catch (e) {
-    console.error("Failed to save messages to localStorage:", e);
-  }
-};
-
 // Documents are NOT persisted — only messages are. The route loader (i.e. the
 // database) is the single source of truth for a field's value; a stored draft
 // used to shadow it and could be applied over a newer value.

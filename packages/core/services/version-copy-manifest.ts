@@ -36,6 +36,10 @@ const NEVER_QUEUED =
   "A Posting Queue entry records one time one Video row was queued to be " +
   "posted; like a Video Post, a copied Video has never been queued.";
 
+const OWN_WRITER_CHAT =
+  "A Writer Chat is the working conversation for one Video row, as it was " +
+  "when local storage kept it by Video id; a copied Video starts with none.";
+
 const SHARED_FOOTAGE =
   "A Recording Session is the CVM recorder's Footage: files on the author's " +
   "machine plus their scene timeline. A copied Clip keeps pointing at the " +
@@ -71,6 +75,7 @@ const VERSION_TABLES: Record<string, CopyDecision> = {
   clip_mockup_comment: "copied",
   thumbnail: "copied",
   video_post: { notCopied: NEVER_POSTED },
+  writer_chat: { notCopied: OWN_WRITER_CHAT },
   posting_queue_entry: { notCopied: NEVER_QUEUED },
   ...RECORDING_SESSION_TABLES,
 };
@@ -113,6 +118,7 @@ const TIMELINE_TABLES: Record<string, CopyDecision> = {
   clip_mockup_comment: { notCopied: NOT_THE_TIMELINE },
   thumbnail: { notCopied: NOT_THE_TIMELINE },
   video_post: { notCopied: NEVER_POSTED },
+  writer_chat: { notCopied: OWN_WRITER_CHAT },
   posting_queue_entry: { notCopied: NEVER_QUEUED },
   ...RECORDING_SESSION_TABLES,
 };
@@ -157,6 +163,7 @@ export const COPY_PATHS: Record<CopyPathName, CopyPath> = {
           "rows would alias the source's files. A copy starts without one.",
       },
       video_post: { notCopied: NEVER_POSTED },
+      writer_chat: { notCopied: OWN_WRITER_CHAT },
       posting_queue_entry: { notCopied: NEVER_QUEUED },
       ...RECORDING_SESSION_TABLES,
     },

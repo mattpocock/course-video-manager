@@ -30,7 +30,6 @@ const render = (overrides: Partial<WriteChatProps>) =>
       onStop={() => {}}
       status="ready"
       indexedClips={[]}
-      mode="article"
       videoId="v1"
       {...overrides}
     />

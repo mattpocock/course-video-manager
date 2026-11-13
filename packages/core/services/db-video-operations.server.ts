@@ -22,6 +22,10 @@ import {
   createVideoWriteOps,
   videoWriteMethods,
 } from "./db-video-operations.write.server.js";
+import {
+  createWriterChatOps,
+  writerChatWriteMethods,
+} from "./db-writer-chat-operations.server.js";
 import { transactionalizeWrites } from "./with-db-transaction.server.js";
 import type { VideoFormat } from "../features/videos/video-format.js";
 import {
@@ -663,6 +667,7 @@ const createVideoOperationsUnwrapped = (db: Database, deps: VideoOpsDeps) => {
     copyVideo,
     updateVideoLesson,
     ...createVideoWriteOps(db),
+    ...createWriterChatOps(db),
     ...createShortOperationsUnwrapped(db),
     ...createVideoNavigationOps({ getCourseNavigationData }),
     getVideosForFewShotExamples,
@@ -671,11 +676,10 @@ const createVideoOperationsUnwrapped = (db: Database, deps: VideoOpsDeps) => {
 
 /** Each write runs in one txn with its draft-guard's version-row lock (#1403). */
 const createVideoOperations = (db: Database, deps: VideoOpsDeps) =>
-  transactionalizeWrites(
-    db,
-    (d) => createVideoOperationsUnwrapped(d, deps),
-    videoWriteMethods
-  );
+  transactionalizeWrites(db, (d) => createVideoOperationsUnwrapped(d, deps), [
+    ...videoWriteMethods,
+    ...writerChatWriteMethods,
+  ]);
 
 export class VideoOperationsService extends Effect.Service<VideoOperationsService>()(
   "VideoOperationsService",

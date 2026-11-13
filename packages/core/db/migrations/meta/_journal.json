@@ -386,6 +386,13 @@
       "when": 1794487170471,
       "tag": "0054_video_youtube_draft",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1794487956754,
+      "tag": "0055_writer_chat",
+      "breakpoints": true
     }
   ]
 }

@@ -40,9 +40,13 @@ import {
   constrainModes,
   defaultModeForRole,
   documentToApply,
-  loadFieldMessages,
-  saveFieldMessages,
 } from "./writer-engine-utils";
+import { useWriterChat } from "./use-writer-chat";
+import {
+  selectWriterChatLoading,
+  selectWriterChatNotice,
+} from "./writer-chat-reducer";
+import { WriterChatNotice } from "./writer-chat-notice";
 import { useContextModel } from "./use-context-model";
 import { useMemoryAutosave } from "./use-memory-autosave";
 import { copyToClipboard } from "./clipboard";
@@ -135,10 +139,6 @@ export function WriterEngine({
     mode === "newsletter" ||
     mode === "seo-description-document";
 
-  const [initialMessages] = useState(
-    () => loadFieldMessages(videoId, fieldId, mode) as DocumentAgentMessage[]
-  );
-
   const chatApi = isDocumentMode
     ? `/videos/${videoId}/document-completions`
     : `/videos/${videoId}/completions`;
@@ -152,9 +152,16 @@ export function WriterEngine({
     stop,
     status,
     error,
-  } = useChat({
+  } = useChat<DocumentAgentMessage>({
     transport: new DefaultChatTransport({ api: chatApi }),
-    messages: initialMessages,
+  });
+
+  // The Writer Chats are the Video's, loaded once the writer opens.
+  const { state: writerChat, dispatch: writerChatDispatch } = useWriterChat({
+    videoId,
+    fieldId,
+    mode,
+    showMessages: (loaded) => setMessages(loaded as DocumentAgentMessage[]),
   });
 
   const isGenerating = status === "streaming" || status === "submitted";
@@ -229,25 +236,18 @@ export function WriterEngine({
       prevStatusRef.current === "streaming" && status === "ready";
     prevStatusRef.current = status;
 
-    if (transitionedToReady) {
-      saveFieldMessages(videoId, fieldId, mode, messages);
-      return;
+    if (
+      transitionedToReady ||
+      (isDocumentMode && status === "ready" && messages.length > 0)
+    ) {
+      writerChatDispatch({ type: "turn-settled", mode, messages });
     }
-
-    if (isDocumentMode && status === "ready" && messages.length > 0) {
-      saveFieldMessages(videoId, fieldId, mode, messages);
-    }
-  }, [status, videoId, fieldId, mode, messages, isDocumentMode]);
+  }, [status, mode, messages, isDocumentMode, writerChatDispatch]);
 
   const handleModeChange = (newMode: Mode) => {
     if (modes.length > 0 && !modes.includes(newMode)) return;
-    if (messages.length > 0) {
-      saveFieldMessages(videoId, fieldId, mode, messages);
-    }
     setMode(newMode);
-    setMessages(
-      loadFieldMessages(videoId, fieldId, newMode) as DocumentAgentMessage[]
-    );
+    writerChatDispatch({ type: "mode-picked", mode: newMode, messages });
   };
 
   const getBodyPayload = useCallback(() => {
@@ -328,13 +328,17 @@ export function WriterEngine({
     submit: handleSubmit,
     queuedMessages,
     clearQueue,
-  } = useMessageQueue(status, handleSend, isCapturing);
+  } = useMessageQueue(
+    status,
+    handleSend,
+    isCapturing || selectWriterChatLoading(writerChat)
+  );
 
   const handleClearChat = () => {
     setMessages([]);
     clearQueue();
     turnDispatch({ type: "chat-cleared" });
-    saveFieldMessages(videoId, fieldId, mode, []);
+    writerChatDispatch({ type: "turn-settled", mode, messages: [] });
     // Clearing the chat throws away the session's AI work; the document goes
     // back to the persisted value rather than blank.
     if (isDocumentMode) resetDocument();
@@ -468,12 +472,19 @@ export function WriterEngine({
       onStop: () => turnDispatch({ type: "stop-requested" }),
       status,
       indexedClips,
-      mode,
       videoId,
       toolbarProps: layout === "modal" ? undefined : toolbarProps,
       queuedMessages,
       documentRef: isDocumentMode ? documentRef : undefined,
       updateDocument: isDocumentMode ? updateDocument : undefined,
+      onMessagesEdited: (edited: DocumentAgentMessage[]) =>
+        writerChatDispatch({ type: "turn-settled", mode, messages: edited }),
+      notice: (
+        <WriterChatNotice
+          notice={selectWriterChatNotice(writerChat)}
+          dispatch={writerChatDispatch}
+        />
+      ),
     }),
     [
       messages,
@@ -493,6 +504,8 @@ export function WriterEngine({
       isDocumentMode,
       documentRef,
       updateDocument,
+      writerChatDispatch,
+      writerChat,
     ]
   );
 

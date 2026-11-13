@@ -15,10 +15,10 @@ import { AIMessage, AIMessageContent } from "components/ui/kibo-ui/ai/message";
 import { AIResponse } from "components/ui/kibo-ui/ai/response";
 import { Loader2Icon } from "lucide-react";
 import { memo, useCallback, useMemo, useState } from "react";
-import { partsToText, saveMessagesToStorage } from "./write-utils";
+import { partsToText } from "./write-utils";
 import type { WriteToolbarProps } from "./write-toolbar";
 import { WriteToolbar } from "./write-toolbar";
-import type { IndexedClip, Mode } from "./types";
+import type { IndexedClip } from "./types";
 import {
   CHOOSE_SCREENSHOT_COMPONENTS,
   ChooseScreenshotProvider,
@@ -52,13 +52,16 @@ export interface WriteChatProps {
   onStop: () => void;
   status: "streaming" | "submitted" | "ready" | "error";
   indexedClips: IndexedClip[];
-  mode: Mode;
   videoId: string;
   className?: string;
   toolbarProps?: WriteToolbarProps;
   queuedMessages?: string[];
   documentRef?: React.RefObject<string | undefined>;
   updateDocument?: (content: string) => void;
+  /** A message was edited in place (a screenshot's clip changed): save it. */
+  onMessagesEdited?: (messages: DocumentAgentMessage[]) => void;
+  /** Shown above the conversation: the Writer Chat loading, or failing. */
+  notice?: React.ReactNode;
 }
 
 export const WriteChat = memo(function WriteChat(props: WriteChatProps) {
@@ -73,20 +76,21 @@ export const WriteChat = memo(function WriteChat(props: WriteChatProps) {
     onStop,
     status,
     indexedClips,
-    mode,
     videoId,
     className,
     toolbarProps,
     queuedMessages,
     documentRef,
     updateDocument,
+    onMessagesEdited,
+    notice,
   } = props;
 
   const [text, setText] = useState("");
 
   const mutateMessageText = useMessageTextMutation(messages, (updated) => {
     setMessages(updated);
-    saveMessagesToStorage(videoId, mode, updated);
+    onMessagesEdited?.(updated);
   });
 
   const handleClipIndexChange = useCallback(
@@ -211,6 +215,7 @@ export const WriteChat = memo(function WriteChat(props: WriteChatProps) {
           className ? `${className} flex flex-col` : "w-3/4 flex flex-col"
         }
       >
+        {notice}
         <AIConversation className="flex-1 overflow-y-auto scrollbar scrollbar-track-transparent scrollbar-thumb-muted hover:scrollbar-thumb-muted-foreground">
           <AIConversationContent className="max-w-[75ch] mx-auto">
             {messages.map((message) => {
