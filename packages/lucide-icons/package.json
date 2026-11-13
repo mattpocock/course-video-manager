@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "The vendored, append-only lucide icon-node table: a name -> raw SVG geometry map, plus the tldraw path transpiler behind its own entry point. Zero runtime dependencies on the data half, so any package can resolve an icon name without pulling in lucide-react or tldraw.",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "exports": {
     ".": "./index.ts",

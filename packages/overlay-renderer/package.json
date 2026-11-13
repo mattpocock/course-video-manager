@@ -4,7 +4,7 @@
   "description": "Standalone Remotion renderer for CVM overlays — the Shorts overlay (captions, Chat Cards, Calls to Action) and AI Hero Definition Cards. Renders a transparent overlay at any resolution locally via @remotion/renderer (Chromium). No AWS/Lambda.",
   "private": true,
   "type": "module",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "bin": {
     "render-overlay": "./bin.mjs",
     "card-server": "./card-server.mjs"
