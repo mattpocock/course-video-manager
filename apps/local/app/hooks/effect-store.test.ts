@@ -160,6 +160,30 @@ describe("createEffectStore: running effects", () => {
     expect(log).toEqual(["start a", "stop a", "start a"]);
   });
 
+  it("does not run a finished one-shot effect again on remount", () => {
+    const { store, mount, log } = setup();
+    const unmount = mount();
+    store.dispatch({ type: "ignored-with-effect" });
+
+    unmount();
+    mount();
+
+    // The log returned no cleanup, so it was done once it ran.
+    expect(log).toEqual(["ignored (count 0)"]);
+  });
+
+  it("does not restart an effect stopped while unmounted", () => {
+    const { store, mount, log } = setup();
+    const unmount = mount();
+    store.dispatch({ type: "tick-started" });
+
+    unmount();
+    store.dispatch({ type: "tick-stopped" });
+    mount();
+
+    expect(log).toEqual(["start a", "stop a"]);
+  });
+
   it("runs an initializer's effects on mount, once", () => {
     const log: string[] = [];
     const { mount } = createEffectStore(

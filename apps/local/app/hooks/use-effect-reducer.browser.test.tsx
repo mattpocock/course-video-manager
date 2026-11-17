@@ -1,11 +1,11 @@
-import { act, StrictMode, useEffect, type ReactNode } from "react";
+import { act, Activity, StrictMode, useEffect, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import type { EffectReducer } from "use-effect-reducer";
+import type { EffectEntity, EffectReducer } from "use-effect-reducer";
 import { afterEach, expect, it } from "vitest";
 import { useEffectReducer } from "./use-effect-reducer";
 
 /**
- * Both tests render under StrictMode, as the app does: it runs every mount
+ * Every test renders under StrictMode, as the app does: it runs every mount
  * effect twice, which is what used to lose effects here (#2386).
  */
 (
@@ -87,5 +87,88 @@ it("keeps an effect declared by the initializer running after StrictMode's remou
 
   act(() => root!.unmount());
   root = undefined;
+  expect(running.size).toBe(0);
+});
+
+it("runs an initializer's one-shot effect once under StrictMode's remount", () => {
+  let loads = 0;
+  function Loader() {
+    useEffectReducer(
+      reducer,
+      (exec): State => {
+        exec({ type: "load" });
+        return { status: "loading" };
+      },
+      {
+        // Stands in for a fetch: it returns no cleanup, so it is done once run.
+        load: () => {
+          loads++;
+        },
+        tick: () => {},
+      }
+    );
+    return null;
+  }
+
+  render(<Loader />);
+
+  expect(loads).toBe(1);
+});
+
+it("does not restart an effect stopped while its effects were unmounted", () => {
+  type TickState = { ticking: EffectEntity<TickState, TickAction> | null };
+  type TickAction = { type: "tick-started" } | { type: "tick-stopped" };
+  const tickReducer: EffectReducer<TickState, TickAction, { type: "tick" }> = (
+    state,
+    action,
+    exec
+  ) => {
+    switch (action.type) {
+      case "tick-started":
+        return { ticking: exec({ type: "tick" }) };
+      case "tick-stopped":
+        if (state.ticking) exec.stop(state.ticking);
+        return { ticking: null };
+    }
+  };
+  const running = new Set<number>();
+  let next = 0;
+  let dispatch: React.Dispatch<TickAction> | undefined;
+  function Ticker() {
+    [, dispatch] = useEffectReducer(
+      tickReducer,
+      { ticking: null },
+      {
+        tick: () => {
+          const id = next++;
+          running.add(id);
+          return () => running.delete(id);
+        },
+      }
+    );
+    return null;
+  }
+  const show = (mode: "visible" | "hidden") =>
+    act(() =>
+      root!.render(
+        <StrictMode>
+          <Activity mode={mode}>
+            <Ticker />
+          </Activity>
+        </StrictMode>
+      )
+    );
+
+  render(null);
+  show("visible");
+  act(() => dispatch!({ type: "tick-started" }));
+  expect(running.size).toBe(1);
+
+  // Hiding unmounts the effects but keeps the state, so the stop lands
+  // while they are unmounted, and showing it again remounts them.
+  show("hidden");
+  act(() => dispatch!({ type: "tick-stopped" }));
+  show("visible");
+
   expect(running.size).toBe(0);
 });

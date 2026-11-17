@@ -30,7 +30,9 @@ export function usePreloadableClipReducer(
       element.muted = false;
       element.currentTime = effect.at;
     },
-    "report-preload-complete": () => onPreloadComplete(),
+    "report-preload-complete": () => {
+      onPreloadComplete();
+    },
   });
 
   const lastPlayhead = useRef(state.overlayTime);

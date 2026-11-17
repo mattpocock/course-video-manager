@@ -68,7 +68,9 @@ export function LessonBodyWriterModal({
             })
           );
       },
-      "close-writer": () => onOpenChange(false),
+      "close-writer": () => {
+        onOpenChange(false);
+      },
       "persist-more": (_state, effect) => writeStoredMore(effect.more),
       "show-toast": (_state, effect) => {
         if (effect.tone === "error") toast.error(effect.message);

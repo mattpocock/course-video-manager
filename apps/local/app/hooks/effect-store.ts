@@ -15,10 +15,8 @@ import type {
 } from "use-effect-reducer";
 import {
   createExec,
+  createRunningEffects,
   resolveInitialState,
-  restartSuspended,
-  runEffects,
-  suspendRunning,
   type Batch,
   type Entity,
 } from "./effect-entity";
@@ -72,9 +70,10 @@ export type EffectStoreRunner<
  * completion: an event a handler dispatches synchronously waits until every
  * effect before it has started, and never runs inside another event.
  *
- * Effects start only while mounted. Unmount stops the running ones and a
- * remount (StrictMode's second pass) starts them again, as in
- * `useEffectReducer` (#2386).
+ * Effects start only while mounted. Unmount suspends the running ones (those
+ * whose handler returned a cleanup) and a remount (StrictMode's second pass)
+ * starts them again, as in `useEffectReducer` (#2386). One without a cleanup
+ * is done once it has run, and is not run again (#2718).
  */
 export function createEffectStore<
   TState,
@@ -91,8 +90,7 @@ export function createEffectStore<
   /** Batches declared and not yet started, in order. */
   let queue: Batch<TState, TEvent>[] = initial.queue;
   let toStop: Entity<TState, TEvent>[] = [];
-  const started = new Set<Entity<TState, TEvent>>();
-  let suspended: Entity<TState, TEvent>[] = [];
+  const runningEffects = createRunningEffects<TState, TEvent>();
   let mounted = false;
   const listeners = new Set<() => void>();
   const inbox: TEvent[] = [];
@@ -104,7 +102,7 @@ export function createEffectStore<
     const batches = queue;
     toStop = [];
     queue = [];
-    runEffects(stopping, batches, started, send);
+    runningEffects.run(stopping, batches, send);
   };
 
   const step = (event: TEvent) => {
@@ -160,15 +158,13 @@ export function createEffectStore<
       toCompletion(() => {
         mounted = true;
         // As `useEffectReducer`: what was queued first, then what the last
-        // unmount stopped.
+        // unmount suspended.
         startEffects();
-        const restarting = suspended;
-        suspended = [];
-        restartSuspended(restarting);
+        runningEffects.restartSuspended();
       });
       return () => {
         mounted = false;
-        suspended.push(...suspendRunning(started));
+        runningEffects.suspendAll();
       };
     },
   };

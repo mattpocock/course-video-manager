@@ -94,7 +94,10 @@ The rules:
    dispatches the outcome as an event. It contains no `if` about what to do
    next: that decision belongs to the reducer, which handles the outcome event.
    A handler may return a cleanup function. `exec.stop` and `exec.replace`
-   cancel effects that run for a long time.
+   cancel effects that run for a long time. Only an effect with a cleanup
+   counts as running: one without is done once its handler returns. An
+   effect handler that forwards a callback uses a block body, so the
+   callback's return value can never become a cleanup by accident.
 5. **The reducer never reads the clock, randomness or the DOM.** Put the value
    on the event instead. The jobs bridge stamps every Job Event with
    `receivedAt: Date.now()` (`features/jobs/use-jobs.ts`, `toJobsAction`), so
@@ -201,6 +204,10 @@ the event's state is published, with no render. Everything else is the same:
 - `exec.stop` and `exec.replace` cancel, and a cleanup runs when its effect
   stops.
 - Unmount stops what is running, and StrictMode's remount starts it again.
+  Running means its handler returned a cleanup (a timer, a subscription). A
+  handler that returns none (a fetch that dispatches its outcome, a prop
+  callback) is done once it has run: the remount does not run it again, and
+  stopping it does nothing (#2718).
 
 `cvm-recorder-render-benchmark.browser.test.tsx` asserts the render and commit
 counts a whole Recording Session's events cost the editor, per component and
