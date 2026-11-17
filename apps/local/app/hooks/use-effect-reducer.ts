@@ -1,18 +1,17 @@
 import { useCallback, useEffect, useReducer, useRef } from "react";
 import type {
-  EffectFunction,
   EffectObject,
   EffectReducer,
-  EffectReducerExec,
   EffectsMap,
   EventObject,
   InitialEffectStateGetter,
 } from "use-effect-reducer";
 import {
-  IDLE,
-  isInitializer,
-  STARTED,
-  toEntity as toEffectEntity,
+  createExec,
+  resolveInitialState,
+  restartSuspended,
+  runEffects,
+  suspendRunning,
   type Batch,
   type Entity,
 } from "./effect-entity";
@@ -49,10 +48,6 @@ export function useEffectReducer<
   const startedRef = useRef(new Set<Entity<TState, TEvent>>());
   const suspendedRef = useRef<Entity<TState, TEvent>[]>([]);
 
-  const toEntity = (
-    effect: TEffect | EffectFunction<TState, TEvent, TEffect>
-  ): Entity<TState, TEvent> => toEffectEntity(effect, effectsMap);
-
   const wrappedReducer = (
     current: Internal<TState, TEvent>,
     event: TEvent | FlushEvent<TState, TEvent>
@@ -66,51 +61,24 @@ export function useEffectReducer<
         ),
       };
     }
-    const queued: Entity<TState, TEvent>[] = [];
-    const toStop: Entity<TState, TEvent>[] = [];
-    const exec = ((
-      effect: TEffect | EffectFunction<TState, TEvent, TEffect>
-    ) => {
-      const entity = toEntity(effect);
-      queued.push(entity);
-      return entity;
-    }) as unknown as EffectReducerExec<TState, TEvent, TEffect>;
-    exec.stop = (entity) => {
-      toStop.push(entity as Entity<TState, TEvent>);
-    };
-    exec.replace = (entity, effect) => {
-      if (entity) toStop.push(entity as Entity<TState, TEvent>);
-      return exec(effect);
-    };
+    const { exec, queued, stopped } = createExec(effectsMap);
     const state = effectReducer(current.state, event, exec);
     return {
       state,
       queue: queued.length
         ? [...current.queue, { state, entities: queued }]
         : current.queue,
-      toStop: toStop.length ? [...current.toStop, ...toStop] : current.toStop,
+      toStop: stopped.length ? [...current.toStop, ...stopped] : current.toStop,
     };
   };
 
   const [{ state, queue, toStop }, dispatch] = useReducer(
     wrappedReducer,
     undefined,
-    (): Internal<TState, TEvent> => {
-      if (!isInitializer(initialState)) {
-        return { state: initialState, queue: [], toStop: [] };
-      }
-      const entities: Entity<TState, TEvent>[] = [];
-      const resolved = initialState((effect) => {
-        const entity = toEntity(effect);
-        entities.push(entity);
-        return entity;
-      });
-      return {
-        state: resolved,
-        queue: entities.length ? [{ state: resolved, entities }] : [],
-        toStop: [],
-      };
-    }
+    (): Internal<TState, TEvent> => ({
+      ...resolveInitialState(initialState, effectsMap),
+      toStop: [],
+    })
   );
 
   const eventDispatch = dispatch as React.Dispatch<TEvent>;
@@ -126,32 +94,18 @@ export function useEffectReducer<
   // flush exactly what was handled here.
   useEffect(() => {
     if (!queue.length && !toStop.length) return;
-    for (const entity of toStop) {
-      entity.stop();
-      startedRef.current.delete(entity);
-    }
-    for (const batch of queue) {
-      for (const entity of batch.entities) {
-        if (entity.status !== IDLE) continue;
-        startedRef.current.add(entity);
-        entity.start(batch.state, eventDispatch);
-      }
-    }
+    runEffects(toStop, queue, startedRef.current, eventDispatch);
     dispatch({ type: FLUSH, batches: queue, stopped: toStop });
   }, [queue, toStop, eventDispatch]);
 
   // Unmount stops every running effect. A remount of the same instance
   // (StrictMode's second pass) starts again the ones the unmount stopped.
   useEffect(() => {
-    for (const entity of suspendedRef.current) entity.restart();
+    restartSuspended(suspendedRef.current);
     suspendedRef.current = [];
     const started = startedRef.current;
     return () => {
-      for (const entity of started) {
-        if (entity.status !== STARTED) continue;
-        entity.stop();
-        suspendedRef.current.push(entity);
-      }
+      suspendedRef.current.push(...suspendRunning(started));
     };
   }, []);
 

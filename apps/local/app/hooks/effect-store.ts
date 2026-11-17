@@ -9,16 +9,16 @@ import {
 import type {
   EffectObject,
   EffectReducer,
-  EffectReducerExec,
   EffectsMap,
   EventObject,
   InitialEffectStateGetter,
 } from "use-effect-reducer";
 import {
-  IDLE,
-  isInitializer,
-  STARTED,
-  toEntity,
+  createExec,
+  resolveInitialState,
+  restartSuspended,
+  runEffects,
+  suspendRunning,
   type Batch,
   type Entity,
 } from "./effect-entity";
@@ -86,8 +86,10 @@ export function createEffectStore<
   effectsMap?: EffectsMap<TState, TEvent, TEffect>
 ): EffectStoreRunner<TState, TEvent, TEffect> {
   let effects = effectsMap;
+  const initial = resolveInitialState(initialState, effects);
+  let state = initial.state;
   /** Batches declared and not yet started, in order. */
-  let queue: Batch<TState, TEvent>[] = [];
+  let queue: Batch<TState, TEvent>[] = initial.queue;
   let toStop: Entity<TState, TEvent>[] = [];
   const started = new Set<Entity<TState, TEvent>>();
   let suspended: Entity<TState, TEvent>[] = [];
@@ -96,61 +98,19 @@ export function createEffectStore<
   const inbox: TEvent[] = [];
   let running = false;
 
-  type Exec = EffectReducerExec<TState, TEvent, TEffect>;
-  const declare = (effect: Parameters<Exec>[0]) => toEntity(effect, effects);
-
-  let state: TState;
-  if (isInitializer(initialState)) {
-    const entities: Entity<TState, TEvent>[] = [];
-    state = initialState((effect) => {
-      const entity = declare(effect);
-      entities.push(entity);
-      return entity;
-    });
-    if (entities.length) queue.push({ state, entities });
-  } else {
-    state = initialState;
-  }
-
   const startEffects = () => {
     if (!mounted) return;
     const stopping = toStop;
     const batches = queue;
     toStop = [];
     queue = [];
-    for (const entity of stopping) {
-      entity.stop();
-      started.delete(entity);
-    }
-    for (const batch of batches) {
-      for (const entity of batch.entities) {
-        if (entity.status !== IDLE) continue;
-        started.add(entity);
-        entity.start(batch.state, send);
-      }
-    }
+    runEffects(stopping, batches, started, send);
   };
 
   const step = (event: TEvent) => {
-    const queued: Entity<TState, TEvent>[] = [];
-    const run = (effect: Parameters<Exec>[0]) => {
-      const entity = declare(effect);
-      queued.push(entity);
-      return entity;
-    };
-    const exec: Exec = Object.assign(run, {
-      stop: (entity: Parameters<Exec["stop"]>[0]) => {
-        toStop.push(entity as Entity<TState, TEvent>);
-      },
-      replace: (
-        entity: Parameters<Exec["replace"]>[0],
-        effect: Parameters<Exec["replace"]>[1]
-      ) => {
-        if (entity) toStop.push(entity as Entity<TState, TEvent>);
-        return run(effect);
-      },
-    });
+    const { exec, queued, stopped } = createExec(effects);
     const next = reducer(state, event, exec);
+    toStop.push(...stopped);
     if (queued.length) queue.push({ state: next, entities: queued });
     if (Object.is(next, state)) return;
     state = next;
@@ -204,15 +164,11 @@ export function createEffectStore<
         startEffects();
         const restarting = suspended;
         suspended = [];
-        for (const entity of restarting) entity.restart();
+        restartSuspended(restarting);
       });
       return () => {
         mounted = false;
-        for (const entity of started) {
-          if (entity.status !== STARTED) continue;
-          entity.stop();
-          suspended.push(entity);
-        }
+        suspended.push(...suspendRunning(started));
       };
     },
   };

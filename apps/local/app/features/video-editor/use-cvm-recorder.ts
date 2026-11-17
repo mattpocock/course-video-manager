@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { useEffectReducer } from "@/hooks/use-effect-reducer";
 import {
   useEffectStore,
@@ -180,8 +180,12 @@ export const useCvmRecorder = (o: {
    */
   insertionPoint: () => InsertionPoint;
 }): { controls: CvmRecorderControls; capture: RecorderCapture } => {
+  // The editor's latest callbacks, for the effect handlers and the controls
+  // alike: updated after each commit, before any effect of it runs.
   const editor = useRef(o);
-  editor.current = o;
+  useLayoutEffect(() => {
+    editor.current = o;
+  });
   const videoId = o.video.id;
   const format: VideoFormat = resolveVideoFormat(o.video.format);
   const saver = useMemo(
@@ -222,30 +226,30 @@ export const useCvmRecorder = (o: {
           );
       },
       "start-session": (_state, effect) => {
-        o.clipDispatch({
+        editor.current.clipDispatch({
           type: "recording-started",
           outputPath: effect.recordingSessionId,
           silenceLength: effect.silenceLength,
         });
       },
       "stop-session": () => {
-        o.clipDispatch({ type: "recording-stopped" });
+        editor.current.clipDispatch({ type: "recording-stopped" });
       },
       "start-take": (_state, effect) => {
-        o.onNewClipOptimisticallyAdded({
+        editor.current.onNewClipOptimisticallyAdded({
           scene: null,
           profile: null,
           soundDetectionId: effect.soundDetectionId,
         });
       },
       "close-take-window": () => {
-        o.onClipAudioWindowClosed();
+        editor.current.onClipAudioWindowClosed();
       },
       "place-take": (_state, effect) => {
         saver.takeEnded(effect.recordingSessionId);
       },
       "show-saved-clips": (_state, effect) => {
-        o.clipDispatch({
+        editor.current.clipDispatch({
           type: "new-database-clips",
           clips: effect.clips,
           outputPath: effect.recordingSessionId,
