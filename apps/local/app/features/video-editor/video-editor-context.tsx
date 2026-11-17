@@ -83,6 +83,12 @@ export type VideoEditorContextType = {
    * id: "Footage not found (E: offline?): raw-footage/…".
    */
   footageNotFound: Record<string, FootageNotFound>;
+  /**
+   * The gain (dB) the preview adds to each Clip, by Clip database id, from
+   * its file's measured loudness (`preview-gain.ts`). A Clip missing from it
+   * (one filmed since the page loaded) gets the full boost.
+   */
+  previewGainDb: Record<string, number>;
   sessions: RecordingSession[];
   sessionPanels: SessionPanelData[];
   videoTitle: string;

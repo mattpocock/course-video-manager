@@ -70,7 +70,10 @@ export { dependencyFailedMessage } from "./db-job-calls.server.js";
  * (#2224; Matt, 2026-11-04). Its Whisper pass skips the Sidecar's GPU gate
  * (`apps/local/app/services/gpu-gate.ts`), which a Footage chunk waits at.
  */
-export const HELD_WHILE_RECORDING_KINDS = ["transcribe-footage"] as const;
+export const HELD_WHILE_RECORDING_KINDS = [
+  "transcribe-footage",
+  "measure-preview-loudness",
+] as const;
 
 /**
  * A Recording Session left `recording` longer than this (a service that died

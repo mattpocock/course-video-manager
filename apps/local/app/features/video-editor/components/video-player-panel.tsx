@@ -57,6 +57,10 @@ export const VideoPlayerPanel = () => {
     VideoEditorContext,
     (ctx) => ctx.footageNotFound
   );
+  const previewGainDb = useContextSelector(
+    VideoEditorContext,
+    (ctx) => ctx.previewGainDb
+  );
   const clipIdsPreloaded = useContextSelector(
     VideoEditorContext,
     (ctx) => ctx.clipIdsPreloaded
@@ -190,6 +194,7 @@ export const VideoPlayerPanel = () => {
                     scrubSeekTime={scrubSeekTime}
                     overlaysByClipId={overlaysByClipId}
                     footageNotFound={footageNotFound}
+                    previewGainDb={previewGainDb}
                   />
                 </div>
                 {clips.length > 0 && (

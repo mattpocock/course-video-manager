@@ -30,6 +30,7 @@ export {
   clipFrameFfmpegArgs,
   clipLayers,
   clipPlaybackClock,
+  clipPlaybackFile,
   clipPlaybackUrl,
   clipScreenPicture,
   sceneAt,

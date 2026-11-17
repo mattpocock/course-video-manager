@@ -184,6 +184,19 @@ export const FOOTAGE_TRANSCRIPTION_POLICY = {
 } as const satisfies RetryingJobPolicy;
 
 /**
+ * **Preview loudness** (#2719) is new work, never an Upload Manager job, and
+ * it replaces nothing. So it takes Footage transcription's policy, the other
+ * per-Footage-file analysis: 1 attempt, `default` lane. A failure costs
+ * nothing: the file stays unmeasured, keeps the fallback gain, and the next
+ * load of the Video editor asks again. Not `neverRequeued`: measuring twice is
+ * harmless.
+ */
+export const PREVIEW_LOUDNESS_POLICY = {
+  lane: "default",
+  maxAttempts: 1,
+} as const satisfies RetryingJobPolicy;
+
+/**
  * **Image upload** to Cloudinary was never an Upload Manager job either: the
  * Article Writer's Apply and the Skills Changelog's "Upload Images" awaited
  * one `POST /api/videos/<id>/upload-images`, and a failure was final — no

@@ -10,6 +10,7 @@ import { exportJobKind } from "./kinds/export";
 import { exportAnimaticJobKind } from "./kinds/export-animatic";
 import { importFootageJobKind } from "./kinds/import-footage";
 import { importYoutubeFootageJobKind } from "./kinds/import-youtube-footage";
+import { measurePreviewLoudnessJobKind } from "./kinds/measure-preview-loudness";
 import { noopJobKind } from "./kinds/noop";
 import { publishJobKind } from "./kinds/publish";
 import { renderVerticalJobKind } from "./kinds/render-vertical";
@@ -41,6 +42,7 @@ export const JOB_KINDS = {
   autofill: autofillJobKind,
   "transcribe-clips": transcribeClipsJobKind,
   "transcribe-footage": transcribeFootageJobKind,
+  "measure-preview-loudness": measurePreviewLoudnessJobKind,
   "import-footage": importFootageJobKind,
   "import-youtube-footage": importYoutubeFootageJobKind,
   "upload-images": uploadImagesJobKind,

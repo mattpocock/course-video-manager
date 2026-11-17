@@ -66,6 +66,8 @@ export const PreloadableClip = (props: {
    * reachable Storage Root: shown in place of the player.
    */
   footageNotFound: FootageNotFound | undefined;
+  /** The gain (dB) its sound is played at (`preview-gain.ts`). */
+  gainDb: number;
 }) => {
   const ref = useRef<HTMLVideoElement>(null);
   // The overlay preview's own clip-relative playhead (`overlayTime`) mirrors
@@ -79,7 +81,7 @@ export const PreloadableClip = (props: {
     dispatch,
     reportPlayhead,
   } = usePreloadableClipReducer(ref, props.onPreloadComplete);
-  useAudioBoost(ref, PREVIEW_AUDIO_BOOST_DB);
+  useAudioBoost(ref, props.gainDb);
 
   // The `<video>` below is the playback clock: an OBS Clip's Footage, or a
   // CVM-recorder Clip's mic, which runs `clockOffset` behind the picture.
@@ -365,6 +367,12 @@ export const PreloadableClipManager = (props: {
   overlaysByClipId: Map<string, ClipOverlay[]>;
   /** Clips whose Footage is on no reachable Storage Root, by database id. */
   footageNotFound: Record<string, FootageNotFound>;
+  /**
+   * The gain (dB) the preview adds to each Clip, by database id. A Clip not
+   * in it was filmed since the page loaded: unmeasured Footage CVM filmed,
+   * so it gets the full boost.
+   */
+  previewGainDb: Record<string, number>;
 }) => {
   return (
     <div className="">
@@ -412,6 +420,9 @@ export const PreloadableClipManager = (props: {
               }}
               onPreloadComplete={() => {}}
               footageNotFound={props.footageNotFound[clip.databaseId]}
+              gainDb={
+                props.previewGainDb[clip.databaseId] ?? PREVIEW_AUDIO_BOOST_DB
+              }
               scrubSeekTime={
                 isCurrentlyPlaying ? props.scrubSeekTime : undefined
               }

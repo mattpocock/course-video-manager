@@ -343,6 +343,14 @@ export const clipPlaybackClock = (
 });
 
 /**
+ * The file the playback clock plays, and so the only sound the editor's
+ * preview makes for a Clip: an OBS Clip's Footage, or a CVM-recorder Clip's
+ * mic as recorded, before the Mic EQ only the export applies. As stored.
+ */
+export const clipPlaybackFile = (source: ClipSource): string =>
+  source.kind === "footage" ? source.footagePath : source.files.mic;
+
+/**
  * The URL the playback clock (a `<video>`) plays, cued to `from`–`to` (source
  * time, as a media fragment in the clock's own time).
  */

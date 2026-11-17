@@ -260,6 +260,7 @@ export const useVideoEditorWiring = (
     animatic: loaderData.animatic,
     overlays: loaderData.overlays,
     footageNotFound: loaderData.footageNotFound,
+    previewGainDb: loaderData.previewGainDb,
     hasScript: loaderData.hasScript,
     onAddReferenceChapterAt: ({
       videoId,

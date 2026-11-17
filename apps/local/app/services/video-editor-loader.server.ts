@@ -7,6 +7,8 @@ import { ClipOperationsService } from "@/services/db-clip-operations.server";
 import { OverlayOperationsService } from "@/services/db-overlay-operations.server";
 import { JobOperationsService } from "@cvm/core/services/db-job-operations.server";
 import { findClipsWithMissingFootage } from "@/services/clip-source-files.server";
+import { previewGainsForClips } from "@/services/preview-gains.server";
+import { enqueueJob, JOB_KIND_SPECS } from "../../sidecar/job-specs";
 import {
   readStorageRootsSync,
   storageRootsConfig,
@@ -91,10 +93,37 @@ export const loadVideoEditor = (videoId: string) =>
       : [];
 
     // Shown in place of the player: "Footage not found (E: offline?)".
+    const roots = yield* storageRootsConfig;
     const footageNotFound = yield* findClipsWithMissingFootage(
       video.clips,
-      yield* storageRootsConfig
+      roots
     );
+
+    // The gain the preview adds to each Clip (#2719), from its file's
+    // measured loudness. Files not yet measured are measured in the Sidecar
+    // and count from the editor's next load; failing to ask leaves them on
+    // the fallback gain, and the editor opens anyway.
+    const previewGains = yield* previewGainsForClips(video.clips, roots);
+    const [firstToMeasure, ...restToMeasure] = previewGains.toMeasure;
+    if (firstToMeasure !== undefined) {
+      yield* enqueueJob({
+        id: null,
+        kind: "measure-preview-loudness",
+        title: "Measure preview loudness",
+        params: { files: [firstToMeasure, ...restToMeasure] },
+        subject: { type: "video", id: videoId },
+        attemptsSpent: 0,
+        dependsOn: null,
+        registry: JOB_KIND_SPECS,
+      }).pipe(
+        Effect.catchAll((error) =>
+          Effect.logWarning("preview loudness: could not enqueue", {
+            videoId,
+            error,
+          })
+        )
+      );
+    }
 
     const clipItems = video.clips.map((clip) => ({
       type: "clip" as const,
@@ -167,6 +196,7 @@ export const loadVideoEditor = (videoId: string) =>
       animatic,
       overlays,
       footageNotFound,
+      previewGainDb: previewGains.gainDbByClipId,
       lastPassedCalibration: yield* lastPassedCalibrationNow,
       checkedAtMs: Date.now(),
     };

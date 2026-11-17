@@ -52,7 +52,7 @@ export interface FootageStamp {
 }
 
 /** The size and mtime of a file, or `null` if it has no mtime. */
-const stampOf = (
+export const footageStamp = (
   sourcePath: string
 ): Effect.Effect<FootageStamp | null, PlatformError, FileSystem.FileSystem> =>
   Effect.gen(function* () {
@@ -107,7 +107,7 @@ export const hashFootage = (
   FileSystem.FileSystem
 > =>
   Effect.gen(function* () {
-    const stamp = yield* stampOf(sourcePath);
+    const stamp = yield* footageStamp(sourcePath);
     const hash = yield* computeFileContentHash(sourcePath);
     return { hash, stamp };
   });
@@ -163,7 +163,7 @@ export const readFootageTranscript = (
     // a restore from backup, or a change finer than 1 ms) is missed, and its
     // old transcript is served as fresh. Imports never overwrite, so the risk
     // is low; any change in size or mtime still falls through to the hash.
-    const stamp = yield* stampOf(sourcePath);
+    const stamp = yield* footageStamp(sourcePath);
     const unchanged =
       stamp !== null &&
       parsed.sourceStamp?.size === stamp.size &&
