@@ -1,4 +1,5 @@
 import { useSelector } from "@/hooks/effect-store";
+import { sameElements, type ClipStore } from "./use-clip-state-selector";
 import type { FootageNotFound } from "@/services/clip-source-files.server";
 import { EditorVideoMenuProvider } from "./editor-video-menu";
 import { EditorModals } from "./components/editor-modals";
@@ -27,15 +28,7 @@ import {
   useLocalStorage,
   useLocalStorageOneOf,
 } from "@/hooks/use-local-storage";
-import type {
-  DatabaseId,
-  EditorError,
-  FrontendId,
-  FrontendInsertionPoint,
-  RecordingSession,
-  SessionId,
-  TimelineItem,
-} from "./clip-state-reducer";
+import type { DatabaseId, FrontendId, SessionId } from "./clip-state-reducer";
 import { isClip } from "./clip-utils";
 import { type FrontendSpeechDetectorState } from "./speech-detector-reducer";
 import type { SilenceLength } from "@/silence-detection-constants";
@@ -76,14 +69,13 @@ export type VideoEditorLayout = (parts: VideoEditorLayoutParts) => ReactNode;
 export type VideoEditorProps = {
   videoFormat: VideoFormat;
   /**
-   * Whether at least one of this Video's Clips has no Transcript Words —
-   * computed by the loader, since word rows themselves never reach the client.
+   * The clip reducer's store: the Clips, Chapters, Recording Sessions, the
+   * insertion point and the error. The editor and its components each read
+   * their own slice of it.
    */
-  anyClipsMissingTranscriptWords: boolean;
+  clipStore: ClipStore;
   cvmRecorder: VideoEditorContextType["cvmRecorder"];
   calibrationGate: VideoEditorContextType["calibrationGate"];
-  items: TimelineItem[];
-  sessions: RecordingSession[];
   videoTitle: string;
   lessonPath?: string;
   repoName?: string;
@@ -145,7 +137,6 @@ export type VideoEditorProps = {
     videoId: string,
     sections: Array<{ beforeClipId: string; title: string }>
   ) => Promise<void>;
-  insertionPoint: FrontendInsertionPoint;
   onSetInsertionPoint: (mode: "after" | "before", clipId: FrontendId) => void;
   onDeleteLatestInsertedClip: () => void;
   onTogglePause: () => void;
@@ -159,7 +150,6 @@ export type VideoEditorProps = {
   onAddEffectClipAt: VideoEditorContextType["onAddEffectClipAt"];
   onRestoreClip: (clipId: FrontendId) => void;
   onPermanentlyRemoveArchived: (scope: SessionId | "all") => void;
-  error: EditorError | null;
   onCreateVideoFromSelection: (
     clipIds: FrontendId[],
     chapterIds: FrontendId[],
@@ -175,11 +165,17 @@ export type VideoEditorProps = {
  * Suggestions wiring, and its dialogs, around a layout the caller supplies.
  */
 export const VideoEditor = (props: VideoEditorProps) => {
-  // Filter items for the main timeline (excludes optimistic clips and archived items)
-  const timelineItems = useMemo(
-    () => getTimelineItems(props.items),
-    [props.items]
+  const items = useSelector(props.clipStore, (s) => s.items, sameElements);
+  const sessions = useSelector(
+    props.clipStore,
+    (s) => s.sessions,
+    sameElements
   );
+  const insertionPoint = useSelector(props.clipStore, (s) => s.insertionPoint);
+  const error = useSelector(props.clipStore, (s) => s.error);
+
+  // Filter items for the main timeline (excludes optimistic clips and archived items)
+  const timelineItems = useMemo(() => getTimelineItems(items), [items]);
 
   // Derive clips from timeline items for playback, timecodes, etc. This is also
   // exactly what a Copy Video duplicates — clips on the database that aren't on
@@ -189,8 +185,8 @@ export const VideoEditor = (props: VideoEditorProps) => {
 
   // Derive session panel data for RecordingSessionPanel components
   const sessionPanels = useMemo(
-    () => getSessionPanels(props.items, props.sessions),
-    [props.items, props.sessions]
+    () => getSessionPanels(items, sessions),
+    [items, sessions]
   );
 
   useEffect(() => enableVideoEditorMode(), []);
@@ -198,9 +194,9 @@ export const VideoEditor = (props: VideoEditorProps) => {
 
   const { state, dispatch } = useVideoEditor({
     items: timelineItems,
-    allItems: props.items,
+    allItems: items,
     clips: clips,
-    insertionPoint: props.insertionPoint,
+    insertionPoint: insertionPoint,
     onClipsRemoved: props.onClipsRemoved,
     onClipsRetranscribe: props.onClipsRetranscribe,
     onTogglePauseForClip: props.onTogglePauseForClip,
@@ -290,7 +286,7 @@ export const VideoEditor = (props: VideoEditorProps) => {
 
   const databaseClipToShowLastFrameOf = getDatabaseClipBeforeInsertionPoint(
     timelineItems,
-    props.insertionPoint
+    insertionPoint
   );
 
   const currentClip = getCurrentClip(clips, currentClipId);
@@ -350,7 +346,7 @@ export const VideoEditor = (props: VideoEditorProps) => {
     animatic: props.animatic,
     beats: props.beats,
     items: timelineItems,
-    insertionPoint: props.insertionPoint,
+    insertionPoint: insertionPoint,
     fsData: props.fsData,
     previousVideoClips: props.previousVideoClips,
   });
@@ -361,8 +357,8 @@ export const VideoEditor = (props: VideoEditorProps) => {
       isRecording: props.isRecordingActive,
       speech: props.speechDetectorState,
     }),
-    items: props.items,
-    sessions: props.sessions,
+    items: items,
+    sessions: sessions,
     playingClipId:
       state.runningState === "playing" ? (state.currentClipId ?? null) : null,
     suggestion: suggestions.teleprompterSuggestion,
@@ -390,7 +386,7 @@ export const VideoEditor = (props: VideoEditorProps) => {
   // The Beat Panel is read-only the instant a capture starts and through
   // the post-recording settling window (recording, polling, or unresolved
   // optimistic clips) — see isCaptureInProgress.
-  const captureInProgress = isCaptureInProgress(props.items, props.sessions);
+  const captureInProgress = isCaptureInProgress(items, sessions);
 
   const onShowBeatPanel = useCallback(
     () => setPersistedBeatTab("beats"),
@@ -433,14 +429,14 @@ export const VideoEditor = (props: VideoEditorProps) => {
 
       // Route-level props
       videoFormat: props.videoFormat,
-      anyClipsMissingTranscriptWords: props.anyClipsMissingTranscriptWords,
+      clipStore: props.clipStore,
       items: timelineItems,
-      allItems: props.items,
+      allItems: items,
       overlays: props.overlays,
       overlaysByClipId,
       footageNotFound: props.footageNotFound,
       previewGainDb: props.previewGainDb,
-      sessions: props.sessions,
+      sessions: sessions,
       sessionPanels,
       videoTitle: props.videoTitle,
       videoId: props.videoId,
@@ -456,7 +452,7 @@ export const VideoEditor = (props: VideoEditorProps) => {
       hasBeats: props.beats.length > 0,
       onShowBeatPanel,
       onShowScriptPanel,
-      insertionPoint: props.insertionPoint,
+      insertionPoint: insertionPoint,
       cvmRecorder: props.cvmRecorder,
       calibrationGate: props.calibrationGate,
       speechDetectorState: props.speechDetectorState,
@@ -527,8 +523,11 @@ export const VideoEditor = (props: VideoEditorProps) => {
       areAnyClipsDangerous,
       databaseClipToShowLastFrameOf,
       props.videoFormat,
-      props.anyClipsMissingTranscriptWords,
-      props.items,
+      props.clipStore,
+      items,
+      timelineItems,
+      sessions,
+      sessionPanels,
       props.overlays,
       overlaysByClipId,
       props.footageNotFound,
@@ -547,7 +546,8 @@ export const VideoEditor = (props: VideoEditorProps) => {
       props.beats,
       onShowBeatPanel,
       onShowScriptPanel,
-      props.insertionPoint,
+      insertionPoint,
+      props.cvmRecorder,
       props.calibrationGate,
       props.speechDetectorState,
       props.silenceLength,
@@ -586,8 +586,8 @@ export const VideoEditor = (props: VideoEditorProps) => {
   );
 
   // Show error overlay if there's a fatal error
-  if (props.error) {
-    return <ErrorOverlay error={props.error} />;
+  if (error) {
+    return <ErrorOverlay error={error} />;
   }
 
   const modals = (

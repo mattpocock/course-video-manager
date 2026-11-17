@@ -14,6 +14,7 @@ import type { SessionPanelData } from "./video-editor-selectors";
 import type { videoStateReducer } from "./video-state-reducer";
 import type { editorModalsReducer } from "./editor-modals-reducer";
 import type { CvmRecorderControls } from "./use-cvm-recorder";
+import type { ClipStore } from "./use-clip-state-selector";
 import type { CalibrationGate } from "./use-calibration-gate";
 import type { FrontendSpeechDetectorState } from "./speech-detector-reducer";
 import type { SilenceLength } from "@/silence-detection-constants";
@@ -66,8 +67,11 @@ export type VideoEditorContextType = {
 
   // Route-level props
   videoFormat: VideoFormat;
-  /** At least one Clip of this Video has no Transcript Words (#1571). */
-  anyClipsMissingTranscriptWords: boolean;
+  /**
+   * The clip reducer's store, for a component that reads its own slice of
+   * the clip state (`useClipStateSelector`). The same object for the visit.
+   */
+  clipStore: ClipStore;
   items: TimelineItem[];
   allItems: TimelineItem[];
   /** Every Overlay on this Video, across all of its Clips (see overlay-preview.tsx). */
