@@ -6,27 +6,27 @@ import { SilenceLengthToggle } from "./silence-length-toggle";
 import { ShortScreenStatus } from "./short-screen-status";
 import { CalibrationGateBanner } from "./calibration-gate-banner";
 import { isCalibrationRefusal } from "@/av-calibration-constants";
-import { framesLostAlert } from "../cvm-recorder-reducer";
+import {
+  canRecord,
+  canRetryCamera,
+  framesLostAlert,
+  type cvmRecorderReducer,
+} from "../cvm-recorder-reducer";
+import { useCvmRecorderSelector } from "../use-cvm-recorder-selector";
 
 /**
  * Whether the recorder is simply fine — ready, recording or stopping — so a
  * Short's studio, which gives every pixel it can to the preview, and the
  * Streaming tab, whose takes the teleprompter reports, say nothing.
  */
-const isRecorderSettled = (
-  controls: ReturnType<typeof useCvmRecorderControls>
-): boolean => {
-  const { state } = controls;
+const isRecorderSettled = (state: cvmRecorderReducer.State): boolean => {
   if (!state.reachable || state.problem) return false;
   if (state.phase !== "idle") return true;
-  return state.camera.kind === "live" && controls.canRecord;
+  return state.camera.kind === "live" && canRecord(state);
 };
 
 /** What the CVM recorder is doing, in a few words. */
-const statusText = (
-  controls: ReturnType<typeof useCvmRecorderControls>
-): string => {
-  const { state } = controls;
+const statusText = (state: cvmRecorderReducer.State): string => {
   if (state.reachable === null) return "Connecting to the recorder…";
   if (state.starting) return "Starting the recorder…";
   if (!state.reachable) return "The recorder service is not running.";
@@ -45,7 +45,7 @@ const statusText = (
           return "The Cam Link is not live.";
         case "live":
           // Off only on a Short: Spacedesk still waking, or the scene needs a screen that is not ready.
-          return controls.canRecord
+          return canRecord(state)
             ? "Ready to record."
             : "Waiting for the screen.";
       }
@@ -64,7 +64,8 @@ const useCvmRecorderControls = () =>
 /** The replug and Close-OBS messages, with Retry. */
 const CameraProblem = () => {
   const controls = useCvmRecorderControls();
-  const { camera } = controls.state;
+  const camera = useCvmRecorderSelector((state) => state.camera);
+  const canRetry = useCvmRecorderSelector(canRetryCamera);
   if (camera.kind !== "not-starting" && camera.kind !== "busy") return null;
   return (
     <div
@@ -76,7 +77,7 @@ const CameraProblem = () => {
         type="button"
         size="sm"
         variant="secondary"
-        disabled={!controls.canRetryCamera}
+        disabled={!canRetry}
         onClick={controls.onRetryCamera}
       >
         <RotateCcwIcon className="size-3.5 mr-1" />
@@ -106,11 +107,17 @@ export const CvmRecorderControls = (props: { quiet?: boolean }) => {
     VideoEditorContext,
     (ctx) => ctx.videoFormat === "short"
   );
-  const { state } = controls;
-  const calibrationRefusal = isCalibrationRefusal(state.error);
+  // Each a slice: a report that changes none of them renders nothing here.
+  const error = useCvmRecorderSelector((state) => state.error);
+  const alert = useCvmRecorderSelector((state) => state.alert);
+  const idle = useCvmRecorderSelector((state) => state.phase === "idle");
+  const settled = useCvmRecorderSelector(isRecorderSettled);
+  const status = useCvmRecorderSelector(statusText);
+  const framesLost = useCvmRecorderSelector(framesLostAlert);
+  const lastFramesLost = useCvmRecorderSelector((state) => state.framesLost);
+  const calibrationRefusal = isCalibrationRefusal(error);
   const quiet = isShort || props.quiet === true;
-  const showStatus = !quiet || !isRecorderSettled(controls);
-  const framesLost = framesLostAlert(state);
+  const showStatus = !quiet || !settled;
   return (
     <div className="mt-2 flex flex-col items-center gap-2 empty:hidden">
       {framesLost && (
@@ -134,14 +141,14 @@ export const CvmRecorderControls = (props: { quiet?: boolean }) => {
           </Button>
         </div>
       )}
-      {state.alert && (
+      {alert && (
         <div
           role="alert"
           data-testid="cvm-recorder-alert"
           className="flex w-full max-w-xl items-start gap-3 rounded-md border-2 border-red-600 bg-red-600/10 p-3 text-sm font-semibold text-red-700 dark:text-red-200"
         >
           <TriangleAlertIcon className="size-5 shrink-0 text-red-500" />
-          <p className="flex-1">{state.alert}</p>
+          <p className="flex-1">{alert}</p>
           <Button
             type="button"
             size="sm"
@@ -152,10 +159,10 @@ export const CvmRecorderControls = (props: { quiet?: boolean }) => {
           </Button>
         </div>
       )}
-      {state.phase === "idle" && (
+      {idle && (
         <CalibrationGateBanner
           gate={gate}
-          refusal={calibrationRefusal ? state.error : null}
+          refusal={calibrationRefusal ? error : null}
         />
       )}
       {(!quiet || showStatus) && (
@@ -166,22 +173,22 @@ export const CvmRecorderControls = (props: { quiet?: boolean }) => {
               className="text-xs text-muted-foreground"
               data-testid="cvm-recorder-status"
             >
-              {statusText(controls)}
+              {status}
             </span>
           )}
         </div>
       )}
       <ShortScreenStatus />
       <CameraProblem />
-      {state.framesLost && !framesLost && state.phase === "idle" && (
+      {lastFramesLost && !framesLost && idle && (
         <p className="text-xs text-muted-foreground">
           Last recording: no frames lost in a Clip
-          {state.framesLost.screen === null ? " (screen not measured)" : ""}
+          {lastFramesLost.screen === null ? " (screen not measured)" : ""}
         </p>
       )}
-      {state.error && !calibrationRefusal && (
+      {error && !calibrationRefusal && (
         <p className="text-xs text-red-500 whitespace-pre-line text-center">
-          {state.error}
+          {error}
         </p>
       )}
     </div>

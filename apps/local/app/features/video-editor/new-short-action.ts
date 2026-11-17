@@ -2,7 +2,8 @@ import type { VideoAction } from "@/features/video-menu/video-menu";
 import { NEW_SHORT_ACTION, newShortFormData } from "@/lib/new-short";
 import { useFetcher } from "react-router";
 import { useContextSelector } from "use-context-selector";
-import { isCvmRecorderRecording } from "./cvm-recorder-reducer";
+import { canStop, isCvmRecorderRecording } from "./cvm-recorder-reducer";
+import { recorderStateOf } from "./cvm-recorder-machine";
 import { VideoEditorContext } from "./video-editor-context";
 
 /**
@@ -22,7 +23,9 @@ export function useNewShortAction(): VideoAction {
 
   return {
     onSelect: () => {
-      if (isCvmRecorderRecording(cvmRecorder.state) && cvmRecorder.canStop)
+      // Read as it is pressed: the menu item never re-renders for the recorder.
+      const recorder = recorderStateOf(cvmRecorder.actor.getSnapshot());
+      if (isCvmRecorderRecording(recorder) && canStop(recorder))
         cvmRecorder.onStop();
       void fetcher.submit(newShortFormData({ returnToVideoId: videoId }), {
         method: "post",

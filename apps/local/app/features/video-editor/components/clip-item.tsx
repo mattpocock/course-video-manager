@@ -43,6 +43,7 @@ import {
   overlayKindLabel,
   resolveOverlayKind,
 } from "@/features/videos/overlay-kind";
+import { useCvmRecorderSelector } from "@/features/video-editor/use-cvm-recorder-selector";
 
 /**
  * Props for the ClipItem component
@@ -99,14 +100,10 @@ export const ClipItem = (props: ClipItemProps) => {
       ? ctx.overlaysByClipId.get(clip.databaseId)
       : undefined
   );
-  const stillHeld = useContextSelector(
-    VideoEditorContext,
-    (ctx) =>
-      clip.type === "on-database" && holdsStillsOf(ctx.cvmRecorder.state, clip)
+  const stillHeld = useCvmRecorderSelector(
+    (state) => clip.type === "on-database" && holdsStillsOf(state, clip)
   );
-  const round = useContextSelector(VideoEditorContext, (ctx) =>
-    stillRound(ctx.cvmRecorder.state)
-  );
+  const round = useCvmRecorderSelector(stillRound);
   const percentComplete = getClipPercentComplete(clip, currentTimeInClip);
   const transcriptionStatus =
     clip.type === "on-database" ? clip.transcriptionStatus : null;

@@ -1,9 +1,10 @@
-import type { EffectReducer, EffectReducerExec } from "use-effect-reducer";
+import type { EffectReducer } from "use-effect-reducer";
 import {
   canRetryCamera,
   createInitialCvmRecorderState,
-  cvmRecorderReducer,
+  type cvmRecorderReducer,
 } from "@/features/video-editor/cvm-recorder-reducer";
+import { nextRecorderState } from "@/features/video-editor/cvm-recorder-machine";
 import type { CvmRecorderMessage } from "@/features/video-editor/cvm-recorder-wire";
 
 /**
@@ -56,13 +57,6 @@ export const canCapture = (state: recorderStillReducer.State) =>
   state.recorder.phase === "idle" &&
   state.recorder.camera.kind === "live";
 
-/** Hearing a message or a failed Retry declares no effects in the editor's reducer. */
-const noEffects = (() => {}) as unknown as EffectReducerExec<
-  cvmRecorderReducer.State,
-  cvmRecorderReducer.Action,
-  cvmRecorderReducer.Effect
->;
-
 export const recorderStillReducer: EffectReducer<
   recorderStillReducer.State,
   recorderStillReducer.Action,
@@ -73,7 +67,8 @@ export const recorderStillReducer: EffectReducer<
     case "retry-camera-failed":
       return {
         ...state,
-        recorder: cvmRecorderReducer(state.recorder, action, noEffects),
+        // The editor's recorder machine, its effects dropped.
+        recorder: nextRecorderState(state.recorder, action),
         stillUrl:
           action.type === "recorder-message-heard" &&
           action.message.type === "recorder-status"

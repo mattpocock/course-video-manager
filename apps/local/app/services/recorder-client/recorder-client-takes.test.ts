@@ -1,9 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { ReducerTester } from "@/test-utils/reducer-tester";
-import {
-  createInitialCvmRecorderState,
-  cvmRecorderReducer,
-} from "@/features/video-editor/cvm-recorder-reducer";
+import { cvmRecorderTester } from "@/features/video-editor/recorder-takes-test-harness";
 import type {
   CvmRecorderMessage,
   PlacedTake,
@@ -34,10 +30,7 @@ describe("Takes, end to end", () => {
     const video = await clipService.createVideo("CVM recorder");
     // The editor: its CVM recorder adapter, hearing what the app server
     // says, and answering every place-take as use-cvm-recorder.ts does.
-    const editor = new ReducerTester(
-      cvmRecorderReducer,
-      createInitialCvmRecorderState()
-    );
+    const editor = cvmRecorderTester();
     const heard: CvmRecorderMessage[] = [];
     const placed: Promise<PlacedTake>[] = [];
     let effectsSeen = 0;

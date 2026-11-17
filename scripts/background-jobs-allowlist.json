@@ -38,7 +38,7 @@
       "reason": "Interactive, not background work: the chapter Autofill modal (the plan's question 5). Stays."
     },
     {
-      "file": "apps/local/app/features/video-editor/use-cvm-recorder.ts",
+      "file": "apps/local/app/features/video-editor/use-recorder-events.ts",
       "count": 1,
       "reason": "A live Recording Session, not background work: the editor hears the CVM recorder's events (saved Clips) while it is open. Its listening keeps the recorder (and the Cam Link) open for that Video; it cancels no recording."
     },

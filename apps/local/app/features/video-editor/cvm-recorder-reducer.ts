@@ -1,4 +1,3 @@
-import type { EffectReducer } from "use-effect-reducer";
 import type { Scene } from "@/packages/scene-layout";
 import {
   DEFAULT_SILENCE_LENGTH,
@@ -16,11 +15,9 @@ import {
   type StreamStatus,
 } from "recorder-service/stream-protocol";
 import { isSceneAvailable, isScreenWaking } from "./cvm-recorder-screen";
-import { placeClips } from "./cvm-recorder-clips";
 import {
   clipsHitByLostFrames,
   describeFramesLostInClips,
-  trackFramesLost,
   type TakeSpan,
 } from "./cvm-recorder-frames-lost";
 import type {
@@ -30,7 +27,7 @@ import type {
 import {
   createInitialRecorderSessionState,
   follows,
-  recorderSessionReducer,
+  type recorderSessionReducer,
   canPressStop,
   followedOnLeave,
 } from "./recorder-session-reducer";
@@ -61,8 +58,10 @@ import {
  * changes and whenever the recorder reports in.
  *
  * The Recording Session, its speech, Attaching and the clip effects are the
- * `recorderSessionReducer` (ADR 0050): this reducer turns the recorder's
- * messages into its events, and keeps the device (camera, scenes, screen, frames lost) and where a Take saves.
+ * `recorderSessionReducer`'s rules (ADR 0050), run as the states of
+ * `cvm-recorder-machine.ts`: these helpers turn the recorder's messages into
+ * its events, and keep the device (camera, scenes, screen, frames lost) and
+ * where a Take saves. This file keeps the types and the selectors.
  *
  * Speech: the recorder's silence detection, fed to the shared speech state
  * machine (`speechDetectorReducer`), so the editor and the teleprompter show
@@ -100,8 +99,11 @@ export namespace cvmRecorderReducer {
     | { kind: "not-starting"; message: string }
     | { kind: "busy"; message: string };
 
-  /** The Recording Session followed is the shared reducer's. */
-  export type State = recorderSessionReducer.State & {
+  /** What the editor's recorder shows: the machine's context and its Phase. */
+  export type State = Context & { phase: Phase };
+
+  /** The machine's context: the Recording Session followed, and the device. */
+  export type Context = recorderSessionReducer.Context & {
     /** The Video's format: a Short is drawn, and recorded, 9:16. */
     format: VideoFormat;
     /** Null until the app server first says. */
@@ -200,9 +202,17 @@ export namespace cvmRecorderReducer {
       };
 }
 
+/** The recorder before it reports anything: idle. */
 export const createInitialCvmRecorderState = (
   format: VideoFormat = "landscape"
 ): cvmRecorderReducer.State => ({
+  ...createInitialCvmRecorderContext(format),
+  phase: "idle",
+});
+
+export const createInitialCvmRecorderContext = (
+  format: VideoFormat = "landscape"
+): cvmRecorderReducer.Context => ({
   ...createInitialRecorderSessionState(),
   format,
   reachable: null,
@@ -241,7 +251,7 @@ export const canRecord = (state: cvmRecorderReducer.State) =>
   !isScreenWaking(state) &&
   (state.scene === null || isSceneAvailable(state, state.scene));
 
-export const canRetryCamera = (state: cvmRecorderReducer.State) =>
+export const canRetryCamera = (state: cvmRecorderReducer.Context) =>
   !state.retrying &&
   (state.camera.kind === "not-starting" || state.camera.kind === "busy");
 
@@ -253,9 +263,9 @@ export const canWakeSpacedeskAgain = (state: cvmRecorderReducer.State) =>
   !state.wakingAgain;
 
 const cameraHeard = (
-  state: cvmRecorderReducer.State,
+  state: cvmRecorderReducer.Context,
   camera: cvmRecorderReducer.Camera
-): cvmRecorderReducer.State => ({ ...state, camera, retrying: false });
+): cvmRecorderReducer.Context => ({ ...state, camera, retrying: false });
 
 export const canStop = (state: cvmRecorderReducer.State) => canPressStop(state);
 
@@ -324,17 +334,20 @@ export const framesLostAlert = (
 };
 
 /** Every frame lost inside a Clip of the Recording Session placed. */
-const framesLostInClips = (state: cvmRecorderReducer.State) =>
+export const framesLostInClips = (state: cvmRecorderReducer.Context) =>
   clipsHitByLostFrames(state).reduce(
     (n, h) => ({ camera: n.camera + h.camera, screen: n.screen + h.screen }),
     { camera: 0, screen: 0 }
   );
 
 /** The message as the shared session reducer hears it, if it is one. */
-const sessionEventOf = (
-  state: cvmRecorderReducer.State,
+export const sessionEventOf = (
+  state: cvmRecorderReducer.Context,
   message: CvmRecorderMessage
-): recorderSessionReducer.Event | null => {
+): Exclude<
+  recorderSessionReducer.Event,
+  { type: "press-stop" | "stop-recording-failed" }
+> | null => {
   switch (message.type) {
     case "recorder-status":
       return {
@@ -394,8 +407,8 @@ const sessionEventOf = (
 };
 
 /** Whether the message is the editor's to hear (`follows`). */
-const isHeard = (
-  state: cvmRecorderReducer.State,
+export const isHeard = (
+  state: cvmRecorderReducer.Context,
   message: CvmRecorderMessage
 ): boolean => {
   if (!("recordingSessionId" in message) || message.type === "recorder-status")
@@ -418,10 +431,10 @@ const isHeard = (
 };
 
 /** The device's half of a message the editor hears. */
-const deviceHeard = (
-  state: cvmRecorderReducer.State,
+export const deviceHeard = (
+  state: cvmRecorderReducer.Context,
   message: CvmRecorderMessage
-): cvmRecorderReducer.State => {
+): cvmRecorderReducer.Context => {
   switch (message.type) {
     case "recorder-status":
       return {
@@ -497,84 +510,5 @@ const deviceHeard = (
     case "speech-ended":
     case "clips-saved":
       return state;
-  }
-};
-
-const heard = (
-  state: cvmRecorderReducer.State,
-  message: CvmRecorderMessage,
-  exec: (effect: cvmRecorderReducer.Effect) => void
-): cvmRecorderReducer.State => {
-  if (!isHeard(state, message)) return state;
-  const event = sessionEventOf(state, message);
-  return deviceHeard(
-    event ? recorderSessionReducer(state, event, exec) : state,
-    message
-  );
-};
-
-export const cvmRecorderReducer: EffectReducer<
-  cvmRecorderReducer.State,
-  cvmRecorderReducer.Action,
-  cvmRecorderReducer.Effect
-> = (state, action, exec) => {
-  switch (action.type) {
-    case "recorder-message-heard": {
-      const followed = heard(state, action.message, exec);
-      const next = trackFramesLost(
-        state,
-        placeClips(state, followed, action.message, exec),
-        action.message
-      );
-      // A new or restarted app server knows nothing of the editor's choice.
-      if (
-        action.message.type === "recorder-status" &&
-        next.reachable === true &&
-        next.silenceLength
-      )
-        exec({
-          type: "send-silence-length",
-          silenceLength: next.silenceLength,
-        });
-      return next;
-    }
-    case "silence-length-chosen":
-      // Until the app server first answers, its recorder-status sends it.
-      if (
-        state.reachable === true &&
-        action.silenceLength !== state.silenceLength
-      )
-        exec({
-          type: "send-silence-length",
-          silenceLength: action.silenceLength,
-        });
-      return { ...state, silenceLength: action.silenceLength };
-    case "dismiss-alert":
-      return { ...state, alert: null };
-    case "dismiss-frames-lost-alert":
-      return { ...state, framesLostDismissed: framesLostInClips(state) };
-    case "press-stop":
-      return recorderSessionReducer(state, { type: "press-stop" }, exec);
-    case "press-retry":
-      if (!canRetryCamera(state)) return state;
-      exec({ type: "retry-camera" });
-      return { ...state, retrying: true, error: null };
-    case "press-wake-spacedesk":
-      if (!canWakeSpacedeskAgain(state)) return state;
-      exec({ type: "retry-screen" });
-      return { ...state, wakingAgain: true, error: null };
-    case "retry-screen-failed":
-      return { ...state, wakingAgain: false, error: action.message };
-    case "retry-camera-failed":
-      return { ...state, retrying: false, error: action.message };
-    case "stop-recording-failed":
-      return {
-        ...recorderSessionReducer(
-          state,
-          { type: "stop-recording-failed" },
-          exec
-        ),
-        error: action.message,
-      };
   }
 };

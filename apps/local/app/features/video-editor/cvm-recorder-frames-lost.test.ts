@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { ReducerTester } from "@/test-utils/reducer-tester";
-import {
-  createInitialCvmRecorderState,
-  cvmRecorderReducer,
-  framesLostAlert,
-} from "./cvm-recorder-reducer";
+import { cvmRecorderTester } from "./recorder-takes-test-harness";
+import { framesLostAlert } from "./cvm-recorder-reducer";
 import type { CvmRecorderMessage } from "./cvm-recorder-wire";
 
 /**
@@ -40,7 +36,7 @@ const stoppedMessage = (
 });
 
 const recording = () =>
-  new ReducerTester(cvmRecorderReducer, createInitialCvmRecorderState())
+  cvmRecorderTester()
     .send(status())
     .send(heard({ type: "camera-went-live" }))
     .send(

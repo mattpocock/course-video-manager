@@ -21,6 +21,7 @@ import { useContextSelector } from "use-context-selector";
 import { VideoEditorContext } from "../video-editor-context";
 import { useState, useCallback, useMemo, type ChangeEvent } from "react";
 import { ShortsPostingModal } from "@/features/video-posting/shorts-posting-modal";
+import { useCvmRecorderSelector } from "@/features/video-editor/use-cvm-recorder-selector";
 
 export const PortraitStudioPanel = () => {
   const footageNotFound = useContextSelector(
@@ -121,12 +122,8 @@ export const PortraitStudioPanel = () => {
       ),
     [overlaysByClipId, clips, videoFormat]
   );
-  const cvmRecorderState = useContextSelector(
-    VideoEditorContext,
-    (ctx) => ctx.cvmRecorder.state
-  );
   // A Short's live picture is the CVM recorder's 9:16 composite.
-  const hasLivePreview = getHasLivePreview(cvmRecorderState);
+  const hasLivePreview = useCvmRecorderSelector(getHasLivePreview);
 
   const [isPostingModalOpen, setIsPostingModalOpen] = useState(false);
   const openPostingModal = useCallback(() => setIsPostingModalOpen(true), []);

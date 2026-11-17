@@ -7,6 +7,7 @@ import { useLiveStream } from "./live-stream-context";
 import { goLiveControl, liveSinceOf } from "./live-stream-reducer";
 import { LiveTimer } from "./live-timer";
 import { streamHealthAmber, streamHealthLine } from "./stream-health-line";
+import { useCvmRecorderSelector } from "@/features/video-editor/use-cvm-recorder-selector";
 
 /**
  * Go Live / End Stream: the Streaming tab's main button, in its toolbar
@@ -63,10 +64,7 @@ export const GoLiveButton = () => {
  */
 export const GoLiveStatus = () => {
   const videoId = useContextSelector(VideoEditorContext, (ctx) => ctx.videoId);
-  const health = useContextSelector(
-    VideoEditorContext,
-    (ctx) => ctx.cvmRecorder.state.streamHealth
-  );
+  const health = useCvmRecorderSelector((state) => state.streamHealth);
   const { state } = useLiveStream();
 
   const control = goLiveControl(state, videoId);

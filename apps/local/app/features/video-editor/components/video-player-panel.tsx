@@ -25,6 +25,7 @@ import { useEditorVideoMenu } from "../editor-video-menu";
 import { useContextSelector } from "use-context-selector";
 import { VideoEditorContext } from "../video-editor-context";
 import { Suspense, useState, useMemo, type ChangeEvent } from "react";
+import { useCvmRecorderSelector } from "@/features/video-editor/use-cvm-recorder-selector";
 
 export const VideoPlayerPanel = () => {
   const lessonId = useContextSelector(
@@ -37,10 +38,7 @@ export const VideoPlayerPanel = () => {
     VideoEditorContext,
     (ctx) => ctx.showVideoPlayer
   );
-  const cvmRecorderState = useContextSelector(
-    VideoEditorContext,
-    (ctx) => ctx.cvmRecorder.state
-  );
+  const hasLivePreview = useCvmRecorderSelector(getHasLivePreview);
   const clipsToAggressivelyPreload = useContextSelector(
     VideoEditorContext,
     (ctx) => ctx.clipsToAggressivelyPreload
@@ -135,7 +133,6 @@ export const VideoPlayerPanel = () => {
   const chapters = useMemo(() => getChaptersSelector(items), [items]);
   const hasSections = getHasSectionsSelector(items);
 
-  const hasLivePreview = getHasLivePreview(cvmRecorderState);
   const showScrubSlider = getShowScrubSliderSelector(
     currentClip?.type,
     showVideoPlayer
