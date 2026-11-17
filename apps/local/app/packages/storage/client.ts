@@ -92,3 +92,7 @@ export {
   type StorageUnusedDeleteResult,
   type StorageUnusedRefusalReason,
 } from "./lib/unused-wire";
+
+// The Imported Footage rule, with no `node:path`: the editor's preview gain
+// asks it for a Clip added since the page loaded (#2719).
+export { isImportedFootage } from "./lib/imported-footage-rule";

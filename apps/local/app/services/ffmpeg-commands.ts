@@ -19,6 +19,39 @@ import {
 
 export type { FfmpegLogInfo };
 
+/** `exe args…`, or `nice -n 19 exe args…`: behind the rest of WSL. */
+const argv = (
+  exe: string,
+  args: readonly string[],
+  lowPriority: boolean
+): [string, ...string[]] =>
+  lowPriority ? ["nice", "-n", "19", exe, ...args] : [exe, ...args];
+
+/**
+ * Run a process to its end, draining stdout and stderr together (a pipe
+ * nobody reads fills and blocks the writer), and answer both with its exit
+ * code.
+ */
+const runCollected = (argvParts: readonly [string, ...string[]]) =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const [file, ...rest] = argvParts;
+      const child = yield* Command.start(Command.make(file, ...rest));
+      const [stdout, stderr] = yield* Effect.all(
+        [
+          child.stdout.pipe(Stream.decodeText(), Stream.mkString),
+          child.stderr.pipe(Stream.decodeText(), Stream.mkString),
+        ],
+        { concurrency: 2 }
+      );
+      return { code: Number(yield* child.exitCode), stdout, stderr };
+    })
+  );
+
+/** ebur128's summary: `Integrated loudness:` then `I: -23.0 LUFS`. */
+const INTEGRATED_LOUDNESS =
+  /Integrated loudness:\s*I:\s*(-?\d+(?:\.\d+)?)\s*LUFS/;
+
 export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>()(
   "FFmpegCommandsService",
   {
@@ -46,27 +79,79 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
           "-"
         );
 
-        return yield* cpuSemaphore.withPermits(1)(
-          Effect.scoped(
-            Effect.gen(function* () {
-              const process = yield* Command.start(
-                Command.make("ffmpeg", ...args)
-              );
-              // ffmpeg exits non-zero with -f null, but we still get the output
-              // silencedetect info is written to stderr
-              const [stdout, stderr] = yield* Effect.all(
-                [
-                  process.stdout.pipe(Stream.decodeText(), Stream.mkString),
-                  process.stderr.pipe(Stream.decodeText(), Stream.mkString),
-                ],
-                { concurrency: 2 }
-              );
-              yield* process.exitCode.pipe(Effect.ignore);
-              return stdout + stderr;
-            })
-          )
+        // ffmpeg exits non-zero with -f null, but we still get the output:
+        // silencedetect info is written to stderr.
+        const run = yield* cpuSemaphore.withPermits(1)(
+          runCollected(argv("ffmpeg", args, false))
         );
+        return run.stdout + run.stderr;
       });
+
+      /**
+       * The integrated loudness (LUFS, EBU R128) of a file's first sound
+       * stream, the one a `<video>` plays; null when it has no sound at all.
+       * At `nice -n 19`: the preview-loudness Job runs it in the Sidecar.
+       */
+      const measureIntegratedLoudness = Effect.fn("measureIntegratedLoudness")(
+        function* (file: string) {
+          const probe = yield* cpuSemaphore.withPermits(1)(
+            runCollected(
+              argv(
+                "ffprobe",
+                [
+                  "-v",
+                  "error",
+                  "-select_streams",
+                  "a:0",
+                  "-show_entries",
+                  "stream=index",
+                  "-of",
+                  "csv=p=0",
+                  file,
+                ],
+                true
+              )
+            )
+          );
+          if (probe.code !== 0) {
+            return yield* new FFmpegError({
+              cause: null,
+              message: `ffprobe could not read ${file}: ${probe.stderr.trim()}`,
+            });
+          }
+          if (probe.stdout.trim() === "") return null;
+          const run = yield* cpuSemaphore.withPermits(1)(
+            runCollected(
+              argv(
+                "ffmpeg",
+                [
+                  "-hide_banner",
+                  "-nostats",
+                  "-nostdin",
+                  "-i",
+                  file,
+                  "-map",
+                  "0:a:0",
+                  "-af",
+                  "ebur128=framelog=quiet",
+                  "-f",
+                  "null",
+                  "-",
+                ],
+                true
+              )
+            )
+          );
+          const match = INTEGRATED_LOUDNESS.exec(run.stderr);
+          if (run.code !== 0 || !match) {
+            return yield* new FFmpegError({
+              cause: null,
+              message: `ffmpeg could not measure the loudness of ${file} (exit ${run.code}): ${run.stderr.slice(-2000)}`,
+            });
+          }
+          return Number(match[1]);
+        }
+      );
 
       const getFPS = Effect.fn("getFPS")(function* (inputVideo: string) {
         const command = Command.make(
@@ -128,10 +213,7 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
       const runOnce = (args: readonly string[], lowPriority: boolean) =>
         Effect.scoped(
           Effect.gen(function* () {
-            // `nice -n 19 ffmpeg …`: behind the rest of WSL.
-            const [file, ...rest]: [string, ...string[]] = lowPriority
-              ? ["nice", "-n", "19", "ffmpeg", ...args]
-              : ["ffmpeg", ...args];
+            const [file, ...rest] = argv("ffmpeg", args, lowPriority);
             const command = Command.make(file, ...rest);
             const child = yield* Command.start(
               command.pipe(Command.stdout("inherit"))
@@ -222,6 +304,7 @@ export class FFmpegCommandsService extends Effect.Service<FFmpegCommandsService>
 
       return {
         detectSilence,
+        measureIntegratedLoudness,
         getFPS,
         getVideoDurationInSeconds,
         captureFrameAtTime,

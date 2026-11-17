@@ -109,6 +109,14 @@ export const JOB_PARAMS = {
     ),
   }),
   /**
+   * The Footage files the editor's preview plays that have no measured
+   * loudness yet (absolute, each on a Storage Root), from the Video editor's
+   * loader (#2719).
+   */
+  "measure-preview-loudness": Schema.Struct({
+    files: Schema.NonEmptyArray(AbsoluteFootagePath),
+  }),
+  /**
    * One file copied in as Imported Footage: from where it is (only ever
    * read) to the name `cvm footage import` chose under
    * `raw-footage/imported/` on the first Storage Root.

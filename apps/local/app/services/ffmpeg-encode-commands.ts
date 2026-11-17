@@ -21,6 +21,7 @@ import { buildClipConcatArgs, type ConcatClip } from "./clip-concat-args";
 import { makeConcatenateClipSegments } from "./ffmpeg-encode-segments";
 import { SHORT_OVERLAY_COMPOSITE_FILTER } from "./vertical-overlay-props";
 import { assertUnder } from "./assert-under";
+import { EXPORT_LOUDNESS_LUFS } from "@/lib/export-loudness";
 import { buildOverlayCompositeArgs } from "./overlay-composite-args";
 import type { RenderedOverlay } from "./overlay-compositing";
 import {
@@ -165,7 +166,7 @@ export class FFmpegEncodeService extends Effect.Service<FFmpegEncodeService>()(
         if (needsStretching) {
           audioFilters.push(`atempo=${stretchFactor}`);
         }
-        audioFilters.push("loudnorm=I=-16:TP=-1.5:LRA=11");
+        audioFilters.push(`loudnorm=I=${EXPORT_LOUDNESS_LUFS}:TP=-1.5:LRA=11`);
 
         const args = [
           "-y",

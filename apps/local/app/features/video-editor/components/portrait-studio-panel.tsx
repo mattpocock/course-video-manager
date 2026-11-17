@@ -28,6 +28,10 @@ export const PortraitStudioPanel = () => {
     VideoEditorContext,
     (ctx) => ctx.footageNotFound
   );
+  const previewGainDb = useContextSelector(
+    VideoEditorContext,
+    (ctx) => ctx.previewGainDb
+  );
   const videoTitle = useContextSelector(
     VideoEditorContext,
     (ctx) => ctx.videoTitle
@@ -174,6 +178,7 @@ export const PortraitStudioPanel = () => {
                   scrubSeekTime={scrubSeekTime}
                   overlaysByClipId={shortOverlays}
                   footageNotFound={footageNotFound}
+                  previewGainDb={previewGainDb}
                 />
               </div>
 

@@ -18,6 +18,7 @@ import {
   FOOTAGE_TRANSCRIPTION_POLICY,
   IMAGE_UPLOAD_POLICY,
   POSTING_JOB_POLICY,
+  PREVIEW_LOUDNESS_POLICY,
   RETRYING_JOB_POLICY,
   STORAGE_DELETE_POLICY,
   STORAGE_MOVE_POLICY,
@@ -101,6 +102,20 @@ export const JOB_KIND_SPECS = {
     coveredBy: (params, live) =>
       (live.params as { path?: unknown } | null)?.path ===
       (params as { path: string }).path,
+  },
+  // The subject is the Video. Its editor loaded again follows the live Job
+  // while that Job will measure every file the new load asks for.
+  "measure-preview-loudness": {
+    ...spec(PREVIEW_LOUDNESS_POLICY, JOB_PARAMS["measure-preview-loudness"]),
+    coveredBy: (params, live) => {
+      const liveFiles = (live.params as { files?: unknown } | null)?.files;
+      return (
+        Array.isArray(liveFiles) &&
+        (params as { files: readonly string[] }).files.every((file) =>
+          liveFiles.includes(file)
+        )
+      );
+    },
   },
   // The subject is the destination. The same file retried follows the live
   // copy; a different file for the same name waits for it, then finds the

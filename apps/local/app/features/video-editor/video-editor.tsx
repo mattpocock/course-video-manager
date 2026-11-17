@@ -123,6 +123,12 @@ export type VideoEditorProps = {
    * id, with the message shown in place of the player.
    */
   footageNotFound: Record<string, FootageNotFound>;
+  /**
+   * The gain (dB) the preview adds to each Clip, by Clip database id, from
+   * its file's measured loudness (`preview-gain.ts`). A Clip missing from it
+   * (one added since the page loaded) gets `clipPreviewGainDb`'s fallback.
+   */
+  previewGainDb: Record<string, number>;
   /** Does this video have a teleprompter script? Enables "Copy script". */
   hasScript: boolean;
   referenceCandidates: ReferenceCandidate[];
@@ -433,6 +439,7 @@ export const VideoEditor = (props: VideoEditorProps) => {
       overlays: props.overlays,
       overlaysByClipId,
       footageNotFound: props.footageNotFound,
+      previewGainDb: props.previewGainDb,
       sessions: props.sessions,
       sessionPanels,
       videoTitle: props.videoTitle,
@@ -525,6 +532,7 @@ export const VideoEditor = (props: VideoEditorProps) => {
       props.overlays,
       overlaysByClipId,
       props.footageNotFound,
+      props.previewGainDb,
       props.videoTitle,
       props.videoId,
       props.repoName,

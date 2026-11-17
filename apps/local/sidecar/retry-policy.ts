@@ -184,6 +184,24 @@ export const FOOTAGE_TRANSCRIPTION_POLICY = {
 } as const satisfies RetryingJobPolicy;
 
 /**
+ * **Preview loudness** (#2719) is a new kind that replaces no earlier job, so
+ * there is no policy to copy; this one is chosen for what the work is. One
+ * attempt, `default` lane:
+ *
+ * - A retry would gain nothing. The Job already measures every file whatever
+ *   the others do, and records a file that failed (beside it, stamped), so a
+ *   second run at once would only fail on the same bytes again.
+ * - The file's next change is the retry: its stamp moves, the editor's next
+ *   load asks for it again, and meanwhile it plays at the unmeasured gain.
+ * - Not `neverRequeued`: measuring is read-only and safe to run twice, so a
+ *   deliberate stop puts it back.
+ */
+export const PREVIEW_LOUDNESS_POLICY = {
+  lane: "default",
+  maxAttempts: 1,
+} as const satisfies RetryingJobPolicy;
+
+/**
  * **Image upload** to Cloudinary was never an Upload Manager job either: the
  * Article Writer's Apply and the Skills Changelog's "Upload Images" awaited
  * one `POST /api/videos/<id>/upload-images`, and a failure was final — no
