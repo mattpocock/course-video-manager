@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
 import { useNavigate, useRevalidator } from "react-router";
 import type {
   ClipOnDatabase,
@@ -18,11 +18,11 @@ import { createEditEffectHandlers } from "./edit-effect-handlers";
 import type { TakeSaver } from "./take-saver";
 import { saveClipDiagramPin } from "./save-clip-diagram-pin";
 import { useClipTranscriptionJobs } from "./use-clip-transcription-jobs";
-import { anyClipsMissingTranscriptWords } from "./transcript-word-status";
+import type { ClipStore } from "./use-clip-state-selector";
 import { useBrowserLinkCapture } from "./hooks/use-browser-link-capture";
 import type { VideoEditorProps } from "./video-editor";
 import { useUploadActions } from "@/features/upload-manager/upload-context";
-import { useEffectReducer } from "@/hooks/use-effect-reducer";
+import { useEffectStore, useSelector } from "@/hooks/effect-store";
 import { getActiveDiagramId } from "@/lib/diagram-window";
 import { browserFocus, diagramFocus } from "@/lib/focus-tracker";
 import {
@@ -43,84 +43,52 @@ export type VideoEditorWiring = Omit<VideoEditorProps, "layout" | "replay">;
  * into `VideoEditor` and give it a layout. The edit route does; so may any
  * route that loads `loadVideoEditor`. Mount the caller with `key` set to the
  * Video's id: the reducers start from the first render's `loaderData`.
+ *
+ * The clip reducer lives in a store (`hooks/effect-store.ts`). The wiring
+ * subscribes only to the mic offset refusal it hands the recorder, so a clip
+ * event re-renders what shows its change, not the route. `VideoEditor` and
+ * its components read their slices of `clipStore`.
  */
 export const useVideoEditorWiring = (
   loaderData: VideoEditorLoaderData
 ): VideoEditorWiring => {
   const navigate = useNavigate();
-
-  const initialItems: TimelineItem[] = loaderData.items.map(
-    (item): TimelineItem => {
-      if (item.type === "clip") {
-        const clip = item.data;
-        return {
-          ...clip,
-          type: "on-database",
-          frontendId: createFrontendId(),
-          databaseId: clip.id as DatabaseId,
-          insertionOrder: null,
-          pauseType: clip.pauseType as PauseType,
-          zoomType: resolveClipZoomType(clip.zoomType),
-          diagramSnapshotId: clip.diagramSnapshotId ?? null,
-          diagramName: clip.diagramSnapshot?.diagram?.name ?? null,
-          webLinks: (clip.webLinks ?? []) as ClipOnDatabase["webLinks"],
-        } satisfies ClipOnDatabase;
-      } else {
-        const chapter = item.data;
-        return {
-          type: "chapter-on-database",
-          frontendId: createFrontendId(),
-          databaseId: chapter.id,
-          name: chapter.name,
-          insertionOrder: null,
-        } satisfies ChapterOnDatabase;
-      }
-    }
-  );
-
-  const initialState: clipStateReducer.State = {
-    items: initialItems,
-    clipIdsWithTranscriptWords: new Set(
-      loaderData.clipIdsWithTranscriptWords as DatabaseId[]
-    ),
-    insertionOrder: 0,
-    insertionPoint: defaultInsertionPoint(initialItems),
-    error: null,
-    sessions: [],
-    clipTranscriptionJobs: {},
-    micOffsetRefusal: null,
-    jobEventCursor: loaderData.jobEventCursor,
-  };
-
-  const clipStateRef = useRef(initialState);
   const revalidator = useRevalidator();
 
   const { startClipTranscription } = useUploadActions();
-  // The CVM recorder's saver. Set below, in this render, once its hook has
-  // run: before any effect can ask for it.
-  const saveTakesRef = useRef<TakeSaver | null>(null);
+  // What the effect handlers need that is made after them: the clip store
+  // (they read the clip state as it is when they run) and the CVM
+  // recorder's saver. Set on layout below, before the store's effects start
+  // on mount.
+  const latest = useRef<{ clipStore: ClipStore; saveTakes: TakeSaver } | null>(
+    null
+  );
   const effectHandlers = useMemo(
     () =>
       createEditEffectHandlers({
         videoId: loaderData.video.id,
         clipService,
-        clipStateRef,
+        getClipState: () => latest.current!.clipStore.getSnapshot(),
         // Fire and forget: the loader's fresh data arrives as a new render.
         revalidate: () => void revalidator.revalidate(),
         whiteNoiseAssetPath: loaderData.whiteNoiseAssetPath,
-        saveTakes: (session, takes) => saveTakesRef.current!(session, takes),
+        saveTakes: (session, takes) =>
+          latest.current!.saveTakes(session, takes),
         startClipTranscription,
       }),
     [loaderData.video.id, startClipTranscription]
   );
 
-  const [clipState, dispatch] = useEffectReducer(
+  const clipStore: ClipStore = useEffectStore(
     clipStateReducer,
-    initialState,
+    () => initialClipState(loaderData),
     effectHandlers
   );
-
-  clipStateRef.current = clipState;
+  const { dispatch } = clipStore;
+  const micOffsetRefusal = useSelector(
+    clipStore,
+    (state) => state.micOffsetRefusal
+  );
 
   useClipTranscriptionJobs(loaderData.video.id, dispatch);
 
@@ -143,9 +111,9 @@ export const useVideoEditorWiring = (
     soundDetectionId: string;
   }) => dispatch({ type: "new-optimistic-clip-detected", ...take });
   const onClipAudioWindowClosed = () => {
-    const activeSession = clipStateRef.current.sessions.find(
-      (s) => s.status === "recording"
-    );
+    const activeSession = clipStore
+      .getSnapshot()
+      .sessions.find((s) => s.status === "recording");
     if (!activeSession) return;
     dispatch({
       type: "clip-audio-window-closed",
@@ -162,14 +130,16 @@ export const useVideoEditorWiring = (
     clipDispatch: dispatch,
     onNewClipOptimisticallyAdded,
     onClipAudioWindowClosed,
-    micOffsetRefusal: clipState.micOffsetRefusal,
-    insertionPoint: () =>
-      resolveInsertionPoint(
-        clipStateRef.current.insertionPoint,
-        clipStateRef.current.items
-      ),
+    micOffsetRefusal,
+    insertionPoint: () => {
+      const { insertionPoint, items } = clipStore.getSnapshot();
+      return resolveInsertionPoint(insertionPoint, items);
+    },
   });
-  saveTakesRef.current = cvmRecorder.saveTakes;
+  const saveTakes = cvmRecorder.saveTakes;
+  useLayoutEffect(() => {
+    latest.current = { clipStore, saveTakes };
+  }, [clipStore, saveTakes]);
 
   const calibrationGate = useCalibrationGate({
     lastPassed: loaderData.lastPassedCalibration,
@@ -180,7 +150,7 @@ export const useVideoEditorWiring = (
 
   return {
     videoFormat: loaderData.video.format as "landscape" | "short",
-    anyClipsMissingTranscriptWords: anyClipsMissingTranscriptWords(clipState),
+    clipStore,
     onClipsRemoved: (clipIds) => {
       dispatch({ type: "clips-deleted", clipIds: clipIds });
     },
@@ -191,7 +161,6 @@ export const useVideoEditorWiring = (
         jobId: crypto.randomUUID(),
       });
     },
-    insertionPoint: clipState.insertionPoint,
     onSetInsertionPoint: (mode, clipId) => {
       if (mode === "after") {
         dispatch({ type: "set-insertion-point-after", clipId });
@@ -241,8 +210,6 @@ export const useVideoEditorWiring = (
     },
     cvmRecorder: cvmRecorder,
     calibrationGate: calibrationGate,
-    items: clipState.items,
-    sessions: clipState.sessions,
     repoId: loaderData.video.lesson?.section.repoVersion.repo.id,
     lessonId: loaderData.video.lesson?.id,
     videoTitle: loaderData.video.title,
@@ -343,17 +310,18 @@ export const useVideoEditorWiring = (
     onRemoveWebLink: (clipId, linkId) => {
       dispatch({ type: "remove-clip-web-link", clipId, linkId });
     },
-    error: clipState.error,
     onCreateVideoFromSelection: (
       frontendClipIds,
       frontendChapterIds,
       title,
       mode
     ) => {
-      // Map frontend IDs to database IDs (cast to string for ClipService)
+      // Map frontend IDs to database IDs (cast to string for ClipService),
+      // from the Clips as they are at the press.
+      const { items } = clipStore.getSnapshot();
       const clipIds: string[] = [];
       for (const frontendId of frontendClipIds) {
-        const clip = clipState.items.find((c) => c.frontendId === frontendId);
+        const clip = items.find((c) => c.frontendId === frontendId);
         if (clip?.type === "on-database") {
           clipIds.push(clip.databaseId as string);
         }
@@ -361,9 +329,7 @@ export const useVideoEditorWiring = (
 
       const chapterIds: string[] = [];
       for (const frontendId of frontendChapterIds) {
-        const section = clipState.items.find(
-          (c) => c.frontendId === frontendId
-        );
+        const section = items.find((c) => c.frontendId === frontendId);
         if (section?.type === "chapter-on-database") {
           chapterIds.push(section.databaseId as string);
         }
@@ -392,5 +358,53 @@ export const useVideoEditorWiring = (
           });
         });
     },
+  };
+};
+
+/** The clip reducer's state as the editor opens, from the loader's. */
+const initialClipState = (
+  loaderData: VideoEditorLoaderData
+): clipStateReducer.State => {
+  const initialItems: TimelineItem[] = loaderData.items.map(
+    (item): TimelineItem => {
+      if (item.type === "clip") {
+        const clip = item.data;
+        return {
+          ...clip,
+          type: "on-database",
+          frontendId: createFrontendId(),
+          databaseId: clip.id as DatabaseId,
+          insertionOrder: null,
+          pauseType: clip.pauseType as PauseType,
+          zoomType: resolveClipZoomType(clip.zoomType),
+          diagramSnapshotId: clip.diagramSnapshotId ?? null,
+          diagramName: clip.diagramSnapshot?.diagram?.name ?? null,
+          webLinks: (clip.webLinks ?? []) as ClipOnDatabase["webLinks"],
+        } satisfies ClipOnDatabase;
+      } else {
+        const chapter = item.data;
+        return {
+          type: "chapter-on-database",
+          frontendId: createFrontendId(),
+          databaseId: chapter.id,
+          name: chapter.name,
+          insertionOrder: null,
+        } satisfies ChapterOnDatabase;
+      }
+    }
+  );
+
+  return {
+    items: initialItems,
+    clipIdsWithTranscriptWords: new Set(
+      loaderData.clipIdsWithTranscriptWords as DatabaseId[]
+    ),
+    insertionOrder: 0,
+    insertionPoint: defaultInsertionPoint(initialItems),
+    error: null,
+    sessions: [],
+    clipTranscriptionJobs: {},
+    micOffsetRefusal: null,
+    jobEventCursor: loaderData.jobEventCursor,
   };
 };

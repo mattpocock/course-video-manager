@@ -1,5 +1,7 @@
 import { AlertTriangleIcon } from "lucide-react";
 import { useContextSelector } from "use-context-selector";
+import { anyClipsMissingTranscriptWords } from "../transcript-word-status";
+import { useClipStateSelector } from "../use-clip-state-selector";
 import { VideoEditorContext } from "../video-editor-context";
 import { getRetranscribableClipIds } from "../video-editor-selectors";
 
@@ -20,12 +22,9 @@ import { getRetranscribableClipIds } from "../video-editor-selectors";
  * drop it into a row unconditionally.
  */
 export const MissingWordTimingBadge = () => {
-  const anyClipsMissingTranscriptWords = useContextSelector(
-    VideoEditorContext,
-    (ctx) => ctx.anyClipsMissingTranscriptWords
-  );
+  const anyMissing = useClipStateSelector(anyClipsMissingTranscriptWords);
 
-  if (!anyClipsMissingTranscriptWords) return null;
+  if (!anyMissing) return null;
 
   return (
     <span

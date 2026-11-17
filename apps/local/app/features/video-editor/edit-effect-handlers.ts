@@ -11,14 +11,14 @@ import {
 } from "@/features/video-editor/constants";
 import type { ClipService } from "@/services/clip-service";
 import type { EffectsMap } from "use-effect-reducer";
-import type React from "react";
 import { diagramChannel } from "@/lib/diagram-protocol";
 import { takesSavedInto, type TakeSaver } from "./take-saver";
 
 export interface EditEffectHandlersDeps {
   videoId: string;
   clipService: ClipService;
-  clipStateRef: React.RefObject<ClipReducerState>;
+  /** The clip state as it is now, for a handler that reads it later. */
+  getClipState: () => ClipReducerState;
   revalidate: () => void;
   whiteNoiseAssetPath: string;
   /** The Recorder's `TakeSaver`: how this Video's Takes become Clips. */
@@ -37,7 +37,7 @@ export function createEditEffectHandlers(
   const {
     videoId,
     clipService,
-    clipStateRef,
+    getClipState,
     revalidate,
     whiteNoiseAssetPath,
     saveTakes,
@@ -73,25 +73,11 @@ export function createEditEffectHandlers(
       startClipTranscription(effect.jobId, videoId, effect.clipIds);
     },
     "scroll-to-insertion-point": () => {
-      const recordingPanel = document.querySelector("[data-session-recording]");
-      if (recordingPanel) {
-        recordingPanel.scrollIntoView({ behavior: "smooth", block: "end" });
-        return;
-      }
-      const sessionPanels = document.getElementById(
-        RECORDING_SESSION_PANELS_ID
-      );
-      if (sessionPanels) {
-        sessionPanels.scrollIntoView({ behavior: "smooth", block: "end" });
-        return;
-      }
-      const insertionPoint = document.getElementById(INSERTION_POINT_ID);
-      if (insertionPoint) {
-        insertionPoint.scrollIntoView({
-          behavior: "smooth",
-          block: "center",
-        });
-      }
+      // The clip store starts an effect before React renders its event, and
+      // the panel to scroll to may be new in it (a Session that just began
+      // recording): scroll once that render is on screen.
+      const frame = requestAnimationFrame(scrollToInsertionPoint);
+      return () => cancelAnimationFrame(frame);
     },
     "update-clips": (_state, effect, dispatch) => {
       // Transform tuple format [id, { scene, profile, pauseType }] to UpdateClipInput
@@ -281,7 +267,7 @@ export function createEditEffectHandlers(
       // the clip's pin indicator updates without waiting for a reload.
       const unsubAck = diagramChannel.subscribeParent((msg) => {
         if (msg.type !== "snapshotForClipDone" || !msg.ok) return;
-        const item = clipStateRef.current.items.find(
+        const item = getClipState().items.find(
           (i) => i.type === "on-database" && i.databaseId === msg.clipId
         );
         if (item && item.type === "on-database") {
@@ -298,7 +284,7 @@ export function createEditEffectHandlers(
       // Whichever Recorder made the Session saves its Takes.
       const stopSaving = saveTakes(
         session,
-        takesSavedInto(session, () => clipStateRef.current, dispatch)
+        takesSavedInto(session, getClipState, dispatch)
       );
 
       return () => {
@@ -344,7 +330,7 @@ export function createEditEffectHandlers(
         });
     },
     "delete-web-link": (_state, effect, dispatch) => {
-      const clip = clipStateRef.current.items.find(
+      const clip = getClipState().items.find(
         (i) => i.type === "on-database" && i.frontendId === effect.clipId
       );
       const databaseClipId =
@@ -430,3 +416,27 @@ export function createEditEffectHandlers(
     },
   };
 }
+
+/**
+ * Brings the insertion point into view: the recording Session's panel when
+ * one is recording, else the Session panels, else the insertion point.
+ */
+const scrollToInsertionPoint = () => {
+  const recordingPanel = document.querySelector("[data-session-recording]");
+  if (recordingPanel) {
+    recordingPanel.scrollIntoView({ behavior: "smooth", block: "end" });
+    return;
+  }
+  const sessionPanels = document.getElementById(RECORDING_SESSION_PANELS_ID);
+  if (sessionPanels) {
+    sessionPanels.scrollIntoView({ behavior: "smooth", block: "end" });
+    return;
+  }
+  const insertionPoint = document.getElementById(INSERTION_POINT_ID);
+  if (insertionPoint) {
+    insertionPoint.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+  }
+};
