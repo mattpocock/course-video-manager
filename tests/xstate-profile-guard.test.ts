@@ -379,7 +379,7 @@ describe("the real PoC and the fixtures", () => {
     try {
       execFileSync(
         path.join(ROOT, "node_modules/.bin/oxlint"),
-        ["-c", path.join(ROOT, ".oxlintrc.json"), file],
+        ["--format", "default", "-c", path.join(ROOT, ".oxlintrc.json"), file],
         { encoding: "utf8" }
       );
     } catch (error) {
