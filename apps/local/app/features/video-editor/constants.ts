@@ -3,12 +3,6 @@ export const INSERTION_POINT_ID = "insertion-point";
 export const RECORDING_SESSION_PANELS_ID = "recording-session-panels";
 export const BEAT_DURATION = 0.4;
 /**
- * The integrated loudness (LUFS) the export's `loudnorm` brings every Video
- * to (`ffmpeg-encode-commands.ts`), and so the level the editor's preview
- * lifts each Footage file towards (`preview-gain.ts`).
- */
-export const EXPORT_LOUDNESS_LUFS = -16;
-/**
  * The most gain (in dB) the editor's preview adds to a Footage file, and what
  * it adds to Footage CVM filmed until that file is measured
  * (`preview-gain.ts`). Preview only: exports are normalised separately by

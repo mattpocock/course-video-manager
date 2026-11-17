@@ -7,7 +7,10 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { StorageRoots } from "@/packages/storage";
 import { previewGainsForClips } from "./preview-gains.server";
 import { footageStamp } from "./footage-cache";
-import { writePreviewLoudness } from "./preview-loudness-cache";
+import {
+  writePreviewLoudness,
+  type PreviewLoudness,
+} from "./preview-loudness-cache";
 
 let base: string;
 let d: string;
@@ -34,14 +37,16 @@ const gains = (clips: Parameters<typeof previewGainsForClips>[0]) =>
   run(previewGainsForClips(clips, roots));
 
 /** What the `measure-preview-loudness` Job leaves beside a file it measured. */
-const measured = (file: string, integratedLufs: number) =>
+const recorded = (file: string, outcome: PreviewLoudness) =>
   run(
     footageStamp(file).pipe(
       Effect.flatMap((stamp) =>
-        writePreviewLoudness({ file, stamp, integratedLufs, roots })
+        writePreviewLoudness({ file, stamp: stamp!, outcome, roots })
       )
     )
   );
+const measured = (file: string, integratedLufs: number) =>
+  recorded(file, { kind: "measured", integratedLufs });
 
 beforeEach(() => {
   base = fs.mkdtempSync(path.join(os.tmpdir(), "preview-gains-"));
@@ -89,6 +94,28 @@ describe("previewGainsForClips", () => {
     expect(
       await gains([obsClip("a", "raw-footage/imported/interview.mp4")])
     ).toEqual({ gainDbByClipId: { a: 0 }, toMeasure: [imported] });
+  });
+
+  it("keeps the fallback for a file that could not be measured, and does not ask again until it changes", async () => {
+    const imported = put(d, "raw-footage/imported/broken.mp4");
+    const obs = put(d, "raw-footage/broken-take.mkv");
+    await recorded(imported, {
+      kind: "failed",
+      message: "moov atom not found",
+    });
+    await recorded(obs, { kind: "failed", message: "moov atom not found" });
+
+    expect(
+      await gains([
+        obsClip("a", "raw-footage/imported/broken.mp4"),
+        obsClip("b", "raw-footage/broken-take.mkv"),
+      ])
+    ).toEqual({ gainDbByClipId: { a: 0, b: 12 }, toMeasure: [] });
+
+    fs.writeFileSync(obs, "the take, repaired");
+    expect(
+      (await gains([obsClip("b", "raw-footage/broken-take.mkv")])).toMeasure
+    ).toEqual([obs]);
   });
 
   it("measures a CVM-recorder Clip's mic file, the file the preview plays", async () => {

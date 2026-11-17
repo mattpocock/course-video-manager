@@ -9,16 +9,14 @@ import {
   clipCompositePicture,
   clipLayers,
   clipPlaybackClock,
+  clipPlaybackFile,
   clipPlaybackUrl,
   clipSource,
   footageLayers,
 } from "@/packages/clip-source";
 import { CompositePlayback } from "./components/composite-playback";
-import {
-  BEAT_DURATION,
-  FINAL_VIDEO_PADDING,
-  PREVIEW_AUDIO_BOOST_DB,
-} from "./constants";
+import { BEAT_DURATION, FINAL_VIDEO_PADDING } from "./constants";
+import { clipPreviewGainDb } from "./preview-gain";
 import { useAudioBoost } from "./use-audio-boost";
 import type { RunningState } from "./video-state-reducer";
 import { OverlayPreview, type ClipOverlay } from "./overlay-preview";
@@ -369,8 +367,8 @@ export const PreloadableClipManager = (props: {
   footageNotFound: Record<string, FootageNotFound>;
   /**
    * The gain (dB) the preview adds to each Clip, by database id. A Clip not
-   * in it was filmed since the page loaded: unmeasured Footage CVM filmed,
-   * so it gets the full boost.
+   * in it was added since the page loaded, and plays at the unmeasured gain
+   * for its file (`clipPreviewGainDb`).
    */
   previewGainDb: Record<string, number>;
 }) => {
@@ -420,9 +418,13 @@ export const PreloadableClipManager = (props: {
               }}
               onPreloadComplete={() => {}}
               footageNotFound={props.footageNotFound[clip.databaseId]}
-              gainDb={
-                props.previewGainDb[clip.databaseId] ?? PREVIEW_AUDIO_BOOST_DB
-              }
+              gainDb={clipPreviewGainDb(
+                props.previewGainDb,
+                clip.databaseId,
+                clipPlaybackFile(
+                  clipSource(clip, { videoFormat: props.videoFormat })
+                )
+              )}
               scrubSeekTime={
                 isCurrentlyPlaying ? props.scrubSeekTime : undefined
               }

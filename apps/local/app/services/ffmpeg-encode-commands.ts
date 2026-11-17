@@ -21,7 +21,7 @@ import { buildClipConcatArgs, type ConcatClip } from "./clip-concat-args";
 import { makeConcatenateClipSegments } from "./ffmpeg-encode-segments";
 import { SHORT_OVERLAY_COMPOSITE_FILTER } from "./vertical-overlay-props";
 import { assertUnder } from "./assert-under";
-import { EXPORT_LOUDNESS_LUFS } from "@/features/video-editor/constants";
+import { EXPORT_LOUDNESS_LUFS } from "@/lib/export-loudness";
 import { buildOverlayCompositeArgs } from "./overlay-composite-args";
 import type { RenderedOverlay } from "./overlay-compositing";
 import {

@@ -104,13 +104,12 @@ export const loadVideoEditor = (videoId: string) =>
     // and count from the editor's next load; failing to ask leaves them on
     // the fallback gain, and the editor opens anyway.
     const previewGains = yield* previewGainsForClips(video.clips, roots);
-    const [firstToMeasure, ...restToMeasure] = previewGains.toMeasure;
-    if (firstToMeasure !== undefined) {
+    if (previewGains.toMeasure.length > 0) {
       yield* enqueueJob({
         id: null,
         kind: "measure-preview-loudness",
         title: "Measure preview loudness",
-        params: { files: [firstToMeasure, ...restToMeasure] },
+        params: { files: previewGains.toMeasure },
         subject: { type: "video", id: videoId },
         attemptsSpent: 0,
         dependsOn: null,

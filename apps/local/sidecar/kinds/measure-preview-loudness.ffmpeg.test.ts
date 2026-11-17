@@ -10,8 +10,12 @@ import {
   type SidecarContext,
 } from "@/services/sidecar-context";
 import { previewGainsForClips } from "@/services/preview-gains.server";
+import { FFmpegCommandsService } from "@/services/ffmpeg-commands";
 import type { JobContext } from "../job-kind";
-import { measurePreviewLoudnessJobKind } from "./measure-preview-loudness";
+import {
+  measurePreviewLoudnessJobKind,
+  PreviewLoudnessFailedError,
+} from "./measure-preview-loudness";
 
 /**
  * The `measure-preview-loudness` Job with the real ffmpeg, over tiny lavfi
@@ -82,6 +86,10 @@ describe.skipIf(!hasFfmpeg)("the measure-preview-loudness Job", () => {
       "yuv420p"
     );
   });
+  // An upload cut off before its index: not a file ffmpeg can read.
+  beforeAll(() => {
+    fs.writeFileSync(at("raw-footage/imported/cut-off.mp4"), "not a video");
+  });
   afterAll(() => fs.rmSync(root, { recursive: true, force: true }));
 
   const ctx: JobContext = {
@@ -93,11 +101,21 @@ describe.skipIf(!hasFfmpeg)("the measure-preview-loudness Job", () => {
   };
 
   const provided = <A, E>(
-    effect: Effect.Effect<A, E, NodeContext.NodeContext | SidecarContext>
+    effect: Effect.Effect<
+      A,
+      E,
+      NodeContext.NodeContext | SidecarContext | FFmpegCommandsService
+    >
   ) =>
     Effect.runPromise(
       effect.pipe(
-        Effect.provide(Layer.mergeAll(NodeContext.layer, SidecarContextTest)),
+        Effect.provide(
+          Layer.mergeAll(
+            NodeContext.layer,
+            SidecarContextTest,
+            FFmpegCommandsService.Default
+          )
+        ),
         Effect.withConfigProvider(
           ConfigProvider.fromMap(new Map([["STORAGE_ROOTS", root]]))
         )
@@ -111,40 +129,57 @@ describe.skipIf(!hasFfmpeg)("the measure-preview-loudness Job", () => {
     sourceEndTime: 1,
   });
 
-  it("measures every file once, and the editor's preview gains follow", async () => {
+  it("measures every file, records the one it cannot read, and the editor's preview gains follow", async () => {
     const files = [
+      "raw-footage/imported/cut-off.mp4",
       "raw-footage/s1/mic.mka",
       "raw-footage/take.mkv",
       "raw-footage/imported/interview.mp4",
       "raw-footage/silent.mkv",
     ];
-    await provided(
-      measurePreviewLoudnessJobKind.runRaw({ files: files.map(at) }, ctx)
+    const run = await provided(
+      Effect.either(
+        measurePreviewLoudnessJobKind.runRaw({ files: files.map(at) }, ctx)
+      )
     );
 
-    const measured = files.map(
+    // The bad file first: every file after it is still measured.
+    const outcomes = files.map(
       (file) =>
-        JSON.parse(fs.readFileSync(`${at(file)}.loudness.json`, "utf8"))
-          .integratedLufs as number | null
+        JSON.parse(fs.readFileSync(`${at(file)}.loudness.json`, "utf8")).outcome
     );
-    expect(measured[0]).toBeCloseTo(-34, 0);
-    expect(measured[1]).toBeCloseTo(-22, 0);
-    expect(measured[2]).toBeCloseTo(-12, 0);
-    expect(measured[3]).toBeNull();
+    expect(outcomes[0].kind).toBe("failed");
+    expect(outcomes[1].integratedLufs).toBeCloseTo(-34, 0);
+    expect(outcomes[2].integratedLufs).toBeCloseTo(-22, 0);
+    expect(outcomes[3].integratedLufs).toBeCloseTo(-12, 0);
+    expect(outcomes[4]).toEqual({ kind: "silent" });
+
+    // The Job fails once, naming the file it could not measure.
+    const failure = run._tag === "Left" ? run.left : null;
+    expect(failure).toBeInstanceOf(PreviewLoudnessFailedError);
+    expect((failure as PreviewLoudnessFailedError).message).toContain(
+      at("raw-footage/imported/cut-off.mp4")
+    );
 
     const gains = await provided(
       previewGainsForClips(
         [
-          clip("quiet-mic", files[0]!),
-          clip("obs", files[1]!),
-          clip("imported", files[2]!),
+          clip("cut-off", files[0]!),
+          clip("quiet-mic", files[1]!),
+          clip("obs", files[2]!),
+          clip("imported", files[3]!),
         ],
         [root]
       )
     );
+    // Nothing is asked for again, the file that failed included.
     expect(gains.toMeasure).toEqual([]);
-    expect(gains.gainDbByClipId["quiet-mic"]).toBe(12);
-    expect(gains.gainDbByClipId["obs"]).toBeCloseTo(6, 0);
-    expect(gains.gainDbByClipId["imported"]).toBe(0);
-  });
+    expect(gains.gainDbByClipId).toEqual({
+      "cut-off": 0,
+      "quiet-mic": 12,
+      obs: expect.closeTo(6, 0),
+      imported: 0,
+    });
+    // Five real ffmpeg runs at `nice -n 19`.
+  }, 60_000);
 });

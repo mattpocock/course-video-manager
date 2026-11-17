@@ -13,6 +13,7 @@ import {
 } from "@/packages/storage";
 import { resolveStoragePath } from "@/packages/storage/server";
 import { previewGainDb } from "@/features/video-editor/preview-gain";
+import { footageStamp } from "./footage-cache";
 import { readPreviewLoudness } from "./preview-loudness-cache";
 
 /** What the editor's preview needs to set each Clip's volume (#2719). */
@@ -28,21 +29,24 @@ export interface PreviewGains {
 }
 
 /**
- * One playback file: its loudness, and where it is on disk when it is on a
- * Storage Root and still to be measured.
+ * One playback file, as stored: its root-relative path (null on no root),
+ * its loudness if measured, and where it is on disk when it is still to be
+ * measured.
  */
 type PlaybackFile = {
+  readonly relative: string | null;
+  readonly measuredLufs: number | null;
   readonly toMeasure: string | null;
-  readonly integratedLufs: number | null;
 };
 
 /**
  * The preview gain of every Clip, from the measured loudness of the file its
  * preview plays (`clipPlaybackFile`: an OBS Clip's Footage, a CVM-recorder
- * Clip's mic). Only reads: a file on no reachable Storage Root, on none at
- * all (an old Recording Session in `~/Videos`), or outside a root's
- * `raw-footage/`, keeps the unmeasured fallback and is never put up for
- * measuring.
+ * Clip's mic). Only reads. These keep the unmeasured fallback and are never
+ * put up for measuring: a file on no reachable Storage Root, on none at all
+ * (an old Recording Session in `~/Videos`) or outside a root's
+ * `raw-footage/`; a file with no mtime to tell it fresh by; and a file
+ * already recorded as silent or as failing, until it changes.
  */
 export const previewGainsForClips = (
   clips: readonly (ClipSourceRow & { readonly id: string })[],
@@ -58,10 +62,10 @@ export const previewGainsForClips = (
         playback = yield* findPlaybackFile(stored, roots);
         playbackFiles.set(stored, playback);
       }
-      const relative = rootRelativePath(stored, roots);
       gainDbByClipId[clip.id] = previewGainDb({
-        measuredLufs: playback.integratedLufs,
-        imported: relative !== null && isImportedFootage(relative),
+        measuredLufs: playback.measuredLufs,
+        imported:
+          playback.relative !== null && isImportedFootage(playback.relative),
       });
     }
     const toMeasure = [...playbackFiles.values()].flatMap((file) =>
@@ -75,30 +79,44 @@ const findPlaybackFile = (
   roots: StorageRoots
 ): Effect.Effect<PlaybackFile, never, FileSystem.FileSystem> =>
   Effect.gen(function* () {
+    const relative = rootRelativePath(stored, roots);
+    const unmeasured: PlaybackFile = {
+      relative,
+      measuredLufs: null,
+      toMeasure: null,
+    };
     // Only Footage is measured, and only where its companion may be written:
     // under a Storage Root's `raw-footage/`.
-    const relative = rootRelativePath(stored, roots);
     if (
       relative === null ||
       !relative.startsWith(`${STORAGE_FOLDERS.rawFootage}/`)
     ) {
-      return { toMeasure: null, integratedLufs: null };
+      return unmeasured;
     }
     const found = yield* resolveStoragePath(stored, roots, "Footage").pipe(
       Effect.option
     );
-    if (found._tag === "None") return { toMeasure: null, integratedLufs: null };
-    const loudness = yield* readPreviewLoudness(found.value).pipe(
+    if (found._tag === "None") return unmeasured;
+    const file = found.value;
+    const loudness = yield* Effect.gen(function* () {
+      const stamp = yield* footageStamp(file);
+      // No mtime: no record of it could ever be told fresh.
+      if (stamp === null) return "skip" as const;
+      return yield* readPreviewLoudness(file, stamp);
+    }).pipe(
       Effect.tapError((error) =>
         Effect.logWarning("preview loudness: could not read", {
-          file: found.value,
+          file,
           error: error.message,
         })
       ),
-      Effect.orElseSucceed(() => null)
+      Effect.orElseSucceed(() => "skip" as const)
     );
+    if (loudness === "skip") return unmeasured;
+    if (loudness === null) return { ...unmeasured, toMeasure: file };
     return {
-      toMeasure: loudness === null ? found.value : null,
-      integratedLufs: loudness?.integratedLufs ?? null,
+      ...unmeasured,
+      measuredLufs:
+        loudness.kind === "measured" ? loudness.integratedLufs : null,
     };
   });

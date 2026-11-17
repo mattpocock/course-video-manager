@@ -20,7 +20,8 @@ export function VideoModal({
   onClose,
 }: VideoPlayerProps) {
   // No preview gain: this plays the Exported Video, which the export's
-  // `loudnorm` has already brought to EXPORT_LOUDNESS_LUFS (#2719).
+  // `loudnorm` has already brought to
+  // EXPORT_LOUDNESS_LUFS (`lib/export-loudness.ts`, #2719).
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const handleClose = () => {
