@@ -132,6 +132,26 @@ _Avoid_: Raw footage, Source video
 **Footage** CVM did not film, brought in from a file or from YouTube.
 _Avoid_: External footage, Uploaded footage
 
+**Synced Footage Set**:
+**Imported Footage** files of one recording, such as an interview, put on one clock. It is used or unused as a whole, and it holds only Imported Footage, never a **Recording Session**.
+_Avoid_: Synced Set, Multi-track, Track set, Footage group
+
+**Composed Footage**:
+The one file in a **Synced Footage Set** that shows and sounds like every **Speaker** together. Its clock is the set's clock.
+_Avoid_: Reference, Master, Mix, Program, Cloud recording
+
+**Speaker**:
+A person seen and heard in a **Synced Footage Set**, such as Matt or a guest.
+_Avoid_: Participant, Guest (alone), Track
+
+**Speaker Footage**:
+A file in a **Synced Footage Set** that shows and sounds like one **Speaker** alone. A Speaker who leaves and rejoins has more than one.
+_Avoid_: Local recording, Iso track, Track
+
+**Footage Sync Offset**:
+The seconds from a **Synced Footage Set**'s clock (its **Composed Footage**) to one of its **Speaker Footage** files' own time. It belongs to the file, not to the **Speaker**.
+_Avoid_: Sync Offset (alone), Offset, Mic Offset
+
 **Chapter**:
 A named divider in a Video's timeline that groups the Clips below it. Maps one to one to YouTube chapters.
 _Avoid_: Clip group, Divider, Marker, Section, Clip Mockup Chapter
@@ -321,6 +341,10 @@ _Avoid_: Safe area, Diagram view, Crop
 **AV Calibration**:
 A scripted check of Matt's mic level and its sync with the camera. Recording needs a recent one that passed.
 _Avoid_: Audio Calibration, Sync calibration, Clap test, Mic check, Level check, Sound check
+
+**Mic Offset**:
+How much later Matt's mic is heard than it was recorded, so his voice lines up with the camera. Each **Recording Session** has one, usually measured by the **AV Calibration** of its camera and mic. Footage filmed in OBS has none.
+_Avoid_: Audio delay, Sync offset, Lip-sync offset, Footage Sync Offset
 
 **Pause**:
 A marker on a **Clip** that holds a short pause after it in the edit.
