@@ -18,8 +18,9 @@ import type {
  * An effect whose handler returns a cleanup runs until it is stopped (a
  * timer, a subscription): an unmount suspends it and the remount restarts
  * it. One that returns none (a fetch that dispatches its outcome, a prop
- * callback) is done once it has run (#2718): nothing keeps it, a remount
- * does not run it again, and stopping it does nothing.
+ * callback) is done once it has run (#2718): its status goes straight to
+ * stopped, a remount does not run it again, and stopping it does nothing.
+ * So `status` is started exactly while an effect holds a cleanup.
  */
 
 /** One declared effect. */
@@ -27,8 +28,6 @@ export type Entity<TState, TEvent extends EventObject> = EffectEntity<
   TState,
   TEvent
 > & {
-  /** Started, and holding a cleanup: so it runs until it is stopped. */
-  isRunning: () => boolean;
   /** Unmount: runs the cleanup, but keeps what it started with. */
   suspend: () => void;
   /** Remount: starts a suspended effect again, as it first started. */
@@ -80,17 +79,18 @@ function createEntity<TState, TEvent extends EventObject>(
     status: IDLE,
     start: (state, dispatch) => {
       cleanup = effect.exec?.(state, effect, dispatch);
-      entity.status = STARTED;
-      // A one-shot effect is done: it keeps no state to restart with.
-      startedWith = entity.isRunning() ? [state, dispatch] : undefined;
+      // Running only while it holds a cleanup. A one-shot effect is done,
+      // and keeps no state to restart with.
+      const running = typeof cleanup === "function";
+      entity.status = running ? STARTED : STOPPED;
+      startedWith = running ? [state, dispatch] : undefined;
     },
     stop: () => {
       entity.suspend();
       startedWith = undefined;
     },
-    isRunning: () => entity.status === STARTED && typeof cleanup === "function",
     suspend: () => {
-      if (entity.isRunning()) (cleanup as () => void)();
+      if (typeof cleanup === "function") cleanup();
       cleanup = undefined;
       entity.status = STOPPED;
     },
@@ -188,52 +188,62 @@ const isInitializer = <
   typeof initialState === "function";
 
 /**
- * Stops `toStop`, then starts every effect in `queue` not started yet,
- * batch by batch, each with its batch's state. `started` keeps the ones
- * still running (those with a cleanup), for `suspendRunning`.
+ * The effects a runner has running (those holding a cleanup), and the ones
+ * its last unmount suspended. Each runner owns one for its surface's life.
  */
-export function runEffects<TState, TEvent extends EventObject>(
-  toStop: readonly Entity<TState, TEvent>[],
-  queue: readonly Batch<TState, TEvent>[],
-  started: Set<Entity<TState, TEvent>>,
-  dispatch: React.Dispatch<TEvent>
-): void {
-  for (const entity of toStop) {
-    entity.stop();
-    started.delete(entity);
-  }
-  for (const batch of queue) {
-    for (const entity of batch.entities) {
-      if (entity.status !== IDLE) continue;
-      entity.start(batch.state, dispatch);
-      if (entity.isRunning()) started.add(entity);
-    }
-  }
-}
+export type RunningEffects<TState, TEvent extends EventObject> = {
+  /**
+   * Stops `toStop`, then starts every effect in `queue` not started yet,
+   * batch by batch, each with its batch's state.
+   */
+  run: (
+    toStop: readonly Entity<TState, TEvent>[],
+    queue: readonly Batch<TState, TEvent>[],
+    dispatch: React.Dispatch<TEvent>
+  ) => void;
+  /** Unmount: suspends every running effect, to restart on the remount. */
+  suspendAll: () => void;
+  /** Remount: starts again what the last unmount suspended, unless stopped since. */
+  restartSuspended: () => void;
+};
 
-/**
- * Unmount: suspends every running effect, takes it out of `started` and
- * returns it, to restart.
- */
-export function suspendRunning<TState, TEvent extends EventObject>(
-  started: Set<Entity<TState, TEvent>>
-): Entity<TState, TEvent>[] {
-  const suspended = [...started].filter((entity) => entity.isRunning());
-  for (const entity of suspended) entity.suspend();
-  started.clear();
-  return suspended;
-}
-
-/**
- * Remount: starts again what the last unmount suspended, unless it was
- * stopped since, and keeps in `started` the ones that run again.
- */
-export function restartSuspended<TState, TEvent extends EventObject>(
-  suspended: readonly Entity<TState, TEvent>[],
-  started: Set<Entity<TState, TEvent>>
-): void {
-  for (const entity of suspended) {
-    entity.restart();
-    if (entity.isRunning()) started.add(entity);
-  }
+export function createRunningEffects<
+  TState,
+  TEvent extends EventObject,
+>(): RunningEffects<TState, TEvent> {
+  const running = new Set<Entity<TState, TEvent>>();
+  let suspended: Entity<TState, TEvent>[] = [];
+  const keepIfRunning = (entity: Entity<TState, TEvent>) => {
+    if (entity.status === STARTED) running.add(entity);
+  };
+  return {
+    run: (toStop, queue, dispatch) => {
+      for (const entity of toStop) {
+        entity.stop();
+        running.delete(entity);
+      }
+      for (const batch of queue) {
+        for (const entity of batch.entities) {
+          if (entity.status !== IDLE) continue;
+          entity.start(batch.state, dispatch);
+          keepIfRunning(entity);
+        }
+      }
+    },
+    suspendAll: () => {
+      for (const entity of running) {
+        entity.suspend();
+        suspended.push(entity);
+      }
+      running.clear();
+    },
+    restartSuspended: () => {
+      const restarting = suspended;
+      suspended = [];
+      for (const entity of restarting) {
+        entity.restart();
+        keepIfRunning(entity);
+      }
+    },
+  };
 }

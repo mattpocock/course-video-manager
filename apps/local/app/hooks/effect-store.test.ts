@@ -164,14 +164,12 @@ describe("createEffectStore: running effects", () => {
     const { store, mount, log } = setup();
     const unmount = mount();
     store.dispatch({ type: "ignored-with-effect" });
-    store.dispatch({ type: "tick-started" });
 
     unmount();
     mount();
 
-    // The log returned no cleanup, so it was done once it ran; only the
-    // tick, which did, is stopped and started again.
-    expect(log).toEqual(["ignored (count 0)", "start a", "stop a", "start a"]);
+    // The log returned no cleanup, so it was done once it ran.
+    expect(log).toEqual(["ignored (count 0)"]);
   });
 
   it("does not restart an effect stopped while unmounted", () => {

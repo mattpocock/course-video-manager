@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer, useRef } from "react";
+import { useCallback, useEffect, useReducer, useState } from "react";
 import type {
   EffectObject,
   EffectReducer,
@@ -8,10 +8,8 @@ import type {
 } from "use-effect-reducer";
 import {
   createExec,
+  createRunningEffects,
   resolveInitialState,
-  restartSuspended,
-  runEffects,
-  suspendRunning,
   type Batch,
   type Entity,
 } from "./effect-entity";
@@ -31,8 +29,8 @@ import {
  *    SEO Description modal sat on Loading…). Here a flush names the batches
  *    it handled and removes those, so its replay removes nothing new.
  * 2. StrictMode's simulated unmount stopped the effects the initializer
- *    declared, and the remount never started them again. Here the remount
- *    restarts whatever the unmount stopped: the effects whose handler
+ *    declared, and the remount never started them again. Here the unmount
+ *    suspends, and the remount restarts, the effects whose handler
  *    returned a cleanup. One that returned none was done once it ran, and
  *    does not run again (#2718).
  *
@@ -47,8 +45,9 @@ export function useEffectReducer<
   initialState: TState | InitialEffectStateGetter<TState, TEvent, TEffect>,
   effectsMap?: EffectsMap<TState, TEvent, TEffect>
 ): [TState, React.Dispatch<TEvent | TEvent["type"]>] {
-  const startedRef = useRef(new Set<Entity<TState, TEvent>>());
-  const suspendedRef = useRef<Entity<TState, TEvent>[]>([]);
+  const [runningEffects] = useState(() =>
+    createRunningEffects<TState, TEvent>()
+  );
 
   const wrappedReducer = (
     current: Internal<TState, TEvent>,
@@ -96,21 +95,17 @@ export function useEffectReducer<
   // flush exactly what was handled here.
   useEffect(() => {
     if (!queue.length && !toStop.length) return;
-    runEffects(toStop, queue, startedRef.current, eventDispatch);
+    runningEffects.run(toStop, queue, eventDispatch);
     dispatch({ type: FLUSH, batches: queue, stopped: toStop });
-  }, [queue, toStop, eventDispatch]);
+  }, [queue, toStop, eventDispatch, runningEffects]);
 
-  // Unmount stops every running effect (one with a cleanup). A remount of
-  // the same instance (StrictMode's second pass) starts again the ones the
-  // unmount stopped.
+  // Unmount suspends every running effect (one with a cleanup). A remount
+  // of the same instance (StrictMode's second pass) starts again the ones
+  // the unmount suspended.
   useEffect(() => {
-    const started = startedRef.current;
-    restartSuspended(suspendedRef.current, started);
-    suspendedRef.current = [];
-    return () => {
-      suspendedRef.current.push(...suspendRunning(started));
-    };
-  }, []);
+    runningEffects.restartSuspended();
+    return () => runningEffects.suspendAll();
+  }, [runningEffects]);
 
   return [state, wrappedDispatch];
 }

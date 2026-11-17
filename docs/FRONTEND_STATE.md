@@ -95,7 +95,9 @@ The rules:
    next: that decision belongs to the reducer, which handles the outcome event.
    A handler may return a cleanup function. `exec.stop` and `exec.replace`
    cancel effects that run for a long time. Only an effect with a cleanup
-   counts as running: one without is done once its handler returns.
+   counts as running: one without is done once its handler returns. An
+   effect handler that forwards a callback uses a block body, so the
+   callback's return value can never become a cleanup by accident.
 5. **The reducer never reads the clock, randomness or the DOM.** Put the value
    on the event instead. The jobs bridge stamps every Job Event with
    `receivedAt: Date.now()` (`features/jobs/use-jobs.ts`, `toJobsAction`), so
