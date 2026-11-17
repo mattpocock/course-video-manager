@@ -173,6 +173,9 @@ const round = useSelector(store, stillRound);
   closes over a prop (`(s) => holdsStillsOf(s, clip)`). A selector that builds
   an object or array needs an `isEqual` that compares its contents
   (`sameLivePreview` in `live-preview.ts`), or it re-renders on every change.
+  So does a list the reducer rebuilds without changing an entry: the editor
+  reads the clip reducer's `items` with `sameElements`
+  (`use-clip-state-selector.ts`).
 - **Never select the whole state.** `(s) => s`, `(s) => ({ ...s })` and
   `useSyncExternalStore(…, store.getSnapshot)` fail the `whole-store` guard.
   If a hook seems to need all of it, pass it the slices it reads instead
@@ -182,14 +185,24 @@ const round = useSelector(store, stillRound);
   updated in `useLayoutEffect`, never assigned during render.
   `use-cvm-recorder.ts`'s `editor` ref serves both its effect handlers and its
   controls.
+- **A handler reads the state now from the store.** A handler that reads the
+  state later than its event, or reads more than its event's state, calls
+  `store.getSnapshot()`, never a copy a render made: the store starts it
+  before React renders. The clip reducer's handlers get `getClipState`
+  (`use-video-editor-wiring.ts`).
 - **Read it on press with `store.getSnapshot()`.** An event handler that needs
   the state at the moment of a click reads it then, and subscribes to nothing
-  (`useNewShortAction`).
+  (`useNewShortAction`, and the wiring's "Create video from selection").
 - **A surface hook hides the store.** The editor's components call
   `useCvmRecorderSelector(selector)`, which finds the store in
   `VideoEditorContext` (`use-cvm-recorder-selector.ts`). The context holds the
   store and callbacks, and that object stays the same while the recorder
-  changes.
+  changes. The clip reducer's is `useClipStateSelector`
+  (`MissingWordTimingBadge`).
+- **The hook that owns a store subscribes to almost nothing.** It hands the
+  store down and keeps for itself only the slices it uses. The editor's
+  wiring reads one field of the clip state (the mic offset refusal it gives
+  the recorder), so a clip event renders `VideoEditor`, not the route.
 
 **When effects run.** `useEffectReducer` starts a batch of effects after React
 commits, which costs a commit of its own. The store starts them right after
@@ -202,9 +215,15 @@ the event's state is published, with no render. Everything else is the same:
   stops.
 - Unmount stops what is running, and StrictMode's remount starts it again.
 
+So a handler that looks up the DOM its event changes waits a frame: the
+element may not be rendered yet. The clip reducer's `scroll-to-insertion-point`
+scrolls in a `requestAnimationFrame`, and cancels it in its cleanup.
+
 `cvm-recorder-render-benchmark.browser.test.tsx` asserts the render and commit
 counts a whole Recording Session's events cost the editor, per component and
 per event, so a consumer that goes back to the whole state fails it.
+`clip-reducer-render-benchmark.browser.test.tsx` does the same for the clip
+reducer, through the real `useVideoEditorWiring` and `VideoEditor`.
 
 Events run to completion: an event that a handler dispatches synchronously
 waits until every effect before it has started. It never runs inside another

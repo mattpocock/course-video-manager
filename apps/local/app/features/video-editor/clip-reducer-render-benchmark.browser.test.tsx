@@ -503,6 +503,10 @@ it("under StrictMode, runs each clip effect once", async () => {
   ]);
 });
 
+// The store starts `scroll-to-insertion-point` before React renders the new
+// Session, and the panel reads it from the editor's context, which
+// use-context-selector delivers a pass after the commit. So the handler
+// waits a frame.
 it("scrolls to a Session's panel once it is on screen", async () => {
   const scrolled: Element[] = [];
   vi.spyOn(Element.prototype, "scrollIntoView").mockImplementation(function (
