@@ -1,0 +1,15 @@
+// Deliberate violations of the strict XState profile's binding rule.
+// tests/xstate-profile-guard.test.ts checks this as a component, not a hook.
+import { useActorRef, useSelector } from "@xstate/react";
+import { badMachine } from "./bad-machine";
+
+export const Panel = () => {
+  // binding: useActorRef only in a use-*.ts hook.
+  const actor = useActorRef(badMachine);
+  // binding: useSelector(actor, selector) with no compare.
+  const n = useSelector(actor, (s) => s.context.n, (a, b) => a === b);
+  return n;
+};
+
+// binding: provide a machine only where useActorRef runs it.
+export const provided = () => badMachine.provide({ actions: {} });

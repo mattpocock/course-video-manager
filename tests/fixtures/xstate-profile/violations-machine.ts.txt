@@ -1,0 +1,45 @@
+// Deliberate violations of the strict XState profile, one per machine rule.
+// tests/xstate-profile-guard.test.ts checks this as a `*-machine.ts` file.
+// Not a .ts file, so neither tsc nor oxlint reads it.
+import { setup, types } from "xstate";
+// machine-file: a machine file imports no React.
+import { useEffect } from "react";
+
+const s = setup({
+  schemas: {
+    context: types<{ n: number }>(),
+    events: { go: types<{}>(), stop: types<{}>() },
+  },
+  actions: { log: (_: { n: number }) => {} },
+  // setup-shape: setup takes schemas, actions and states only.
+  guards: { ok: () => true },
+  states: { idle: {}, running: {} },
+});
+
+export const badMachine = s.createMachine({
+  context: { n: 0 },
+  initial: "idle",
+  states: {
+    idle: {
+      // state-shape: a state takes on, after and description only.
+      entry: () => {},
+      on: {
+        // transition-function: a handler is a function.
+        go: { target: "running" },
+        // named-effects: an effect is enq(actions.name, params).
+        stop: (_, enq) => {
+          enq(() => console.log("stop"));
+        },
+      },
+    },
+    running: {
+      on: {
+        // literal-target: target is a string literal.
+        go: () => ({ target: ["id", "le"].join("") }),
+      },
+      // flat-states: no child states (#5921 workaround).
+      states: { inner: {} },
+    },
+  },
+});
+void useEffect;

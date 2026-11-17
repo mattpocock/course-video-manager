@@ -14,7 +14,9 @@ tangle needs those tests all over again.
 
 `scripts/check-frontend-state.ts` enforces this (see [The guard](#the-guard)).
 [`plans/reducer-migration.md`](./plans/reducer-migration.md) lists the files
-that came before the guard and the order they migrate in.
+that came before the guard and the order they migrate in. The CVM recorder
+is a proof of concept of the same pattern on XState, with its own rules:
+[XSTATE.md](./XSTATE.md).
 
 ## The pattern
 
