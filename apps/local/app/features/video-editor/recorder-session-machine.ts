@@ -190,7 +190,7 @@ export const recorderSessionMachine = sessionSetup.createMachine({
           if (id === null) return;
           startSession(enq, id, event.silenceLength);
           return {
-            target: "following.recording",
+            target: "following",
             context: {
               recordingSessionId: id,
               // Joined mid-take, nothing is known until the Recorder next hears.
@@ -204,7 +204,7 @@ export const recorderSessionMachine = sessionSetup.createMachine({
           if (context.endedRecordingSessionIds.includes(id)) return;
           startSession(enq, id, event.silenceLength);
           return {
-            target: "following.recording",
+            target: "following",
             context: {
               recordingSessionId: id,
               speech: speechDetectorReducer(context.speech, {
@@ -217,6 +217,8 @@ export const recorderSessionMachine = sessionSetup.createMachine({
       },
     },
     following: {
+      // Entered by its own name, not `following.recording`: beta.3 checks a
+      // state's context contract only on a transition that targets it.
       initial: "recording",
       on: {
         "recorder-reported": ({ context, event }, enq) =>
