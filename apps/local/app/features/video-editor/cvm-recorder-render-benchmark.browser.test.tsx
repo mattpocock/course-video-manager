@@ -1,5 +1,5 @@
 import { fromPartial } from "@total-typescript/shoehorn";
-import { act, Profiler, useReducer, type ReactNode } from "react";
+import { act, Profiler, StrictMode, useReducer, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { useContextSelector } from "use-context-selector";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -231,6 +231,46 @@ it("counts renders per component for a Recording Session's event stream", async 
   expect(
     isCvmRecorderRecording(recorderStateOf(controls!.actor.getSnapshot()))
   ).toBe(false);
+});
+
+// Not a benchmark: XState v6 actors are single-use, and the app runs under
+// StrictMode, whose remount must leave a live actor that runs each effect once.
+it("under StrictMode, still follows the recorder and runs each effect once", async () => {
+  const clipActions: string[] = [];
+  function StrictHost() {
+    const recorder = useCvmRecorder({
+      video: { id: "v1", format: "landscape" },
+      silenceLength: "short",
+      clipDispatch: (action) => clipActions.push(action.type),
+      onNewClipOptimisticallyAdded: () => {},
+      onClipAudioWindowClosed: () => {},
+      micOffsetRefusal: null,
+      insertionPoint: () => ({ type: "start" }),
+    });
+    controls = recorder.controls;
+    return null;
+  }
+  root = createRoot(document.createElement("div"));
+  act(() =>
+    root!.render(
+      <StrictMode>
+        <StrictHost />
+      </StrictMode>
+    )
+  );
+  await act(async () => {
+    source!.emit(status(null));
+    source!.emit({
+      type: "recording-started",
+      recordingSessionId: "s1",
+      silenceLength: "short",
+      micFile: "mic.mkv",
+    });
+  });
+  expect(recorderStateOf(controls!.actor.getSnapshot()).phase).toBe(
+    "recording"
+  );
+  expect(clipActions).toEqual(["recording-started"]);
 });
 
 // ---------------------------------------------------------------------------

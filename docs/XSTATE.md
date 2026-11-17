@@ -24,7 +24,7 @@ Name each named action by an arrow on its own key: XState reports an enqueued ac
 
 ## The #5921 workaround
 
-beta.3 does not check a state's context contract when the transition enters it through its parent (`target: "parent.child"`, `#id`, or a compound state whose initial child has a contract), nor between siblings inside a state with one (statelyai/xstate#5921). The machine is flat, so every target is a sibling and every contract is checked. **Remove the `flat-states` rule once #5921 is fixed in the pinned beta.**
+beta.3 does not check a compound state's context contract when a transition targets one of its children (by path or `#id`), nor between siblings inside it, nor a child's contract when the transition targets the compound state and its `initial` enters that child (statelyai/xstate#5921). The machine is flat, so every target is a sibling and every contract is checked. **Remove the `flat-states` rule once #5921 is fixed in the pinned beta.**
 
 ## Enforced by
 
