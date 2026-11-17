@@ -22,20 +22,28 @@ that came before the guard and the order they migrate in.
  DOM event / SSE message / timer / fetch result
         │  dispatch(event)            ← a fact: what happened
         ▼
- reducer(state, event, exec) ──► next state ──► render
+ reducer(state, event, exec) ──► next state ──► store ──► useSelector(slice) ──► render
         │  exec({ type: "save-thumbnail", … })   ← a command, as data
         ▼
  effect runner (handler map in a hook) ── does the I/O ──► dispatch(outcome event)
 ```
 
 This is the Elm architecture (`update : Msg -> Model -> (Model, Cmd Msg)`),
-built on [`use-effect-reducer`](https://github.com/davidkpiano/useEffectReducer).
-Import the hook from `@/hooks/use-effect-reducer`, the repo's own copy with the
-package's API and types; importing `useEffectReducer` from the package is a
-lint error, though its types are fine. Inside the reducer, `exec(effect)` does
-not run anything. It adds the effect object to a list, and the hook runs that
-list after the commit. The reducer stays pure: the same state and event give
-the same next state and the same effects, even when StrictMode runs it twice.
+with [`use-effect-reducer`](https://github.com/davidkpiano/useEffectReducer)'s
+reducer and effect API, held in an **effect store**
+(`hooks/effect-store.ts`) that components read by slices (see
+[Reading a surface](#reading-a-surface-the-effect-store-and-useselector)).
+Inside the reducer, `exec(effect)` does not run anything. It adds the effect
+object to a list, and the runner starts that list once the event's state is
+published. The reducer stays pure: the same state and event give the same
+next state and the same effects, even when StrictMode runs it twice.
+
+Surfaces that came before the store still call `useEffectReducer` from
+`@/hooks/use-effect-reducer`, the repo's own copy with the package's API and
+types. Importing `useEffectReducer` from the package is a lint error, though
+its types are fine. Both runners share `hooks/effect-entity.ts`, so an effect
+starts, stops and cleans up the same way in each. #2715 lists the surfaces
+still to move. New code uses the store.
 
 The initial state may be an object or a function, `(exec) => state`, which can
 declare effects as the surface mounts. Both forms are safe under StrictMode.
@@ -44,6 +52,7 @@ the effect of an event dispatched on mount whenever StrictMode's replay of
 that event declared nothing (a reducer that loads once per mount), and never
 restarted the initializer's own effects after StrictMode's remount. The repo's
 copy fixes both, and `hooks/use-effect-reducer.browser.test.tsx` covers them.
+The store keeps both fixes (`hooks/effect-store.browser.test.tsx`).
 
 The rules:
 
@@ -69,8 +78,9 @@ The rules:
    needs into the effect object. A handler should not reach into props or
    closures for its input. That is also what makes the effect worth asserting
    on in a test.
-4. **The effect runner is thin.** It is the `useEffectReducer` handler map,
-   kept in a `use-foo-reducer.ts` hook (`hooks/use-thumbnail-reducer.ts`). Each
+4. **The effect runner is thin.** It is the handler map given to
+   `useEffectStore` (or `useEffectReducer`), kept in a `use-foo.ts` hook
+   (`features/video-editor/use-cvm-recorder.ts`). Each
    handler makes one call (fetch, submit, an SSE client, a prop callback) and
    dispatches the outcome as an event. It contains no `if` about what to do
    next: that decision belongs to the reducer, which handles the outcome event.
@@ -104,10 +114,11 @@ Three situations come up often enough to have a fixed answer
   and the runner resolves that request when the effect is done. The reducer
   still makes the decision.
 
-`useEffectReducer` re-renders on every dispatch, even when the reducer returns
-the same state. A bridge that listens to a noisy source, such as a tldraw
-session listener that fires on every pointer move, dispatches only when the
-value it reports has changed.
+The store notifies nobody when the reducer returns the same state, so an
+ignored event renders nothing. `useEffectReducer` re-renders on every dispatch,
+even then. On a surface not yet moved, a bridge that listens to a noisy source,
+such as a tldraw session listener that fires on every pointer move, dispatches
+only when the value it reports has changed.
 
 A reducer that never needs effects can use plain `useReducer` (the
 teleprompter's `teleprompterSession.reducer`). New code that needs effects
@@ -121,6 +132,65 @@ draws it and never reads state. The jobs reducer builds a settled Job's toast
 `(_state, effect) => showJobSucceededToast(effect)` (`use-jobs.ts`). Whether to
 toast at all is a decision too: a Job Event replayed from before this tab's
 snapshot updates the row but never toasts.
+
+## Reading a surface: the effect store and `useSelector`
+
+A surface's state lives in an **effect store**, outside React, and each
+component subscribes to the slice it shows. A component that takes the whole
+state re-renders on every event the surface hears. For the CVM recorder,
+which hears a `recorder-status` every second or so, that meant re-rendering
+the whole editor (#2714).
+
+```ts
+// The hook that owns the surface: the same reducer, initial state and handlers.
+const store = useEffectStore(cvmRecorderReducer, () => createInitialCvmRecorderState(format), {
+  "stop-recording": (_state, _effect, dispatch) => { … },
+});
+
+// A component reads a slice. It re-renders only when `stillRound` changes.
+const round = useSelector(store, stillRound);
+```
+
+- **`useEffectStore(reducer, initialState, handlers)`** takes
+  `useEffectReducer`'s arguments and creates the store once for the
+  component's life. It returns `{ getSnapshot, subscribe, dispatch }`.
+  `dispatch` never changes, so callbacks built on it can sit in a context
+  without changing it. The handlers are the latest render's, so they may close
+  over props; the reducer and initial state are read once.
+- **`useSelector(store, selector, isEqual = Object.is)`**, built on
+  `useSyncExternalStore`, returns `selector(state)`. It re-renders only when
+  that changes by `isEqual`. Pass a selector from the reducer's file
+  (`stillRound`, `canStop`), a field (`(s) => s.alert`), or an inline one that
+  closes over a prop (`(s) => holdsStillsOf(s, clip)`). A selector that builds
+  an object or array needs an `isEqual` that compares its contents
+  (`sameLivePreview` in `live-preview.ts`), or it re-renders on every change.
+- **Never select the whole state.** `(s) => s` and `(s) => ({ ...s })` fail the
+  `whole-store` guard. If a hook seems to need all of it, pass it the slices it
+  reads instead (`useLastFrameUrl` takes `{ source, round }`).
+- **Read it on press with `store.getSnapshot()`.** An event handler that needs
+  the state at the moment of a click reads it then, and subscribes to nothing
+  (`useNewShortAction`).
+- **A surface hook hides the store.** The editor's components call
+  `useCvmRecorderSelector(selector)`, which finds the store in
+  `VideoEditorContext` (`use-cvm-recorder-selector.ts`). The context holds the
+  store and callbacks, and that object stays the same while the recorder
+  changes.
+
+**When effects run.** `useEffectReducer` starts a batch of effects after React
+commits, which costs a commit of its own. The store starts them right after
+the event's state is published, with no render. Everything else is the same:
+
+- Effects run in the order they were declared, one event's batch at a time.
+- Each is handed the state its event produced, and an event's stops run
+  before its starts.
+- `exec.stop` and `exec.replace` cancel, and a cleanup runs when its effect
+  stops.
+- Unmount stops what is running, and StrictMode's remount starts it again.
+
+Events run to completion: an event that a handler dispatches synchronously
+waits until every effect before it has started. It never runs inside another
+event's reducer. `hooks/effect-store.test.ts` and
+`hooks/effect-store.browser.test.tsx` pin all of this down.
 
 ## Worked example: the thumbnail editor
 
@@ -231,8 +301,13 @@ It scans `apps/local/app`, skipping test code, and fails a file when:
 | ------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------- |
 | `use-state`         | more than **4** `useState` calls                                                     | past a few independent toggles, they are one state machine in pieces |
 | `effect-sets-state` | more than **1** `useEffect`/`useLayoutEffect` that references the file's own setters | each such effect is a state transition happening outside any reducer |
+| `whole-store`       | any `useSelector`/`use…Selector` call whose selector returns its whole argument      | it re-renders on every event; select the slice the component shows   |
 
-The limits were set against the codebase as it was when the guard landed
+`whole-store` catches `(s) => s`, `(s) => ({ ...s })` and a block that
+returns its parameter. Its limit is 0 and it has no allowlist entries.
+`useContextSelector` is out of its scope.
+
+The first two limits were set against the codebase as it was when the guard landed
 (762 files scanned). Of the 124 files that call `useState`, 107 have four or
 fewer, and the 13 with exactly four are mostly modal forms. One effect that
 writes state is common (36 files) and usually acceptable, such as resetting a

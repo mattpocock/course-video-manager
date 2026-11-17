@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useEffectReducer } from "@/hooks/use-effect-reducer";
+import {
+  useEffectStore,
+  useSelector,
+  type EffectStore,
+} from "@/hooks/effect-store";
 import type { Scene } from "@/packages/scene-layout";
 import type { MicEq } from "@cvm/core/features/videos/recorder";
 import {
@@ -13,14 +18,11 @@ import type {
   MicOffsetRefusal,
 } from "./clip-state-reducer.types";
 import {
-  canRecord,
-  canRetryCamera,
-  canStop,
-  canWakeSpacedeskAgain,
   createInitialCvmRecorderState,
   cvmRecorderReducer,
   followedOnLeave,
   holdsRecordingSession,
+  isCvmRecorderRecording,
 } from "./cvm-recorder-reducer";
 import {
   createInitialRecorderAttentionState,
@@ -36,14 +38,23 @@ import {
   type CvmRecorderMessage,
   type PlacedTake,
 } from "./cvm-recorder-wire";
+import type { RecorderCapture } from "./recorder-capture";
+import { toFrontendSpeechDetectorState } from "./speech-detector-reducer";
 
-/** What the editor's CVM recorder controls show and do. */
+export type CvmRecorderStore = EffectStore<
+  cvmRecorderReducer.State,
+  cvmRecorderReducer.Action
+>;
+
+/**
+ * What the editor's CVM recorder controls show and do. The same object for
+ * the visit while `micOffsetRefusal` holds: read the recorder through
+ * `store` with a selector (`useCvmRecorderSelector`), so a component
+ * re-renders only when what it shows changes.
+ */
 export type CvmRecorderControls = {
-  state: cvmRecorderReducer.State;
-  canRecord: boolean;
-  canStop: boolean;
-  canRetryCamera: boolean;
-  canWakeSpacedeskAgain: boolean;
+  store: CvmRecorderStore;
+  saveTakes: TakeSaver;
   onWakeSpacedesk: () => void;
   onStop: () => void;
   onDismissAlert: () => void;
@@ -144,6 +155,11 @@ export const useRecorderEvents = (
  * server's recorder events (`GET /api/videos/:id/recorder/events`) into it.
  * Its clip effects are the clip reducer's recording events (ADR 0044). Its
  * listening is what opens the recorder (and the Cam Link) for the Video.
+ *
+ * The recorder lives in a store (`hooks/effect-store.ts`), and the editor
+ * subscribes only to the slices it needs here: the Recording Session to hand
+ * back on leave, whether one holds the recorder, and what a take is doing
+ * (`capture`). Everything else reads its own slice.
  */
 export const useCvmRecorder = (o: {
   /** The Video: a Short opens the recorder, and draws, in the Short layout. */
@@ -163,7 +179,9 @@ export const useCvmRecorder = (o: {
    * the take it leaves mid-way is placed there.
    */
   insertionPoint: () => InsertionPoint;
-}): CvmRecorderControls & { saveTakes: TakeSaver } => {
+}): { controls: CvmRecorderControls; capture: RecorderCapture } => {
+  const editor = useRef(o);
+  editor.current = o;
   const videoId = o.video.id;
   const format: VideoFormat = resolveVideoFormat(o.video.format);
   const saver = useMemo(
@@ -184,7 +202,7 @@ export const useCvmRecorder = (o: {
       }),
     [videoId]
   );
-  const [state, dispatch] = useEffectReducer(
+  const store = useEffectStore(
     cvmRecorderReducer,
     () => createInitialCvmRecorderState(format),
     {
@@ -272,6 +290,12 @@ export const useCvmRecorder = (o: {
     }
   );
 
+  const { dispatch } = store;
+  const following = useSelector(store, followedOnLeave);
+  const holds = useSelector(store, holdsRecordingSession);
+  const isRecording = useSelector(store, isCvmRecorderRecording);
+  const speech = useSelector(store, (state) => state.speech);
+
   // Bridges the editor's Silence Length (a localStorage choice) in.
   useEffect(() => {
     dispatch({
@@ -280,7 +304,7 @@ export const useCvmRecorder = (o: {
     });
   }, [o.silenceLength, dispatch]);
 
-  useStopRecordingOnLeave(followedOnLeave(state), (recordingSessionId) => {
+  useStopRecordingOnLeave(following, (recordingSessionId) => {
     let insertionPoint: InsertionPoint | null = null;
     try {
       insertionPoint = o.insertionPoint();
@@ -302,28 +326,45 @@ export const useCvmRecorder = (o: {
     });
   });
 
-  useRecorderEvents(videoId, true, holdsRecordingSession(state), (message) => {
+  useRecorderEvents(videoId, true, holds, (message) => {
     dispatch({ type: "recorder-message-heard", message });
   });
 
-  return {
-    state,
-    saveTakes: saver.saveTakes,
-    canRecord: canRecord(state),
-    canStop: canStop(state),
-    canRetryCamera: canRetryCamera(state),
-    canWakeSpacedeskAgain: canWakeSpacedeskAgain(state),
-    onWakeSpacedesk: () => dispatch({ type: "press-wake-spacedesk" }),
-    onStop: () => dispatch({ type: "press-stop" }),
-    onDismissAlert: () => dispatch({ type: "dismiss-alert" }),
-    onDismissFramesLost: () => dispatch({ type: "dismiss-frames-lost-alert" }),
-    onRetryCamera: () => dispatch({ type: "press-retry" }),
-    onSetSceneOverride: (clipId, sceneOverride) =>
-      o.clipDispatch({ type: "set-scene-override", clipId, sceneOverride }),
-    onSubmitMicSettings: (clipId, settings) =>
-      o.clipDispatch({ type: "mic-settings-submitted", clipId, ...settings }),
-    micOffsetRefusal: o.micOffsetRefusal,
-    onDismissMicOffsetRefusal: () =>
-      o.clipDispatch({ type: "mic-offset-refusal-dismissed" }),
-  };
+  const micOffsetRefusal = o.micOffsetRefusal;
+  const controls = useMemo(
+    (): CvmRecorderControls => ({
+      store,
+      saveTakes: saver.saveTakes,
+      onWakeSpacedesk: () => dispatch({ type: "press-wake-spacedesk" }),
+      onStop: () => dispatch({ type: "press-stop" }),
+      onDismissAlert: () => dispatch({ type: "dismiss-alert" }),
+      onDismissFramesLost: () =>
+        dispatch({ type: "dismiss-frames-lost-alert" }),
+      onRetryCamera: () => dispatch({ type: "press-retry" }),
+      onSetSceneOverride: (clipId, sceneOverride) =>
+        editor.current.clipDispatch({
+          type: "set-scene-override",
+          clipId,
+          sceneOverride,
+        }),
+      onSubmitMicSettings: (clipId, settings) =>
+        editor.current.clipDispatch({
+          type: "mic-settings-submitted",
+          clipId,
+          ...settings,
+        }),
+      micOffsetRefusal,
+      onDismissMicOffsetRefusal: () =>
+        editor.current.clipDispatch({ type: "mic-offset-refusal-dismissed" }),
+    }),
+    [store, dispatch, saver, micOffsetRefusal]
+  );
+  const capture = useMemo(
+    (): RecorderCapture => ({
+      isRecording,
+      speech: toFrontendSpeechDetectorState(speech),
+    }),
+    [isRecording, speech]
+  );
+  return { controls, capture };
 };

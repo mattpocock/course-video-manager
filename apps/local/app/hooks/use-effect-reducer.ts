@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useReducer, useRef } from "react";
 import type {
-  EffectEntity,
   EffectFunction,
   EffectObject,
   EffectReducer,
@@ -9,6 +8,14 @@ import type {
   EventObject,
   InitialEffectStateGetter,
 } from "use-effect-reducer";
+import {
+  IDLE,
+  isInitializer,
+  STARTED,
+  toEntity as toEffectEntity,
+  type Batch,
+  type Entity,
+} from "./effect-entity";
 
 /**
  * `useEffectReducer` from `use-effect-reducer` 0.7.0, with the same API and
@@ -44,14 +51,7 @@ export function useEffectReducer<
 
   const toEntity = (
     effect: TEffect | EffectFunction<TState, TEvent, TEffect>
-  ): Entity<TState, TEvent> =>
-    createEntity(
-      toEffectObject<TState, TEvent>(
-        effect as
-          EffectObject<TState, TEvent> | AnyEffectFunction<TState, TEvent>,
-        effectsMap as EffectFunctions<TState, TEvent> | undefined
-      )
-    );
+  ): Entity<TState, TEvent> => toEffectEntity(effect, effectsMap);
 
   const wrappedReducer = (
     current: Internal<TState, TEvent>,
@@ -158,21 +158,6 @@ export function useEffectReducer<
   return [state, wrappedDispatch];
 }
 
-type Status = EffectEntity<unknown, EventObject>["status"];
-const IDLE = 0 as Status;
-const STARTED = 1 as Status;
-const STOPPED = 2 as Status;
-
-type Entity<TState, TEvent extends EventObject> = EffectEntity<
-  TState,
-  TEvent
-> & { restart: () => void };
-
-type Batch<TState, TEvent extends EventObject> = {
-  state: TState;
-  entities: Entity<TState, TEvent>[];
-};
-
 type Internal<TState, TEvent extends EventObject> = {
   state: TState;
   /** Batches of effects declared and not yet started, in order. */
@@ -190,63 +175,3 @@ type FlushEvent<TState, TEvent extends EventObject> = {
 const isFlush = <TState, TEvent extends EventObject>(
   event: TEvent | FlushEvent<TState, TEvent>
 ): event is FlushEvent<TState, TEvent> => event.type === FLUSH;
-
-const isInitializer = <
-  TState,
-  TEvent extends EventObject,
-  TEffect extends EffectObject<TState, TEvent>,
->(
-  initialState: TState | InitialEffectStateGetter<TState, TEvent, TEffect>
-): initialState is InitialEffectStateGetter<TState, TEvent, TEffect> =>
-  typeof initialState === "function";
-
-type AnyEffectFunction<TState, TEvent extends EventObject> = EffectFunction<
-  TState,
-  TEvent,
-  EffectObject<TState, TEvent>
->;
-type EffectFunctions<TState, TEvent extends EventObject> = Record<
-  string,
-  AnyEffectFunction<TState, TEvent>
->;
-type ResolvedEffect<TState, TEvent extends EventObject> = EffectObject<
-  TState,
-  TEvent
-> & { exec?: AnyEffectFunction<TState, TEvent> };
-
-function toEffectObject<TState, TEvent extends EventObject>(
-  effect: EffectObject<TState, TEvent> | AnyEffectFunction<TState, TEvent>,
-  effectsMap: EffectFunctions<TState, TEvent> | undefined
-): ResolvedEffect<TState, TEvent> {
-  if (typeof effect === "function") {
-    return { type: effect.name, exec: effectsMap?.[effect.name] ?? effect };
-  }
-  return { ...effect, exec: effectsMap?.[effect.type] ?? effect.exec };
-}
-
-function createEntity<TState, TEvent extends EventObject>(
-  effect: ResolvedEffect<TState, TEvent>
-): Entity<TState, TEvent> {
-  let cleanup: (() => void) | void;
-  let startedWith: [TState, React.Dispatch<TEvent>] | undefined;
-  const entity: Entity<TState, TEvent> = {
-    type: effect.type,
-    status: IDLE,
-    start: (state, dispatch) => {
-      startedWith = [state, dispatch];
-      cleanup = effect.exec?.(state, effect, dispatch);
-      entity.status = STARTED;
-    },
-    stop: () => {
-      if (entity.status === STARTED && typeof cleanup === "function") {
-        cleanup();
-      }
-      cleanup = undefined;
-      entity.status = STOPPED;
-    },
-    restart: () => {
-      if (startedWith) entity.start(...startedWith);
-    },
-  };
-  return entity;
-}

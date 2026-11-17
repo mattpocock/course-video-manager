@@ -3,8 +3,13 @@ import { cn } from "@/lib/utils";
 import { useContextSelector } from "use-context-selector";
 import { VideoEditorContext } from "../video-editor-context";
 import { stillRound } from "../cvm-recorder-reducer";
-import { getCvmRecorderLivePreview } from "../live-preview";
+import {
+  getCvmRecorderLivePreview,
+  lastFrameSource,
+  sameLivePreview,
+} from "../live-preview";
 import { useLastFrameUrl } from "../use-take-end-frame";
+import { useCvmRecorderSelector } from "../use-cvm-recorder-selector";
 import { getShowRecordingSignal } from "../video-editor-selectors";
 import { CaptureFrame } from "./capture-frame";
 import { CompositePreview } from "./composite-preview";
@@ -21,10 +26,6 @@ import { RecordingSignalIndicator } from "./timeline-indicators";
  * Renders nothing while there is no live picture (the Clip player shows).
  */
 export const LivePreviewFrame = () => {
-  const cvmRecorderState = useContextSelector(
-    VideoEditorContext,
-    (ctx) => ctx.cvmRecorder.state
-  );
   const showVideoPlayer = useContextSelector(
     VideoEditorContext,
     (ctx) => ctx.showVideoPlayer
@@ -54,15 +55,23 @@ export const LivePreviewFrame = () => {
     (ctx) => ctx.databaseClipToShowLastFrameOf
   );
 
+  const composite = useCvmRecorderSelector(
+    getCvmRecorderLivePreview,
+    sameLivePreview
+  );
+  const round = useCvmRecorderSelector(stillRound);
+  const source = useCvmRecorderSelector((state) =>
+    lastFrameClip ? lastFrameSource(state, lastFrameClip) : "none"
+  );
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const lastFrameUrl = useLastFrameUrl(
     canvasRef,
-    cvmRecorderState,
+    { source, round },
     speechDetectorState,
     lastFrameClip
   );
 
-  const composite = getCvmRecorderLivePreview(cvmRecorderState);
   if (!composite) return null;
 
   const showLastFrameOverlay = lastFrameClip !== undefined && showLastFrame;
@@ -109,7 +118,7 @@ export const LivePreviewFrame = () => {
         lastFrameUrl && (
           <div className="absolute inset-0 rounded-lg">
             <img
-              key={stillRound(cvmRecorderState)}
+              key={round}
               className="w-full h-full rounded-lg opacity-50 object-contain"
               src={lastFrameUrl}
             />

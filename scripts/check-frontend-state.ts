@@ -2,8 +2,9 @@
 //
 // docs/FRONTEND_STATE.md makes a pure reducer the home of every frontend
 // decision: events in, state and declared effects out, tested by sending event
-// sequences. These two guards catch the two shapes a decision takes when it
-// lives in a component instead:
+// sequences. The first two guards catch the two shapes a decision takes when
+// it lives in a component instead, and the third keeps a component reading a
+// reducer's store by slices:
 //
 // 1. `use-state` — a file with more than USE_STATE_LIMIT `useState` calls. Past
 //    a handful of independent toggles, several `useState`s are one state
@@ -13,9 +14,16 @@
 //    `useEffect`/`useLayoutEffect` callbacks that reference one of the file's
 //    own `useState` setters. An effect that writes state is a transition
 //    hiding in a hook: it should `dispatch` an event and let the reducer decide.
+// 3. `whole-store` — a `useSelector(store, selector)` or `use…Selector(selector)`
+//    call whose selector returns the whole state: `(s) => s`, `(s) => ({ ...s })`
+//    or a block that returns its parameter. A component subscribed to the
+//    whole state re-renders on every event, which is what the effect store
+//    (`apps/local/app/hooks/effect-store.ts`) exists to stop. The limit is 0
+//    and it has no allowlist. `useContextSelector` is not a store's selector
+//    and is out of scope.
 //
-// Both are per-file counts with a threshold, so a trivial toggle or a single
-// subscription never trips them. Only `apps/local/app` is scanned, and test
+// All three are per-file counts with a threshold, so a trivial toggle or a single
+// subscription never trips the first two. Only `apps/local/app` is scanned, and test
 // code is out of scope. Hits are matched against
 // `scripts/frontend-state-allowlist.json`: a file over the threshold must have
 // an entry, may not exceed its entry's count, and may not fall below it either
@@ -29,13 +37,18 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { parseSync, type Node } from "oxc-parser";
 
-export type Guard = "use-state" | "effect-sets-state";
-export const GUARDS: readonly Guard[] = ["use-state", "effect-sets-state"];
+export type Guard = "use-state" | "effect-sets-state" | "whole-store";
+export const GUARDS: readonly Guard[] = [
+  "use-state",
+  "effect-sets-state",
+  "whole-store",
+];
 
 /** A file is an offender when its count is ABOVE this. */
 export const LIMITS: Record<Guard, number> = {
   "use-state": 4,
   "effect-sets-state": 1,
+  "whole-store": 0,
 };
 
 export interface Measure {
@@ -98,6 +111,62 @@ const hookName = (node: Node): string | undefined => {
 
 const EFFECT_HOOKS = new Set(["useEffect", "useLayoutEffect"]);
 
+/** `useSelector`, `useCvmRecorderSelector`…, but not `useContextSelector`. */
+const isStoreSelectorHook = (name: string | undefined): boolean =>
+  name !== undefined &&
+  /^use[A-Za-z0-9]*Selector$/.test(name) &&
+  name !== "useContextSelector";
+
+const unwrap = (node: Node): Node =>
+  node.type === "ParenthesizedExpression" ? unwrap(node.expression) : node;
+
+/** `p`, `({ ...p })` or `({ ...p, more })`: the whole of `p`. */
+const isWholeOf = (node: Node, param: string): boolean => {
+  const value = unwrap(node);
+  if (value.type === "Identifier") return value.name === param;
+  return (
+    value.type === "ObjectExpression" &&
+    value.properties.some(
+      (property) =>
+        property.type === "SpreadElement" && isWholeOf(property.argument, param)
+    )
+  );
+};
+
+/** A selector that returns the whole state it is given. */
+const returnsWholeState = (node: Node): boolean => {
+  if (
+    node.type !== "ArrowFunctionExpression" &&
+    node.type !== "FunctionExpression"
+  ) {
+    return false;
+  }
+  const param = node.params[0];
+  if (param?.type !== "Identifier") return false;
+  const body = node.body;
+  if (body === null) return false;
+  if (body.type !== "BlockStatement") return isWholeOf(body, param.name);
+  return body.body.some(
+    (statement) =>
+      statement.type === "ReturnStatement" &&
+      statement.argument !== null &&
+      isWholeOf(statement.argument, param.name)
+  );
+};
+
+/** The store selector call's selector, if it is one that reads it all. */
+const selectsWholeStore = (node: Node): boolean => {
+  if (node.type !== "CallExpression" || !isStoreSelectorHook(hookName(node))) {
+    return false;
+  }
+  const selector = node.arguments.find(
+    (argument) =>
+      argument.type === "ArrowFunctionExpression" ||
+      argument.type === "FunctionExpression"
+  );
+  return selector !== undefined && returnsWholeState(selector);
+};
+
 // ---------------------------------------------------------------------------
 // Measuring
 
@@ -105,8 +174,12 @@ export function measure(file: string, source: string): Measures {
   const empty = (): Measures => ({
     "use-state": { count: 0, lines: [] },
     "effect-sets-state": { count: 0, lines: [] },
+    "whole-store": { count: 0, lines: [] },
   });
-  if (!isInScope(file) || !/use(State|Effect|LayoutEffect)/.test(source)) {
+  if (
+    !isInScope(file) ||
+    !/use(State|Effect|LayoutEffect|[A-Za-z0-9]*Selector)/.test(source)
+  ) {
     return empty();
   }
   const { program } = parseSync(file, source);
@@ -137,6 +210,10 @@ export function measure(file: string, source: string): Measures {
       result["use-state"].lines.push(lineOf(node.start));
     }
     if (name && EFFECT_HOOKS.has(name)) effects.push(node);
+    if (selectsWholeStore(node)) {
+      result["whole-store"].count++;
+      result["whole-store"].lines.push(lineOf(node.start));
+    }
     if (
       node.type === "VariableDeclarator" &&
       node.init &&
@@ -169,6 +246,7 @@ export function measure(file: string, source: string): Measures {
 const ADVICE: Record<Guard, string> = {
   "use-state": `Fold the related state into a reducer (state + events + declared effects) and test it by sending events. See ${DOC}.`,
   "effect-sets-state": `Have the effect dispatch an event instead of setting state, so the reducer owns the transition. See ${DOC}.`,
+  "whole-store": `Select only what the component shows (a field, or a selector from the reducer's file), with an isEqual if it builds an object. A component subscribed to the whole state re-renders on every event. See ${DOC}.`,
 };
 
 /**
@@ -243,7 +321,7 @@ function main() {
       const over = GUARDS.filter((g) => m[g].count > LIMITS[g]);
       if (over.length === 0) continue;
       console.log(
-        `${m["use-state"].count}\t${m["effect-sets-state"].count}\t${file}`
+        `${m["use-state"].count}\t${m["effect-sets-state"].count}\t${m["whole-store"].count}\t${file}`
       );
     }
     return;

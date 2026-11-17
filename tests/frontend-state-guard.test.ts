@@ -66,6 +66,85 @@ describe("measure: effect-sets-state", () => {
   });
 });
 
+describe("measure: whole-store", () => {
+  const wholeStore = (src: string) => measure(COMPONENT, src)["whole-store"];
+
+  it.each([
+    ["an identity arrow", `useSelector(store, (state) => state);`],
+    ["a parenthesised identity", `useSelector(store, (s) => (s));`],
+    ["a surface's selector hook", `useCvmRecorderSelector((state) => state);`],
+    ["a copy by spread", `useSelector(store, (s) => ({ ...s }));`],
+    [
+      "a copy by spread, with more",
+      `useCvmRecorderSelector((s) => ({ ...s, extra: 1 }));`,
+    ],
+    ["a block returning it", `useSelector(store, (s) => { return s; });`],
+    [
+      "a function expression",
+      `useSelector(store, function (s) { return s; });`,
+    ],
+    ["a member call", `Store.useSelector(store, (s) => s);`],
+  ])("fails %s", (_name, src) => {
+    expect(wholeStore(src)).toEqual({ count: 1, lines: [1] });
+  });
+
+  it.each([
+    ["a field", `useSelector(store, (s) => s.phase);`],
+    ["a named selector", `useSelector(store, stillRound);`],
+    ["a selector from the reducer's file", `useCvmRecorderSelector(canStop);`],
+    ["a derived value", `useSelector(store, (s) => holdsStillsOf(s, clip));`],
+    ["a nested object", `useSelector(store, (s) => ({ ...s.camera }));`],
+    [
+      "a block returning a field",
+      `useSelector(store, (s) => { return s.alert; });`,
+    ],
+    [
+      "a selector with an isEqual",
+      `useSelector(store, (s) => ({ a: s.a }), (x, y) => x.a === y.a);`,
+    ],
+    [
+      "a context selector",
+      `useContextSelector(VideoEditorContext, (ctx) => ctx);`,
+    ],
+    ["a snapshot read on press", `const s = store.getSnapshot();`],
+  ])("passes %s", (_name, src) => {
+    expect(wholeStore(src).count).toBe(0);
+  });
+
+  it("counts each offending call, with its line", () => {
+    const m = wholeStore(
+      `const a = useSelector(store, (s) => s.a);\nconst b = useSelector(store, (s) => s);\nconst c = useCvmRecorderSelector((s) => s);`
+    );
+    expect(m).toEqual({ count: 2, lines: [2, 3] });
+  });
+
+  it("ignores test files", () => {
+    expect(
+      measure(
+        "apps/local/app/features/x/panel.browser.test.tsx",
+        `useSelector(store, (s) => s);`
+      )["whole-store"].count
+    ).toBe(0);
+  });
+
+  it("fails any hit: the limit is 0 and there is no allowlist", () => {
+    const hit = new Map<string, Measures>([
+      [
+        COMPONENT,
+        {
+          "use-state": { count: 0, lines: [] },
+          "effect-sets-state": { count: 0, lines: [] },
+          "whole-store": { count: 1, lines: [3] },
+        },
+      ],
+    ]);
+    const problems = compare(hit, {}, checked, true);
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain("[whole-store]");
+    expect(problems[0]).toContain("docs/FRONTEND_STATE.md");
+  });
+});
+
 const found = (useState: number, effectSetsState = 0) =>
   new Map<string, Measures>([
     [
@@ -73,6 +152,7 @@ const found = (useState: number, effectSetsState = 0) =>
       {
         "use-state": { count: useState, lines: [] },
         "effect-sets-state": { count: effectSetsState, lines: [] },
+        "whole-store": { count: 0, lines: [] },
       },
     ],
   ]);
