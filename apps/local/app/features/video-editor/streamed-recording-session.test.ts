@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { ReducerTester } from "@/test-utils/reducer-tester";
-import {
-  createInitialCvmRecorderState,
-  cvmRecorderReducer,
-  followedOnLeave,
-  holdsRecordingSession,
-} from "./cvm-recorder-reducer";
+import { cvmRecorderTester } from "./recorder-takes-test-harness";
+import { followedOnLeave, holdsRecordingSession } from "./cvm-recorder-reducer";
 import type { CvmRecorderMessage } from "./cvm-recorder-wire";
 
 /**
@@ -29,8 +24,7 @@ const status = (recordingSessionId: string | null, streamed: boolean) =>
     still: "still",
   });
 
-const tester = () =>
-  new ReducerTester(cvmRecorderReducer, createInitialCvmRecorderState());
+const tester = () => cvmRecorderTester();
 
 const stops = (t: ReturnType<typeof tester>) =>
   t.getEffects().filter((e) => e.type === "stop-recording");

@@ -1,6 +1,7 @@
 import { fromPartial } from "@total-typescript/shoehorn";
 import { vi } from "vitest";
 import { ReducerTester } from "@/test-utils/reducer-tester";
+import { MachineTester } from "@/test-utils/machine-tester";
 import type { InsertionPoint } from "@/services/clip-service";
 import {
   clipStateReducer,
@@ -9,10 +10,13 @@ import {
   type DatabaseId,
   type FrontendId,
 } from "./clip-state-reducer";
+import type { cvmRecorderReducer } from "./cvm-recorder-reducer";
 import {
-  createInitialCvmRecorderState,
-  cvmRecorderReducer,
-} from "./cvm-recorder-reducer";
+  cvmRecorderMachine,
+  recorderStateOf,
+  type CvmRecorderMachine,
+} from "./cvm-recorder-machine";
+import type { VideoFormat } from "@/features/videos/video-format";
 import type {
   CvmRecorderMessage,
   SavedRecorderClip,
@@ -193,16 +197,24 @@ const closeTakeWindow = (e: Editor) => {
 export const recordingSession = (n: number) => `session-${n}`;
 
 /**
+ * The CVM recorder's machine, driven with the pure `transition()`: state as
+ * its selectors read it, effects as data.
+ */
+export const cvmRecorderTester = (format: VideoFormat = "landscape") =>
+  new MachineTester<
+    CvmRecorderMachine,
+    cvmRecorderReducer.State,
+    cvmRecorderReducer.Effect
+  >(cvmRecorderMachine, { format }, recorderStateOf);
+
+/**
  * The CVM recorder: messages into its adapter, whose effects reach the clip
  * reducer as `use-cvm-recorder.ts` sends them. `place-take` asks the app
  * server, through the CVM recorder's saver, to save the speech where the
  * editor says, and answers with the Clip `willSave` names, if any.
  */
 export const cvmAdapter = (e: Editor) => {
-  const recorder = new ReducerTester(
-    cvmRecorderReducer,
-    createInitialCvmRecorderState()
-  );
+  const recorder = cvmRecorderTester();
   let effectsSeen = 0;
   const pending: string[] = [];
   // `place-take`: the app server saves the speech where the editor says.

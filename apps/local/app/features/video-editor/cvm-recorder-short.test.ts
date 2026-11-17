@@ -1,11 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { SCENES, type Scene } from "@/packages/scene-layout";
-import { ReducerTester } from "@/test-utils/reducer-tester";
+import { cvmRecorderTester } from "./recorder-takes-test-harness";
 import {
   canRecord,
   canWakeSpacedeskAgain,
-  createInitialCvmRecorderState,
-  cvmRecorderReducer,
+  type cvmRecorderReducer,
 } from "./cvm-recorder-reducer";
 import {
   isSceneAvailable,
@@ -33,7 +32,7 @@ const screen = (
 
 /** The recorder open for this Video, in `scene`, with the Cam Link live. */
 const open = (format: "short" | "landscape", scene: Scene = "Code") =>
-  new ReducerTester(cvmRecorderReducer, createInitialCvmRecorderState(format))
+  cvmRecorderTester(format)
     .send(
       heard({
         type: "recorder-status",

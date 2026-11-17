@@ -26,19 +26,16 @@ export const getRecorderCapture = (
   speech: toFrontendSpeechDetectorState(cvmRecorder.speech),
 });
 
-/** The editor's capture props, from the CVM recorder's state. */
-export const captureProps = (cvmRecorder: {
-  state: cvmRecorderReducer.State;
-}): {
+/** The editor's capture props, from what a take is doing. */
+export const captureProps = (
+  capture: RecorderCapture
+): {
   speechDetectorState: FrontendSpeechDetectorState;
   isRecordingActive: boolean;
-} => {
-  const capture = getRecorderCapture(cvmRecorder.state);
-  return {
-    speechDetectorState: capture.speech,
-    isRecordingActive: capture.isRecording,
-  };
-};
+} => ({
+  speechDetectorState: capture.speech,
+  isRecordingActive: capture.isRecording,
+});
 
 /** The capture status the teleprompter shows on the glass. */
 export const toCaptureStatus = (capture: RecorderCapture): CaptureStatus =>

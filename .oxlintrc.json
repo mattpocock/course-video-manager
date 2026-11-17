@@ -40,6 +40,60 @@
             "name": "use-effect-reducer",
             "importNames": ["useEffectReducer"],
             "message": "Import useEffectReducer from @/hooks/use-effect-reducer. The package's own version loses effects under StrictMode (#2386); its types are fine to import."
+          },
+          // The strict XState profile (docs/XSTATE.md): one way to do each thing.
+          {
+            "name": "xstate",
+            "importNames": [
+              "createMachine",
+              "createStateConfig",
+              "createSystem",
+              "machineFromJSON",
+              "createActor",
+              "createAsyncLogic",
+              "createCallbackLogic",
+              "createObservableLogic",
+              "createEventObservableLogic",
+              "createStepLogic",
+              "createListenerLogic",
+              "createSubscriptionLogic",
+              "createEmptyActor",
+              "assertEvent",
+              "waitFor",
+              "toPromise",
+              "getNextTransitions",
+              "getMicrosteps",
+              "getInitialMicrosteps",
+              "initialSystemTransition",
+              "systemTransition",
+              "advanceSystemTime",
+              "SimulatedClock",
+              "executeEffects",
+              "mapState"
+            ],
+            "message": "Outside the strict XState profile (docs/XSTATE.md): a machine is setup({ schemas, actions, states }).createMachine(...), run by useActorRef in a use-*.ts hook, and tested with transition()/initialTransition()."
+          },
+          {
+            "name": "@xstate/react",
+            "importNames": [
+              "useMachine",
+              "useActor",
+              "createActorContext",
+              "shallowEqual"
+            ],
+            "message": "Outside the strict XState profile (docs/XSTATE.md): run a machine with useActorRef and read it with useSelector(actor, selector), never the whole snapshot."
+          }
+        ],
+        "patterns": [
+          {
+            "group": [
+              "xstate/*",
+              "@xstate/store",
+              "@xstate/scxml",
+              "@xstate/test",
+              "@xstate/effect"
+            ],
+            "message": "Outside the strict XState profile (docs/XSTATE.md): import only setup, types, transition, initialTransition and isUnhandled from \"xstate\" itself."
           }
         ]
       }
@@ -146,6 +200,48 @@
                 "importNames": ["useEffectReducer"],
                 "message": "Import useEffectReducer from @/hooks/use-effect-reducer. The package's own version loses effects under StrictMode (#2386); its types are fine to import."
               },
+              // The strict XState profile (docs/XSTATE.md): one way to do each thing.
+              {
+                "name": "xstate",
+                "importNames": [
+                  "createMachine",
+                  "createStateConfig",
+                  "createSystem",
+                  "machineFromJSON",
+                  "createActor",
+                  "createAsyncLogic",
+                  "createCallbackLogic",
+                  "createObservableLogic",
+                  "createEventObservableLogic",
+                  "createStepLogic",
+                  "createListenerLogic",
+                  "createSubscriptionLogic",
+                  "createEmptyActor",
+                  "assertEvent",
+                  "waitFor",
+                  "toPromise",
+                  "getNextTransitions",
+                  "getMicrosteps",
+                  "getInitialMicrosteps",
+                  "initialSystemTransition",
+                  "systemTransition",
+                  "advanceSystemTime",
+                  "SimulatedClock",
+                  "executeEffects",
+                  "mapState"
+                ],
+                "message": "Outside the strict XState profile (docs/XSTATE.md): a machine is setup({ schemas, actions, states }).createMachine(...), run by useActorRef in a use-*.ts hook, and tested with transition()/initialTransition()."
+              },
+              {
+                "name": "@xstate/react",
+                "importNames": [
+                  "useMachine",
+                  "useActor",
+                  "createActorContext",
+                  "shallowEqual"
+                ],
+                "message": "Outside the strict XState profile (docs/XSTATE.md): run a machine with useActorRef and read it with useSelector(actor, selector), never the whole snapshot."
+              },
               {
                 "name": "@/components/ui/toast",
                 "message": "Toasts are off on the Diagram Playground. Report errors with usePlaygroundStatus() from @/features/diagrams/playground-status; successes stay silent."
@@ -156,6 +252,16 @@
               }
             ],
             "patterns": [
+              {
+                "group": [
+                  "xstate/*",
+                  "@xstate/store",
+                  "@xstate/scxml",
+                  "@xstate/test",
+                  "@xstate/effect"
+                ],
+                "message": "Outside the strict XState profile (docs/XSTATE.md): import only setup, types, transition, initialTransition and isUnhandled from \"xstate\" itself."
+              },
               {
                 "group": ["**/components/ui/toast", "**/components/ui/sonner"],
                 "message": "Toasts are off on the Diagram Playground. Report errors with usePlaygroundStatus() from @/features/diagrams/playground-status; successes stay silent."
@@ -249,7 +355,6 @@
         "apps/local/app/features/video-editor/composite-playback-reducer.ts",
         "apps/local/app/features/video-editor/hooks/use-keyboard-shortcuts.ts",
         "apps/local/app/features/video-editor/preloadable-clip.tsx",
-        "apps/local/app/features/video-editor/recorder-session-reducer.ts",
         "apps/local/app/features/video-editor/suggestions-reducer.ts",
         "apps/local/app/features/video-posting/ai-hero-page.tsx",
         "apps/local/app/features/video-posting/newsletter-page.tsx",

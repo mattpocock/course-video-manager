@@ -6,6 +6,7 @@ import { stillRound } from "../cvm-recorder-reducer";
 import { clipFrameRequest } from "../clip-frame-preview-reducer";
 import type { ClipOverlay } from "../overlay-preview";
 import { useClipFramePreview } from "../hooks/use-clip-frame-preview";
+import { useCvmRecorderSelector } from "@/features/video-editor/use-cvm-recorder-selector";
 
 const NO_OVERLAYS: readonly ClipOverlay[] = [];
 
@@ -37,9 +38,7 @@ export const ClipFramePreviewOverlay = (props: {
     VideoEditorContext,
     (ctx) => ctx.currentTimeInClip
   );
-  const round = useContextSelector(VideoEditorContext, (ctx) =>
-    stillRound(ctx.cvmRecorder.state)
-  );
+  const round = useCvmRecorderSelector(stillRound);
 
   const clip = currentClip?.type === "on-database" ? currentClip : undefined;
   const overlays =

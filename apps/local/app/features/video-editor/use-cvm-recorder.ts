@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef } from "react";
-import { useEffectReducer } from "@/hooks/use-effect-reducer";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useActorRef, useSelector } from "@xstate/react";
+import type { ActorRefFrom } from "xstate";
 import type { Scene } from "@/packages/scene-layout";
 import type { MicEq } from "@cvm/core/features/videos/recorder";
 import {
@@ -13,37 +14,37 @@ import type {
   MicOffsetRefusal,
 } from "./clip-state-reducer.types";
 import {
-  canRecord,
-  canRetryCamera,
-  canStop,
-  canWakeSpacedeskAgain,
-  createInitialCvmRecorderState,
-  cvmRecorderReducer,
   followedOnLeave,
   holdsRecordingSession,
+  isCvmRecorderRecording,
+  type cvmRecorderReducer,
 } from "./cvm-recorder-reducer";
 import {
-  createInitialRecorderAttentionState,
-  holdsRecorder,
-  recorderAttentionReducer,
-} from "./recorder-attention-reducer";
+  cvmRecorderMachine,
+  recorderStateOf,
+  type CvmRecorderMachine,
+  type cvmRecorderEffects,
+} from "./cvm-recorder-machine";
 import type { InsertionPoint } from "@/services/clip-service";
 import { useStopRecordingOnLeave } from "./use-stop-recording-on-leave";
+import { useRecorderEvents } from "./use-recorder-events";
 import { cvmRecorderTakeSaver } from "./cvm-recorder-take-saver";
 import type { TakeSaver } from "./take-saver";
-import {
-  CVM_RECORDER_MESSAGE_TYPES,
-  type CvmRecorderMessage,
-  type PlacedTake,
-} from "./cvm-recorder-wire";
+import type { PlacedTake } from "./cvm-recorder-wire";
+import type { RecorderCapture } from "./recorder-capture";
+import { toFrontendSpeechDetectorState } from "./speech-detector-reducer";
 
-/** What the editor's CVM recorder controls show and do. */
+export type CvmRecorderActor = ActorRefFrom<CvmRecorderMachine>;
+
+/**
+ * What the editor's CVM recorder controls show and do. The same object for
+ * the whole visit: read the recorder through `actor` with a selector
+ * (`useCvmRecorderSelector`), so a component re-renders only when what it
+ * shows changes.
+ */
 export type CvmRecorderControls = {
-  state: cvmRecorderReducer.State;
-  canRecord: boolean;
-  canStop: boolean;
-  canRetryCamera: boolean;
-  canWakeSpacedeskAgain: boolean;
+  actor: CvmRecorderActor;
+  saveTakes: TakeSaver;
   onWakeSpacedesk: () => void;
   onStop: () => void;
   onDismissAlert: () => void;
@@ -62,90 +63,7 @@ export type CvmRecorderControls = {
   onDismissMicOffsetRefusal: () => void;
 };
 
-const answer = async (response: Response) => {
-  if (!response.ok) throw new Error(await response.text());
-};
-
-const messageOf = (error: unknown) =>
-  error instanceof Error ? error.message : String(error);
-
-/**
- * Hears a Video's `CvmRecorderMessage`s from `GET /api/videos/:id/recorder/
- * events` while `enabled`. Listening is what opens the recorder (and the Cam
- * Link) for that Video. The editor and the thumbnail camera both listen
- * through here.
- *
- * It stops listening once the window has gone unfocused for
- * `RECORDER_AWAY_MS`, unless `recording`, and listens again when focus comes
- * back (`recorder-attention-reducer.ts`, #2383).
- */
-export const useRecorderEvents = (
-  videoId: string,
-  enabled: boolean,
-  recording: boolean,
-  onMessage: (message: CvmRecorderMessage) => void
-) => {
-  const listener = useRef(onMessage);
-  listener.current = onMessage;
-  const [attention, dispatch] = useEffectReducer(
-    recorderAttentionReducer,
-    createInitialRecorderAttentionState,
-    {
-      "wait-while-away": (_state, effect, dispatch) => {
-        const timer = setTimeout(
-          () => dispatch({ type: "away-time-elapsed" }),
-          effect.ms
-        );
-        return () => clearTimeout(timer);
-      },
-    }
-  );
-  const listening = enabled && holdsRecorder(attention);
-
-  // Bridges the window's focus in.
-  useEffect(() => {
-    const report = () =>
-      dispatch({
-        type:
-          document.visibilityState === "visible" && document.hasFocus()
-            ? "window-focused"
-            : "window-left",
-      });
-    report();
-    window.addEventListener("focus", report);
-    window.addEventListener("blur", report);
-    document.addEventListener("visibilitychange", report);
-    return () => {
-      window.removeEventListener("focus", report);
-      window.removeEventListener("blur", report);
-      document.removeEventListener("visibilitychange", report);
-    };
-  }, [dispatch]);
-
-  // Bridges whether a Recording Session holds the recorder in.
-  useEffect(() => {
-    dispatch({ type: "recording-heard", recording });
-  }, [recording, dispatch]);
-
-  useEffect(() => {
-    if (!listening) return;
-    const source = new EventSource(`/api/videos/${videoId}/recorder/events`);
-    for (const type of CVM_RECORDER_MESSAGE_TYPES) {
-      source.addEventListener(type, (event) => {
-        listener.current(JSON.parse(event.data) as CvmRecorderMessage);
-      });
-    }
-    return () => source.close();
-  }, [videoId, listening]);
-};
-
-/**
- * The effect runner for `cvmRecorderReducer`, and the bridge from the app
- * server's recorder events (`GET /api/videos/:id/recorder/events`) into it.
- * Its clip effects are the clip reducer's recording events (ADR 0044). Its
- * listening is what opens the recorder (and the Cam Link) for the Video.
- */
-export const useCvmRecorder = (o: {
+type Options = {
   /** The Video: a Short opens the recorder, and draws, in the Short layout. */
   video: { id: string; format: string };
   silenceLength: SilenceLength;
@@ -163,124 +81,148 @@ export const useCvmRecorder = (o: {
    * the take it leaves mid-way is placed there.
    */
   insertionPoint: () => InsertionPoint;
-}): CvmRecorderControls & { saveTakes: TakeSaver } => {
+};
+
+const answer = async (response: Response) => {
+  if (!response.ok) throw new Error(await response.text());
+};
+
+const messageOf = (error: unknown) =>
+  error instanceof Error ? error.message : String(error);
+
+/**
+ * What each of the machine's effects does. Each makes one call and, where
+ * the machine waits on its outcome, sends that back as an event.
+ */
+const recorderEffects = (
+  videoId: string,
+  saver: ReturnType<typeof cvmRecorderTakeSaver>,
+  editor: { readonly current: Options },
+  send: (event: cvmRecorderReducer.Action) => void
+): typeof cvmRecorderEffects => {
+  const post = (path: string, body?: unknown) =>
+    fetch(`/api/videos/${videoId}/recorder/${path}`, {
+      method: "POST",
+      ...(body === undefined
+        ? {}
+        : {
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          }),
+    }).then(answer);
+  return {
+    "send-silence-length": ({ silenceLength }) => {
+      post("silence-length", { silenceLength }).catch((error: unknown) =>
+        // Not fatal: only a Stream Deck Record needs it, and says so.
+        console.error("Could not tell the recorder the Silence Length", error)
+      );
+    },
+    "start-session": ({ recordingSessionId, silenceLength }) =>
+      editor.current.clipDispatch({
+        type: "recording-started",
+        outputPath: recordingSessionId,
+        silenceLength,
+      }),
+    "stop-session": () =>
+      editor.current.clipDispatch({ type: "recording-stopped" }),
+    "start-take": ({ soundDetectionId }) =>
+      editor.current.onNewClipOptimisticallyAdded({
+        scene: null,
+        profile: null,
+        soundDetectionId,
+      }),
+    "close-take-window": () => editor.current.onClipAudioWindowClosed(),
+    "place-take": ({ recordingSessionId }) =>
+      saver.takeEnded(recordingSessionId),
+    "show-saved-clips": (effect) =>
+      editor.current.clipDispatch({
+        type: "new-database-clips",
+        clips: effect.clips,
+        outputPath: effect.recordingSessionId,
+        transcriptionJobId: effect.transcriptionJobId,
+      }),
+    "retry-camera": () => {
+      post("retry-camera").catch((error: unknown) =>
+        send({ type: "retry-camera-failed", message: messageOf(error) })
+      );
+    },
+    "retry-screen": () => {
+      post("retry-screen").catch((error: unknown) =>
+        send({ type: "retry-screen-failed", message: messageOf(error) })
+      );
+    },
+    "stop-recording": () => {
+      post("stop", {}).catch((error: unknown) =>
+        send({ type: "stop-recording-failed", message: messageOf(error) })
+      );
+    },
+  };
+};
+
+/**
+ * The CVM recorder's machine (`cvm-recorder-machine.ts`), what its effects
+ * do, and the bridge from the app server's recorder events
+ * (`GET /api/videos/:id/recorder/events`) into it. Its clip effects are the
+ * clip reducer's recording events (ADR 0044). Its listening is what opens
+ * the recorder (and the Cam Link) for the Video.
+ *
+ * The editor subscribes to the slices it needs, not the whole snapshot: what
+ * holds the recorder, the Recording Session to hand back on leave, and what
+ * a take is doing (`capture`).
+ */
+export const useCvmRecorder = (
+  o: Options
+): { controls: CvmRecorderControls; capture: RecorderCapture } => {
   const videoId = o.video.id;
   const format: VideoFormat = resolveVideoFormat(o.video.format);
-  const saver = useMemo(
-    () =>
-      cvmRecorderTakeSaver({
-        placeTake: async (recordingSessionId, insertionPoint) => {
-          const response = await fetch(
-            `/api/videos/${videoId}/recorder/place-take`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ recordingSessionId, insertionPoint }),
-            }
-          );
-          if (!response.ok) throw new Error(await response.text());
-          return (await response.json()) as PlacedTake;
-        },
-      }),
-    [videoId]
+  const editor = useRef(o);
+  editor.current = o;
+  const self = useRef<CvmRecorderActor | null>(null);
+  const [{ saver, logic }] = useState(() => {
+    const saver = cvmRecorderTakeSaver({
+      placeTake: async (recordingSessionId, insertionPoint) => {
+        const response = await fetch(
+          `/api/videos/${videoId}/recorder/place-take`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ recordingSessionId, insertionPoint }),
+          }
+        );
+        if (!response.ok) throw new Error(await response.text());
+        return (await response.json()) as PlacedTake;
+      },
+    });
+    const logic = cvmRecorderMachine.provide({
+      actions: recorderEffects(videoId, saver, editor, (event) =>
+        self.current?.send(event)
+      ),
+    });
+    return { saver, logic };
+  });
+  const actor = useActorRef(logic, { input: { format } });
+  self.current = actor;
+
+  const following = useSelector(actor, (s) =>
+    followedOnLeave(recorderStateOf(s))
   );
-  const [state, dispatch] = useEffectReducer(
-    cvmRecorderReducer,
-    () => createInitialCvmRecorderState(format),
-    {
-      "send-silence-length": (_state, effect) => {
-        fetch(`/api/videos/${videoId}/recorder/silence-length`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ silenceLength: effect.silenceLength }),
-        })
-          .then(answer)
-          .catch((error: unknown) =>
-            // Not fatal: only a Stream Deck Record needs it, and says so.
-            console.error(
-              "Could not tell the recorder the Silence Length",
-              error
-            )
-          );
-      },
-      "start-session": (_state, effect) => {
-        o.clipDispatch({
-          type: "recording-started",
-          outputPath: effect.recordingSessionId,
-          silenceLength: effect.silenceLength,
-        });
-      },
-      "stop-session": () => {
-        o.clipDispatch({ type: "recording-stopped" });
-      },
-      "start-take": (_state, effect) => {
-        o.onNewClipOptimisticallyAdded({
-          scene: null,
-          profile: null,
-          soundDetectionId: effect.soundDetectionId,
-        });
-      },
-      "close-take-window": () => {
-        o.onClipAudioWindowClosed();
-      },
-      "place-take": (_state, effect) => {
-        saver.takeEnded(effect.recordingSessionId);
-      },
-      "show-saved-clips": (_state, effect) => {
-        o.clipDispatch({
-          type: "new-database-clips",
-          clips: effect.clips,
-          outputPath: effect.recordingSessionId,
-          transcriptionJobId: effect.transcriptionJobId,
-        });
-      },
-      "retry-camera": (_state, _effect, dispatch) => {
-        fetch(`/api/videos/${videoId}/recorder/retry-camera`, {
-          method: "POST",
-        })
-          .then(answer)
-          .catch((error: unknown) =>
-            dispatch({ type: "retry-camera-failed", message: messageOf(error) })
-          );
-      },
-      "retry-screen": (_state, _effect, dispatch) => {
-        fetch(`/api/videos/${videoId}/recorder/retry-screen`, {
-          method: "POST",
-        })
-          .then(answer)
-          .catch((error: unknown) =>
-            dispatch({ type: "retry-screen-failed", message: messageOf(error) })
-          );
-      },
-      "log-unexpected": (_state, effect) => {
-        console.warn(effect.message);
-      },
-      "stop-recording": (_state, _effect, dispatch) => {
-        fetch(`/api/videos/${videoId}/recorder/stop`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({}),
-        })
-          .then(answer)
-          .catch((error: unknown) =>
-            dispatch({
-              type: "stop-recording-failed",
-              message: messageOf(error),
-            })
-          );
-      },
-    }
+  const holds = useSelector(actor, (s) =>
+    holdsRecordingSession(recorderStateOf(s))
   );
+  const isRecording = useSelector(actor, (s) =>
+    isCvmRecorderRecording(recorderStateOf(s))
+  );
+  const speech = useSelector(actor, (s) => s.context.speech);
 
   // Bridges the editor's Silence Length (a localStorage choice) in.
   useEffect(() => {
-    dispatch({
+    actor.send({
       type: "silence-length-chosen",
       silenceLength: o.silenceLength,
     });
-  }, [o.silenceLength, dispatch]);
+  }, [o.silenceLength, actor]);
 
-  useStopRecordingOnLeave(followedOnLeave(state), (recordingSessionId) => {
+  useStopRecordingOnLeave(following, (recordingSessionId) => {
     let insertionPoint: InsertionPoint | null = null;
     try {
       insertionPoint = o.insertionPoint();
@@ -302,28 +244,45 @@ export const useCvmRecorder = (o: {
     });
   });
 
-  useRecorderEvents(videoId, true, holdsRecordingSession(state), (message) => {
-    dispatch({ type: "recorder-message-heard", message });
+  useRecorderEvents(videoId, true, holds, (message) => {
+    actor.send({ type: "recorder-message-heard", message });
   });
 
-  return {
-    state,
-    saveTakes: saver.saveTakes,
-    canRecord: canRecord(state),
-    canStop: canStop(state),
-    canRetryCamera: canRetryCamera(state),
-    canWakeSpacedeskAgain: canWakeSpacedeskAgain(state),
-    onWakeSpacedesk: () => dispatch({ type: "press-wake-spacedesk" }),
-    onStop: () => dispatch({ type: "press-stop" }),
-    onDismissAlert: () => dispatch({ type: "dismiss-alert" }),
-    onDismissFramesLost: () => dispatch({ type: "dismiss-frames-lost-alert" }),
-    onRetryCamera: () => dispatch({ type: "press-retry" }),
-    onSetSceneOverride: (clipId, sceneOverride) =>
-      o.clipDispatch({ type: "set-scene-override", clipId, sceneOverride }),
-    onSubmitMicSettings: (clipId, settings) =>
-      o.clipDispatch({ type: "mic-settings-submitted", clipId, ...settings }),
-    micOffsetRefusal: o.micOffsetRefusal,
-    onDismissMicOffsetRefusal: () =>
-      o.clipDispatch({ type: "mic-offset-refusal-dismissed" }),
-  };
+  const micOffsetRefusal = o.micOffsetRefusal;
+  const controls = useMemo(
+    (): CvmRecorderControls => ({
+      actor,
+      saveTakes: saver.saveTakes,
+      onWakeSpacedesk: () => actor.send({ type: "press-wake-spacedesk" }),
+      onStop: () => actor.send({ type: "press-stop" }),
+      onDismissAlert: () => actor.send({ type: "dismiss-alert" }),
+      onDismissFramesLost: () =>
+        actor.send({ type: "dismiss-frames-lost-alert" }),
+      onRetryCamera: () => actor.send({ type: "press-retry" }),
+      onSetSceneOverride: (clipId, sceneOverride) =>
+        editor.current.clipDispatch({
+          type: "set-scene-override",
+          clipId,
+          sceneOverride,
+        }),
+      onSubmitMicSettings: (clipId, settings) =>
+        editor.current.clipDispatch({
+          type: "mic-settings-submitted",
+          clipId,
+          ...settings,
+        }),
+      micOffsetRefusal,
+      onDismissMicOffsetRefusal: () =>
+        editor.current.clipDispatch({ type: "mic-offset-refusal-dismissed" }),
+    }),
+    [actor, saver, micOffsetRefusal]
+  );
+  const capture = useMemo(
+    (): RecorderCapture => ({
+      isRecording,
+      speech: toFrontendSpeechDetectorState(speech),
+    }),
+    [isRecording, speech]
+  );
+  return { controls, capture };
 };

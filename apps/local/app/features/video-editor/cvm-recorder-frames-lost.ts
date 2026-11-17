@@ -25,14 +25,8 @@ export type TakeSpan = {
   endTime: number | null;
 };
 
-const isOurs = (
-  before: cvmRecorderReducer.State,
-  after: cvmRecorderReducer.State,
-  id: string
-) =>
-  id === after.recordingSessionId ||
-  id === before.placing ||
-  id === after.placing;
+const isOurs = (state: cvmRecorderReducer.Context, id: string) =>
+  id === state.recordingSessionId || id === state.placing;
 
 const closeLatestTake = (
   takes: readonly TakeSpan[],
@@ -55,25 +49,25 @@ const closeLatestTake = (
   );
 };
 
-/** The frames-lost half of a message, given the state before and after it. */
+/** Both lists start empty with the next Recording Session placed. */
+export const NO_FRAMES_LOST_YET = {
+  lostFrameSpans: [],
+  takeSpans: [],
+  framesLostDismissed: null,
+} as const satisfies Partial<cvmRecorderReducer.Context>;
+
+/**
+ * The frames-lost half of a message, once the Recording Session has heard
+ * it, before its placing ends (`placeClips`).
+ */
 export const trackFramesLost = (
-  before: cvmRecorderReducer.State,
-  after: cvmRecorderReducer.State,
+  next: cvmRecorderReducer.Context,
   message: CvmRecorderMessage
-): cvmRecorderReducer.State => {
-  const next =
-    after.placing !== null && after.placing !== before.placing
-      ? {
-          ...after,
-          lostFrameSpans: [],
-          takeSpans: [],
-          framesLostDismissed: null,
-        }
-      : after;
+): cvmRecorderReducer.Context => {
   if (
     !("recordingSessionId" in message) ||
     message.type === "recorder-status" ||
-    !isOurs(before, after, message.recordingSessionId)
+    !isOurs(next, message.recordingSessionId)
   )
     return next;
   switch (message.type) {
@@ -129,7 +123,7 @@ const list = (parts: string[]) =>
     : `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}`;
 
 /** Each Clip hit: its place in the recording (1-based) and what it lost. */
-export const clipsHitByLostFrames = (state: cvmRecorderReducer.State) =>
+export const clipsHitByLostFrames = (state: cvmRecorderReducer.Context) =>
   state.takeSpans.flatMap((take, i) => {
     const lost = state.lostFrameSpans.filter((l) => overlaps(l, take));
     if (lost.length === 0) return [];

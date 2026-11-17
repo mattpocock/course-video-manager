@@ -1,0 +1,11 @@
+// Deliberate violations of the strict XState profile's import bans, which are
+// `no-restricted-imports` in .oxlintrc.json. tests/xstate-profile-guard.test.ts
+// copies this to a temporary .ts file and runs oxlint on it with the repo's
+// config, one error per ban.
+import { createMachine } from "xstate";
+import { useMachine } from "@xstate/react";
+import { createFSM } from "xstate/fsm";
+
+void createMachine;
+void useMachine;
+void createFSM;

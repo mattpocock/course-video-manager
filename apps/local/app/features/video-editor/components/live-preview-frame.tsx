@@ -9,6 +9,7 @@ import { getShowRecordingSignal } from "../video-editor-selectors";
 import { CaptureFrame } from "./capture-frame";
 import { CompositePreview } from "./composite-preview";
 import { RecordingSignalIndicator } from "./timeline-indicators";
+import { useCvmRecorderSelector } from "@/features/video-editor/use-cvm-recorder-selector";
 
 /**
  * The editor's live frame: the live picture while paused, with the previous
@@ -21,10 +22,8 @@ import { RecordingSignalIndicator } from "./timeline-indicators";
  * Renders nothing while there is no live picture (the Clip player shows).
  */
 export const LivePreviewFrame = () => {
-  const cvmRecorderState = useContextSelector(
-    VideoEditorContext,
-    (ctx) => ctx.cvmRecorder.state
-  );
+  // The whole recorder: `useLastFrameUrl` reads most of it.
+  const cvmRecorderState = useCvmRecorderSelector((state) => state);
   const showVideoPlayer = useContextSelector(
     VideoEditorContext,
     (ctx) => ctx.showVideoPlayer

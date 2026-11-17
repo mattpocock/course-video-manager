@@ -26,15 +26,14 @@ import {
 import { StreamCardPreview } from "./stream-card-preview";
 import type { NewBroadcastVideo } from "./new-stream-video";
 import { useStreamingTabShown } from "./unlist-when-ended-checkbox";
+import { useCvmRecorderSelector } from "@/features/video-editor/use-cvm-recorder-selector";
 
 /**
  * The composite preview, with the Chat Highlight the stream shows over it,
  * or a frame saying there is no picture yet.
  */
 const StreamPicture = () => {
-  const hasLivePreview = useContextSelector(VideoEditorContext, (ctx) =>
-    getHasLivePreview(ctx.cvmRecorder.state)
-  );
+  const hasLivePreview = useCvmRecorderSelector(getHasLivePreview);
   if (hasLivePreview)
     return (
       <div className="relative">

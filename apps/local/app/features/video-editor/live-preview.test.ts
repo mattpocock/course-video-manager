@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { ReducerTester } from "@/test-utils/reducer-tester";
-import {
-  createInitialCvmRecorderState,
-  cvmRecorderReducer,
-} from "./cvm-recorder-reducer";
+import { createInitialCvmRecorderState } from "./cvm-recorder-reducer";
+import { cvmRecorderTester } from "./recorder-takes-test-harness";
 import type { CvmRecorderMessage } from "./cvm-recorder-wire";
 import { getHasLivePreview, getCvmRecorderLivePreview } from "./live-preview";
 import {
@@ -31,8 +28,7 @@ const status = (reachable = true, recordingSessionId: string | null = null) =>
     still: "http://r/still",
   });
 
-const tester = () =>
-  new ReducerTester(cvmRecorderReducer, createInitialCvmRecorderState());
+const tester = () => cvmRecorderTester();
 
 /** The recorder open for this Video, in Code, with the Cam Link live. */
 const open = () =>

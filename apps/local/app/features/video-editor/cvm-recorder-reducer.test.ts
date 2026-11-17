@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { ReducerTester } from "@/test-utils/reducer-tester";
+import { cvmRecorderTester } from "./recorder-takes-test-harness";
 import {
   canRecord,
   canRetryCamera,
-  createInitialCvmRecorderState,
-  cvmRecorderReducer,
+  type cvmRecorderReducer,
   framesLostAlert,
   holdsStillsOf,
 } from "./cvm-recorder-reducer";
@@ -64,8 +63,7 @@ const recording = () =>
       })
     );
 
-const tester = () =>
-  new ReducerTester(cvmRecorderReducer, createInitialCvmRecorderState());
+const tester = () => cvmRecorderTester();
 
 describe("the CVM recorder's Record and Stop", () => {
   it("is ready to record only once the recorder service is there and able", () => {

@@ -6,6 +6,8 @@ import {
   recordNeedsScreenHint,
   screenStatusText,
 } from "../cvm-recorder-screen";
+import { useCvmRecorderSelector } from "@/features/video-editor/use-cvm-recorder-selector";
+import { canWakeSpacedeskAgain } from "@/features/video-editor/cvm-recorder-reducer";
 
 /**
  * A Short's screen under the CVM recorder's controls: "Waking Spacedesk…",
@@ -18,10 +20,13 @@ export const ShortScreenStatus = () => {
     VideoEditorContext,
     (ctx) => ctx.cvmRecorder
   );
-  const text = screenStatusText(controls.state);
-  const hint = recordNeedsScreenHint(controls.state);
+  const text = useCvmRecorderSelector(screenStatusText);
+  const hint = useCvmRecorderSelector(recordNeedsScreenHint);
+  const unavailable = useCvmRecorderSelector(
+    (state) => state.screen?.kind === "unavailable"
+  );
+  const canWakeAgain = useCvmRecorderSelector(canWakeSpacedeskAgain);
   if (!text && !hint) return null;
-  const unavailable = controls.state.screen?.kind === "unavailable";
   return (
     <div
       className="flex max-w-xl flex-col items-center gap-1 text-center text-xs"
@@ -38,7 +43,7 @@ export const ShortScreenStatus = () => {
               type="button"
               size="sm"
               variant="secondary"
-              disabled={!controls.canWakeSpacedeskAgain}
+              disabled={!canWakeAgain}
               onClick={controls.onWakeSpacedesk}
             >
               <RotateCcwIcon className="size-3.5 mr-1" />

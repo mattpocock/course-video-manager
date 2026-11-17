@@ -1,3 +1,5 @@
+import { useSelector } from "@xstate/react";
+import { recorderStateOf } from "./cvm-recorder-machine";
 import type { FootageNotFound } from "@/services/clip-source-files.server";
 import { EditorVideoMenuProvider } from "./editor-video-menu";
 import { EditorModals } from "./components/editor-modals";
@@ -270,7 +272,9 @@ export const VideoEditor = (props: VideoEditorProps) => {
 
   const totalDuration = getTotalDuration(clips);
 
-  const hasLivePreview = getHasLivePreview(props.cvmRecorder.state);
+  const hasLivePreview = useSelector(props.cvmRecorder.actor, (snapshot) =>
+    getHasLivePreview(recorderStateOf(snapshot))
+  );
   const showVideoPlayer = getShowVideoPlayer(
     state.runningState,
     hasLivePreview
