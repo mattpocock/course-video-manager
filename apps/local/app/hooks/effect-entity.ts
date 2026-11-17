@@ -14,13 +14,26 @@ import type {
  * batch stops then starts, and how an unmount suspends what runs and a
  * remount (StrictMode's second pass, #2386) restarts it. Each runner only
  * decides WHEN these run: after React commits, or right after a dispatch.
+ *
+ * An effect whose handler returns a cleanup runs until it is stopped (a
+ * timer, a subscription): an unmount suspends it and the remount restarts
+ * it. One that returns none (a fetch that dispatches its outcome, a prop
+ * callback) is done once it has run (#2718): nothing keeps it, a remount
+ * does not run it again, and stopping it does nothing.
  */
 
 /** One declared effect. */
 export type Entity<TState, TEvent extends EventObject> = EffectEntity<
   TState,
   TEvent
-> & { restart: () => void };
+> & {
+  /** Started, and holding a cleanup: so it runs until it is stopped. */
+  isRunning: () => boolean;
+  /** Unmount: runs the cleanup, but keeps what it started with. */
+  suspend: () => void;
+  /** Remount: starts a suspended effect again, as it first started. */
+  restart: () => void;
+};
 
 type Status = EffectEntity<unknown, EventObject>["status"];
 const IDLE = 0 as Status;
@@ -66,14 +79,18 @@ function createEntity<TState, TEvent extends EventObject>(
     type: effect.type,
     status: IDLE,
     start: (state, dispatch) => {
-      startedWith = [state, dispatch];
       cleanup = effect.exec?.(state, effect, dispatch);
       entity.status = STARTED;
+      // A one-shot effect is done: it keeps no state to restart with.
+      startedWith = entity.isRunning() ? [state, dispatch] : undefined;
     },
     stop: () => {
-      if (entity.status === STARTED && typeof cleanup === "function") {
-        cleanup();
-      }
+      entity.suspend();
+      startedWith = undefined;
+    },
+    isRunning: () => entity.status === STARTED && typeof cleanup === "function",
+    suspend: () => {
+      if (entity.isRunning()) (cleanup as () => void)();
       cleanup = undefined;
       entity.status = STOPPED;
     },
@@ -172,8 +189,8 @@ const isInitializer = <
 
 /**
  * Stops `toStop`, then starts every effect in `queue` not started yet,
- * batch by batch, each with its batch's state. `started` keeps what runs,
- * for `suspendRunning`.
+ * batch by batch, each with its batch's state. `started` keeps the ones
+ * still running (those with a cleanup), for `suspendRunning`.
  */
 export function runEffects<TState, TEvent extends EventObject>(
   toStop: readonly Entity<TState, TEvent>[],
@@ -188,28 +205,35 @@ export function runEffects<TState, TEvent extends EventObject>(
   for (const batch of queue) {
     for (const entity of batch.entities) {
       if (entity.status !== IDLE) continue;
-      started.add(entity);
       entity.start(batch.state, dispatch);
+      if (entity.isRunning()) started.add(entity);
     }
   }
 }
 
-/** Unmount: stops every running effect and returns them, to restart. */
+/**
+ * Unmount: suspends every running effect, takes it out of `started` and
+ * returns it, to restart.
+ */
 export function suspendRunning<TState, TEvent extends EventObject>(
-  started: ReadonlySet<Entity<TState, TEvent>>
+  started: Set<Entity<TState, TEvent>>
 ): Entity<TState, TEvent>[] {
-  const suspended: Entity<TState, TEvent>[] = [];
-  for (const entity of started) {
-    if (entity.status !== STARTED) continue;
-    entity.stop();
-    suspended.push(entity);
-  }
+  const suspended = [...started].filter((entity) => entity.isRunning());
+  for (const entity of suspended) entity.suspend();
+  started.clear();
   return suspended;
 }
 
-/** Remount: starts again what the last unmount stopped. */
+/**
+ * Remount: starts again what the last unmount suspended, unless it was
+ * stopped since, and keeps in `started` the ones that run again.
+ */
 export function restartSuspended<TState, TEvent extends EventObject>(
-  suspended: readonly Entity<TState, TEvent>[]
+  suspended: readonly Entity<TState, TEvent>[],
+  started: Set<Entity<TState, TEvent>>
 ): void {
-  for (const entity of suspended) entity.restart();
+  for (const entity of suspended) {
+    entity.restart();
+    if (entity.isRunning()) started.add(entity);
+  }
 }

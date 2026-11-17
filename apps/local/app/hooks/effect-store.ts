@@ -72,9 +72,10 @@ export type EffectStoreRunner<
  * completion: an event a handler dispatches synchronously waits until every
  * effect before it has started, and never runs inside another event.
  *
- * Effects start only while mounted. Unmount stops the running ones and a
- * remount (StrictMode's second pass) starts them again, as in
- * `useEffectReducer` (#2386).
+ * Effects start only while mounted. Unmount stops the running ones (those
+ * whose handler returned a cleanup) and a remount (StrictMode's second pass)
+ * starts them again, as in `useEffectReducer` (#2386). One without a cleanup
+ * is done once it has run, and is not run again (#2718).
  */
 export function createEffectStore<
   TState,
@@ -164,7 +165,7 @@ export function createEffectStore<
         startEffects();
         const restarting = suspended;
         suspended = [];
-        restartSuspended(restarting);
+        restartSuspended(restarting, started);
       });
       return () => {
         mounted = false;

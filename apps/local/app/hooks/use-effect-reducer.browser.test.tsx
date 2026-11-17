@@ -89,3 +89,28 @@ it("keeps an effect declared by the initializer running after StrictMode's remou
   root = undefined;
   expect(running.size).toBe(0);
 });
+
+it("runs an initializer's one-shot effect once under StrictMode's remount", () => {
+  let loads = 0;
+  function Loader() {
+    useEffectReducer(
+      reducer,
+      (exec): State => {
+        exec({ type: "load" });
+        return { status: "loading" };
+      },
+      {
+        // Stands in for a fetch: it returns no cleanup, so it is done once run.
+        load: () => {
+          loads++;
+        },
+        tick: () => {},
+      }
+    );
+    return null;
+  }
+
+  render(<Loader />);
+
+  expect(loads).toBe(1);
+});

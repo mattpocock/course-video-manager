@@ -32,7 +32,9 @@ import {
  *    it handled and removes those, so its replay removes nothing new.
  * 2. StrictMode's simulated unmount stopped the effects the initializer
  *    declared, and the remount never started them again. Here the remount
- *    restarts whatever the unmount stopped.
+ *    restarts whatever the unmount stopped: the effects whose handler
+ *    returned a cleanup. One that returned none was done once it ran, and
+ *    does not run again (#2718).
  *
  * So both forms of initial state, an object or `(exec) => state`, are safe.
  */
@@ -98,12 +100,13 @@ export function useEffectReducer<
     dispatch({ type: FLUSH, batches: queue, stopped: toStop });
   }, [queue, toStop, eventDispatch]);
 
-  // Unmount stops every running effect. A remount of the same instance
-  // (StrictMode's second pass) starts again the ones the unmount stopped.
+  // Unmount stops every running effect (one with a cleanup). A remount of
+  // the same instance (StrictMode's second pass) starts again the ones the
+  // unmount stopped.
   useEffect(() => {
-    restartSuspended(suspendedRef.current);
-    suspendedRef.current = [];
     const started = startedRef.current;
+    restartSuspended(suspendedRef.current, started);
+    suspendedRef.current = [];
     return () => {
       suspendedRef.current.push(...suspendRunning(started));
     };
