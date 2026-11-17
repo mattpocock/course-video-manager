@@ -48,7 +48,9 @@ export function CropOverlay(props: {
     cropReducer,
     createInitialCropState,
     {
-      "save-custom-crop": (_state, effect) => onSaveRef.current(effect.crop),
+      "save-custom-crop": (_state, effect) => {
+        onSaveRef.current(effect.crop);
+      },
     }
   );
   const box = shownCrop(state, props.crop);
