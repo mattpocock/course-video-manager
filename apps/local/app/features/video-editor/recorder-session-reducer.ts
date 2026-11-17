@@ -1,8 +1,15 @@
+import {
+  isUnhandled,
+  transition,
+  type EventObject,
+  type SnapshotFrom,
+} from "xstate";
 import type { SilenceLength } from "@/silence-detection-constants";
 import {
   createInitialSpeechDetectorState,
-  speechDetectorReducer,
+  type speechDetectorReducer,
 } from "./speech-detector-reducer";
+import { recorderSessionMachine } from "./recorder-session-machine";
 
 /**
  * The Recording Session as the editor follows it (ADR 0050, ADR 0051). The
@@ -129,17 +136,6 @@ export const followedOnLeave = (
 ): string | null =>
   state.phase === "idle" || state.streamed ? null : state.recordingSessionId;
 
-/** Enough to recognise any late replay; a page records far fewer. */
-const ENDED_KEPT = 50;
-
-const ended = (
-  state: recorderSessionReducer.State,
-  id: string | null
-): readonly string[] =>
-  id === null || state.endedRecordingSessionIds.includes(id)
-    ? state.endedRecordingSessionIds
-    : [...state.endedRecordingSessionIds, id].slice(-ENDED_KEPT);
-
 /**
  * Whether a Recording Session's event is the editor's to follow: the current
  * one's always; a start while none is followed, unless it is over; the stop
@@ -169,135 +165,64 @@ export const follows = (
   }
 };
 
-/** The clip reducer's half of a change of the Recording Session followed. */
-const followChanged = (
-  before: recorderSessionReducer.State,
-  after: recorderSessionReducer.State,
-  exec: Exec,
-  start?: { silenceLength: SilenceLength }
-) => {
-  if (before.recordingSessionId === after.recordingSessionId) return;
-  if (before.recordingSessionId !== null) {
-    // Stop lets a take go at the press (#2211): the audio window of speech
-    // going on closes now, as the silence after it would have closed it.
-    if (before.speech.type === "speaking") exec({ type: "close-take-window" });
-    exec({ type: "stop-session" });
-  }
-  if (after.recordingSessionId !== null && start)
-    exec({
-      type: "start-session",
-      recordingSessionId: after.recordingSessionId,
-      silenceLength: start.silenceLength,
-    });
+/** Every effect the machine emits: the reducer hands on only these. */
+const EFFECT_TYPES = {
+  "stop-recording": true,
+  "start-session": true,
+  "stop-session": true,
+  "start-take": true,
+  "close-take-window": true,
+  "log-unexpected": true,
+} satisfies Record<recorderSessionReducer.Effect["type"], true>;
+
+const isEffect = (event: EventObject): event is recorderSessionReducer.Effect =>
+  Object.hasOwn(EFFECT_TYPES, event.type);
+
+const toSnapshot = (state: recorderSessionReducer.State) =>
+  recorderSessionMachine.resolveState({
+    value: state.phase === "idle" ? "idle" : { following: state.phase },
+    context: {
+      speech: state.speech,
+      recordingSessionId: state.recordingSessionId,
+      endedRecordingSessionIds: state.endedRecordingSessionIds,
+      attached: state.attached,
+      streamed: state.streamed,
+    },
+  });
+
+const phaseOf = (
+  snapshot: SnapshotFrom<typeof recorderSessionMachine>
+): recorderSessionReducer.Phase => {
+  if (snapshot.matches("idle")) return "idle";
+  return snapshot.matches({ following: "stopping" }) ? "stopping" : "recording";
 };
-
-const soundOf = (speech: speechDetectorReducer.State) =>
-  speech.type === "speaking" ? speech.soundDetectionId : null;
-
-/** What a change of speech means for a Take. */
-const takeEffects = (
-  before: speechDetectorReducer.State,
-  after: speechDetectorReducer.State,
-  exec: Exec
-) => {
-  const sound = soundOf(after);
-  if (sound !== null && sound !== soundOf(before))
-    exec({ type: "start-take", soundDetectionId: sound });
-  else if (before.type !== "silence" && after.type === "silence")
-    exec({ type: "close-take-window" });
-};
-
-const over = <S extends recorderSessionReducer.State>(
-  state: S,
-  id: string
-): S => ({
-  ...state,
-  phase: "idle",
-  speech: createInitialSpeechDetectorState(),
-  recordingSessionId: null,
-  endedRecordingSessionIds: ended(state, id),
-  streamed: false,
-});
 
 /**
  * The one recording-session reducer, composed into each Recorder's own:
- * their state extends this one's, which it returns updated.
+ * their state extends this one's, which it returns updated. It runs
+ * `recorderSessionMachine` with the pure `transition()`; an event no state
+ * handles leaves the state as it was.
  */
 export const recorderSessionReducer = <S extends recorderSessionReducer.State>(
   state: S,
   event: recorderSessionReducer.Event,
   exec: Exec
 ): S => {
-  switch (event.type) {
-    case "recorder-reported": {
-      const current = state.recordingSessionId;
-      let next: S = state;
-      if (event.recordingSessionId === null) {
-        if (current !== null) next = over(state, current);
-      } else if (event.recordingSessionId !== current) {
-        if (state.endedRecordingSessionIds.includes(event.recordingSessionId))
-          return state;
-        // The Recorder's word on what records now is the truth.
-        next = {
-          ...state,
-          recordingSessionId: event.recordingSessionId,
-          endedRecordingSessionIds: ended(state, current),
-          phase: state.phase === "stopping" ? "stopping" : "recording",
-          // Joined mid-take, nothing is known until the Recorder next hears.
-          speech:
-            state.phase === "idle"
-              ? createInitialSpeechDetectorState()
-              : state.speech,
-        };
-      }
-      if (next.recordingSessionId !== null)
-        next = { ...next, streamed: event.streamed };
-      followChanged(state, next, exec, event);
-      if (next.attached || !event.reachable) return next;
-      // A streamed one is re-attached to: only End Stream ends it.
-      if (next.phase !== "recording" || next.streamed)
-        return { ...next, attached: true };
-      exec({ type: "stop-recording" });
-      return { ...next, attached: true, phase: "stopping" };
-    }
-    case "recording-started": {
-      const id = event.recordingSessionId;
-      if (!follows(state, "recording-started", id)) return state;
-      const next: S = {
-        ...state,
-        phase: "recording",
-        speech: speechDetectorReducer(state.speech, {
-          type: "recording-started",
-        }),
-        recordingSessionId: id,
-      };
-      followChanged(state, next, exec, event);
-      return next;
-    }
-    case "recording-stopped": {
-      if (event.recordingSessionId !== state.recordingSessionId) return state;
-      const next = over(state, event.recordingSessionId);
-      followChanged(state, next, exec);
-      return next;
-    }
-    case "speech-heard": {
-      if (
-        event.recordingSessionId === null ||
-        event.recordingSessionId !== state.recordingSessionId
-      )
-        return state;
-      const speech = speechDetectorReducer(state.speech, event.heard);
-      if (speech === state.speech) return state;
-      takeEffects(state.speech, speech, exec);
-      return { ...state, speech };
-    }
-    case "press-stop":
-      if (!canPressStop(state)) return state;
-      exec({ type: "stop-recording" });
-      return { ...state, phase: "stopping" };
-    case "stop-recording-failed":
-      return state.phase === "stopping"
-        ? { ...state, phase: "recording" }
-        : state;
-  }
+  const before = toSnapshot(state);
+  const result = transition(recorderSessionMachine, before, event);
+  if (isUnhandled(before, result)) return state;
+  const [after, effects] = result;
+  for (const effect of effects)
+    if (effect.kind === "emit" && isEffect(effect.event)) exec(effect.event);
+  const { speech, recordingSessionId, endedRecordingSessionIds } =
+    after.context;
+  return {
+    ...state,
+    phase: phaseOf(after),
+    speech,
+    recordingSessionId,
+    endedRecordingSessionIds,
+    attached: after.context.attached,
+    streamed: after.context.streamed,
+  };
 };
