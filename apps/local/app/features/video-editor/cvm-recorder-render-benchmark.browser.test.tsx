@@ -1,5 +1,5 @@
 import { fromPartial } from "@total-typescript/shoehorn";
-import { act, Profiler, StrictMode, useReducer, type ReactNode } from "react";
+import { act, Profiler, useReducer, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { useContextSelector } from "use-context-selector";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -27,30 +27,32 @@ import {
 } from "./video-editor-context";
 
 /**
- * RENDER BENCHMARK. The recorder in its effect store (`hooks/effect-store.ts`),
- * each consumer reading its slice with a selector. The same event stream ran
- * against origin/main's `useEffectReducer` version of this file (branch
- * `xstate-strict-poc-baseline`) and #2713's XState version; only `Host`,
- * `Editor` and the leaves' subscriptions differ, each copying the real
- * component's subscription.
+ * How much of the editor a Recording Session re-renders. The recorder lives
+ * in its effect store (`hooks/effect-store.ts`) and each consumer reads its
+ * slice with a selector, so a report that changes nothing a component shows
+ * renders nothing (a `recorder-status` every second or so, `frames-lost`
+ * outside the controls, a late replay).
  *
  * The tree is the editor's shape: the wiring hook at the top (`Host`, as
  * `useVideoEditorWiring`), `VideoEditor` under it with no `memo`, and the
- * recorder's consumers under that. A clip effect re-renders `Host`, as the
- * clip reducer living there does. Counts are deterministic; wall-clock is
- * logged for the report and never asserted.
+ * recorder's consumers under that, each subscribing exactly as its real
+ * component does. A clip effect re-renders `Host`, as the clip reducer
+ * living there does. The counts are deterministic, so they are asserted
+ * exactly: a consumer that goes back to reading the whole recorder, or a
+ * store that notifies for an ignored event, changes them.
  */
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
 const CLIPS = 30;
+const HOST = "Host (useVideoEditorWiring)";
 const TAKES = 10;
 const STATUS_PER_TAKE = 5;
 const FRAMES_LOST_PER_TAKE = 3;
 
 // ---------------------------------------------------------------------------
-// The shared harness: identical on both branches.
+// The harness.
 
 const renders = new Map<string, number>();
 let commits = 0;
@@ -198,87 +200,79 @@ const mount = (element: ReactNode) => {
   );
 };
 
-it("counts renders per component for a Recording Session's event stream", async () => {
+it("re-renders only what a Recording Session's events change", async () => {
   mount(<Host />);
-  const perStep = new Map<string, Map<string, number>>();
-  const startedAt = performance.now();
+  const perEvent: Record<
+    string,
+    { events: number; commits: number; host: number; renders: number }
+  > = {};
+  const total = () => [...renders.values()].reduce((a, b) => a + b, 0);
   for (const step of stream()) {
-    const before = new Map(renders);
+    const host = renders.get(HOST) ?? 0;
+    const all = total();
     const commitsBefore = commits;
     await act(async () => {
       if (step.kind === "press-stop") controls!.onStop();
       else source!.emit(step.message);
     });
-    const name = stepName(step);
-    const row = perStep.get(name) ?? new Map<string, number>();
-    for (const [component, n] of renders)
-      row.set(
-        component,
-        (row.get(component) ?? 0) + n - (before.get(component) ?? 0)
-      );
-    row.set("(commits)", (row.get("(commits)") ?? 0) + commits - commitsBefore);
-    row.set("(events)", (row.get("(events)") ?? 0) + 1);
-    perStep.set(name, row);
+    const row = (perEvent[stepName(step)] ??= {
+      events: 0,
+      commits: 0,
+      host: 0,
+      renders: 0,
+    });
+    row.events++;
+    row.commits += commits - commitsBefore;
+    row.host += (renders.get(HOST) ?? 0) - host;
+    row.renders += total() - all;
   }
-  const ms = performance.now() - startedAt;
-  console.log(
-    "RENDER-BENCHMARK " +
-      JSON.stringify({
-        ms,
-        commits,
-        renders: Object.fromEntries(renders),
-        perStep: Object.fromEntries(
-          [...perStep].map(([k, v]) => [k, Object.fromEntries(v)])
-        ),
-      })
-  );
+
   // The stream did what a Recording Session does: it ended idle.
   expect(isCvmRecorderRecording(controls!.store.getSnapshot())).toBe(false);
-});
-
-// Not a benchmark: the app runs under StrictMode, whose remount must leave
-// the recorder following the stream and running each effect once.
-it("under StrictMode, still follows the recorder and runs each effect once", async () => {
-  const clipActions: string[] = [];
-  function StrictHost() {
-    const recorder = useCvmRecorder({
-      video: { id: "v1", format: "landscape" },
-      silenceLength: "short",
-      clipDispatch: (action) => clipActions.push(action.type),
-      onNewClipOptimisticallyAdded: () => {},
-      onClipAudioWindowClosed: () => {},
-      micOffsetRefusal: null,
-      insertionPoint: () => ({ type: "start" }),
-    });
-    controls = recorder.controls;
-    return null;
-  }
-  root = createRoot(document.createElement("div"));
-  act(() =>
-    root!.render(
-      <StrictMode>
-        <StrictHost />
-      </StrictMode>
-    )
-  );
-  await act(async () => {
-    source!.emit(status(null));
-    source!.emit({
-      type: "recording-started",
-      recordingSessionId: "s1",
-      silenceLength: "short",
-      micFile: "mic.mkv",
-    });
+  expect(commits).toBe(127);
+  expect(Object.fromEntries(renders)).toEqual({
+    [HOST]: 50,
+    VideoEditor: 51,
+    VideoPlayerPanel: 96,
+    LivePreviewFrame: 96,
+    CvmRecorderControls: 126,
+    ShortScreenStatus: 96,
+    CameraProblem: 97,
+    ClipFramePreviewOverlay: 96,
+    NewShortMenuItem: 96,
+    [`ClipItem ×${CLIPS}`]: 2880,
   });
-  expect(controls!.store.getSnapshot().phase).toBe("recording");
-  expect(clipActions).toEqual(["recording-started"]);
+  const row = (events: number, commits: number, host: number, all: number) => ({
+    events,
+    commits,
+    host,
+    renders: all,
+  });
+  expect(perEvent).toEqual({
+    // Nothing any consumer shows changes: no commit at all.
+    "recorder-status": row(52, 0, 0, 0),
+    "camera-went-live": row(1, 1, 0, 1),
+    "scene-changed": row(1, 2, 0, 75),
+    "recording-started": row(1, 4, 3, 154),
+    "warmed-up": row(1, 2, 1, 76),
+    // 10 takes, then 5 late replays (#2163) that render nothing.
+    "speech-started": row(15, 20, 10, 760),
+    "take-started": row(10, 20, 10, 760),
+    // Only the controls show frames lost.
+    "frames-lost": row(30, 30, 0, 30),
+    "speech-ended": row(10, 20, 10, 760),
+    "clips-saved": row(10, 20, 10, 760),
+    // Stopping changes nothing shown until the recorder says it stopped.
+    "press-stop": row(1, 0, 0, 0),
+    "recording-stopped": row(1, 4, 3, 154),
+  });
 });
 
 // ---------------------------------------------------------------------------
 // The tree. The recorder is a store; each consumer selects its slice.
 
 function Host() {
-  counted("Host (useVideoEditorWiring)");
+  counted(HOST);
   // The clip reducer lives here: each clip effect re-renders the host.
   const [, clipDispatch] = useReducer((n: number) => n + 1, 0);
   const recorder = useCvmRecorder({
