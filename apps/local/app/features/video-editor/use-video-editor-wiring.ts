@@ -56,22 +56,24 @@ export const useVideoEditorWiring = (
   const revalidator = useRevalidator();
 
   const { startClipTranscription } = useUploadActions();
-  // The CVM recorder's saver. Set below, in this render, once its hook has
-  // run: before any effect can ask for it.
-  const saveTakesRef = useRef<TakeSaver | null>(null);
-  // The handlers are made before the store, and read the clip state as it is
-  // when they run. Set on layout, before the store's effects start on mount.
-  const clipStoreRef = useRef<ClipStore | null>(null);
+  // What the effect handlers need that is made after them: the clip store
+  // (they read the clip state as it is when they run) and the CVM
+  // recorder's saver. Set on layout below, before the store's effects start
+  // on mount.
+  const latest = useRef<{ clipStore: ClipStore; saveTakes: TakeSaver } | null>(
+    null
+  );
   const effectHandlers = useMemo(
     () =>
       createEditEffectHandlers({
         videoId: loaderData.video.id,
         clipService,
-        getClipState: () => clipStoreRef.current!.getSnapshot(),
+        getClipState: () => latest.current!.clipStore.getSnapshot(),
         // Fire and forget: the loader's fresh data arrives as a new render.
         revalidate: () => void revalidator.revalidate(),
         whiteNoiseAssetPath: loaderData.whiteNoiseAssetPath,
-        saveTakes: (session, takes) => saveTakesRef.current!(session, takes),
+        saveTakes: (session, takes) =>
+          latest.current!.saveTakes(session, takes),
         startClipTranscription,
       }),
     [loaderData.video.id, startClipTranscription]
@@ -82,9 +84,6 @@ export const useVideoEditorWiring = (
     () => initialClipState(loaderData),
     effectHandlers
   );
-  useLayoutEffect(() => {
-    clipStoreRef.current = clipStore;
-  }, [clipStore]);
   const { dispatch } = clipStore;
   const micOffsetRefusal = useSelector(
     clipStore,
@@ -137,7 +136,10 @@ export const useVideoEditorWiring = (
       return resolveInsertionPoint(insertionPoint, items);
     },
   });
-  saveTakesRef.current = cvmRecorder.saveTakes;
+  const saveTakes = cvmRecorder.saveTakes;
+  useLayoutEffect(() => {
+    latest.current = { clipStore, saveTakes };
+  }, [clipStore, saveTakes]);
 
   const calibrationGate = useCalibrationGate({
     lastPassed: loaderData.lastPassedCalibration,

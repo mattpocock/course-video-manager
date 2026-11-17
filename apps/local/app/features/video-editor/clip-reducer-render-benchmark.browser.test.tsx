@@ -5,11 +5,13 @@ import { createMemoryRouter, RouterProvider } from "react-router";
 import { useContextSelector } from "use-context-selector";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { UploadProvider } from "@/features/upload-manager/upload-context";
+import { FakeEventSource } from "@/test-utils/fake-event-source";
 import type { JobEventMessage } from "@/features/jobs/job-wire";
 import { JOB_STREAM_EVENTS } from "@/features/jobs/job-wire";
 import type { BrowserLinkEvent } from "@/lib/clip-web-link";
 import type { VideoEditorLoaderData } from "@/services/video-editor-loader.server";
 import type { FrontendId } from "./clip-state-reducer";
+import { RecordingSessionPanels } from "./components/recording-session-panel";
 import { MissingWordTimingBadge } from "./components/transcript-word-actions";
 import type { CvmRecorderMessage } from "./cvm-recorder-wire";
 import {
@@ -52,24 +54,9 @@ let commits = 0;
 const counted = (name: string) =>
   renders.set(name, (renders.get(name) ?? 0) + 1);
 
-/** Every EventSource the tree opened, by URL. */
-const sources = new Map<string, FakeEventSource>();
-class FakeEventSource {
-  private listeners = new Map<string, ((e: { data: string }) => void)[]>();
-  constructor(url: string) {
-    sources.set(url, this);
-  }
-  addEventListener(type: string, listener: (e: { data: string }) => void) {
-    this.listeners.set(type, [...(this.listeners.get(type) ?? []), listener]);
-  }
-  emit(type: string, data: unknown) {
-    this.listeners.get(type)?.forEach((l) => l({ data: JSON.stringify(data) }));
-  }
-  close() {}
-}
 const recorderSource = () =>
-  sources.get(`/api/videos/${VIDEO_ID}/recorder/events`)!;
-const jobsSource = () => sources.get("/api/jobs/events")!;
+  FakeEventSource.at(`/api/videos/${VIDEO_ID}/recorder/events`);
+const jobsSource = () => FakeEventSource.at("/api/jobs/events");
 
 /** The Stream Deck hub: the editor's keys and Chrome's link capture. */
 const sockets: FakeWebSocket[] = [];
@@ -325,23 +312,27 @@ const loaderData = (): VideoEditorLoaderData =>
     hasScript: false,
   });
 
-function EditRoute(props: { loaderData: VideoEditorLoaderData }) {
+function EditRoute(props: {
+  loaderData: VideoEditorLoaderData;
+  layout?: () => ReactNode;
+}) {
   counted(HOST);
   wiring = useVideoEditorWiring(props.loaderData);
-  return <VideoEditor {...wiring} replay layout={() => <Layout />} />;
+  return (
+    <VideoEditor
+      {...wiring}
+      replay
+      layout={props.layout ?? (() => <Layout />)}
+    />
+  );
 }
 
 /** `EditorLayout`'s place: called on every render of `VideoEditor`. */
 function Layout() {
   counted("VideoEditor");
   timeline = useContextSelector(VideoEditorContext, (c) => c.items);
-  const recording = useContextSelector(VideoEditorContext, (c) =>
-    c.sessions.some((s) => s.status === "recording")
-  );
   return (
     <>
-      {/* The recording Session's panel, which the editor scrolls to. */}
-      {recording && <div data-session-recording />}
       <Profiler
         id="MissingWordTimingBadge"
         onRender={() => counted("MissingWordTimingBadge")}
@@ -369,7 +360,7 @@ let container: HTMLElement | undefined;
 beforeEach(() => {
   renders.clear();
   commits = 0;
-  sources.clear();
+  FakeEventSource.reset();
   sockets.length = 0;
   jobEventId = 0;
   localStorage.clear();
@@ -436,11 +427,10 @@ it("re-renders only what the clip reducer's events change", async () => {
     row.renders += total() - all;
   }
 
-  // The stream did what an editing visit does: no error overlay, the new
-  // chapter is on the timeline, and the Session is no longer recording.
+  // The stream did what an editing visit does: no error overlay, and the
+  // new chapter is on the timeline.
   expect(container!.textContent).toBe("");
   expect(timeline).toHaveLength(CLIPS + 1);
-  expect(container!.querySelector("[data-session-recording]")).toBeNull();
 
   expect(commits).toBe(79);
   expect(Object.fromEntries(renders)).toEqual({
@@ -504,9 +494,9 @@ it("under StrictMode, runs each clip effect once", async () => {
 });
 
 // The store starts `scroll-to-insertion-point` before React renders the new
-// Session, and the panel reads it from the editor's context, which
-// use-context-selector delivers a pass after the commit. So the handler
-// waits a frame.
+// Session, and its panel (`RecordingSessionPanels`) reads `sessionPanels`
+// from the editor's context, which use-context-selector delivers a pass
+// after the commit. So the handler waits a frame.
 it("scrolls to a Session's panel once it is on screen", async () => {
   const scrolled: Element[] = [];
   vi.spyOn(Element.prototype, "scrollIntoView").mockImplementation(function (
@@ -514,7 +504,13 @@ it("scrolls to a Session's panel once it is on screen", async () => {
   ) {
     scrolled.push(this);
   });
-  await mount(<EditRoute loaderData={loaderData()} />);
+  // The editor's real Session panels, as `EditorLayout` places them.
+  await mount(
+    <EditRoute
+      loaderData={loaderData()}
+      layout={() => <RecordingSessionPanels />}
+    />
+  );
   await act(async () => {
     recorder({
       type: "recording-started",

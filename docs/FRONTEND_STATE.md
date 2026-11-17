@@ -175,7 +175,7 @@ const round = useSelector(store, stillRound);
   (`sameLivePreview` in `live-preview.ts`), or it re-renders on every change.
   So does a list the reducer rebuilds without changing an entry: the editor
   reads the clip reducer's `items` with `sameElements`
-  (`use-clip-state-selector.ts`).
+  (`hooks/effect-store.ts`).
 - **Never select the whole state.** `(s) => s`, `(s) => ({ ...s })` and
   `useSyncExternalStore(…, store.getSnapshot)` fail the `whole-store` guard.
   If a hook seems to need all of it, pass it the slices it reads instead

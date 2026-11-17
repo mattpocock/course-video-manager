@@ -22,12 +22,3 @@ export const useClipStateSelector = <T>(
   const store = useContextSelector(VideoEditorContext, (ctx) => ctx.clipStore);
   return useSelector(store, selector, isEqual);
 };
-
-/**
- * Two lists hold the same entries, in order. The clip reducer may rebuild
- * `items` or `sessions` without changing an entry (`[...state.items]` for a
- * save that brought no Clips), and a component that shows the list has
- * nothing new to render then.
- */
-export const sameElements = <T>(a: readonly T[], b: readonly T[]): boolean =>
-  a.length === b.length && a.every((entry, i) => Object.is(entry, b[i]));

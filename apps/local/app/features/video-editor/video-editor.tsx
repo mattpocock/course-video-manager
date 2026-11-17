@@ -1,5 +1,5 @@
-import { useSelector } from "@/hooks/effect-store";
-import { sameElements, type ClipStore } from "./use-clip-state-selector";
+import { sameElements, useSelector } from "@/hooks/effect-store";
+import type { ClipStore } from "./use-clip-state-selector";
 import type { FootageNotFound } from "@/services/clip-source-files.server";
 import { EditorVideoMenuProvider } from "./editor-video-menu";
 import { EditorModals } from "./components/editor-modals";

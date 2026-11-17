@@ -235,3 +235,11 @@ export function useSelector<TState, TSlice>(
   }, [slice]);
   return slice;
 }
+
+/**
+ * Two lists hold the same entries, in order: an `isEqual` for a selector
+ * that returns a list the reducer may rebuild without changing an entry
+ * (the clip reducer's `[...state.items]` for a save that brought no Clips).
+ */
+export const sameElements = <T>(a: readonly T[], b: readonly T[]): boolean =>
+  a.length === b.length && a.every((entry, i) => Object.is(entry, b[i]));

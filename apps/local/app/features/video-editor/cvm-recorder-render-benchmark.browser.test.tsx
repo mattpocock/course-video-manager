@@ -1,9 +1,14 @@
 import { fromPartial } from "@total-typescript/shoehorn";
-import { act, Profiler, useReducer, type ReactNode } from "react";
+import { act, Profiler, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { useContextSelector } from "use-context-selector";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { useSelector } from "@/hooks/effect-store";
+import {
+  useEffectStore,
+  useSelector,
+  type EffectStore,
+} from "@/hooks/effect-store";
+import { FakeEventSource } from "@/test-utils/fake-event-source";
 import type { CvmRecorderMessage } from "./cvm-recorder-wire";
 import {
   canStop,
@@ -36,8 +41,10 @@ import {
  * The tree is the editor's shape: the wiring hook at the top (`Host`, as
  * `useVideoEditorWiring`), `VideoEditor` under it with no `memo`, and the
  * recorder's consumers under that, each subscribing exactly as its real
- * component does. A clip effect re-renders `Host`, as the clip reducer
- * living there does. The counts are deterministic, so they are asserted
+ * component does. The clip reducer is a store too
+ * (`use-video-editor-wiring.ts`): a clip event the recorder sends re-renders
+ * `VideoEditor`, which shows the Clips, and not `Host`. Here it is a store
+ * that counts them. The counts are deterministic, so they are asserted
  * exactly: a consumer that goes back to reading the whole recorder, or a
  * store that notifies for an ignored event, changes them.
  */
@@ -59,22 +66,8 @@ let commits = 0;
 const counted = (name: string) =>
   renders.set(name, (renders.get(name) ?? 0) + 1);
 
-let source: { emit: (m: CvmRecorderMessage) => void } | undefined;
-class FakeEventSource {
-  private listeners = new Map<string, ((e: { data: string }) => void)[]>();
-  constructor(_url: string) {
-    source = {
-      emit: (m) =>
-        this.listeners
-          .get(m.type)
-          ?.forEach((l) => l({ data: JSON.stringify(m) })),
-    };
-  }
-  addEventListener(type: string, listener: (e: { data: string }) => void) {
-    this.listeners.set(type, [...(this.listeners.get(type) ?? []), listener]);
-  }
-  close() {}
-}
+const recorder = (m: CvmRecorderMessage) =>
+  FakeEventSource.at("/api/videos/v1/recorder/events").emit(m.type, m);
 
 const status = (recordingSessionId: string | null): CvmRecorderMessage => ({
   type: "recorder-status",
@@ -174,6 +167,7 @@ let controls: CvmRecorderControls | undefined;
 beforeEach(() => {
   renders.clear();
   commits = 0;
+  FakeEventSource.reset();
   vi.stubGlobal("EventSource", FakeEventSource);
   vi.stubGlobal(
     "fetch",
@@ -213,7 +207,7 @@ it("re-renders only what a Recording Session's events change", async () => {
     const commitsBefore = commits;
     await act(async () => {
       if (step.kind === "press-stop") controls!.onStop();
-      else source!.emit(step.message);
+      else recorder(step.message);
     });
     const row = (perEvent[stepName(step)] ??= {
       events: 0,
@@ -231,7 +225,7 @@ it("re-renders only what a Recording Session's events change", async () => {
   expect(isCvmRecorderRecording(controls!.store.getSnapshot())).toBe(false);
   expect(commits).toBe(127);
   expect(Object.fromEntries(renders)).toEqual({
-    [HOST]: 50,
+    [HOST]: 40,
     VideoEditor: 51,
     VideoPlayerPanel: 96,
     LivePreviewFrame: 96,
@@ -261,7 +255,8 @@ it("re-renders only what a Recording Session's events change", async () => {
     // Only the controls show frames lost.
     "frames-lost": row(30, 30, 0, 30),
     "speech-ended": row(10, 20, 10, 760),
-    "clips-saved": row(10, 20, 10, 760),
+    // Only the clip reducer hears it: VideoEditor re-renders, the host does not.
+    "clips-saved": row(10, 20, 0, 750),
     // Stopping changes nothing shown until the recorder says it stopped.
     "press-stop": row(1, 0, 0, 0),
     "recording-stopped": row(1, 4, 3, 154),
@@ -273,27 +268,38 @@ it("re-renders only what a Recording Session's events change", async () => {
 
 function Host() {
   counted(HOST);
-  // The clip reducer lives here: each clip effect re-renders the host.
-  const [, clipDispatch] = useReducer((n: number) => n + 1, 0);
+  // The clip reducer's store: each clip event changes what VideoEditor shows.
+  const clips = useEffectStore(countClipEvents, { events: 0 });
+  const clipEvent = () => clips.dispatch({ type: "clip-event" });
   const recorder = useCvmRecorder({
     video: { id: "v1", format: "landscape" },
     silenceLength: "short",
-    clipDispatch: () => clipDispatch(),
-    onNewClipOptimisticallyAdded: () => clipDispatch(),
-    onClipAudioWindowClosed: () => clipDispatch(),
+    clipDispatch: clipEvent,
+    onNewClipOptimisticallyAdded: clipEvent,
+    onClipAudioWindowClosed: clipEvent,
     micOffsetRefusal: null,
     insertionPoint: () => ({ type: "start" }),
   });
   controls = recorder.controls;
   const capture = captureProps(recorder.capture);
-  return <Editor cvmRecorder={recorder.controls} capture={capture} />;
+  return (
+    <Editor cvmRecorder={recorder.controls} capture={capture} clips={clips} />
+  );
 }
+
+type ClipCount = { events: number };
+const countClipEvents = (state: ClipCount): ClipCount => ({
+  events: state.events + 1,
+});
 
 function Editor(props: {
   cvmRecorder: CvmRecorderControls;
   capture: ReturnType<typeof captureProps>;
+  clips: EffectStore<ClipCount, { type: "clip-event" }>;
 }) {
   counted("VideoEditor");
+  // As the real editor reads `items` and `sessions`.
+  useSelector(props.clips, (s) => s.events);
   const hasLivePreview = useSelector(
     props.cvmRecorder.store,
     getHasLivePreview
