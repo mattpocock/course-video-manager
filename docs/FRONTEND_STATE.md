@@ -41,9 +41,18 @@ next state and the same effects, even when StrictMode runs it twice.
 Surfaces that came before the store still call `useEffectReducer` from
 `@/hooks/use-effect-reducer`, the repo's own copy with the package's API and
 types. Importing `useEffectReducer` from the package is a lint error, though
-its types are fine. Both runners share `hooks/effect-entity.ts`, so an effect
-starts, stops and cleans up the same way in each. #2715 lists the surfaces
-still to move. New code uses the store.
+its types are fine.
+
+Both runners share `hooks/effect-entity.ts`:
+
+- the `exec` a reducer step is given, with `exec.stop` and `exec.replace`;
+- resolving the initial state;
+- the stop-then-start pass over a queue of batches;
+- the suspend on unmount and the restart on remount.
+
+So an effect behaves the same in each runner, and the runners differ only in
+when that code runs. #2715 lists the surfaces still to move. New code uses the
+store.
 
 The initial state may be an object or a function, `(exec) => state`, which can
 declare effects as the surface mounts. Both forms are safe under StrictMode.
@@ -164,9 +173,15 @@ const round = useSelector(store, stillRound);
   closes over a prop (`(s) => holdsStillsOf(s, clip)`). A selector that builds
   an object or array needs an `isEqual` that compares its contents
   (`sameLivePreview` in `live-preview.ts`), or it re-renders on every change.
-- **Never select the whole state.** `(s) => s` and `(s) => ({ ...s })` fail the
-  `whole-store` guard. If a hook seems to need all of it, pass it the slices it
-  reads instead (`useLastFrameUrl` takes `{ source, round }`).
+- **Never select the whole state.** `(s) => s`, `(s) => ({ ...s })` and
+  `useSyncExternalStore(…, store.getSnapshot)` fail the `whole-store` guard.
+  If a hook seems to need all of it, pass it the slices it reads instead
+  (`useLastFrameUrl` takes `{ source, round }`).
+- **The latest props reach handlers through one ref.** A surface hook whose
+  handlers or callbacks call the editor's latest callbacks keeps them in a ref
+  updated in `useLayoutEffect`, never assigned during render.
+  `use-cvm-recorder.ts`'s `editor` ref serves both its effect handlers and its
+  controls.
 - **Read it on press with `store.getSnapshot()`.** An event handler that needs
   the state at the moment of a click reads it then, and subscribes to nothing
   (`useNewShortAction`).
@@ -186,6 +201,10 @@ the event's state is published, with no render. Everything else is the same:
 - `exec.stop` and `exec.replace` cancel, and a cleanup runs when its effect
   stops.
 - Unmount stops what is running, and StrictMode's remount starts it again.
+
+`cvm-recorder-render-benchmark.browser.test.tsx` asserts the render and commit
+counts a whole Recording Session's events cost the editor, per component and
+per event, so a consumer that goes back to the whole state fails it.
 
 Events run to completion: an event that a handler dispatches synchronously
 waits until every effect before it has started. It never runs inside another
@@ -301,11 +320,23 @@ It scans `apps/local/app`, skipping test code, and fails a file when:
 | ------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------- |
 | `use-state`         | more than **4** `useState` calls                                                     | past a few independent toggles, they are one state machine in pieces |
 | `effect-sets-state` | more than **1** `useEffect`/`useLayoutEffect` that references the file's own setters | each such effect is a state transition happening outside any reducer |
-| `whole-store`       | any `useSelector`/`use…Selector` call whose selector returns its whole argument      | it re-renders on every event; select the slice the component shows   |
+| `whole-store`       | any read of a store's whole state (below)                                            | it re-renders on every event; select the slice the component shows   |
 
-`whole-store` catches `(s) => s`, `(s) => ({ ...s })` and a block that
-returns its parameter. Its limit is 0 and it has no allowlist entries.
-`useContextSelector` is out of its scope.
+`whole-store` is a hard 0: it takes no allowlist entries, and an entry for it
+fails. It catches:
+
+- **A store selector that returns its parameter.** Examples are `(s) => s`,
+  `(s) => ({ ...s })`, `(s) => Object.assign({}, s)` and a block that returns
+  it. It also sees through `as`, `satisfies` and `!`, and checks a function
+  declared in the same file that is passed by name.
+- **The selector by position**: `useSelector(store, selector, isEqual)` or
+  `useFooSelector(selector, isEqual)`. An `isEqual` is never judged, and
+  `useContextSelector` is out of scope.
+- **`useSyncExternalStore(subscribe, store.getSnapshot)`**, or a function
+  returning `store.getSnapshot()`, anywhere but `hooks/effect-store.ts`. A
+  `useSyncExternalStore` that reads its own narrow value passes, such as the
+  Live Timer's clock tick (`live-timer.tsx`) or a still's place in the queue
+  (`queued-still.tsx`).
 
 The first two limits were set against the codebase as it was when the guard landed
 (762 files scanned). Of the 124 files that call `useState`, 107 have four or

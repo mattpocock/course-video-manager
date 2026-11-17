@@ -143,6 +143,107 @@ describe("measure: whole-store", () => {
     expect(problems[0]).toContain("[whole-store]");
     expect(problems[0]).toContain("docs/FRONTEND_STATE.md");
   });
+
+  // One failing and one passing fixture per rule of the guard.
+  describe.each([
+    {
+      rule: "a selector passed by name, declared in the file",
+      fails: `const everything = (s) => s;\nuseSelector(store, everything);`,
+      passes: `const alertOf = (s) => s.alert;\nuseSelector(store, alertOf);`,
+    },
+    {
+      rule: "a function declaration passed by name",
+      fails: `function everything(s) { return s; }\nuseCvmRecorderSelector(everything);`,
+      passes: `function alertOf(s) { return s.alert; }\nuseCvmRecorderSelector(alertOf);`,
+    },
+    {
+      rule: "a name not declared in the file",
+      fails: `const all = (s) => s;\nuseSelector(store, all);`,
+      passes: `useSelector(store, importedSelector);`,
+    },
+    {
+      rule: "`as` on the returned state",
+      fails: `useSelector(store, (s) => s as State);`,
+      passes: `useSelector(store, (s) => s.alert as string);`,
+    },
+    {
+      rule: "`satisfies` on the returned state",
+      fails: `useSelector(store, (s) => s satisfies State);`,
+      passes: `useSelector(store, (s) => s.alert satisfies string | null);`,
+    },
+    {
+      rule: "a non-null assertion",
+      fails: `useSelector(store, (s) => s!);`,
+      passes: `useSelector(store, (s) => s.alert!);`,
+    },
+    {
+      rule: "a cast on the selector itself",
+      fails: `useSelector(store, ((s) => s) as Selector);`,
+      passes: `useSelector(store, ((s) => s.phase) as Selector);`,
+    },
+    {
+      rule: "Object.assign",
+      fails: `useSelector(store, (s) => Object.assign({}, s));`,
+      passes: `useSelector(store, (s) => Object.assign({}, s.camera));`,
+    },
+    {
+      rule: "useSyncExternalStore on a store's snapshot",
+      fails: `useSyncExternalStore(store.subscribe, store.getSnapshot);`,
+      passes: `useSyncExternalStore(subscribeToTick, () => nowMs, () => 0);`,
+    },
+    {
+      rule: "useSyncExternalStore through a getSnapshot call",
+      fails: `useSyncExternalStore(store.subscribe, () => store.getSnapshot());`,
+      passes: `useSyncExternalStore(subscribe, () => isStillAdmitted(queue, ticket));`,
+    },
+    {
+      rule: "the selector argument by position, for useSelector",
+      fails: `useSelector(store, (s) => s, (a, b) => a === b);`,
+      passes: `useSelector(store, stillRound, (a) => a);`,
+    },
+    {
+      rule: "the selector argument by position, for a surface hook",
+      fails: `useCvmRecorderSelector((s) => s, sameLivePreview);`,
+      passes: `useCvmRecorderSelector(getCvmRecorderLivePreview, (a) => a);`,
+    },
+  ])("$rule", ({ fails, passes }) => {
+    it("fails", () => expect(wholeStore(fails).count).toBe(1));
+    it("passes", () => expect(wholeStore(passes).count).toBe(0));
+  });
+
+  it("lets the store module itself call useSyncExternalStore", () => {
+    const src = `useSyncExternalStore(store.subscribe, store.getSnapshot);`;
+    expect(
+      measure("apps/local/app/hooks/effect-store.ts", src)["whole-store"].count
+    ).toBe(0);
+    expect(wholeStore(src).count).toBe(1);
+  });
+
+  it("is a hard 0: an allowlist entry neither excuses a hit nor stands on its own", () => {
+    const measures = (count: number) =>
+      new Map<string, Measures>([
+        [
+          COMPONENT,
+          {
+            "use-state": { count: 0, lines: [] },
+            "effect-sets-state": { count: 0, lines: [] },
+            "whole-store": { count, lines: count ? [1] : [] },
+          },
+        ],
+      ]);
+    const listed: Allowlist = {
+      "whole-store": [{ file: COMPONENT, count: 1, reason: "legacy" }],
+    };
+
+    const withHit = compare(measures(1), listed, checked, true);
+    expect(withHit).toHaveLength(2);
+    expect(withHit.join("\n")).toContain("the limit is 0");
+    expect(withHit.join("\n")).toContain("has no allowlist");
+
+    const withoutHit = compare(measures(0), listed, checked, true);
+    expect(withoutHit).toEqual([expect.stringContaining("has no allowlist")]);
+    expect(compare(measures(0), {}, checked, true)).toEqual([]);
+  });
 });
 
 const found = (useState: number, effectSetsState = 0) =>
