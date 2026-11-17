@@ -5,7 +5,11 @@ import {
   cvmRecorderReducer,
 } from "./cvm-recorder-reducer";
 import type { CvmRecorderMessage } from "./cvm-recorder-wire";
-import { getHasLivePreview, getCvmRecorderLivePreview } from "./live-preview";
+import {
+  getHasLivePreview,
+  getCvmRecorderLivePreview,
+  sameLivePreview,
+} from "./live-preview";
 import {
   getShowLiveStream,
   getShowVideoPlayer,
@@ -82,6 +86,35 @@ describe("the CVM recorder in the editor's live frame", () => {
 
     t.send(heard({ type: "scene-changed", scene: "Camera" }));
     expect(getCvmRecorderLivePreview(t.getState())?.showCenterLine).toBe(true);
+  });
+
+  it("keeps the same picture across status reports that repeat the preview URLs", () => {
+    const t = open();
+    const before = getCvmRecorderLivePreview(t.getState());
+
+    // Each report carries its own previews object, with the same URLs.
+    t.send(
+      heard({
+        type: "recorder-status",
+        reachable: true,
+        starting: false,
+        problem: null,
+        recordingSessionId: null,
+        streamed: false,
+        previews: { ...previews },
+        still: "http://r/still",
+      })
+    );
+    expect(
+      sameLivePreview(before, getCvmRecorderLivePreview(t.getState()))
+    ).toBe(true);
+
+    t.send(heard({ type: "scene-changed", scene: "Camera" }));
+    expect(
+      sameLivePreview(before, getCvmRecorderLivePreview(t.getState()))
+    ).toBe(false);
+    expect(sameLivePreview(null, null)).toBe(true);
+    expect(sameLivePreview(before, null)).toBe(false);
   });
 
   it("never takes the live frame on an OBS Video, whose editor never listens to the recorder", () => {

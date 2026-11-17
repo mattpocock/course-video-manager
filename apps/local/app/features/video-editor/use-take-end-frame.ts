@@ -1,7 +1,6 @@
 import { useEffect, useReducer, useRef, type RefObject } from "react";
 import { clipStillUrl } from "./clip-still-url";
-import { stillRound, type cvmRecorderReducer } from "./cvm-recorder-reducer";
-import { lastFrameSource } from "./live-preview";
+import type { lastFrameSource } from "./live-preview";
 import type { FrontendSpeechDetectorState } from "./speech-detector-reducer";
 import {
   createInitialTakeEndFrameState,
@@ -59,19 +58,21 @@ const useTakeEndFrame = (
  */
 export const useLastFrameUrl = (
   canvas: RefObject<HTMLCanvasElement | null>,
-  recorder: cvmRecorderReducer.State,
+  recorder: {
+    /** `lastFrameSource` for `clip`; ignored with no Clip. */
+    source: ReturnType<typeof lastFrameSource>;
+    /** `stillRound`. */
+    round: string;
+  },
   speech: FrontendSpeechDetectorState,
-  clip:
-    | (Parameters<typeof clipStillUrl>[0] &
-        Parameters<typeof lastFrameSource>[1])
-    | undefined
+  clip: Parameters<typeof clipStillUrl>[0] | undefined
 ): string | undefined => {
-  const source = clip ? lastFrameSource(recorder, clip) : "none";
+  const source = clip ? recorder.source : "none";
   const takeEndFrame = useTakeEndFrame(
     canvas,
     speech.type !== "silence" && speech.type !== "warming-up",
     clip ? { id: clip.databaseId, takeEnd: source === "take-end" } : undefined,
-    stillRound(recorder)
+    recorder.round
   );
   if (source === "take-end") return takeEndFrame;
   return source === "still" && clip ? clipStillUrl(clip, "last") : undefined;

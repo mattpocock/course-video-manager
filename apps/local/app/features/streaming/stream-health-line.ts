@@ -9,7 +9,7 @@ import { isLiveOn, type liveStreamReducer } from "./live-stream-reducer";
  * Live Stream's state, then fps, speed, dropped and duplicated frames,
  * bitrate, how many times it has reconnected and how many times a feed to
  * it overflowed (once one has, #2525), from what the Streaming
- * tab's recorder last said (`cvmRecorder.state.streamHealth`, which a Live
+ * tab's recorder last said (the recorder's `streamHealth`, which a Live
  * Stream's end forgets). Only while the Live Stream on this Video runs.
  */
 

@@ -44,6 +44,27 @@ export const getCvmRecorderLivePreview = (
 };
 
 /**
+ * Whether two composites draw the same picture. Each `recorder-status`
+ * brings a new `previews` object, mostly with the same URLs.
+ */
+export const sameLivePreview = (
+  a: CvmRecorderLivePreview | null,
+  b: CvmRecorderLivePreview | null
+): boolean => {
+  if (a === null || b === null) return a === b;
+  return (
+    a.previews.camera === b.previews.camera &&
+    a.previews.screen === b.previews.screen &&
+    a.scene === b.scene &&
+    a.format === b.format &&
+    a.canvas === b.canvas &&
+    a.cameraShowing === b.cameraShowing &&
+    a.cameraKey === b.cameraKey &&
+    a.showCenterLine === b.showCenterLine
+  );
+};
+
+/**
  * Is there a live picture? While there is, a paused editor shows it instead
  * of the Clip player.
  */

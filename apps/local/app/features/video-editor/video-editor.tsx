@@ -1,3 +1,4 @@
+import { useSelector } from "@/hooks/effect-store";
 import type { FootageNotFound } from "@/services/clip-source-files.server";
 import { EditorVideoMenuProvider } from "./editor-video-menu";
 import { EditorModals } from "./components/editor-modals";
@@ -270,7 +271,10 @@ export const VideoEditor = (props: VideoEditorProps) => {
 
   const totalDuration = getTotalDuration(clips);
 
-  const hasLivePreview = getHasLivePreview(props.cvmRecorder.state);
+  const hasLivePreview = useSelector(
+    props.cvmRecorder.store,
+    getHasLivePreview
+  );
   const showVideoPlayer = getShowVideoPlayer(
     state.runningState,
     hasLivePreview

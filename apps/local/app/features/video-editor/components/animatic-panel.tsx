@@ -8,6 +8,8 @@ import {
 } from "@/features/videos/video-format";
 import { VideoEditorContext } from "../video-editor-context";
 import { AnimaticOverlay } from "./animatic-overlay";
+import { useCvmRecorderSelector } from "@/features/video-editor/use-cvm-recorder-selector";
+import { canStop } from "@/features/video-editor/cvm-recorder-reducer";
 
 /** A line's Clip Mockup Comments, as a margin note under it. */
 function PanelComments({ comments }: { comments: readonly string[] }) {
@@ -52,10 +54,7 @@ const THUMBNAIL_HEIGHT: Record<VideoFormat, string> = {
 export function AnimaticPanel(props: { lines: AnimaticLine[] }) {
   const dispatch = useContextSelector(VideoEditorContext, (c) => c.dispatch);
   // A Take being recorded is stopped from here.
-  const takeRecording = useContextSelector(
-    VideoEditorContext,
-    (c) => c.cvmRecorder.canStop
-  );
+  const takeRecording = useCvmRecorderSelector(canStop);
   const format = useContextSelector(VideoEditorContext, (c) => c.videoFormat);
   const frame = VIDEO_FORMAT_DIMENSIONS[format];
 

@@ -156,7 +156,7 @@ export const useVideoEditorWiring = (
     });
   };
 
-  const cvmRecorder = useCvmRecorder({
+  const { controls: cvmRecorder, capture: recorderCapture } = useCvmRecorder({
     video: loaderData.video,
     silenceLength,
     clipDispatch: dispatch,
@@ -176,7 +176,7 @@ export const useVideoEditorWiring = (
     checkedAtMs: loaderData.checkedAtMs,
   });
 
-  const capture = captureProps(cvmRecorder);
+  const capture = captureProps(recorderCapture);
 
   return {
     videoFormat: loaderData.video.format as "landscape" | "short",
