@@ -19,14 +19,13 @@ import { cn } from "@/lib/utils";
 import { IconGlyph } from "./icon-glyph";
 import { ComponentCard, DiagramCard } from "./result-cards";
 import { GROUP_ORDER, PAGE_META, type PaletteGroup } from "./palette-model";
-import { usePalette } from "./use-palette";
-import { usePaletteHandlers, type PaletteWiring } from "./use-palette-handlers";
+import { usePalette, type PaletteHandlers } from "./use-palette";
 import { useGridNav } from "./use-grid-nav";
 import "./command-palette.css";
 
 /**
- * The Cmd+K command palette, mounted inside the Active Diagram window's canvas
- * box — and nowhere else. It is invisible until summoned, which is what lets it
+ * The Cmd+K command palette, mounted by the shared Diagram Editor
+ * (`diagram-editor.tsx`) over its canvas. It is invisible until summoned, which is what lets it
  * coexist with ADR 0004's requirement that "every pixel of chrome must
  * disappear" in tldraw Focus Mode. Cmd+F summons it too, straight onto the
  * diagram search — see `palette-shortcuts`.
@@ -34,17 +33,17 @@ import "./command-palette.css";
  * There is deliberately NO on-canvas affordance pointing at Cmd+K. The grouped
  * root list is itself the discovery surface, once the palette is open.
  *
- * The route hands over the handlers its own chrome already uses and knows
- * nothing else about the palette — the mirror layer lives in
- * `usePaletteHandlers`, next to the palette rather than next to the canvas.
+ * The host hands over the handlers its own chrome already uses and knows
+ * nothing else about the palette — the playground's mirror layer is
+ * `usePlaygroundPaletteHandlers`.
  */
 export function CommandPalette({
   editorRef,
-  ...wiring
-}: PaletteWiring & {
+  handlers,
+}: {
   editorRef: React.RefObject<Editor | null>;
+  handlers: PaletteHandlers;
 }) {
-  const handlers = usePaletteHandlers(wiring);
   const state = usePalette({ editorRef, handlers });
   const listRef = useRef<HTMLDivElement | null>(null);
   const { title, placeholder, columns } = PAGE_META[state.page];
