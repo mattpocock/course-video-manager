@@ -1,6 +1,5 @@
 import { useEffect, useCallback } from "react";
-import { Tldraw, type Editor } from "tldraw";
-import "tldraw/tldraw.css";
+import type { Editor } from "tldraw";
 import { Save } from "lucide-react";
 import { ConnectionStatusIndicator } from "@/features/diagrams/connection-status-indicator";
 import {
@@ -24,10 +23,8 @@ import {
 import { NO_TOASTS } from "@/lib/route-toasts";
 import type { Route } from "./+types/diagram-playground.$diagramId";
 import { loadDiagramPlaygroundActive } from "@/features/diagrams/diagram-playground-active.loader.server";
-import { CVM_SHAPE_UTILS } from "@/features/diagrams/cvm-shape-utils";
-import { useTldrawLicenseKey } from "@/features/diagrams/use-tldraw-license-key";
-import { DiagramEditorBoundary } from "@/features/diagrams/unknown-shape-boundary";
-import { CommandPalette } from "@/features/diagrams/palette/command-palette";
+import { DiagramEditor } from "@/features/diagrams/diagram-editor";
+import { usePlaygroundPaletteHandlers } from "@/features/diagrams/playground-palette-handlers";
 import { PlaygroundStatusArea } from "@/features/diagrams/head-load-status";
 import { PlaygroundStatusProvider } from "@/features/diagrams/playground-status";
 import { useFocusRevalidate } from "@/hooks/use-focus-revalidate";
@@ -46,13 +43,6 @@ export const meta: Route.MetaFunction = () => {
 };
 
 export const loader = loadDiagramPlaygroundActive;
-
-const EMPTY_MIME_TYPES: string[] = [];
-
-const EMPTY_EMBEDS: never[] = [];
-
-const UNSUPPORTED_CONTENT =
-  "Images, videos, and embeds aren't supported. Only vector shapes and text are allowed.";
 
 export default function DiagramPlaygroundActive({
   loaderData,
@@ -226,23 +216,6 @@ export default function DiagramPlaygroundActive({
     (editor: Editor) => {
       attachEditor(editor);
 
-      // A pasted or dropped file would only ever become an image or video,
-      // and tldraw's own answer is a toast of its own: say it here instead.
-      editor.registerExternalContentHandler("files", () => {
-        status.reportError(UNSUPPORTED_CONTENT);
-      });
-      editor.sideEffects.registerBeforeCreateHandler("shape", (shape) => {
-        if (
-          shape.type === "image" ||
-          shape.type === "video" ||
-          shape.type === "embed"
-        ) {
-          status.reportError(UNSUPPORTED_CONTENT);
-          return undefined as never;
-        }
-        return shape;
-      });
-
       // Session changes fire on every pointer move; only a flip is news.
       let isFocusMode = editor.getInstanceState().isFocusMode;
       editor.store.listen(
@@ -261,7 +234,7 @@ export default function DiagramPlaygroundActive({
         isFocusMode,
       });
     },
-    [attachEditor, diagramId, dispatch, status]
+    [attachEditor, diagramId, dispatch]
   );
 
   const revalidator = useRevalidator();
@@ -331,22 +304,26 @@ export default function DiagramPlaygroundActive({
   const { isFocusMode } = state;
   const timelineVisible = diagramId && !isFocusMode;
   const cornerButtons = showsCornerButtons(state);
-  const licenseKey = useTldrawLicenseKey();
+  // Active Diagram window only — never Playground Home.
+  const paletteHandlers = usePlaygroundPaletteHandlers({
+    diagramId,
+    status,
+    flushPendingSave,
+    preserveSnapshot,
+    handleRestoreRequest: requestRestore,
+    handleCopyDiagramContents,
+    handleCreateDiagram,
+    recentreDiagram,
+  });
 
   return (
     <PlaygroundStatusProvider value={status}>
       <div className="flex h-screen w-screen">
         <div className="relative flex-1">
-          <DiagramEditorBoundary>
-            <Tldraw
-              licenseKey={licenseKey}
-              onMount={handleMount}
-              colorScheme="dark"
-              acceptedImageMimeTypes={EMPTY_MIME_TYPES}
-              acceptedVideoMimeTypes={EMPTY_MIME_TYPES}
-              embeds={EMPTY_EMBEDS}
-              shapeUtils={CVM_SHAPE_UTILS}
-            />
+          <DiagramEditor
+            onMount={handleMount}
+            paletteHandlers={paletteHandlers}
+          >
             {diagramId && cornerButtons && (
               <button
                 onClick={preserveSnapshot}
@@ -358,7 +335,7 @@ export default function DiagramPlaygroundActive({
                 <Save className="h-4 w-4" />
               </button>
             )}
-          </DiagramEditorBoundary>
+          </DiagramEditor>
           <PlaygroundStatusArea
             status={diagramId ? (state.head?.status ?? "loading") : null}
             onRetry={() => dispatch({ type: "retry-load-clicked" })}
@@ -369,19 +346,6 @@ export default function DiagramPlaygroundActive({
             onKeepMine={() => dispatch({ type: "keep-my-edits-clicked" })}
             error={state.error}
           />
-          {/* Active Diagram window only — never Playground Home. */}
-          {diagramId && (
-            <CommandPalette
-              diagramId={diagramId}
-              editorRef={editorRef}
-              flushPendingSave={flushPendingSave}
-              preserveSnapshot={preserveSnapshot}
-              handleRestoreRequest={requestRestore}
-              handleCopyDiagramContents={handleCopyDiagramContents}
-              handleCreateDiagram={handleCreateDiagram}
-              recentreDiagram={recentreDiagram}
-            />
-          )}
           {cornerButtons && (
             <ConnectionStatusIndicator
               editorConnected={state.videoEditorConnected}

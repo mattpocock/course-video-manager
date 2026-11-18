@@ -4,21 +4,25 @@ import {
   fetchSnapshotList,
   type Snapshot,
 } from "@/features/diagrams/snapshot-list";
-import { usePlaygroundStatus } from "@/features/diagrams/playground-status";
+import type { PlaygroundStatus } from "@/features/diagrams/playground-status";
 import { highlightedSnapshotUrl } from "@/lib/diagram-protocol";
-import type { PaletteHandlers } from "./use-palette";
+import type { PaletteHandlers } from "@/features/diagrams/palette/use-palette";
 
 /**
- * The mirror layer: maps each palette action onto the handler the surrounding
- * chrome already calls.
+ * The Diagram Playground's mirror layer: maps each palette action onto the
+ * handler the surrounding chrome already calls. These are the playground's own
+ * Diagram actions; the shared Diagram Editor only receives the result.
  *
  * The palette adds a keyboard route to these actions rather than replacing the
  * one that exists — the right-rail timeline is untouched, and nothing here is a
  * second implementation of anything.
  */
 /** What the route hands the palette: the handlers its own chrome already uses. */
-export type PaletteWiring = {
-  diagramId: string;
+export type PlaygroundPaletteWiring = {
+  /** The Active Diagram; none means no palette (the route's own "no id"). */
+  diagramId: string | undefined;
+  /** The route's status line; the route renders its own provider. */
+  status: PlaygroundStatus;
   /** Cancels the debounced autosave and lands it now. */
   flushPendingSave: () => Promise<void>;
   preserveSnapshot: () => void;
@@ -29,9 +33,12 @@ export type PaletteWiring = {
   recentreDiagram: () => void;
 };
 
-export function usePaletteHandlers(opts: PaletteWiring): PaletteHandlers {
+export function usePlaygroundPaletteHandlers(
+  opts: PlaygroundPaletteWiring
+): PaletteHandlers | null {
   const {
     diagramId,
+    status,
     flushPendingSave,
     preserveSnapshot,
     handleRestoreRequest,
@@ -42,10 +49,10 @@ export function usePaletteHandlers(opts: PaletteWiring): PaletteHandlers {
 
   const navigate = useNavigate();
   const revalidator = useRevalidator();
-  const status = usePlaygroundStatus();
 
-  return useMemo(
-    () => ({
+  return useMemo(() => {
+    if (!diagramId) return null;
+    return {
       onPreserveSnapshot: preserveSnapshot,
 
       onRecentreDiagram: recentreDiagram,
@@ -107,18 +114,17 @@ export function usePaletteHandlers(opts: PaletteWiring): PaletteHandlers {
           status.reportError("Failed to open that diagram");
         });
       },
-    }),
-    [
-      diagramId,
-      flushPendingSave,
-      preserveSnapshot,
-      handleRestoreRequest,
-      handleCopyDiagramContents,
-      handleCreateDiagram,
-      recentreDiagram,
-      navigate,
-      revalidator,
-      status,
-    ]
-  );
+    };
+  }, [
+    diagramId,
+    flushPendingSave,
+    preserveSnapshot,
+    handleRestoreRequest,
+    handleCopyDiagramContents,
+    handleCreateDiagram,
+    recentreDiagram,
+    navigate,
+    revalidator,
+    status,
+  ]);
 }
