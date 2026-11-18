@@ -486,7 +486,7 @@ The image a **Video** shows on YouTube: the author's face, a **Thumbnail Diagram
 _Avoid_: Cover, Poster, Preview
 
 **Thumbnail Diagram**:
-The drawing that belongs to one **Thumbnail**, edited in place beside the author's face. It is not a **Diagram** and has no snapshots. It starts empty; shapes copied in from a Diagram, a **DiagramSnapshot** or another Thumbnail Diagram remember where they came from.
+The drawing that belongs to one **Thumbnail**, edited in place beside the author's face. It is not a **Diagram** and has no snapshots. It starts empty; shapes inserted from a Diagram, a **DiagramSnapshot** or another Thumbnail Diagram remember where they came from.
 _Avoid_: Thumbnail Drawing, Thumbnail Diagram Snapshot, Thumbnail Scene
 
 **Cutout**:
