@@ -6,7 +6,7 @@ export const handle = { fullscreen: true };
 
 import { ThumbnailOperationsService } from "@/services/db-thumbnail-operations.server";
 import { makeLoader } from "@/services/route-action.server";
-import { Effect } from "effect";
+import { Config, Effect } from "effect";
 import { Link } from "react-router";
 import type { Route } from "./+types/_app.videos.$videoId.thumbnails";
 import {
@@ -19,6 +19,7 @@ import {
   ScissorsIcon,
   AlertCircleIcon,
   ArrowLeftIcon,
+  PencilRulerIcon,
 } from "lucide-react";
 import { useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
@@ -35,7 +36,12 @@ import {
   getLeftAlignedPosition,
 } from "@/features/thumbnail-editor/canvas-compositor";
 import { RuleOfThirdsGrid } from "@/features/thumbnail-editor/rule-of-thirds-grid";
+import { ThumbnailDrawingFrame } from "@/features/thumbnail-editor/thumbnail-drawing-frame";
 import { YouTubePreview } from "@/features/thumbnail-editor/youtube-preview";
+import {
+  selectCompositeLayers,
+  selectDiagramKind,
+} from "@/features/thumbnail-editor/thumbnail-state-reducer";
 
 export const loader = makeLoader({
   effect: ({ params }) =>
@@ -43,20 +49,34 @@ export const loader = makeLoader({
       const videoId = params.videoId!;
       const db = yield* ThumbnailOperationsService;
       const thumbnails = yield* db.getThumbnailsByVideoId(videoId);
+      // Feature flag, OFF by default: whether a new Thumbnail is drawn in the
+      // editor (ADR 0060) or pasted onto as before. A Thumbnail that already
+      // has a Thumbnail Diagram opens in the editor either way. The stack's
+      // PR 9 turns it on by default; a later PR removes the flag.
+      const drawsNewThumbnails = yield* Config.boolean(
+        "CVM_THUMBNAIL_DIAGRAMS"
+      ).pipe(Config.withDefault(false));
 
-      return { videoId, thumbnails };
+      return { videoId, thumbnails, drawsNewThumbnails };
     }),
 });
 
 export default function ThumbnailsPage({ loaderData }: Route.ComponentProps) {
-  const { videoId, thumbnails } = loaderData;
-  const { state, dispatch } = useThumbnailReducer(thumbnails);
+  const { videoId, thumbnails, drawsNewThumbnails } = loaderData;
+  const { state, dispatch, editorHistory } = useThumbnailReducer(
+    videoId,
+    thumbnails,
+    drawsNewThumbnails
+  );
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const diagramKind = selectDiagramKind(state);
+  const layers = selectCompositeLayers(state);
 
-  // Draw all layers onto the canvas compositor
+  // Draw all layers onto the canvas compositor: the photo, the diagram (an
+  // old Thumbnail's pasted PNG, or the Thumbnail Diagram drawn), the Cutout.
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !(state.capturedPhoto || state.diagramImage)) {
+    if (!canvas || !(layers.capturedPhoto || layers.diagramImage)) {
       dispatch({ type: "preview-updated", dataUrl: null });
       return;
     }
@@ -66,11 +86,11 @@ export default function ThumbnailsPage({ loaderData }: Route.ComponentProps) {
     composeThumbnailLayers(
       canvas,
       {
-        capturedPhoto: state.capturedPhoto,
-        diagramImage: state.diagramImage,
-        diagramPosition: state.diagramPosition,
-        cutoutImage: state.cutoutImage,
-        cutoutPosition: state.cutoutPosition,
+        capturedPhoto: layers.capturedPhoto,
+        diagramImage: layers.diagramImage,
+        diagramPosition: layers.diagramPosition,
+        cutoutImage: layers.cutoutImage,
+        cutoutPosition: layers.cutoutPosition,
       },
       signal
     ).then((dataUrl) => {
@@ -83,11 +103,11 @@ export default function ThumbnailsPage({ loaderData }: Route.ComponentProps) {
       signal.cancelled = true;
     };
   }, [
-    state.capturedPhoto,
-    state.diagramImage,
-    state.diagramPosition,
-    state.cutoutImage,
-    state.cutoutPosition,
+    layers.capturedPhoto,
+    layers.diagramImage,
+    layers.diagramPosition,
+    layers.cutoutImage,
+    layers.cutoutPosition,
     dispatch,
   ]);
 
@@ -128,10 +148,13 @@ export default function ThumbnailsPage({ loaderData }: Route.ComponentProps) {
     [dispatch]
   );
 
+  // Only an old Thumbnail's pasted PNG is pasted over; a Thumbnail Diagram
+  // takes tldraw's own paste, untouched.
   useEffect(() => {
+    if (diagramKind !== "pasted") return;
     document.addEventListener("paste", handlePaste);
     return () => document.removeEventListener("paste", handlePaste);
-  }, [handlePaste]);
+  }, [handlePaste, diagramKind]);
 
   // Auto-save when pendingAutoSave is set (debounced for slider drags)
   useEffect(() => {
@@ -169,11 +192,13 @@ export default function ThumbnailsPage({ loaderData }: Route.ComponentProps) {
       id: t.id,
       key: t.id,
     })),
-    onFocus: ({ id }) => dispatch({ type: "edit-requested", thumbnailId: id }),
+    onFocus: ({ id }) =>
+      dispatch({ type: "edit-requested", thumbnailId: id, videoId }),
   });
 
   const thumbnailMenu = useThumbnailMenu({
-    onEdit: (thumbnailId) => dispatch({ type: "edit-requested", thumbnailId }),
+    onEdit: (thumbnailId) =>
+      dispatch({ type: "edit-requested", thumbnailId, videoId }),
     onDelete: (thumbnailId) =>
       dispatch({ type: "delete-requested", thumbnailId }),
   });
@@ -202,6 +227,7 @@ export default function ThumbnailsPage({ loaderData }: Route.ComponentProps) {
                       dispatch({
                         type: "edit-requested",
                         thumbnailId: thumbnail.id,
+                        videoId,
                       })
                     }
                   >
@@ -241,7 +267,7 @@ export default function ThumbnailsPage({ loaderData }: Route.ComponentProps) {
           </div>
           <button
             className="mt-2 flex w-full items-center justify-center rounded-lg border border-dashed border-border p-2 text-muted-foreground hover:border-muted-foreground hover:text-foreground transition-colors"
-            onClick={() => dispatch({ type: "new-thumbnail-clicked" })}
+            onClick={() => dispatch({ type: "new-thumbnail-clicked", videoId })}
           >
             <PlusIcon className="size-4" />
           </button>
@@ -274,7 +300,23 @@ export default function ThumbnailsPage({ loaderData }: Route.ComponentProps) {
                 ? "Editing Thumbnail"
                 : "Canvas Preview"}
             </h3>
-            <div className="relative inline-block overflow-hidden rounded-lg border">
+            {diagramKind === "drawing" && state.capturedPhoto && (
+              <ThumbnailDrawingFrame
+                state={state}
+                photo={state.capturedPhoto}
+                dispatch={dispatch}
+                historyRef={editorHistory}
+              />
+            )}
+            {/* The composite: what is saved. With a Thumbnail Diagram the
+                editor above shows it live, so this stays offscreen. */}
+            <div
+              className={
+                diagramKind === "pasted"
+                  ? "relative inline-block overflow-hidden rounded-lg border"
+                  : "hidden"
+              }
+            >
               <canvas
                 ref={canvasRef}
                 width={CANVAS_WIDTH}
@@ -339,10 +381,15 @@ export default function ThumbnailsPage({ loaderData }: Route.ComponentProps) {
                     />
                   </div>
                 </div>
-              ) : (
+              ) : diagramKind === "pasted" ? (
                 <div className="flex items-center gap-2 rounded border border-dashed px-3 py-2 text-sm text-muted-foreground">
                   <ClipboardIcon className="size-4" />
                   <span>Paste a diagram from clipboard (Ctrl+V)</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 rounded border px-3 py-2 text-sm">
+                  <PencilRulerIcon className="size-4 text-muted-foreground" />
+                  <span>Thumbnail Diagram: drawn in the frame</span>
                 </div>
               )}
 
@@ -386,7 +433,7 @@ export default function ThumbnailsPage({ loaderData }: Route.ComponentProps) {
                       <XIcon className="size-4" />
                     </button>
                   </div>
-                  <div className="mt-2">
+                  <div className={diagramKind === "pasted" ? "mt-2" : "hidden"}>
                     <Label className="text-xs text-muted-foreground">
                       Horizontal Position
                     </Label>
@@ -452,7 +499,9 @@ export default function ThumbnailsPage({ loaderData }: Route.ComponentProps) {
               {state.editingThumbnailId && (
                 <Button
                   variant="outline"
-                  onClick={() => dispatch({ type: "new-thumbnail-clicked" })}
+                  onClick={() =>
+                    dispatch({ type: "new-thumbnail-clicked", videoId })
+                  }
                 >
                   <PlusIcon />
                   New Thumbnail
@@ -470,8 +519,9 @@ export default function ThumbnailsPage({ loaderData }: Route.ComponentProps) {
               <div className="text-center">
                 <p className="text-lg font-medium">No thumbnails yet</p>
                 <p className="text-sm mt-1">
-                  Capture a face photo or paste a diagram to start creating
-                  thumbnails.
+                  {drawsNewThumbnails
+                    ? "Capture a face photo, then draw the diagram around it."
+                    : "Capture a face photo or paste a diagram to start creating thumbnails."}
                 </p>
               </div>
             </div>

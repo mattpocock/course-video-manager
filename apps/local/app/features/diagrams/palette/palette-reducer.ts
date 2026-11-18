@@ -101,6 +101,8 @@ export namespace paletteReducer {
     selectedIcon: CvmIconShape | null;
     /** The icon grid's recents, as stored at the last summon. */
     recentIcons: string[];
+    /** The host edits a Diagram (the playground), as of the last summon. */
+    hostsDiagram: boolean;
     /** The library, in the server's recency order. */
     components: ComponentSummary[];
     /** The component the rename page is renaming. */
@@ -125,6 +127,7 @@ export namespace paletteReducer {
         hasSelection: boolean;
         selectedIcon: CvmIconShape | null;
         recentIcons: string[];
+        hostsDiagram: boolean;
       }
     /** A click away, or the summon key pressed while it is open. */
     | { type: "palette-dismissed" }
@@ -203,6 +206,7 @@ export const createInitialPaletteState = (): State => ({
   hasSelection: false,
   selectedIcon: null,
   recentIcons: [],
+  hostsDiagram: false,
   components: [],
   componentUnderEdit: null,
   diagramHits: [],
@@ -232,6 +236,7 @@ export const selectRootActions = (state: State) =>
   visibleRootActions({
     hasSelection: state.hasSelection,
     hasSingleIcon: !!state.selectedIcon,
+    hostsDiagram: state.hostsDiagram,
   });
 
 /** Client-side filtering PRESERVES the server's recency ordering. */
@@ -372,6 +377,7 @@ const on: Handlers = {
       hasSelection: action.hasSelection,
       selectedIcon: action.selectedIcon,
       recentIcons: action.recentIcons,
+      hostsDiagram: action.hostsDiagram,
       busy: false,
       spinnerDelay: null,
     };

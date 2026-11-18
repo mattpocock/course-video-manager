@@ -123,11 +123,12 @@ describe("Background Removal", () => {
 });
 
 describe("Diagram", () => {
-  it("diagram-pasted: should set pendingAutoSave when editingThumbnailId is set", () => {
+  it("diagram-pasted: replacing an old Thumbnail's pasted PNG autosaves", () => {
     const tester = new ReducerTester(
       thumbnailStateReducer,
       createState({
         capturedPhoto: "photo",
+        diagramImage: "old-diagram",
         editingThumbnailId: "thumb-1",
       })
     );
@@ -141,42 +142,6 @@ describe("Diagram", () => {
       .getState();
 
     expect(state.pendingAutoSave).toBe(true);
-  });
-
-  it("diagram-pasted: should not set pendingAutoSave without editingThumbnailId", () => {
-    const tester = new ReducerTester(
-      thumbnailStateReducer,
-      createState({ capturedPhoto: "photo" })
-    );
-
-    const state = tester
-      .send({
-        type: "diagram-pasted",
-        dataUrl: "diagram-data-url",
-        position: 42,
-      })
-      .getState();
-
-    expect(state.pendingAutoSave).toBe(false);
-  });
-
-  it("diagram-pasted: works without capturedPhoto (diagram-first workflow)", () => {
-    const tester = new ReducerTester(
-      thumbnailStateReducer,
-      createState({ capturedPhoto: null })
-    );
-
-    const state = tester
-      .send({
-        type: "diagram-pasted",
-        dataUrl: "diagram-data-url",
-        position: 42,
-      })
-      .getState();
-
-    expect(state.diagramImage).toBe("diagram-data-url");
-    expect(state.diagramPosition).toBe(42);
-    expect(state.capturedPhoto).toBeNull();
   });
 
   it("diagram-removed: should set pendingAutoSave when editingThumbnailId is set", () => {

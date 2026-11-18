@@ -9,8 +9,17 @@ function key(
   return { key: k, metaKey: false, ctrlKey: false, ...mods };
 }
 
-const CLOSED = { isOpen: false };
-const OPEN = { isOpen: true };
+// The playground: the palette owns both keys wherever focus is.
+const CLOSED = {
+  isOpen: false,
+  keysFrom: "anywhere",
+  canvasFocused: false,
+} as const;
+const OPEN = {
+  isOpen: true,
+  keysFrom: "anywhere",
+  canvasFocused: false,
+} as const;
 
 describe("Cmd/Ctrl+K", () => {
   it("summons the root list, and dismisses what it summoned", () => {
@@ -70,5 +79,34 @@ describe("everything else", () => {
       command: "open",
       page: null,
     });
+  });
+});
+
+describe("on a page that also has Global Search (the thumbnail page)", () => {
+  const onPage = (isOpen: boolean, canvasFocused: boolean) =>
+    ({ isOpen, keysFrom: "canvas", canvasFocused }) as const;
+
+  it("Cmd/Ctrl+K and +F open the palette while the canvas has focus", () => {
+    expect(
+      paletteKeyCommand(key("k", { metaKey: true }), onPage(false, true))
+    ).toEqual({ command: "open", page: null });
+    expect(
+      paletteKeyCommand(key("f", { ctrlKey: true }), onPage(false, true))
+    ).toEqual({ command: "open", page: "diagrams" });
+  });
+
+  it("leaves both keys alone anywhere else, for Global Search and find", () => {
+    expect(
+      paletteKeyCommand(key("k", { metaKey: true }), onPage(false, false))
+    ).toBeNull();
+    expect(
+      paletteKeyCommand(key("f", { ctrlKey: true }), onPage(false, false))
+    ).toBeNull();
+  });
+
+  it("still closes the open palette, whose focus is in its own dialog", () => {
+    expect(
+      paletteKeyCommand(key("k", { metaKey: true }), onPage(true, false))
+    ).toEqual({ command: "close" });
   });
 });
