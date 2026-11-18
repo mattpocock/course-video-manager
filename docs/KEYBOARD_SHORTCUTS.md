@@ -44,6 +44,15 @@ pages' K and L act only bare: with Ctrl or Cmd held, K is Global Search's and L
 is left to the browser (its address bar), never 1x or 2x. Global Search does not
 take Ctrl+L.
 
+The diagram palette (`features/diagrams/palette/use-palette.ts`, decided in
+`palette-shortcuts.ts`) is the one key that goes BEFORE Global Search's
+Cmd/Ctrl+K. It listens on `window` in the capture phase and stops what it takes,
+so Global Search's document listener never sees that press. In the playground,
+which is only the editor, it takes Cmd/Ctrl+K and Cmd/Ctrl+F from anywhere. On
+the thumbnail page it takes them only while the tldraw canvas has focus (or the
+palette is open): from anywhere else on that page, Cmd/Ctrl+K is Global Search's
+and Cmd/Ctrl+F is the browser's find-in-page, as on every other page.
+
 A surface that lives INSIDE a dialog — the Article Writer preview, whose L and K
 step through its ChooseScreenshot placeholders — cannot use that guard whole, so
 it uses the guard's `isTypingTarget` half and scopes itself to keys from its own
