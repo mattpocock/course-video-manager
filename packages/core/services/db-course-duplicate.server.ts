@@ -16,10 +16,7 @@ import {
   beatLearningGoals,
 } from "../db/schema.js";
 import { NotFoundError, UnknownDBServiceError } from "./db-service-errors.js";
-import {
-  rebaseLineagePath,
-  rebaseLineagePathsDeep,
-} from "./thumbnail-path-rebase.js";
+import { copiedThumbnailValues } from "./thumbnail-path-rebase.js";
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import { Data, Effect } from "effect";
 import { copiedVoice } from "../features/clip-mockups/voice-status.js";
@@ -35,7 +32,6 @@ import {
   insertInChunks,
   type ClipWithChildren,
 } from "./copy-child-rows.js";
-import { sourcesOfCopiedThumbnail } from "../lib/thumbnail-diagram-sources.js";
 
 /**
  * Another Course, archived or not, already holds the name the copy asked for.
@@ -361,27 +357,13 @@ export const makeDuplicateCourse = (db: Database) =>
           );
 
           thumbnailValues.push(
-            ...sourceVideo.thumbnails.map((thumbnail) => ({
-              videoId: newVideoId,
-              layers: rebaseLineagePathsDeep(
-                thumbnail.layers,
-                sourceVideo.lineageId,
-                newLineageId
-              ),
-              filePath:
-                thumbnail.filePath === null
-                  ? null
-                  : rebaseLineagePath(
-                      thumbnail.filePath,
-                      sourceVideo.lineageId,
-                      newLineageId
-                    ),
-              // Vector and text only (ADR 0060): no paths to rebase.
-              thumbnailDiagram: thumbnail.thumbnailDiagram,
-              diagramSearchText: thumbnail.diagramSearchText,
-              diagramSources: sourcesOfCopiedThumbnail(thumbnail),
-              selectedForUpload: thumbnail.selectedForUpload,
-            }))
+            ...sourceVideo.thumbnails.map((thumbnail) =>
+              copiedThumbnailValues(thumbnail, {
+                videoId: newVideoId,
+                sourceLineageId: sourceVideo.lineageId,
+                newLineageId,
+              })
+            )
           );
         }
       }

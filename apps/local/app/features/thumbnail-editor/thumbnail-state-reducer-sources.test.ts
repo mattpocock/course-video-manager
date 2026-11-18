@@ -92,6 +92,7 @@ describe("Recording where an insert came from", () => {
     tester.send({ type: "insert-source-recorded", source: component }).send({
       type: "edit-loaded",
       thumbnailId: "t2",
+      videoId: "v1",
       capturedPhoto: "photo-2",
       diagramImage: null,
       diagramPosition: 50,

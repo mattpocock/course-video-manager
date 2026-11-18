@@ -40,6 +40,7 @@ interface CreateThumbnailPayload {
 
 export const action = makeAction({
   input: "json",
+  errors: { VersionNotDraftError: 409 },
   effect: ({ payload }) =>
     Effect.gen(function* () {
       const {
@@ -66,14 +67,9 @@ export const action = makeAction({
         );
       }
 
-      const thumbnailDiagram = readThumbnailDiagramField(thumbnailDiagramField);
-      if (thumbnailDiagram === undefined) {
-        return yield* Effect.die(
-          data("thumbnailDiagram must be a tldraw document or null", {
-            status: 400,
-          })
-        );
-      }
+      const thumbnailDiagram = yield* readThumbnailDiagramField(
+        thumbnailDiagramField
+      );
 
       const diagramSources =
         yield* readDiagramSourcesField(diagramSourcesField);

@@ -23,6 +23,7 @@ import type { TranscriptionStatus } from "../features/videos/transcription-statu
 import type { ClipMockupVoiceStatus } from "../features/clip-mockups/voice-status.js";
 import type { ClipOrigin } from "../features/videos/clip-origin.js";
 import type { ThumbnailDiagramSource } from "../lib/thumbnail-diagram-sources.js";
+import type { ThumbnailDiagramDocument } from "../lib/thumbnail-diagram.js";
 import type {
   AgentSessionEntryKind,
   SkillCallVia,
@@ -1819,7 +1820,8 @@ export const thumbnails = createTable("thumbnail", {
    * 0060). Drawing only: the face is in `layers`. Null on a Thumbnail saved
    * before Thumbnail Diagrams, which keeps its pasted diagram PNG layer.
    */
-  thumbnailDiagram: jsonb("thumbnail_diagram"),
+  thumbnailDiagram:
+    jsonb("thumbnail_diagram").$type<ThumbnailDiagramDocument>(),
   /**
    * The Thumbnail Diagram's text (`extractSceneText`), written with it, so
    * diagram search finds it the way it finds a Diagram. Null with no drawing.

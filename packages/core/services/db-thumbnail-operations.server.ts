@@ -3,12 +3,20 @@ import { withDbTransaction } from "./with-db-transaction.server.js";
 import { thumbnails, videos } from "../db/schema.js";
 import { NotFoundError, UnknownDBServiceError } from "./db-service-errors.js";
 import { and, desc, eq, ilike, isNotNull, isNull, or, sql } from "drizzle-orm";
+import type { PgUpdateSetSource } from "drizzle-orm/pg-core";
 import { Effect } from "effect";
 import {
   mergeThumbnailDiagramSources,
   type ThumbnailDiagramSource,
 } from "../lib/thumbnail-diagram-sources.js";
 import { extractSceneText } from "../lib/extract-scene-text/index.js";
+import { requireDraftVersionForVideo } from "./draft-guard.server.js";
+import {
+  collapseVersionCopies,
+  type ThumbnailDiagramDocument,
+  type ThumbnailDiagramHit,
+} from "../lib/thumbnail-diagram.js";
+import { escapeLike } from "../lib/escape-like.js";
 
 const makeDbCall = <T>(fn: () => Promise<T>) => {
   return Effect.tryPromise({
@@ -21,19 +29,8 @@ const makeDbCall = <T>(fn: () => Promise<T>) => {
 export const diagramSearchTextOf = (thumbnailDiagram: unknown) =>
   thumbnailDiagram == null ? null : extractSceneText(thumbnailDiagram);
 
-/**
- * A Thumbnail Diagram found by diagram search, labelled with its Video. It
- * is not a Diagram (ADR 0060): it opens, and is inserted from, its Thumbnail.
- */
-export type ThumbnailDiagramHit = {
-  source: "thumbnail-diagram";
-  thumbnailId: string;
-  videoId: string;
-  videoTitle: string;
-  searchText: string | null;
-  /** When the Thumbnail was made: hits are ordered newest first. */
-  sortKey: Date;
-};
+/** A diagram search hit, with when its Thumbnail was made, for ordering. */
+type ThumbnailDiagramSearchRow = ThumbnailDiagramHit & { sortKey: Date };
 
 const createThumbnailOperations = (db: Database) => {
   const getThumbnailsByVideoId = Effect.fn("getThumbnailsByVideoId")(function* (
@@ -50,30 +47,37 @@ const createThumbnailOperations = (db: Database) => {
     );
   });
 
+  /** Every write runs the Draft guard in its own transaction (DRAFT_GUARD.md). */
   const createThumbnail = Effect.fn("createThumbnail")(function* (params: {
     videoId: string;
     layers: unknown;
     filePath: string | null;
     /** A tldraw `document`; null for a pasted-PNG Thumbnail (ADR 0060). */
-    thumbnailDiagram: unknown;
-    /** Where its inserts came from; none when nothing was inserted. */
-    diagramSources?: readonly ThumbnailDiagramSource[];
+    thumbnailDiagram: ThumbnailDiagramDocument | null;
+    /** Where its inserts came from; empty when nothing was inserted. */
+    diagramSources: readonly ThumbnailDiagramSource[];
   }) {
-    const [record] = yield* makeDbCall(() =>
-      db
-        .insert(thumbnails)
-        .values({
-          videoId: params.videoId,
-          layers: params.layers,
-          filePath: params.filePath,
-          thumbnailDiagram: params.thumbnailDiagram,
-          diagramSearchText: diagramSearchTextOf(params.thumbnailDiagram),
-          diagramSources: mergeThumbnailDiagramSources(
-            [],
-            params.diagramSources ?? []
-          ),
-        })
-        .returning()
+    const record = yield* withDbTransaction(db, (tx) =>
+      Effect.gen(function* () {
+        yield* requireDraftVersionForVideo(tx, params.videoId);
+        const [row] = yield* makeDbCall(() =>
+          tx
+            .insert(thumbnails)
+            .values({
+              videoId: params.videoId,
+              layers: params.layers,
+              filePath: params.filePath,
+              thumbnailDiagram: params.thumbnailDiagram,
+              diagramSearchText: diagramSearchTextOf(params.thumbnailDiagram),
+              diagramSources: mergeThumbnailDiagramSources(
+                [],
+                params.diagramSources
+              ),
+            })
+            .returning()
+        );
+        return row;
+      })
     );
     if (!record) {
       return yield* Effect.die("Failed to create thumbnail");
@@ -100,58 +104,99 @@ const createThumbnailOperations = (db: Database) => {
     return thumbnail;
   });
 
+  /**
+   * Writes `set(existing)` to one Thumbnail: the row locked, and the Draft
+   * guard run, in the write's own transaction. NotFoundError if missing.
+   */
+  const writeThumbnail = (
+    type: string,
+    thumbnailId: string,
+    set: (existing: {
+      diagramSources: ThumbnailDiagramSource[];
+    }) => PgUpdateSetSource<typeof thumbnails>
+  ) =>
+    Effect.gen(function* () {
+      const written = yield* withDbTransaction(db, (tx) =>
+        Effect.gen(function* () {
+          const [existing] = yield* makeDbCall(() =>
+            tx
+              .select({
+                videoId: thumbnails.videoId,
+                diagramSources: thumbnails.diagramSources,
+              })
+              .from(thumbnails)
+              .where(eq(thumbnails.id, thumbnailId))
+              .for("update")
+          );
+          if (!existing) return undefined;
+          yield* requireDraftVersionForVideo(tx, existing.videoId);
+          const [row] = yield* makeDbCall(() =>
+            tx
+              .update(thumbnails)
+              .set(set(existing))
+              .where(eq(thumbnails.id, thumbnailId))
+              .returning()
+          );
+          return row;
+        })
+      );
+      if (!written) {
+        return yield* new NotFoundError({ type, params: { thumbnailId } });
+      }
+      return written;
+    });
+
   const updateThumbnail = Effect.fn("updateThumbnail")(function* (
     thumbnailId: string,
     params: {
       layers: unknown;
       filePath: string | null;
       /** Replaces the stored Thumbnail Diagram; null for a pasted-PNG one. */
-      thumbnailDiagram: unknown;
+      thumbnailDiagram: ThumbnailDiagramDocument | null;
       /**
        * Sources of inserts since the page opened the Thumbnail. Added to the
        * recorded ones, never replacing them: a link is never lost (ADR 0060).
        */
-      diagramSources?: readonly ThumbnailDiagramSource[];
+      diagramSources: readonly ThumbnailDiagramSource[];
     }
   ) {
-    const updated = yield* withDbTransaction(db, (tx) =>
-      Effect.gen(function* () {
-        const [existing] = yield* makeDbCall(() =>
-          tx
-            .select({ diagramSources: thumbnails.diagramSources })
-            .from(thumbnails)
-            .where(eq(thumbnails.id, thumbnailId))
-            .for("update")
-        );
-        if (!existing) return undefined;
-        const [row] = yield* makeDbCall(() =>
-          tx
-            .update(thumbnails)
-            .set({
-              layers: params.layers,
-              filePath: params.filePath,
-              thumbnailDiagram: params.thumbnailDiagram,
-              diagramSearchText: diagramSearchTextOf(params.thumbnailDiagram),
-              diagramSources: mergeThumbnailDiagramSources(
-                existing.diagramSources,
-                params.diagramSources ?? []
-              ),
-            })
-            .where(eq(thumbnails.id, thumbnailId))
-            .returning()
-        );
-        return row;
+    return yield* writeThumbnail(
+      "updateThumbnail",
+      thumbnailId,
+      (existing) => ({
+        layers: params.layers,
+        filePath: params.filePath,
+        thumbnailDiagram: params.thumbnailDiagram,
+        diagramSearchText: diagramSearchTextOf(params.thumbnailDiagram),
+        diagramSources: mergeThumbnailDiagramSources(
+          existing.diagramSources,
+          params.diagramSources
+        ),
       })
     );
+  });
 
-    if (!updated) {
-      return yield* new NotFoundError({
-        type: "updateThumbnail",
-        params: { thumbnailId },
-      });
-    }
-
-    return updated;
+  /**
+   * Adds insert sources to a Thumbnail and writes nothing else: the page
+   * sends these alone as it goes away, when a whole save (its PNGs) is too
+   * big to outlive it (ADR 0060: a link is never lost).
+   */
+  const recordThumbnailDiagramSources = Effect.fn(
+    "recordThumbnailDiagramSources"
+  )(function* (
+    thumbnailId: string,
+    diagramSources: readonly ThumbnailDiagramSource[]
+  ) {
+    return yield* writeThumbnail(
+      "recordThumbnailDiagramSources",
+      thumbnailId,
+      (existing) => ({
+        diagramSources: mergeThumbnailDiagramSources(
+          existing.diagramSources,
+          diagramSources
+        ),
+      })
+    );
   });
 
   /**
@@ -163,42 +208,32 @@ const createThumbnailOperations = (db: Database) => {
   const archiveThumbnail = Effect.fn("archiveThumbnail")(function* (
     thumbnailId: string
   ) {
-    const [archived] = yield* makeDbCall(() =>
-      db
-        .update(thumbnails)
-        .set({ archivedAt: sql`COALESCE(${thumbnails.archivedAt}, now())` })
-        .where(eq(thumbnails.id, thumbnailId))
-        .returning()
-    );
-
-    if (!archived) {
-      return yield* new NotFoundError({
-        type: "archiveThumbnail",
-        params: { thumbnailId },
-      });
-    }
-
-    return archived;
+    return yield* writeThumbnail("archiveThumbnail", thumbnailId, () => ({
+      archivedAt: sql`COALESCE(${thumbnails.archivedAt}, now())`,
+    }));
   });
 
   /**
    * Thumbnail Diagrams whose text or Video title matches `query`, newest
    * first, with the same query language as `searchDiagrams`. Archived
    * Thumbnails, and old pasted-PNG ones (no Thumbnail Diagram), are left out.
-   * A copied Video's Thumbnails hold the same drawing as the originals, so
-   * one drawing is one hit: the newest copy's.
+   * A Version copy's unchanged drawing is one hit, the copy's
+   * (`collapseVersionCopies`); any other two equal drawings are two.
    */
   const searchThumbnailDiagrams = Effect.fn("searchThumbnailDiagrams")(
     function* (query: string) {
       const tsQuery = sql`websearch_to_tsquery('english', ${query})`;
       const rows = yield* makeDbCall(() =>
         db
-          .selectDistinctOn([sql`md5(${thumbnails.thumbnailDiagram}::text)`], {
+          .select({
             thumbnailId: thumbnails.id,
             videoId: videos.id,
             videoTitle: videos.title,
             searchText: thumbnails.diagramSearchText,
             sortKey: thumbnails.createdAt,
+            lineageId: videos.lineageId,
+            contentHash: sql<string>`md5(${thumbnails.thumbnailDiagram}::text)`,
+            diagramSources: thumbnails.diagramSources,
           })
           .from(thumbnails)
           .innerJoin(videos, eq(thumbnails.videoId, videos.id))
@@ -208,22 +243,22 @@ const createThumbnailOperations = (db: Database) => {
               isNotNull(thumbnails.thumbnailDiagram),
               or(
                 sql`to_tsvector('english', coalesce(${thumbnails.diagramSearchText}, '') || ' ' || ${videos.title}) @@ ${tsQuery}`,
-                ilike(videos.title, `%${query}%`)
+                ilike(videos.title, `%${escapeLike(query)}%`)
               )
             )
           )
-          .orderBy(
-            sql`md5(${thumbnails.thumbnailDiagram}::text)`,
-            desc(thumbnails.createdAt),
-            desc(thumbnails.id)
-          )
+          .orderBy(desc(thumbnails.createdAt), desc(thumbnails.id))
       );
-      return rows
-        .map((row): ThumbnailDiagramHit => ({
+      return collapseVersionCopies(rows).map(
+        (row): ThumbnailDiagramSearchRow => ({
           source: "thumbnail-diagram",
-          ...row,
-        }))
-        .sort((a, b) => b.sortKey.getTime() - a.sortKey.getTime());
+          thumbnailId: row.thumbnailId,
+          videoId: row.videoId,
+          videoTitle: row.videoTitle,
+          searchText: row.searchText,
+          sortKey: row.sortKey,
+        })
+      );
     }
   );
 
@@ -233,6 +268,7 @@ const createThumbnailOperations = (db: Database) => {
     createThumbnail,
     getThumbnailById,
     updateThumbnail,
+    recordThumbnailDiagramSources,
     archiveThumbnail,
   };
 };

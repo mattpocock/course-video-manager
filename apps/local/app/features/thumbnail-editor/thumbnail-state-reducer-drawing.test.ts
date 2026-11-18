@@ -4,8 +4,8 @@ import {
   createInitialThumbnailState,
   selectCompositeLayers,
   selectDiagramKind,
-  type ThumbnailDiagramDocument,
 } from "./thumbnail-state-reducer";
+import type { ThumbnailDiagramDocument } from "@cvm/core/lib/thumbnail-diagram";
 import { ReducerTester } from "@/test-utils/reducer-tester";
 
 /**
@@ -158,6 +158,7 @@ describe("Reopening a Thumbnail", () => {
   ): thumbnailStateReducer.Action => ({
     type: "edit-loaded",
     thumbnailId: "t1",
+    videoId: "v1",
     capturedPhoto: "photo",
     diagramImage: null,
     diagramPosition: 50,
@@ -209,7 +210,9 @@ describe("Reopening a Thumbnail", () => {
     });
     const before = tester.getState().diagramSession;
 
-    const state = tester.send({ type: "new-thumbnail-clicked" }).getState();
+    const state = tester
+      .send({ type: "new-thumbnail-clicked", videoId: "v1" })
+      .getState();
 
     expect(state.thumbnailDiagram).toBeNull();
     expect(state.diagramSession).not.toBe(before);

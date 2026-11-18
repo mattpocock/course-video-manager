@@ -1,3 +1,4 @@
+import { faceSliderKeyCommand } from "./face-slider-keys";
 import { ThumbnailDiagramEditor } from "./thumbnail-diagram-editor";
 import type { ThumbnailEditorHistory } from "./thumbnail-face-history";
 import type { thumbnailStateReducer } from "./thumbnail-state-reducer";
@@ -62,24 +63,24 @@ export function ThumbnailDrawingFrame({
           onPointerUp={() => dispatch({ type: "face-slide-ended" })}
           onPointerCancel={() => dispatch({ type: "face-slide-ended" })}
           onKeyDown={(e) => {
-            // Cmd+Z / Cmd+Shift+Z here is the editor's one history too.
-            // While the editor counts as focused, tldraw's own shortcut (on
-            // <body>, below React's root on the document) has already run it
-            // and prevented the default; otherwise the slider forwards it.
-            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") {
-              if (e.defaultPrevented) return;
-              e.preventDefault();
-              if (e.shiftKey) historyRef.current?.redo();
-              else historyRef.current?.undo();
-              return;
-            }
-            if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+            const key = faceSliderKeyCommand(e);
+            if (!key) return;
             e.preventDefault();
-            dispatch({
-              type: "face-nudged",
-              direction: e.key === "ArrowLeft" ? -1 : 1,
-              big: e.shiftKey,
-            });
+            switch (key.command) {
+              case "undo":
+                historyRef.current?.undo();
+                return;
+              case "redo":
+                historyRef.current?.redo();
+                return;
+              case "nudge":
+                dispatch({
+                  type: "face-nudged",
+                  direction: key.direction,
+                  big: key.big,
+                });
+                return;
+            }
           }}
           className="w-full"
         />

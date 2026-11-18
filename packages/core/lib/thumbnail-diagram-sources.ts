@@ -72,7 +72,7 @@ export function mergeThumbnailDiagramSources(
 }
 
 /**
- * What a copy of `original` (Submit, Duplicate Course) records: the
+ * What a copy of `original` (Submit, Duplicate Course, Duplicate Video) records: the
  * original's sources, then the original itself. A Thumbnail with no
  * Thumbnail Diagram (an old pasted PNG) has no drawing to come from.
  */

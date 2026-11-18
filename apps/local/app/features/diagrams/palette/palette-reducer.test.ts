@@ -11,10 +11,9 @@ import {
   selectComponents,
   selectRootActions,
   type ComponentSummary,
-  type DiagramHit,
-  type DrawingHit,
   type PageKey,
 } from "./palette-reducer";
+import type { DiagramHit, DrawingHit } from "./diagram-hits";
 
 const summoned = (
   page: PageKey | null = null,

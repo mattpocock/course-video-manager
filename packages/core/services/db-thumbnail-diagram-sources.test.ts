@@ -127,12 +127,43 @@ describe("a Thumbnail Diagram's recorded sources", () => {
         layers,
         filePath: null,
         thumbnailDiagram: drawing("Pasted only"),
+        diagramSources: [],
       });
 
       expect((yield* ops.getThumbnailById(created.id)).diagramSources).toEqual(
         []
       );
     }).pipe(Effect.provide(testLayer))
+  );
+
+  it.effect(
+    "can be recorded on their own, as the page does while it is going away",
+    () =>
+      Effect.gen(function* () {
+        const video = yield* Effect.promise(createVideo);
+        const ops = yield* ThumbnailOperationsService;
+        const created = yield* ops.createThumbnail({
+          videoId: video.id,
+          layers,
+          filePath: "/t.png",
+          thumbnailDiagram: drawing("Agent"),
+          diagramSources: [component],
+        });
+        const snapshot = {
+          kind: "diagram-snapshot",
+          diagramSnapshotId: "snapshot-1",
+        } as const;
+
+        yield* ops.recordThumbnailDiagramSources(created.id, [
+          snapshot,
+          component,
+        ]);
+
+        const stored = yield* ops.getThumbnailById(created.id);
+        expect(stored.diagramSources).toEqual([component, snapshot]);
+        expect(stored.thumbnailDiagram).toEqual(drawing("Agent"));
+        expect(stored.filePath).toBe("/t.png");
+      }).pipe(Effect.provide(testLayer))
   );
 
   it.effect(
@@ -164,6 +195,7 @@ describe("a Thumbnail Diagram's recorded sources", () => {
           layers,
           filePath: null,
           thumbnailDiagram: drawing("Agent, trimmed again"),
+          diagramSources: [],
         });
 
         expect(
@@ -184,6 +216,7 @@ describe("a Thumbnail Diagram's recorded sources", () => {
         layers,
         filePath: null,
         thumbnailDiagram: drawing("Original"),
+        diagramSources: [],
       });
       const reuse = yield* ops.createThumbnail({
         videoId: video.id,

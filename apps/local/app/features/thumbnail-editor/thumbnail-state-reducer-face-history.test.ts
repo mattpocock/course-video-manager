@@ -81,7 +81,7 @@ describe("A face move", () => {
   it("undoing it puts the face back, and the autosave saves it there", () => {
     const tester = editing()
       .send({ type: "cutout-position-changed", value: 70 })
-      .send({ type: "save-succeeded", thumbnailId: "t1" })
+      .send({ type: "save-succeeded", thumbnailId: "t1", diagramSession: 0 })
       .send({
         type: "face-restored",
         face: { photo: "photo", cutout: "cutout", horizontalPosition: 50 },
@@ -163,7 +163,7 @@ describe("A retake", () => {
     const tester = editing()
       .send({ type: "photo-captured", dataUrl: "new-photo" })
       .send({ type: "background-removal-succeeded", dataUrl: "new-cutout" })
-      .send({ type: "save-succeeded", thumbnailId: "t1" })
+      .send({ type: "save-succeeded", thumbnailId: "t1", diagramSession: 0 })
       .send({
         type: "face-restored",
         face: { photo: "photo", cutout: "cutout", horizontalPosition: 50 },

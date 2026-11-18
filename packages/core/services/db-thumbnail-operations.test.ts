@@ -80,6 +80,7 @@ describe("archiveThumbnail", () => {
           layers,
           filePath: "/video-files/x/thumbnail.png",
           thumbnailDiagram: null,
+          diagramSources: [],
         });
 
         yield* ops.archiveThumbnail(created.id);
@@ -110,12 +111,14 @@ describe("archiveThumbnail", () => {
         layers,
         filePath: null,
         thumbnailDiagram: null,
+        diagramSources: [],
       });
       const gone = yield* ops.createThumbnail({
         videoId: video.id,
         layers,
         filePath: null,
         thumbnailDiagram: null,
+        diagramSources: [],
       });
 
       yield* ops.archiveThumbnail(gone.id);
@@ -162,6 +165,7 @@ describe("a Thumbnail's Thumbnail Diagram", () => {
           layers,
           filePath: null,
           thumbnailDiagram: drawing("Agent"),
+          diagramSources: [],
         });
 
         const [loaded] = yield* ops.getThumbnailsByVideoId(video.id);
@@ -179,12 +183,14 @@ describe("a Thumbnail's Thumbnail Diagram", () => {
         layers,
         filePath: null,
         thumbnailDiagram: drawing("Agent"),
+        diagramSources: [],
       });
 
       yield* ops.updateThumbnail(created.id, {
         layers,
         filePath: null,
         thumbnailDiagram: drawing("Tools"),
+        diagramSources: [],
       });
 
       const loaded = yield* ops.getThumbnailById(created.id);
@@ -203,18 +209,21 @@ describe("a Thumbnail's Thumbnail Diagram", () => {
           layers,
           filePath: null,
           thumbnailDiagram: drawing("A"),
+          diagramSources: [],
         });
         const b = yield* ops.createThumbnail({
           videoId: video.id,
           layers,
           filePath: null,
           thumbnailDiagram: drawing("B"),
+          diagramSources: [],
         });
 
         yield* ops.updateThumbnail(b.id, {
           layers,
           filePath: null,
           thumbnailDiagram: drawing("B, edited"),
+          diagramSources: [],
         });
 
         expect((yield* ops.getThumbnailById(a.id)).thumbnailDiagram).toEqual(
@@ -236,11 +245,13 @@ describe("a Thumbnail's Thumbnail Diagram", () => {
         layers: pastedLayers,
         filePath: null,
         thumbnailDiagram: null,
+        diagramSources: [],
       });
       yield* ops.updateThumbnail(created.id, {
         layers: pastedLayers,
         filePath: null,
         thumbnailDiagram: null,
+        diagramSources: [],
       });
 
       const loaded = yield* ops.getThumbnailById(created.id);

@@ -30,7 +30,7 @@ function decodeDataUrl(dataUrl: string): Uint8Array {
 
 export const action = makeAction({
   input: "json",
-  errors: { NotFoundError: 404 },
+  errors: { NotFoundError: 404, VersionNotDraftError: 409 },
   effect: ({ params, payload }) =>
     Effect.gen(function* () {
       const body = payload as Record<string, unknown>;
@@ -54,14 +54,9 @@ export const action = makeAction({
         );
       }
 
-      const thumbnailDiagram = readThumbnailDiagramField(thumbnailDiagramField);
-      if (thumbnailDiagram === undefined) {
-        return yield* Effect.die(
-          data("thumbnailDiagram must be a tldraw document or null", {
-            status: 400,
-          })
-        );
-      }
+      const thumbnailDiagram = yield* readThumbnailDiagramField(
+        thumbnailDiagramField
+      );
 
       const diagramSources =
         yield* readDiagramSourcesField(diagramSourcesField);

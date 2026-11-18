@@ -10,11 +10,7 @@ import {
   type ThumbnailDiagramSource,
 } from "@cvm/core/lib/thumbnail-diagram-sources";
 
-/**
- * A Thumbnail Diagram as saved: a tldraw `document` (`getSnapshot(store)
- * .document`), the same format as a Diagram's head (ADR 0060).
- */
-export type ThumbnailDiagramDocument = { store: object; schema: object };
+import type { ThumbnailDiagramDocument } from "@cvm/core/lib/thumbnail-diagram";
 
 /** Arrow-key nudges of the face, in slider units (100 = its whole travel). */
 export const FACE_NUDGE = 0.25;
@@ -103,17 +99,19 @@ export namespace thumbnailStateReducer {
     | { type: "face-restored"; face: ThumbnailFace }
     // Save
     | { type: "save-requested"; videoId: string; compositeDataUrl: string }
-    | { type: "save-succeeded"; thumbnailId: string }
+    /** `diagramSession` is the one the save was made in. */
+    | { type: "save-succeeded"; thumbnailId: string; diagramSession: number }
     | { type: "save-failed" }
     // Delete
     | { type: "delete-requested"; thumbnailId: string }
     | { type: "delete-succeeded" }
     | { type: "delete-failed" }
     // Edit
-    | { type: "edit-requested"; thumbnailId: string }
+    | { type: "edit-requested"; thumbnailId: string; videoId: string }
     | {
         type: "edit-loaded";
         thumbnailId: string;
+        videoId: string;
         capturedPhoto: string;
         diagramImage: string | null;
         diagramPosition: number;
@@ -123,7 +121,9 @@ export namespace thumbnailStateReducer {
       }
     | { type: "edit-failed" }
     // New Thumbnail
-    | { type: "new-thumbnail-clicked" }
+    | { type: "new-thumbnail-clicked"; videoId: string }
+    /** The page is going away (`pagehide`): an edit waiting to save saves now. */
+    | { type: "page-hidden"; videoId: string }
     // Preview
     | { type: "preview-updated"; dataUrl: string | null };
 
@@ -143,6 +143,8 @@ export namespace thumbnailStateReducer {
         thumbnailDiagram: ThumbnailDiagramDocument | null;
         diagramSources: readonly ThumbnailDiagramSource[];
         editingThumbnailId: string | null;
+        /** Which opened Thumbnail it saves: see `save-succeeded`. */
+        diagramSession: number;
       }
     | { type: "delete-thumbnail"; thumbnailId: string }
     | { type: "load-thumbnail"; thumbnailId: string }
@@ -266,6 +268,63 @@ function reduceFace(
   }
 }
 
+type SaveThumbnailEffect = Extract<
+  thumbnailStateReducer.Effect,
+  { type: "save-thumbnail" }
+>;
+
+const saveEffect = (
+  state: thumbnailStateReducer.State & { capturedPhoto: string },
+  videoId: string,
+  compositeDataUrl: string
+): SaveThumbnailEffect => ({
+  type: "save-thumbnail",
+  videoId,
+  compositeDataUrl,
+  capturedPhoto: state.capturedPhoto,
+  diagramImage: state.diagramImage,
+  diagramPosition: state.diagramPosition,
+  cutoutImage: state.cutoutImage,
+  cutoutPosition: state.cutoutPosition,
+  // The face goes to the layers above; the Thumbnail Diagram is the
+  // drawing alone.
+  thumbnailDiagram:
+    selectDiagramKind(state) === "drawing" && state.thumbnailDiagram
+      ? withoutFace(state.thumbnailDiagram)
+      : null,
+  diagramSources: state.diagramSources,
+  editingThumbnailId: state.editingThumbnailId,
+  diagramSession: state.diagramSession,
+});
+
+/**
+ * The save an edit still waiting for its autosave needs, made now: the
+ * Thumbnail is being left (another opened, New, the page going away), and
+ * its drawing and insert sources live nowhere else. Null when nothing waits,
+ * or when the Thumbnail's first create is still out (a second would make a
+ * copy). The composite is the preview's, the last one drawn.
+ */
+export const selectPendingSave = (
+  state: thumbnailStateReducer.State,
+  videoId: string
+): SaveThumbnailEffect | null => {
+  const { capturedPhoto, previewDataUrl } = state;
+  if (!state.pendingAutoSave || !capturedPhoto || !previewDataUrl) return null;
+  if (state.saving && !state.editingThumbnailId) return null;
+  return saveEffect({ ...state, capturedPhoto }, videoId, previewDataUrl);
+};
+
+const flushPendingSave = (
+  state: thumbnailStateReducer.State,
+  videoId: string,
+  exec: (effect: thumbnailStateReducer.Effect) => void
+): thumbnailStateReducer.State => {
+  const save = selectPendingSave(state, videoId);
+  if (!save) return state;
+  exec(save);
+  return { ...state, saving: true, pendingAutoSave: false };
+};
+
 export const createInitialThumbnailState = (): thumbnailStateReducer.State => ({
   cameraOpen: false,
   ...INITIAL_EDITOR_STATE,
@@ -385,29 +444,25 @@ export const thumbnailStateReducer: EffectReducer<
       return reduceFace(state, action, exec);
 
     // Save
-    case "save-requested":
-      if (!state.capturedPhoto) return state;
-      exec({
-        type: "save-thumbnail",
-        videoId: action.videoId,
-        compositeDataUrl: action.compositeDataUrl,
-        capturedPhoto: state.capturedPhoto,
-        diagramImage: state.diagramImage,
-        diagramPosition: state.diagramPosition,
-        cutoutImage: state.cutoutImage,
-        cutoutPosition: state.cutoutPosition,
-        // The face goes to the layers above; the Thumbnail Diagram is the
-        // drawing alone.
-        thumbnailDiagram:
-          selectDiagramKind(state) === "drawing" && state.thumbnailDiagram
-            ? withoutFace(state.thumbnailDiagram)
-            : null,
-        diagramSources: state.diagramSources,
-        editingThumbnailId: state.editingThumbnailId,
-      });
+    case "save-requested": {
+      const { capturedPhoto } = state;
+      if (!capturedPhoto) return state;
+      exec(
+        saveEffect(
+          { ...state, capturedPhoto },
+          action.videoId,
+          action.compositeDataUrl
+        )
+      );
       return { ...state, saving: true, pendingAutoSave: false };
+    }
     case "save-succeeded":
       exec({ type: "revalidate" });
+      // A save flushed on the way to another Thumbnail (or New) lands after
+      // it opened: that one stays open.
+      if (action.diagramSession !== state.diagramSession) {
+        return { ...state, saving: false };
+      }
       return {
         ...state,
         saving: false,
@@ -429,10 +484,14 @@ export const thumbnailStateReducer: EffectReducer<
     // Edit
     case "edit-requested":
       exec({ type: "load-thumbnail", thumbnailId: action.thumbnailId });
-      return { ...state, loadingEdit: action.thumbnailId };
+      return {
+        ...flushPendingSave(state, action.videoId, exec),
+        loadingEdit: action.thumbnailId,
+      };
     case "edit-loaded":
       return {
-        ...state,
+        // An edit made while it loaded belongs to the Thumbnail being left.
+        ...flushPendingSave(state, action.videoId, exec),
         loadingEdit: null,
         editingThumbnailId: action.thumbnailId,
         capturedPhoto: action.capturedPhoto,
@@ -452,10 +511,13 @@ export const thumbnailStateReducer: EffectReducer<
     // New Thumbnail
     case "new-thumbnail-clicked":
       return {
-        ...state,
+        ...flushPendingSave(state, action.videoId, exec),
         ...INITIAL_EDITOR_STATE,
         diagramSession: state.diagramSession + 1,
       };
+
+    case "page-hidden":
+      return flushPendingSave(state, action.videoId, exec);
 
     // Preview
     case "preview-updated":

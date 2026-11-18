@@ -48,6 +48,7 @@ describe("Save", () => {
       thumbnailDiagram: null,
       diagramSources: [],
       editingThumbnailId: null,
+      diagramSession: 0,
     });
   });
 
@@ -107,7 +108,11 @@ describe("Save", () => {
     );
 
     const state = tester
-      .send({ type: "save-succeeded", thumbnailId: "new-thumb" })
+      .send({
+        type: "save-succeeded",
+        thumbnailId: "new-thumb",
+        diagramSession: 0,
+      })
       .getState();
 
     expect(state.saving).toBe(false);
@@ -184,7 +189,7 @@ describe("Edit", () => {
     const tester = new ReducerTester(thumbnailStateReducer, createState());
 
     const state = tester
-      .send({ type: "edit-requested", thumbnailId: "thumb-1" })
+      .send({ type: "edit-requested", thumbnailId: "thumb-1", videoId: "v1" })
       .getState();
 
     expect(state.loadingEdit).toBe("thumb-1");
@@ -204,6 +209,7 @@ describe("Edit", () => {
       .send({
         type: "edit-loaded",
         thumbnailId: "thumb-1",
+        videoId: "v1",
         capturedPhoto: "bg-photo",
         diagramImage: "diagram",
         diagramPosition: 30,
@@ -241,7 +247,9 @@ describe("New Thumbnail", () => {
       })
     );
 
-    const state = tester.send({ type: "new-thumbnail-clicked" }).getState();
+    const state = tester
+      .send({ type: "new-thumbnail-clicked", videoId: "v1" })
+      .getState();
 
     expect(state.capturedPhoto).toBeNull();
     expect(state.diagramImage).toBeNull();
@@ -266,7 +274,9 @@ describe("New Thumbnail", () => {
       })
     );
 
-    const state = tester.send({ type: "new-thumbnail-clicked" }).getState();
+    const state = tester
+      .send({ type: "new-thumbnail-clicked", videoId: "v1" })
+      .getState();
 
     // Editor state cleared
     expect(state.capturedPhoto).toBeNull();

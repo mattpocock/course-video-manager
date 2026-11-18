@@ -4,16 +4,17 @@ import {
   readThumbnailDiagramSources,
   type ThumbnailDiagramSource,
 } from "@cvm/core/lib/thumbnail-diagram-sources";
+import type { ThumbnailDiagramDocument } from "@cvm/core/lib/thumbnail-diagram";
 
 /**
  * Reads the `thumbnailDiagram` field the thumbnail page saves: a tldraw
  * `document` (`{ store, schema }`, the format of a Diagram's head, ADR 0060)
  * or null for a Thumbnail that keeps its pasted diagram PNG. Anything else is
- * a malformed request: undefined, so the route answers 400.
+ * a malformed request: undefined.
  */
-export function readThumbnailDiagramField(
+function readThumbnailDiagram(
   value: unknown
-): { store: object; schema: object } | null | undefined {
+): ThumbnailDiagramDocument | null | undefined {
   if (value === null || value === undefined) return null;
   if (
     typeof value === "object" &&
@@ -29,6 +30,20 @@ export function readThumbnailDiagramField(
   }
   return undefined;
 }
+
+/** `readThumbnailDiagram` for a route: a malformed field dies with a 400. */
+export const readThumbnailDiagramField = (
+  value: unknown
+): Effect.Effect<ThumbnailDiagramDocument | null> => {
+  const thumbnailDiagram = readThumbnailDiagram(value);
+  return thumbnailDiagram === undefined
+    ? Effect.die(
+        data("thumbnailDiagram must be a tldraw document or null", {
+          status: 400,
+        })
+      )
+    : Effect.succeed(thumbnailDiagram);
+};
 
 /**
  * Reads the `diagramSources` field the thumbnail page saves: where its
