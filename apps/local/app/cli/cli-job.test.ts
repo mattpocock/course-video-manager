@@ -170,9 +170,30 @@ describe("cvm job wait", () => {
           status: "failed",
           cause: "YouTubeUploadError",
           message: "YouTube said 403 quotaExceeded",
+          posted: null,
         },
       ],
     });
+  });
+
+  it("carries what a failed posting Job had already posted", async () => {
+    const job = await enqueueTestJob(testDb, { kind: "youtube" });
+    await settleAsSidecar(testDb, "fail", [
+      {
+        type: "posted",
+        data: { youtubeVideoId: "yt123", url: "https://studio/yt123" },
+      },
+    ]);
+
+    const r = await run(["job", "wait", job.id]);
+
+    expect(r.exitCode).toBe(4);
+    expect(failureOf(r).failed).toEqual([
+      expect.objectContaining({
+        posted: { youtubeVideoId: "yt123", url: "https://studio/yt123" },
+      }),
+    ]);
+    expect(failureOf(r).message).toContain("already posted");
   });
 
   it("ends JobWaitTimeoutError, exit 4, naming what is still queued", async () => {

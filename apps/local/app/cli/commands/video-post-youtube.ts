@@ -2,7 +2,10 @@ import { Command, Options } from "@effect/cli";
 import * as NodeContext from "@effect/platform-node/NodeContext";
 import { ConfigProvider, Effect, Logger, LogLevel } from "effect";
 import { statSync } from "node:fs";
-import { JobOperationsService } from "@cvm/core/services/db-job-operations.server";
+import {
+  JobOperationsService,
+  POSTED_EVENT,
+} from "@cvm/core/services/db-job-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { PitchOperationsService } from "@/services/db-pitch-operations.server";
 import { makeCoursePublishReads } from "@/services/course-publish-reads";
@@ -34,7 +37,7 @@ import { POST_YOUTUBE_HELP } from "./video-post-youtube.help";
  * Every refusal (exit 3) is made BEFORE the Job is queued, so a refused run
  * leaves no row: the Thumbnail (`loadUploadableThumbnail`, the check the Job
  * itself makes), the export, the title and description, a live upload of
- * the same Video.
+ * the same Video, and an earlier upload that already posted it.
  */
 
 /** The privacy statuses this verb may ask for. Never `public`. */
@@ -138,6 +141,34 @@ const refuseLiveUpload = Effect.fn("refuseLiveUpload")(function* (
   }
 });
 
+/**
+ * A youtube Job that POSTED this Video before — whatever it ended as: one
+ * that failed setting the Thumbnail still left the Video on YouTube — is
+ * refused, so an agent retrying a failed upload never posts a duplicate.
+ * `--again` is the author saying a second copy is what they want.
+ */
+const refusePostedUpload = Effect.fn("refusePostedUpload")(function* (
+  videoId: string
+) {
+  const ops = yield* JobOperationsService;
+  const posted = yield* ops.listSubjectJobEvents({
+    kind: "youtube",
+    subjectType: "video",
+    subjectId: videoId,
+    type: POSTED_EVENT,
+  });
+  const last = posted.at(-1);
+  if (!last) return;
+  const { youtubeVideoId, url } = (last.data ?? {}) as {
+    youtubeVideoId?: unknown;
+    url?: unknown;
+  };
+  return yield* parseError(
+    `Video ${videoId} is already on YouTube: Job ${last.jobId} posted it as ${String(youtubeVideoId)} (${String(url)}), even if that Job then failed. Check it in YouTube Studio. Only if a second copy is really wanted, run again with --again.`,
+    "video"
+  );
+});
+
 const thumbnailOption = Options.text("thumbnail").pipe(
   Options.withDescription(
     "the CVM Thumbnail to upload, by id ('cvm thumbnail list --video <id>'); never a file path"
@@ -153,6 +184,12 @@ const dryRunOption = Options.boolean("dry-run").pipe(
   Options.withDescription("print what would be queued, and queue nothing")
 );
 
+const againOption = Options.boolean("again").pipe(
+  Options.withDescription(
+    "upload even though an earlier youtube Job already posted this Video (a second copy on YouTube)"
+  )
+);
+
 const waitOption = Options.boolean("wait").pipe(
   Options.withDescription(
     "wait for the upload Job to settle and print it (default: print the queued Job and return)"
@@ -165,11 +202,12 @@ export const postYouTubeCmd = Command.make(
     thumbnail: thumbnailOption,
     privacy: privacyOption,
     dryRun: dryRunOption,
+    again: againOption,
     wait: waitOption,
     timeout: timeoutOption,
     id: draftIdArg("video"),
   },
-  ({ thumbnail, privacy, dryRun, wait, timeout, id: ref }) =>
+  ({ thumbnail, privacy, dryRun, again, wait, timeout, id: ref }) =>
     Effect.gen(function* () {
       yield* requireLocalMachine(
         "cvm video post-youtube",
@@ -184,6 +222,7 @@ export const postYouTubeCmd = Command.make(
           thumbnailId: thumbnail,
           privacyStatus: privacy,
         });
+        if (!again) yield* refusePostedUpload(videoId);
         if (dryRun) return yield* emitObject({ dryRun: true, ...plan });
 
         yield* refuseLiveUpload(videoId);

@@ -67,7 +67,12 @@ EXIT
   0  every Job succeeded.
   2  an id is no Job (NotFoundError), checked before any waiting.
   4  JobFailedError: at least one ended failed, interrupted or cancelled.
-     'failed' names each, with the failure's own tag ('cause') and message;
+     'failed' names each, with the failure's own tag ('cause'), message and
+     'posted': what a posting Job had already posted before it failed (a
+     youtube Job's { youtubeVideoId, url }), else null. A non-null 'posted'
+     means the post IS out — a youtube Job that uploaded the Video and then
+     failed setting its Thumbnail — so do NOT run it again: that posts a
+     duplicate ('cvm video post-youtube' refuses one without --again).
      STDOUT is empty. Read the Job's log for the whole chain. An interrupted
      posting Job may or may not have posted: check before running it again.
   4  JobWaitTimeoutError: --timeout ran out; 'pending' names the Jobs still

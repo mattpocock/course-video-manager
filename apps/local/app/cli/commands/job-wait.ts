@@ -41,15 +41,20 @@ export const jobRow = (job: Job) => {
   };
 };
 
+/** What a posting Job recorded once it posted (its last `posted` Job Event), or null. */
+const postedBy = Effect.fn("postedBy")(function* (jobId: string) {
+  const ops = yield* JobOperationsService;
+  const events = yield* ops.listJobEvents(jobId);
+  return events.findLast((e) => e.type === POSTED_EVENT)?.data ?? null;
+});
+
 /**
  * One Job, as `cvm job get` and `cvm job wait` print it: its params, its
  * progress, and — for a posting Job — what it posted (a YouTube id and the
  * Studio link), from its `posted` Job Event.
  */
 export const jobDetail = Effect.fn("jobDetail")(function* (job: Job) {
-  const ops = yield* JobOperationsService;
-  const events = yield* ops.listJobEvents(job.id);
-  const posted = events.findLast((e) => e.type === POSTED_EVENT)?.data ?? null;
+  const posted = yield* postedBy(job.id);
   return {
     ...jobRow(job),
     params: job.params,
@@ -68,6 +73,12 @@ export class JobFailedError extends Data.TaggedError("JobFailedError")<{
     /** The failure's own tag, as the Job recorded it. */
     readonly cause: string | null;
     readonly message: string | null;
+    /**
+     * What it had already posted before it failed (a youtube Job: the
+     * YouTube id and Studio link), or null. Set means the post IS out:
+     * running it again would post a duplicate.
+     */
+    readonly posted: unknown;
   }>;
   readonly message: string;
 }> {}
@@ -83,7 +94,7 @@ export class JobWaitTimeoutError extends Data.TaggedError(
   readonly message: string;
 }> {}
 
-const failureLine = (job: SettledJob) => {
+const failureLine = Effect.fn("failureLine")(function* (job: SettledJob) {
   const { tag, message } = jobFailureOf(job);
   return {
     jobId: job.id,
@@ -91,8 +102,9 @@ const failureLine = (job: SettledJob) => {
     status: job.status,
     cause: tag,
     message,
+    posted: yield* postedBy(job.id),
   };
-};
+});
 
 /**
  * Wait on every Job in `jobIds` until each settles, and return them in the
@@ -157,13 +169,13 @@ export const waitForJobs = Effect.fn("waitForJobs")(function* (input: {
 
   const failed = settled.filter((job) => job.status !== "succeeded");
   if (failed.length > 0) {
-    const lines = failed.map(failureLine);
+    const lines = yield* Effect.forEach(failed, failureLine);
     return yield* new JobFailedError({
       failed: lines,
       message: lines
         .map(
           (l) =>
-            `Job ${l.jobId} (${l.kind}) ended ${l.status}${l.message ? `: ${l.message}` : ""}`
+            `Job ${l.jobId} (${l.kind}) ended ${l.status}${l.message ? `: ${l.message}` : ""}${l.posted ? `, but it had already posted (${JSON.stringify(l.posted)}): do NOT run it again, or the post goes out twice` : ""}`
         )
         .join("; "),
     });

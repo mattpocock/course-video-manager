@@ -16,7 +16,11 @@ import {
 } from "@/services/export-hash";
 import { LOCAL_MACHINE_ENV_KEY } from "./env";
 import { one, type RunResult } from "./cli-write-test-harness";
-import { makeJobRun, settleWhenQueued } from "./cli-job-test-harness";
+import {
+  makeJobRun,
+  settleAsSidecar,
+  settleWhenQueued,
+} from "./cli-job-test-harness";
 
 // ===========================================================================
 // cvm video post-youtube --thumbnail <id> [--privacy] [--dry-run] [--wait]
@@ -356,6 +360,77 @@ describe("cvm video post-youtube", () => {
     expect(r.exitCode).toBe(3);
     expect(failureOf(r).message).toContain("cvm short post");
     expect(await jobs()).toEqual([]);
+  });
+
+  describe("an earlier upload that reached YouTube", () => {
+    const POSTED = {
+      type: "posted",
+      data: { youtubeVideoId: "yt123", url: "https://studio/yt123" },
+    };
+
+    it.each(["succeed", "fail"] as const)(
+      "refuses another upload once one has posted (it ended %s), exit 3, naming it",
+      async (end) => {
+        await markExported();
+        await post("--thumbnail", s.thumbnailId);
+        await settleAsSidecar(testDb, end, [POSTED]);
+
+        const r = await post("--thumbnail", s.thumbnailId);
+
+        expect(r.exitCode).toBe(3);
+        expect(failureOf(r).message).toContain("yt123");
+        expect(failureOf(r).message).toContain("--again");
+        expect(await jobs()).toHaveLength(1);
+      }
+    );
+
+    it("refuses it in --dry-run too", async () => {
+      await markExported();
+      await post("--thumbnail", s.thumbnailId);
+      await settleAsSidecar(testDb, "fail", [POSTED]);
+
+      const r = await post("--thumbnail", s.thumbnailId, "--dry-run");
+
+      expect(r.exitCode).toBe(3);
+      expect(failureOf(r).message).toContain("yt123");
+    });
+
+    it("queues another with --again", async () => {
+      await markExported();
+      await post("--thumbnail", s.thumbnailId);
+      await settleAsSidecar(testDb, "fail", [POSTED]);
+
+      const r = await post("--thumbnail", s.thumbnailId, "--again");
+
+      expect(r.exitCode).toBe(0);
+      expect(await jobs()).toHaveLength(2);
+    });
+
+    it("does not count an earlier upload that failed before posting", async () => {
+      await markExported();
+      await post("--thumbnail", s.thumbnailId);
+      await settleAsSidecar(testDb, "fail");
+
+      const r = await post("--thumbnail", s.thumbnailId);
+
+      expect(r.exitCode).toBe(0);
+      expect(await jobs()).toHaveLength(2);
+    });
+
+    it("--wait names what was posted when the Job fails after posting", async () => {
+      await markExported();
+
+      const waiting = post("--thumbnail", s.thumbnailId, "--wait");
+      await settleWhenQueued(testDb, "fail", [POSTED]);
+      const r = await waiting;
+
+      expect(r.exitCode).toBe(4);
+      expect(failureOf(r)).toMatchObject({
+        _tag: "JobFailedError",
+        failed: [{ posted: { youtubeVideoId: "yt123" } }],
+      });
+      expect(failureOf(r).message).toContain("yt123");
+    });
   });
 
   it("refuses a second upload while the first is queued, exit 3", async () => {

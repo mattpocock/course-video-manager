@@ -22,8 +22,19 @@ WHAT GOES UP
 Every refusal is exit 3 and queues nothing: ThumbnailNotUploadableError (its
 'reason' is not-found, other-video, no-file or archived), or ParseError (not
 exported, no YouTube Draft, a Short, an archived Video, an upload of this
-Video already queued or running). A Short is refused: Shorts go out through
+Video already queued or running, or one that already posted it — see NEVER
+TWICE BY ACCIDENT). A Short is refused: Shorts go out through
 the Posting Queue ('cvm short post').
+
+NEVER TWICE BY ACCIDENT
+  Once any earlier youtube Job for this Video has POSTED it (a 'posted'
+  Job Event: the Video exists on YouTube), another upload is refused, exit
+  3, naming the YouTube id and Studio link — WHATEVER that Job ended as. A
+  Job that uploads the Video and then fails setting the Thumbnail ends
+  failed with the Video already on YouTube: running this again would post a
+  second copy. Fix it in Studio instead (set the Thumbnail there). Only when
+  a second copy is really wanted, pass --again. An earlier Job that failed
+  BEFORE posting does not count. --dry-run makes the same refusal.
 
 A POSTING JOB
   It runs ONCE. A run cut off mid-upload ends interrupted and is never run
@@ -41,6 +52,8 @@ FLAGS
   --thumbnail <id>   (required) the CVM Thumbnail id
   --privacy <p>      unlisted (default) | private
   --dry-run          print everything it would queue, and queue nothing
+  --again            upload even though an earlier Job already posted this
+                     Video (a second copy on YouTube)
   --wait             wait for the Job to settle (as 'cvm job wait' does)
   --timeout <min>    with --wait: give up waiting after this many minutes
                      (the upload carries on)
@@ -51,7 +64,9 @@ OUTPUT
   path, selectedForUpload } }. Otherwise the same with jobId, status "queued"
   and log instead of dryRun — follow it with 'cvm job wait <jobId>'. With
   --wait: the settled Job as 'cvm job get' prints it; 'posted' holds
-  { youtubeVideoId, url }. A failed upload is JobFailedError, exit 4.
+  { youtubeVideoId, url }. A failed upload is JobFailedError, exit 4; its
+  failed[0].posted is non-null when the Video reached YouTube before the
+  failure — then do NOT run this again.
 
 EXAMPLES
   cvm thumbnail list --video <videoId>
