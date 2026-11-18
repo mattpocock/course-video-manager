@@ -19,18 +19,36 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
+/**
+ * Where a layer scaled to the full 720 height sits: its left edge's x and its
+ * width, in thumbnail pixels, for a 0-100 slider position. The thumbnail
+ * editor lays the photo and Cutout out with this too, so what the author sees
+ * while drawing is what the export draws.
+ */
+export function scaledLayerBox(
+  naturalWidth: number,
+  naturalHeight: number,
+  horizontalPosition: number
+): { x: number; width: number } {
+  const scale = CANVAS_HEIGHT / naturalHeight;
+  const width = naturalWidth * scale;
+  // Allow moving 80% off-screen in either direction (20% always visible)
+  const minX = -0.8 * width;
+  const maxX = CANVAS_WIDTH - 0.2 * width;
+  return { x: minX + (maxX - minX) * (horizontalPosition / 100), width };
+}
+
 function drawScaledLayer(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement,
   horizontalPosition: number
 ) {
-  const scale = CANVAS_HEIGHT / img.naturalHeight;
-  const scaledWidth = img.naturalWidth * scale;
-  // Allow moving 80% off-screen in either direction (20% always visible)
-  const minX = -0.8 * scaledWidth;
-  const maxX = CANVAS_WIDTH - 0.2 * scaledWidth;
-  const x = minX + (maxX - minX) * (horizontalPosition / 100);
-  ctx.drawImage(img, x, 0, scaledWidth, CANVAS_HEIGHT);
+  const { x, width } = scaledLayerBox(
+    img.naturalWidth,
+    img.naturalHeight,
+    horizontalPosition
+  );
+  ctx.drawImage(img, x, 0, width, CANVAS_HEIGHT);
 }
 
 /**
