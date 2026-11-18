@@ -82,10 +82,6 @@ export default function DiagramPlaygroundActive({
     });
   }, [activeHead, reportStoredHead]);
 
-  const reloadScene = useCallback(
-    (id: string) => dispatch({ type: "head-moved-elsewhere", diagramId: id }),
-    [dispatch]
-  );
   const preserveSnapshot = useCallback(
     () => dispatch({ type: "preserve-clicked" }),
     [dispatch]
@@ -126,6 +122,9 @@ export default function DiagramPlaygroundActive({
   // reload doesn't restore it again and the same link can be followed twice.
   const [searchParams, setSearchParams] = useSearchParams();
   const linkedSnapshotId = searchParams.get("snapshot");
+  // `?highlight=<id>`: a DiagramSnapshot picked in diagram search. It is
+  // only highlighted in the Snapshot Timeline; the head is left alone.
+  const highlightedSnapshotId = searchParams.get("highlight");
   useEffect(() => {
     if (!diagramId || !linkedSnapshotId) return;
     dispatch({
@@ -380,7 +379,6 @@ export default function DiagramPlaygroundActive({
               handleRestoreRequest={requestRestore}
               handleCopyDiagramContents={handleCopyDiagramContents}
               handleCreateDiagram={handleCreateDiagram}
-              reloadScene={reloadScene}
               recentreDiagram={recentreDiagram}
             />
           )}
@@ -411,6 +409,7 @@ export default function DiagramPlaygroundActive({
                     onRestoreRequest={requestRestore}
                     refreshKey={`${state.timelineVersion}:${activeHead?.timelineHash ?? ""}`}
                     activeContentHash={activeSnapshotHash(state)}
+                    highlightedSnapshotId={highlightedSnapshotId}
                   />
                 </div>
               </div>

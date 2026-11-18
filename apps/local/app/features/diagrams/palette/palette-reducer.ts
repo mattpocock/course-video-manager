@@ -50,13 +50,14 @@ export type DiagramHit = {
 };
 
 /**
- * What "go to this result" needs to know. A hit carrying a `snapshotId` is a
- * request for THAT state, not for the diagram's head — see `onGoToDiagram`.
+ * What "go to this result" needs to know. Going to a DiagramSnapshot hit opens
+ * its Diagram with that snapshot highlighted in the Snapshot Timeline; it is
+ * never restored to the head, so a search result can't change what the next
+ * Clip is filmed against. Restore to Head is its own explicit action.
  */
-export type DiagramTarget = Pick<
-  DiagramHit,
-  "diagramId" | "snapshotId" | "source"
->;
+export type DiagramTarget = Pick<DiagramHit, "diagramId" | "source"> & {
+  highlightSnapshotId: string | null;
+};
 
 /** A root row that fires at once rather than opening a page. */
 export type RootCommand =
@@ -537,10 +538,12 @@ const on: Handlers = {
     return { ...state, busy: true, spinnerDelay: null };
   },
   "diagram-picked": (state, action, exec) => {
-    // The WHOLE hit goes through, not just the id: picking a snapshot means
-    // "take me to that state", exactly as it does from the search box on
-    // Playground Home.
-    exec({ type: "go-to-diagram", target: action.hit });
+    // Looking, not restoring: a snapshot hit only highlights the snapshot.
+    const { diagramId, snapshotId, source } = action.hit;
+    exec({
+      type: "go-to-diagram",
+      target: { diagramId, source, highlightSnapshotId: snapshotId },
+    });
     return state;
   },
   "went-to-diagram": (state) => closed(state),

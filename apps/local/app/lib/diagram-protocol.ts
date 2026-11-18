@@ -75,6 +75,21 @@ export function playgroundUrl(diagramId: string, snapshotId?: string): string {
     : path;
 }
 
+/**
+ * The Active Diagram page's URL for `diagramId`, with `snapshotId` (if any)
+ * highlighted in its Snapshot Timeline. Unlike `playgroundUrl`, nothing is
+ * restored: the head stays as it is.
+ */
+export function highlightedSnapshotUrl(
+  diagramId: string,
+  snapshotId: string | null
+): string {
+  const path = `/diagram-playground/${encodeURIComponent(diagramId)}`;
+  return snapshotId
+    ? `${path}?highlight=${encodeURIComponent(snapshotId)}`
+    : path;
+}
+
 export const diagramChannel = createPopupChannel({
   name: "cvm-diagrams",
   url: "/diagram-playground",
