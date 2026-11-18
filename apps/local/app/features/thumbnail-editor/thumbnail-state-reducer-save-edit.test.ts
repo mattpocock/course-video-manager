@@ -46,6 +46,7 @@ describe("Save", () => {
       cutoutImage: "cutout",
       cutoutPosition: 40,
       thumbnailDiagram: null,
+      diagramSources: [],
       editingThumbnailId: null,
     });
   });

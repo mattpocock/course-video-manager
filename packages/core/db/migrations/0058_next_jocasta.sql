@@ -1,0 +1,1 @@
+ALTER TABLE "course-video-manager_thumbnail" ADD COLUMN "diagram_sources" jsonb DEFAULT '[]'::jsonb NOT NULL;

@@ -33,6 +33,9 @@ export function ThumbnailDrawingFrame({
         onDrawingRendered={(image) =>
           dispatch({ type: "drawing-rendered", image })
         }
+        onInsertSource={(source) =>
+          dispatch({ type: "insert-source-recorded", source })
+        }
       >
         {/* The whole frame's width: a fraction of the old slider's travel per pixel. */}
         <input

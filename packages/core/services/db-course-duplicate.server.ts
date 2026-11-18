@@ -35,6 +35,7 @@ import {
   insertInChunks,
   type ClipWithChildren,
 } from "./copy-child-rows.js";
+import { sourcesOfCopiedThumbnail } from "../lib/thumbnail-diagram-sources.js";
 
 /**
  * Another Course, archived or not, already holds the name the copy asked for.
@@ -377,6 +378,7 @@ export const makeDuplicateCourse = (db: Database) =>
                     ),
               // Vector and text only (ADR 0060): no paths to rebase.
               thumbnailDiagram: thumbnail.thumbnailDiagram,
+              diagramSources: sourcesOfCopiedThumbnail(thumbnail),
               selectedForUpload: thumbnail.selectedForUpload,
             }))
           );

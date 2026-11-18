@@ -32,6 +32,7 @@ const handlers: PaletteHandlers = {
   },
   onGoToDiagram: noop,
   keysFrom: "anywhere",
+  onInsertSource: null,
 };
 
 let editor: Editor;

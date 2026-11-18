@@ -22,6 +22,7 @@ import type { VideoFormat } from "../features/videos/video-format.js";
 import type { TranscriptionStatus } from "../features/videos/transcription-status.js";
 import type { ClipMockupVoiceStatus } from "../features/clip-mockups/voice-status.js";
 import type { ClipOrigin } from "../features/videos/clip-origin.js";
+import type { ThumbnailDiagramSource } from "../lib/thumbnail-diagram-sources.js";
 import type {
   AgentSessionEntryKind,
   SkillCallVia,
@@ -1819,6 +1820,15 @@ export const thumbnails = createTable("thumbnail", {
    * before Thumbnail Diagrams, which keeps its pasted diagram PNG layer.
    */
   thumbnailDiagram: jsonb("thumbnail_diagram"),
+  /**
+   * Where the Thumbnail Diagram's inserted shapes came from, each once, in
+   * the order first recorded (ADR 0060). Only ever added to: see
+   * `mergeThumbnailDiagramSources`.
+   */
+  diagramSources: jsonb("diagram_sources")
+    .$type<ThumbnailDiagramSource[]>()
+    .notNull()
+    .default([]),
   selectedForUpload: boolean("selected_for_upload").notNull().default(false),
   /**
    * Set when the author deletes the Thumbnail: the row and its files stay so
