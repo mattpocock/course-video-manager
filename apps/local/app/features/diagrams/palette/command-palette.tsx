@@ -107,6 +107,15 @@ export function CommandPalette({
       <DialogContent
         showCloseButton={false}
         onEscapeKeyDown={blockRadixEscape}
+        // Back to the canvas, not the page: Cmd/Ctrl+K summons it again, and
+        // on a page that shares the key with Global Search it is the canvas's
+        // focus that says which one (`paletteKeyCommand`).
+        onCloseAutoFocus={(e) => {
+          const editor = editorRef.current;
+          if (!editor) return;
+          e.preventDefault();
+          editor.getContainer().focus();
+        }}
         // `sm:max-w-xl`, not `max-w-xl`: the shared DialogContent base carries
         // `sm:max-w-lg`, and twMerge keeps a `sm:`-prefixed rule over an
         // unprefixed one — so a bare `max-w-xl` would be silently overridden at
