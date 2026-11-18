@@ -10,6 +10,10 @@ import {
   writeVideoFile,
 } from "@/services/video-files";
 import { data } from "react-router";
+import {
+  readDiagramSourcesField,
+  readThumbnailDiagramField,
+} from "@/features/thumbnail-editor/thumbnail-diagram-payload";
 
 function decodeDataUrl(dataUrl: string): Uint8Array {
   const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
@@ -26,7 +30,7 @@ function decodeDataUrl(dataUrl: string): Uint8Array {
 
 export const action = makeAction({
   input: "json",
-  errors: { NotFoundError: 404 },
+  errors: { NotFoundError: 404, VersionNotDraftError: 409 },
   effect: ({ params, payload }) =>
     Effect.gen(function* () {
       const body = payload as Record<string, unknown>;
@@ -37,6 +41,8 @@ export const action = makeAction({
         diagramPosition,
         cutoutDataUrl,
         cutoutPosition,
+        thumbnailDiagram: thumbnailDiagramField,
+        diagramSources: diagramSourcesField,
       } = body;
 
       if (
@@ -47,6 +53,13 @@ export const action = makeAction({
           data("imageDataUrl is required", { status: 400 })
         );
       }
+
+      const thumbnailDiagram = yield* readThumbnailDiagramField(
+        thumbnailDiagramField
+      );
+
+      const diagramSources =
+        yield* readDiagramSourcesField(diagramSourcesField);
 
       const thumbnailId = params.thumbnailId!;
       const thumbnailOps = yield* ThumbnailOperationsService;
@@ -151,6 +164,8 @@ export const action = makeAction({
       const updated = yield* thumbnailOps.updateThumbnail(thumbnailId, {
         layers,
         filePath: compositePath,
+        thumbnailDiagram,
+        diagramSources,
       });
 
       return { success: true, thumbnailId: updated.id };

@@ -16,10 +16,7 @@ import {
   beatLearningGoals,
 } from "../db/schema.js";
 import { NotFoundError, UnknownDBServiceError } from "./db-service-errors.js";
-import {
-  rebaseLineagePath,
-  rebaseLineagePathsDeep,
-} from "./thumbnail-path-rebase.js";
+import { copiedThumbnailValues } from "./thumbnail-path-rebase.js";
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import { Data, Effect } from "effect";
 import { copiedVoice } from "../features/clip-mockups/voice-status.js";
@@ -167,7 +164,8 @@ export const makeDuplicateCourse = (db: Database) =>
                     where: eq(clipMockupChapters.archived, false),
                   },
                   clipMockupComments: true,
-                  thumbnails: true,
+                  // An archived Thumbnail was deleted by the author: it stays behind.
+                  thumbnails: { where: isNull(thumbnails.archivedAt) },
                 },
               },
             },
@@ -359,23 +357,13 @@ export const makeDuplicateCourse = (db: Database) =>
           );
 
           thumbnailValues.push(
-            ...sourceVideo.thumbnails.map((thumbnail) => ({
-              videoId: newVideoId,
-              layers: rebaseLineagePathsDeep(
-                thumbnail.layers,
-                sourceVideo.lineageId,
-                newLineageId
-              ),
-              filePath:
-                thumbnail.filePath === null
-                  ? null
-                  : rebaseLineagePath(
-                      thumbnail.filePath,
-                      sourceVideo.lineageId,
-                      newLineageId
-                    ),
-              selectedForUpload: thumbnail.selectedForUpload,
-            }))
+            ...sourceVideo.thumbnails.map((thumbnail) =>
+              copiedThumbnailValues(thumbnail, {
+                videoId: newVideoId,
+                sourceLineageId: sourceVideo.lineageId,
+                newLineageId,
+              })
+            )
           );
         }
       }

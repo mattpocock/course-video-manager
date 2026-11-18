@@ -14,9 +14,10 @@ import {
   clipMockups,
   clipMockupChapters,
   clipMockupComments,
+  thumbnails,
 } from "../db/schema.js";
 import { NotFoundError, UnknownDBServiceError } from "./db-service-errors.js";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import { generateNKeysBetween } from "fractional-indexing";
 import { Effect } from "effect";
 import { copiedVoice } from "../features/clip-mockups/voice-status.js";
@@ -32,6 +33,7 @@ import {
   copyClipsOntoVideo,
   insertInChunks,
 } from "./copy-child-rows.js";
+import { copiedThumbnailValues } from "./thumbnail-path-rebase.js";
 
 const makeDbCall = <T>(fn: () => Promise<T>) =>
   Effect.tryPromise({
@@ -346,6 +348,27 @@ export const copyVideoImpl = (
             await tx.insert(clipMockupComments).values(commentValues);
           }
         }
+
+        // Each live Thumbnail, its Thumbnail Diagram recording the original
+        // as its source (ADR 0060). An archived one was deleted by the author:
+        // it stays behind. The route copies the Video Files these point at.
+        const sourceThumbnails = await tx.query.thumbnails.findMany({
+          where: and(
+            eq(thumbnails.videoId, sourceVideoId),
+            isNull(thumbnails.archivedAt)
+          ),
+        });
+        await insertInChunks(
+          tx,
+          thumbnails,
+          sourceThumbnails.map((thumbnail) =>
+            copiedThumbnailValues(thumbnail, {
+              videoId: newVideo.id,
+              sourceLineageId: sourceVideo.lineageId,
+              newLineageId: newVideo.lineageId,
+            })
+          )
+        );
 
         return newVideo.id;
       })

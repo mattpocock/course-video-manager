@@ -49,10 +49,6 @@ const NOT_CARRIED: Record<string, string> = {
   "thumbnail.createdAt": "a copy is a new row",
   "thumbnail.diagramSources":
     "records the original as a source (db-thumbnail-diagram-copy.test.ts)",
-  "thumbnail.thumbnailDiagram":
-    "not carried until Submit copies the Thumbnail Diagram (#2728)",
-  "thumbnail.diagramSearchText":
-    "not carried until Submit copies the Thumbnail Diagram (#2728)",
 };
 
 /**
