@@ -1,4 +1,5 @@
 import { ThumbnailDiagramEditor } from "./thumbnail-diagram-editor";
+import type { ThumbnailEditorHistory } from "./thumbnail-face-history";
 import type { thumbnailStateReducer } from "./thumbnail-state-reducer";
 
 /**
@@ -9,11 +10,14 @@ export function ThumbnailDrawingFrame({
   state,
   photo,
   dispatch,
+  historyRef,
 }: {
   state: thumbnailStateReducer.State;
   /** The face is captured first: there is no frame without it. */
   photo: string;
   dispatch: (action: thumbnailStateReducer.Action) => void;
+  /** The editor's undo history, which the face is on too. */
+  historyRef: React.RefObject<ThumbnailEditorHistory | null>;
 }) {
   return (
     // As wide as the column, but never taller than the window leaves room for.
@@ -33,6 +37,8 @@ export function ThumbnailDrawingFrame({
         onDrawingRendered={(image) =>
           dispatch({ type: "drawing-rendered", image })
         }
+        onFaceRestored={(face) => dispatch({ type: "face-restored", face })}
+        historyRef={historyRef}
       />
       {/* The whole frame's width: a fraction of the old slider's travel per pixel. */}
       <input
@@ -48,7 +54,19 @@ export function ThumbnailDrawingFrame({
             value: Number(e.target.value),
           })
         }
+        // One drag is one undo step.
+        onPointerDown={() => dispatch({ type: "face-slide-started" })}
+        onPointerUp={() => dispatch({ type: "face-slide-ended" })}
+        onPointerCancel={() => dispatch({ type: "face-slide-ended" })}
         onKeyDown={(e) => {
+          // tldraw ignores keys outside the canvas, so the slider forwards
+          // Cmd+Z / Cmd+Shift+Z to the editor's one history.
+          if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") {
+            e.preventDefault();
+            if (e.shiftKey) historyRef.current?.redo();
+            else historyRef.current?.undo();
+            return;
+          }
           if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
           e.preventDefault();
           dispatch({
@@ -61,8 +79,8 @@ export function ThumbnailDrawingFrame({
       />
       <p className="text-xs text-muted-foreground">
         Draw in the frame. Slide the face, or focus the slider and use ←/→
-        (Shift for bigger steps). Cmd+K opens the diagram palette while the
-        canvas has focus.
+        (Shift for bigger steps). Cmd+Z undoes face moves with the drawing.
+        Cmd+K opens the diagram palette while the canvas has focus.
       </p>
     </div>
   );

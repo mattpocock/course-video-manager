@@ -1,5 +1,10 @@
 import type { EffectReducer } from "use-effect-reducer";
 import type { ThumbnailLayers } from "./canvas-compositor";
+import {
+  withoutFace,
+  type FaceHistory,
+  type ThumbnailFace,
+} from "./thumbnail-face";
 
 /**
  * A Thumbnail Diagram as saved: a tldraw `document` (`getSnapshot(store)
@@ -33,6 +38,16 @@ export namespace thumbnailStateReducer {
     diagramSession: number;
     cutoutImage: string | null;
     cutoutPosition: number;
+    /**
+     * Where a drag of the face slider is: one drag is one undo step, so only
+     * its first move starts a step.
+     */
+    faceSlide: "idle" | "started" | "moving";
+    /**
+     * The capture in progress replaces a face: once its background removal
+     * settles, the new photo and Cutout go on the history as one undo step.
+     */
+    retaking: boolean;
     removingBackground: boolean;
     backgroundRemovalError: string | null;
     saving: boolean;
@@ -70,6 +85,11 @@ export namespace thumbnailStateReducer {
     | { type: "cutout-position-changed"; value: number }
     /** ←/→ on the face slider; `big` with Shift held. */
     | { type: "face-nudged"; direction: -1 | 1; big: boolean }
+    /** The pointer went down / up on the face slider. */
+    | { type: "face-slide-started" }
+    | { type: "face-slide-ended" }
+    /** The editor's undo or redo put the face back to this. */
+    | { type: "face-restored"; face: ThumbnailFace }
     // Save
     | { type: "save-requested"; videoId: string; compositeDataUrl: string }
     | { type: "save-succeeded"; thumbnailId: string }
@@ -98,6 +118,8 @@ export namespace thumbnailStateReducer {
 
   export type Effect =
     | { type: "remove-background"; dataUrl: string }
+    /** Write the face into the editor's document, on its undo history. */
+    | { type: "record-face"; face: ThumbnailFace; history: FaceHistory }
     | {
         type: "save-thumbnail";
         videoId: string;
@@ -121,13 +143,115 @@ const INITIAL_EDITOR_STATE = {
   diagramPosition: 50,
   cutoutImage: null,
   cutoutPosition: 50,
+  faceSlide: "idle",
+  retaking: false,
   thumbnailDiagram: null,
   drawingImage: null,
   editingThumbnailId: null,
   backgroundRemovalError: null,
   previewDataUrl: null,
   pendingAutoSave: false,
-} as const;
+} as const satisfies Partial<thumbnailStateReducer.State>;
+
+/**
+ * Puts a face change on the editor's undo history. Only a Thumbnail Diagram
+ * has one: an old pasted-PNG Thumbnail has no editor.
+ */
+const recordFace = (
+  state: thumbnailStateReducer.State,
+  face: Partial<ThumbnailFace>,
+  history: FaceHistory,
+  exec: (effect: thumbnailStateReducer.Effect) => void
+) => {
+  if (!state.capturedPhoto || selectDiagramKind(state) !== "drawing") return;
+  exec({
+    type: "record-face",
+    face: {
+      photo: state.capturedPhoto,
+      cutout: state.cutoutImage,
+      horizontalPosition: state.cutoutPosition,
+      ...face,
+    },
+    history,
+  });
+};
+
+type FaceAction = Extract<
+  thumbnailStateReducer.Action,
+  {
+    type:
+      | "cutout-removed"
+      | "cutout-position-changed"
+      | "face-nudged"
+      | "face-slide-started"
+      | "face-slide-ended"
+      | "face-restored";
+  }
+>;
+
+/** The face's own events: each change it makes is recorded as an undo step. */
+function reduceFace(
+  state: thumbnailStateReducer.State,
+  action: FaceAction,
+  exec: (effect: thumbnailStateReducer.Effect) => void
+): thumbnailStateReducer.State {
+  switch (action.type) {
+    case "cutout-removed":
+      recordFace(state, { cutout: null }, "new-step", exec);
+      return {
+        ...state,
+        cutoutImage: null,
+        ...(state.editingThumbnailId && { pendingAutoSave: true }),
+      };
+    case "cutout-position-changed":
+      recordFace(
+        state,
+        { horizontalPosition: action.value },
+        state.faceSlide === "moving" ? "same-step" : "new-step",
+        exec
+      );
+      return {
+        ...state,
+        cutoutPosition: action.value,
+        faceSlide: state.faceSlide === "idle" ? "idle" : "moving",
+        ...(state.editingThumbnailId && { pendingAutoSave: true }),
+      };
+
+    case "face-nudged": {
+      const cutoutPosition = Math.min(
+        100,
+        Math.max(
+          0,
+          state.cutoutPosition +
+            action.direction * (action.big ? FACE_BIG_NUDGE : FACE_NUDGE)
+        )
+      );
+      recordFace(
+        state,
+        { horizontalPosition: cutoutPosition },
+        "new-step",
+        exec
+      );
+      return {
+        ...state,
+        cutoutPosition,
+        ...(state.editingThumbnailId && { pendingAutoSave: true }),
+      };
+    }
+    case "face-slide-started":
+      return { ...state, faceSlide: "started" };
+    case "face-slide-ended":
+      return { ...state, faceSlide: "idle" };
+    case "face-restored":
+      return {
+        ...state,
+        capturedPhoto: action.face.photo,
+        cutoutImage: action.face.cutout,
+        cutoutPosition: action.face.horizontalPosition,
+        ...(state.editingThumbnailId && { pendingAutoSave: true }),
+      };
+  }
+}
 
 export const createInitialThumbnailState = (): thumbnailStateReducer.State => ({
   cameraOpen: false,
@@ -154,6 +278,8 @@ export const thumbnailStateReducer: EffectReducer<
       exec({ type: "remove-background", dataUrl: action.dataUrl });
       return {
         ...state,
+        // Recorded once background removal settles, as one undo step.
+        retaking: state.capturedPhoto !== null,
         capturedPhoto: action.dataUrl,
         cutoutImage: null,
         backgroundRemovalError: null,
@@ -162,13 +288,22 @@ export const thumbnailStateReducer: EffectReducer<
 
     // Background Removal
     case "background-removal-succeeded":
+      // A first capture's Cutout has nothing before it to undo back to.
+      recordFace(
+        state,
+        { cutout: action.dataUrl },
+        state.retaking ? "new-step" : "silent",
+        exec
+      );
       return {
         ...state,
+        retaking: false,
         cutoutImage: action.dataUrl,
         removingBackground: false,
         pendingAutoSave: true,
       };
     case "background-removal-failed":
+      if (state.retaking) recordFace(state, { cutout: null }, "new-step", exec);
       return {
         ...state,
         backgroundRemovalError: action.error,
@@ -219,33 +354,14 @@ export const thumbnailStateReducer: EffectReducer<
     case "drawing-rendered":
       return { ...state, drawingImage: action.image };
 
-    // Cutout
+    // Cutout: the face, on the editor's undo history.
     case "cutout-removed":
-      return {
-        ...state,
-        cutoutImage: null,
-        ...(state.editingThumbnailId && { pendingAutoSave: true }),
-      };
     case "cutout-position-changed":
-      return {
-        ...state,
-        cutoutPosition: action.value,
-        ...(state.editingThumbnailId && { pendingAutoSave: true }),
-      };
-
     case "face-nudged":
-      return {
-        ...state,
-        cutoutPosition: Math.min(
-          100,
-          Math.max(
-            0,
-            state.cutoutPosition +
-              action.direction * (action.big ? FACE_BIG_NUDGE : FACE_NUDGE)
-          )
-        ),
-        ...(state.editingThumbnailId && { pendingAutoSave: true }),
-      };
+    case "face-slide-started":
+    case "face-slide-ended":
+    case "face-restored":
+      return reduceFace(state, action, exec);
 
     // Save
     case "save-requested":
@@ -259,9 +375,11 @@ export const thumbnailStateReducer: EffectReducer<
         diagramPosition: state.diagramPosition,
         cutoutImage: state.cutoutImage,
         cutoutPosition: state.cutoutPosition,
+        // The face goes to the layers above; the Thumbnail Diagram is the
+        // drawing alone.
         thumbnailDiagram:
-          selectDiagramKind(state) === "drawing"
-            ? state.thumbnailDiagram
+          selectDiagramKind(state) === "drawing" && state.thumbnailDiagram
+            ? withoutFace(state.thumbnailDiagram)
             : null,
         editingThumbnailId: state.editingThumbnailId,
       });
