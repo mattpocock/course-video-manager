@@ -167,7 +167,8 @@ export const makeDuplicateCourse = (db: Database) =>
                     where: eq(clipMockupChapters.archived, false),
                   },
                   clipMockupComments: true,
-                  thumbnails: true,
+                  // An archived Thumbnail was deleted by the author: it stays behind.
+                  thumbnails: { where: isNull(thumbnails.archivedAt) },
                 },
               },
             },

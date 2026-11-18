@@ -135,4 +135,21 @@ describe("duplicateCourse — where a copied Thumbnail points", () => {
     );
     expect(layers.backgroundPhoto.filePath).not.toContain(video.lineageId);
   });
+
+  it("leaves an archived (deleted) Thumbnail behind", async () => {
+    const { course, video } = await createCourseWithThumbnail();
+    await testDb.insert(schema.thumbnails).values({
+      videoId: video.id,
+      layers: { backgroundPhoto: null, diagram: null, cutout: null },
+      filePath: `/video-files/${video.lineageId}/thumbnail-02.png`,
+      archivedAt: new Date(),
+    });
+
+    const result = await duplicate(course.id);
+    const newVideo = await readDuplicatedVideo(result.version.id);
+
+    expect(newVideo.thumbnails.map((t) => t.filePath)).toEqual([
+      `/video-files/${newVideo.lineageId}/thumbnail-01.png`,
+    ]);
+  });
 });

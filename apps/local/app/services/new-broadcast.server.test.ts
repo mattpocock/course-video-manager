@@ -309,6 +309,27 @@ describe("a picked Broadcast's thumbnail, set later", () => {
     expect(youtube.requests).toEqual([]);
   });
 
+  it("answers failed, calling nothing, for an archived thumbnail", async () => {
+    await storeGrant();
+    const thumbnail = await storeThumbnail(thumbnailFile("png-bytes"));
+    await runWithFakeYouTube(
+      Effect.gen(function* () {
+        const thumbnails = yield* ThumbnailOperationsService;
+        yield* thumbnails.archiveThumbnail(thumbnail.thumbnailId);
+      })
+    );
+
+    const answer = await runWithFakeYouTube(
+      setThumbnailOnBroadcast({ broadcastId: "picked-one", ...thumbnail })
+    );
+
+    expect(answer).toEqual({
+      status: "failed",
+      reason: "the thumbnail was deleted: pick another.",
+    });
+    expect(youtube.requests).toEqual([]);
+  });
+
   it("answers failed, saying the thumbnail could not be read, when the database fails", async () => {
     await storeGrant();
 

@@ -1,0 +1,1 @@
+ALTER TABLE "course-video-manager_thumbnail" ADD COLUMN "archived_at" timestamp with time zone;
