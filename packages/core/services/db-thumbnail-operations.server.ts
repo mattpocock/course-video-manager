@@ -30,6 +30,8 @@ const createThumbnailOperations = (db: Database) => {
     videoId: string;
     layers: unknown;
     filePath: string | null;
+    /** A tldraw `document`; null for a pasted-PNG Thumbnail (ADR 0060). */
+    thumbnailDiagram: unknown;
   }) {
     const [record] = yield* makeDbCall(() =>
       db
@@ -38,6 +40,7 @@ const createThumbnailOperations = (db: Database) => {
           videoId: params.videoId,
           layers: params.layers,
           filePath: params.filePath,
+          thumbnailDiagram: params.thumbnailDiagram,
         })
         .returning()
     );
@@ -71,6 +74,8 @@ const createThumbnailOperations = (db: Database) => {
     params: {
       layers: unknown;
       filePath: string | null;
+      /** Replaces the stored Thumbnail Diagram; null for a pasted-PNG one. */
+      thumbnailDiagram: unknown;
     }
   ) {
     const [updated] = yield* makeDbCall(() =>
@@ -79,6 +84,7 @@ const createThumbnailOperations = (db: Database) => {
         .set({
           layers: params.layers,
           filePath: params.filePath,
+          thumbnailDiagram: params.thumbnailDiagram,
         })
         .where(eq(thumbnails.id, thumbnailId))
         .returning()

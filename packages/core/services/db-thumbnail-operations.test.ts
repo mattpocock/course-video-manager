@@ -79,6 +79,7 @@ describe("archiveThumbnail", () => {
           videoId: video.id,
           layers,
           filePath: "/video-files/x/thumbnail.png",
+          thumbnailDiagram: null,
         });
 
         yield* ops.archiveThumbnail(created.id);
@@ -108,17 +109,143 @@ describe("archiveThumbnail", () => {
         videoId: video.id,
         layers,
         filePath: null,
+        thumbnailDiagram: null,
       });
       const gone = yield* ops.createThumbnail({
         videoId: video.id,
         layers,
         filePath: null,
+        thumbnailDiagram: null,
       });
 
       yield* ops.archiveThumbnail(gone.id);
 
       const listed = yield* ops.getThumbnailsByVideoId(video.id);
       expect(listed.map((t) => t.id)).toEqual([kept.id]);
+    }).pipe(Effect.provide(testLayer))
+  );
+});
+
+/**
+ * A Thumbnail Diagram is a tldraw `document`, the same format as a Diagram's
+ * head (ADR 0060). A small one, as the editor's `getSnapshot().document` gives it.
+ */
+const drawing = (text: string) => ({
+  store: {
+    "document:document": {
+      id: "document:document",
+      typeName: "document",
+      gridSize: 10,
+      name: "",
+      meta: {},
+    },
+    "shape:box": {
+      id: "shape:box",
+      typeName: "shape",
+      type: "text",
+      parentId: "page:page",
+      props: { text },
+    },
+  },
+  schema: { schemaVersion: 2, sequences: {} },
+});
+
+describe("a Thumbnail's Thumbnail Diagram", () => {
+  it.effect(
+    "is saved with the Thumbnail and loaded back with the Video's list",
+    () =>
+      Effect.gen(function* () {
+        const video = yield* Effect.promise(createVideo);
+        const ops = yield* ThumbnailOperationsService;
+        const created = yield* ops.createThumbnail({
+          videoId: video.id,
+          layers,
+          filePath: null,
+          thumbnailDiagram: drawing("Agent"),
+        });
+
+        const [loaded] = yield* ops.getThumbnailsByVideoId(video.id);
+        expect(loaded!.id).toBe(created.id);
+        expect(loaded!.thumbnailDiagram).toEqual(drawing("Agent"));
+      }).pipe(Effect.provide(testLayer))
+  );
+
+  it.effect("is replaced by each save of the Thumbnail", () =>
+    Effect.gen(function* () {
+      const video = yield* Effect.promise(createVideo);
+      const ops = yield* ThumbnailOperationsService;
+      const created = yield* ops.createThumbnail({
+        videoId: video.id,
+        layers,
+        filePath: null,
+        thumbnailDiagram: drawing("Agent"),
+      });
+
+      yield* ops.updateThumbnail(created.id, {
+        layers,
+        filePath: null,
+        thumbnailDiagram: drawing("Tools"),
+      });
+
+      const loaded = yield* ops.getThumbnailById(created.id);
+      expect(loaded.thumbnailDiagram).toEqual(drawing("Tools"));
+    }).pipe(Effect.provide(testLayer))
+  );
+
+  it.effect(
+    "belongs to its own Thumbnail: a sibling's save leaves it alone",
+    () =>
+      Effect.gen(function* () {
+        const video = yield* Effect.promise(createVideo);
+        const ops = yield* ThumbnailOperationsService;
+        const a = yield* ops.createThumbnail({
+          videoId: video.id,
+          layers,
+          filePath: null,
+          thumbnailDiagram: drawing("A"),
+        });
+        const b = yield* ops.createThumbnail({
+          videoId: video.id,
+          layers,
+          filePath: null,
+          thumbnailDiagram: drawing("B"),
+        });
+
+        yield* ops.updateThumbnail(b.id, {
+          layers,
+          filePath: null,
+          thumbnailDiagram: drawing("B, edited"),
+        });
+
+        expect((yield* ops.getThumbnailById(a.id)).thumbnailDiagram).toEqual(
+          drawing("A")
+        );
+      }).pipe(Effect.provide(testLayer))
+  );
+
+  it.effect("stays null on a pasted-PNG Thumbnail saved as before", () =>
+    Effect.gen(function* () {
+      const video = yield* Effect.promise(createVideo);
+      const ops = yield* ThumbnailOperationsService;
+      const pastedLayers = {
+        ...layers,
+        diagram: { filePath: "/video-files/x/d.png", horizontalPosition: 20 },
+      };
+      const created = yield* ops.createThumbnail({
+        videoId: video.id,
+        layers: pastedLayers,
+        filePath: null,
+        thumbnailDiagram: null,
+      });
+      yield* ops.updateThumbnail(created.id, {
+        layers: pastedLayers,
+        filePath: null,
+        thumbnailDiagram: null,
+      });
+
+      const loaded = yield* ops.getThumbnailById(created.id);
+      expect(loaded.thumbnailDiagram).toBeNull();
+      expect(loaded.layers).toEqual(pastedLayers);
     }).pipe(Effect.provide(testLayer))
   );
 });

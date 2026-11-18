@@ -29,9 +29,26 @@ type ShortcutEvent = { key: string; metaKey: boolean; ctrlKey: boolean };
  */
 export function paletteKeyCommand(
   e: ShortcutEvent,
-  palette: { isOpen: boolean }
+  palette: {
+    isOpen: boolean;
+    /**
+     * Where the keys belong to the palette: `anywhere` on a page that is
+     * only the editor (the playground); `canvas` on a page that shares them
+     * with Global Search and find-in-page (the thumbnail page), where they
+     * summon the palette only while the tldraw canvas has focus.
+     */
+    keysFrom: "anywhere" | "canvas";
+    canvasFocused: boolean;
+  }
 ): PaletteCommand | null {
   if (!e.metaKey && !e.ctrlKey) return null;
+  // An open palette has the focus in its own dialog: it still answers.
+  if (
+    palette.keysFrom === "canvas" &&
+    !palette.isOpen &&
+    !palette.canvasFocused
+  )
+    return null;
   switch (e.key.toLowerCase()) {
     case "k":
       // The summon key is the dismiss key too.

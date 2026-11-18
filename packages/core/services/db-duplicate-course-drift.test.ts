@@ -175,7 +175,7 @@ describe("duplicateCourse — schema-drift guard", () => {
     },
     thumbnail: {
       table: schema.thumbnails,
-      copied: ["layers", "filePath", "selectedForUpload"],
+      copied: ["layers", "filePath", "thumbnailDiagram", "selectedForUpload"],
       notCopied: ["id", "videoId", "archivedAt", "createdAt"],
     },
   } as const;
@@ -335,6 +335,7 @@ describe("duplicateCourse — schema-drift guard", () => {
       videoId: video!.id,
       layers: [{ type: "text", content: "coverage" }],
       filePath: "/thumbs/coverage.png",
+      thumbnailDiagram: { store: { "shape:coverage": {} }, schema: {} },
       selectedForUpload: true,
     });
 

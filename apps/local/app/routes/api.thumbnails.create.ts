@@ -4,6 +4,7 @@ import { makeAction } from "@/services/route-action.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { videoFileRowPath, writeVideoFile } from "@/services/video-files";
 import { data } from "react-router";
+import { readThumbnailDiagramField } from "@/features/thumbnail-editor/thumbnail-diagram-payload";
 
 function decodeDataUrl(dataUrl: string): Uint8Array {
   const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
@@ -30,6 +31,7 @@ interface CreateThumbnailPayload {
   diagramPosition?: unknown;
   cutoutDataUrl?: unknown;
   cutoutPosition?: unknown;
+  thumbnailDiagram?: unknown;
 }
 
 export const action = makeAction({
@@ -44,6 +46,7 @@ export const action = makeAction({
         diagramPosition,
         cutoutDataUrl,
         cutoutPosition,
+        thumbnailDiagram: thumbnailDiagramField,
       } = (payload ?? {}) as CreateThumbnailPayload;
 
       if (typeof videoId !== "string" || !videoId) {
@@ -55,6 +58,15 @@ export const action = makeAction({
       ) {
         return yield* Effect.die(
           data("imageDataUrl is required", { status: 400 })
+        );
+      }
+
+      const thumbnailDiagram = readThumbnailDiagramField(thumbnailDiagramField);
+      if (thumbnailDiagram === undefined) {
+        return yield* Effect.die(
+          data("thumbnailDiagram must be a tldraw document or null", {
+            status: 400,
+          })
         );
       }
 
@@ -124,6 +136,7 @@ export const action = makeAction({
         videoId,
         layers,
         filePath,
+        thumbnailDiagram,
       });
 
       return { success: true, thumbnailId: thumbnail.id };

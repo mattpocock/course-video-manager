@@ -1,5 +1,10 @@
 import { useCallback, useRef, type ReactNode } from "react";
-import { Tldraw, type Editor } from "tldraw";
+import {
+  Tldraw,
+  type Editor,
+  type TLCameraOptions,
+  type TLComponents,
+} from "tldraw";
 import "tldraw/tldraw.css";
 import { CVM_SHAPE_UTILS } from "./cvm-shape-utils";
 import { useTldrawLicenseKey } from "./use-tldraw-license-key";
@@ -23,8 +28,9 @@ const UNSUPPORTED_CONTENT =
  * embed shape, and a pasted or dropped file is refused), and the Cmd+K / Cmd+F
  * command palette with its Icons, Diagram Components and diagram search.
  *
- * The host keeps everything else: its camera and persistence (through
- * `onMount`), and every palette action that acts on something only the host
+ * The host keeps everything else: its camera (through `onMount`, or fixed
+ * with `cameraOptions`), its persistence, any layers it draws behind or in
+ * front of the shapes (`components`), and every palette action that acts on something only the host
  * knows about, such as a Diagram's snapshots (`paletteHandlers`).
  *
  * Must render inside a `PlaygroundStatusProvider`: refusals and palette errors
@@ -33,12 +39,24 @@ const UNSUPPORTED_CONTENT =
 export function DiagramEditor({
   onMount,
   paletteHandlers,
+  cameraOptions,
+  components,
   children,
 }: {
-  /** The host attaches its camera and persistence to the editor here. */
-  onMount: (editor: Editor) => void;
+  /**
+   * The host attaches its camera and persistence to the editor here, and may
+   * return what to undo when the editor unmounts.
+   */
+  onMount: (editor: Editor) => void | (() => void);
   /** The host's palette actions; null mounts no palette. */
   paletteHandlers: PaletteHandlers | null;
+  /** tldraw's own camera options; absent, tldraw's defaults (the playground). */
+  cameraOptions?: Partial<TLCameraOptions>;
+  /**
+   * tldraw's own component overrides (a stable object): the thumbnail editor
+   * draws its photo as the Background and its Cutout in front of the shapes.
+   */
+  components?: TLComponents;
   /** Host chrome drawn over the canvas, inside the shape-error boundary. */
   children?: ReactNode;
 }) {
@@ -67,7 +85,7 @@ export function DiagramEditor({
         return shape;
       });
 
-      onMount(editor);
+      return onMount(editor);
     },
     [onMount, status]
   );
@@ -83,6 +101,8 @@ export function DiagramEditor({
           acceptedVideoMimeTypes={EMPTY_MIME_TYPES}
           embeds={EMPTY_EMBEDS}
           shapeUtils={CVM_SHAPE_UTILS}
+          cameraOptions={cameraOptions}
+          components={components}
         />
         {children}
       </DiagramEditorBoundary>

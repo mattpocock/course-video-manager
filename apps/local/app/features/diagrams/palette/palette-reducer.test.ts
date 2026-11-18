@@ -9,6 +9,7 @@ import {
   currentPage,
   paletteReducer,
   selectComponents,
+  selectRootActions,
   type ComponentSummary,
   type DiagramHit,
   type PageKey,
@@ -16,13 +17,18 @@ import {
 
 const summoned = (
   page: PageKey | null = null,
-  selection: { hasSelection?: boolean; selectedIcon?: CvmIconShape } = {}
+  selection: {
+    hasSelection?: boolean;
+    selectedIcon?: CvmIconShape;
+    hostsDiagram?: boolean;
+  } = {}
 ): paletteReducer.Action => ({
   type: "palette-summoned",
   page,
   hasSelection: selection.hasSelection ?? false,
   selectedIcon: selection.selectedIcon ?? null,
   recentIcons: [],
+  hostsDiagram: selection.hostsDiagram ?? true,
 });
 
 const row = (id: string) => {
@@ -425,5 +431,40 @@ describe("diagrams", () => {
     expect(t.getEffects()).toEqual([
       { type: "rename-diagram", name: "Auth flow" },
     ]);
+  });
+});
+
+describe("the root list in an editor with no Diagram of its own", () => {
+  // The thumbnail editor edits a Thumbnail Diagram, which has no snapshots,
+  // no name and no tuned camera (ADR 0060).
+  const DIAGRAM_ONLY = [
+    "preserve-snapshot",
+    "restore-head",
+    "copy-contents",
+    "rename-diagram",
+    "new-diagram",
+    "recentre-diagram",
+  ];
+  const rootIds = (hostsDiagram: boolean) =>
+    selectRootActions(
+      tester().send(summoned(null, { hostsDiagram })).getState()
+    ).map((a) => a.id);
+
+  it("leaves out every action on the Diagram", () => {
+    for (const id of DIAGRAM_ONLY) expect(rootIds(false)).not.toContain(id);
+  });
+
+  it("keeps the inserts and diagram search", () => {
+    expect(rootIds(false)).toEqual(
+      expect.arrayContaining([
+        "insert-icon",
+        "insert-component",
+        "go-to-diagram",
+      ])
+    );
+  });
+
+  it("the playground, which has a Diagram, still lists them all", () => {
+    expect(rootIds(true)).toEqual(expect.arrayContaining(DIAGRAM_ONLY));
   });
 });

@@ -32,7 +32,12 @@ export type {
   DiagramTarget,
 } from "./palette-reducer";
 
-export type PaletteHandlers = {
+/**
+ * The actions on the Diagram the editor edits. Only the playground has one:
+ * the thumbnail editor edits a Thumbnail Diagram (ADR 0060), and the palette
+ * leaves these rows out there.
+ */
+export type DiagramPaletteHandlers = {
   onPreserveSnapshot: () => void | Promise<void>;
   onRestoreToHead: () => void | Promise<void>;
   onCopyContents: () => void | Promise<void>;
@@ -40,11 +45,18 @@ export type PaletteHandlers = {
   onNewDiagram: () => void | Promise<void>;
   /** The same camera move the manual Cmd/Ctrl+0 shortcut runs. */
   onRecentreDiagram: () => void;
+};
+
+export type PaletteHandlers = {
+  /** Null in an editor with no Diagram of its own. */
+  diagram: DiagramPaletteHandlers | null;
   /**
    * Navigating away flushes the pending save first — see the call site. A
    * snapshot hit is highlighted in the Snapshot Timeline, never restored.
    */
   onGoToDiagram: (target: DiagramTarget) => void | Promise<void>;
+  /** See `paletteKeyCommand`: where Cmd/Ctrl+K and +F are the palette's. */
+  keysFrom: "anywhere" | "canvas";
 };
 
 /**
@@ -71,7 +83,9 @@ export function usePalette(opts: {
     paletteReducer.Effect
   >(paletteReducer, createInitialPaletteState(), {
     "run-root-command": (_state, { command }) => {
-      const handlers = handlersRef.current;
+      const handlers = handlersRef.current.diagram;
+      // The row is absent without a Diagram, so this cannot be picked.
+      if (!handlers) return;
       const run = {
         "preserve-snapshot": handlers.onPreserveSnapshot,
         "restore-head": handlers.onRestoreToHead,
@@ -178,7 +192,9 @@ export function usePalette(opts: {
       );
     },
     "rename-diagram": (_state, { name }, dispatch) => {
-      void Promise.resolve(handlersRef.current.onRenameDiagram(name)).then(() =>
+      const handlers = handlersRef.current.diagram;
+      if (!handlers) return;
+      void Promise.resolve(handlers.onRenameDiagram(name)).then(() =>
         dispatch({ type: "diagram-renamed" })
       );
     },
@@ -207,6 +223,7 @@ export function usePalette(opts: {
         hasSelection: selected.length > 0,
         selectedIcon: singleSelectedIcon(selected),
         recentIcons: readRecentIcons(),
+        hostsDiagram: handlersRef.current.diagram !== null,
       });
     },
     [editorRef, dispatch]
@@ -224,15 +241,27 @@ export function usePalette(opts: {
   // --- Shortcuts -----------------------------------------------------------
   useEffect(() => {
     function onKeyDown(e: globalThis.KeyboardEvent) {
-      const command = paletteKeyCommand(e, { isOpen: state.open });
+      const container = editorRef.current?.getContainer();
+      const command = paletteKeyCommand(e, {
+        isOpen: state.open,
+        keysFrom: handlersRef.current.keysFrom,
+        canvasFocused:
+          !!container &&
+          e.target instanceof Node &&
+          container.contains(e.target),
+      });
       if (!command) return;
       e.preventDefault();
+      // Taken in the capture phase, before Global Search's own listener on
+      // the document sees the same Cmd/Ctrl+K.
+      e.stopPropagation();
       if (command.command === "close") dispatch({ type: "palette-dismissed" });
       else summon(command.page);
     }
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [state.open, summon, dispatch]);
+    window.addEventListener("keydown", onKeyDown, { capture: true });
+    return () =>
+      window.removeEventListener("keydown", onKeyDown, { capture: true });
+  }, [state.open, summon, dispatch, editorRef]);
 
   // At `maxShapesPerPage`, `putContentOntoCurrentPage` bails SILENTLY — it
   // emits this event and returns. Without listening, an insert at the cap looks
