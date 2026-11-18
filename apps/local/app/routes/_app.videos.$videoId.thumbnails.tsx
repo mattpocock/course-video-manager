@@ -37,6 +37,7 @@ import {
 } from "@/features/thumbnail-editor/canvas-compositor";
 import { RuleOfThirdsGrid } from "@/features/thumbnail-editor/rule-of-thirds-grid";
 import { ThumbnailDrawingFrame } from "@/features/thumbnail-editor/thumbnail-drawing-frame";
+import { YouTubePreview } from "@/features/thumbnail-editor/youtube-preview";
 import {
   selectCompositeLayers,
   selectDiagramKind,
@@ -52,36 +53,6 @@ export const loader = makeLoader({
       return { videoId, thumbnails };
     }),
 });
-
-function YouTubePreview({
-  src,
-  width,
-  height,
-  label,
-}: {
-  src: string;
-  width: number;
-  height: number;
-  label: string;
-}) {
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <div className="relative" style={{ width, height }}>
-        <img
-          src={src}
-          alt={`${label} preview`}
-          className="rounded-lg object-cover"
-          style={{ width, height }}
-        />
-        {/* Mock YouTube timestamp badge */}
-        <div className="absolute bottom-1 right-1 rounded bg-black/80 px-1 py-0.5 text-xs font-medium leading-none text-white">
-          12:34
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default function ThumbnailsPage({ loaderData }: Route.ComponentProps) {
   const { videoId, thumbnails } = loaderData;

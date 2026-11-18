@@ -33,37 +33,38 @@ export function ThumbnailDrawingFrame({
         onDrawingRendered={(image) =>
           dispatch({ type: "drawing-rendered", image })
         }
-      />
-      {/* The whole frame's width: a fraction of the old slider's travel per pixel. */}
-      <input
-        type="range"
-        aria-label="Face position"
-        min={0}
-        max={100}
-        step={0.05}
-        value={state.cutoutPosition}
-        onChange={(e) =>
-          dispatch({
-            type: "cutout-position-changed",
-            value: Number(e.target.value),
-          })
-        }
-        onKeyDown={(e) => {
-          if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
-          e.preventDefault();
-          dispatch({
-            type: "face-nudged",
-            direction: e.key === "ArrowLeft" ? -1 : 1,
-            big: e.shiftKey,
-          });
-        }}
-        className="w-full"
-      />
-      <p className="text-xs text-muted-foreground">
-        Draw in the frame. Slide the face, or focus the slider and use ←/→
-        (Shift for bigger steps). Cmd+K opens the diagram palette while the
-        canvas has focus.
-      </p>
+      >
+        {/* The whole frame's width: a fraction of the old slider's travel per pixel. */}
+        <input
+          type="range"
+          aria-label="Face position"
+          min={0}
+          max={100}
+          step={0.05}
+          value={state.cutoutPosition}
+          onChange={(e) =>
+            dispatch({
+              type: "cutout-position-changed",
+              value: Number(e.target.value),
+            })
+          }
+          onKeyDown={(e) => {
+            if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+            e.preventDefault();
+            dispatch({
+              type: "face-nudged",
+              direction: e.key === "ArrowLeft" ? -1 : 1,
+              big: e.shiftKey,
+            });
+          }}
+          className="w-full"
+        />
+        <p className="text-xs text-muted-foreground">
+          Draw in the frame. Slide the face, or focus the slider and use ←/→
+          (Shift for bigger steps). Cmd+K opens the diagram palette while the
+          canvas has focus.
+        </p>
+      </ThumbnailDiagramEditor>
     </div>
   );
 }
