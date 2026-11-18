@@ -22,13 +22,16 @@ const status = {
 
 const noop = () => {};
 const handlers: PaletteHandlers = {
-  onPreserveSnapshot: noop,
-  onRestoreToHead: noop,
-  onCopyContents: noop,
-  onRenameDiagram: noop,
-  onNewDiagram: noop,
-  onRecentreDiagram: noop,
+  diagram: {
+    onPreserveSnapshot: noop,
+    onRestoreToHead: noop,
+    onCopyContents: noop,
+    onRenameDiagram: noop,
+    onNewDiagram: noop,
+    onRecentreDiagram: noop,
+  },
   onGoToDiagram: noop,
+  keysFrom: "anywhere",
 };
 
 let editor: Editor;

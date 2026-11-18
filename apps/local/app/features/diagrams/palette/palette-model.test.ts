@@ -13,7 +13,7 @@ const SOMETHING_SELECTED = { hasSelection: true, hasSingleIcon: false };
 const ONE_ICON_SELECTED = { hasSelection: true, hasSingleIcon: true };
 
 const idsFor = (selection: PaletteSelection) =>
-  visibleRootActions(selection).map((a) => a.id);
+  visibleRootActions({ ...selection, hostsDiagram: true }).map((a) => a.id);
 
 describe("visibleRootActions", () => {
   it("offers `save selection as component` once something is selected", () => {

@@ -393,6 +393,7 @@ export const createVersionCopyOps = (db: Database) => {
                     videoId: newVideo.id,
                     layers: thumbnail.layers,
                     filePath: thumbnail.filePath,
+                    thumbnailDiagram: thumbnail.thumbnailDiagram,
                     selectedForUpload: thumbnail.selectedForUpload,
                   }))
                 )

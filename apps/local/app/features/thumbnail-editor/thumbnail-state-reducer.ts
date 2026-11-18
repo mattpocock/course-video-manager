@@ -1,12 +1,36 @@
 import type { EffectReducer } from "use-effect-reducer";
+import type { ThumbnailLayers } from "./canvas-compositor";
+
+/**
+ * A Thumbnail Diagram as saved: a tldraw `document` (`getSnapshot(store)
+ * .document`), the same format as a Diagram's head (ADR 0060).
+ */
+export type ThumbnailDiagramDocument = { store: object; schema: object };
+
+/** Arrow-key nudges of the face, in slider units (100 = its whole travel). */
+export const FACE_NUDGE = 0.25;
+export const FACE_BIG_NUDGE = 2.5;
 
 export namespace thumbnailStateReducer {
   export interface State {
     /** The camera modal, which takes its still from the recorder service (#2012). */
     cameraOpen: boolean;
     capturedPhoto: string | null;
+    /**
+     * A pasted diagram PNG. Only a Thumbnail saved before Thumbnail Diagrams
+     * has one; while it does, the page shows the old pasted-PNG layer.
+     */
     diagramImage: string | null;
     diagramPosition: number;
+    /** The Thumbnail Diagram as last edited or loaded; null until drawn on. */
+    thumbnailDiagram: ThumbnailDiagramDocument | null;
+    /** The Thumbnail Diagram drawn as a 1280×720 PNG, for the composite. */
+    drawingImage: string | null;
+    /**
+     * Bumped whenever a different Thumbnail's drawing is loaded, so the page
+     * mounts a fresh editor (and undo history) for it, and only then.
+     */
+    diagramSession: number;
     cutoutImage: string | null;
     cutoutPosition: number;
     removingBackground: boolean;
@@ -32,9 +56,20 @@ export namespace thumbnailStateReducer {
     | { type: "diagram-pasted"; dataUrl: string; position: number }
     | { type: "diagram-removed" }
     | { type: "diagram-position-changed"; value: number }
+    // Thumbnail Diagram
+    /** The author edited the drawing; `image` is it, drawn for the composite. */
+    | {
+        type: "drawing-changed";
+        document: ThumbnailDiagramDocument;
+        image: string | null;
+      }
+    /** A loaded drawing, drawn for the composite: not an edit. */
+    | { type: "drawing-rendered"; image: string | null }
     // Cutout
     | { type: "cutout-removed" }
     | { type: "cutout-position-changed"; value: number }
+    /** ←/→ on the face slider; `big` with Shift held. */
+    | { type: "face-nudged"; direction: -1 | 1; big: boolean }
     // Save
     | { type: "save-requested"; videoId: string; compositeDataUrl: string }
     | { type: "save-succeeded"; thumbnailId: string }
@@ -53,6 +88,7 @@ export namespace thumbnailStateReducer {
         diagramPosition: number;
         cutoutImage: string | null;
         cutoutPosition: number;
+        thumbnailDiagram: ThumbnailDiagramDocument | null;
       }
     | { type: "edit-failed" }
     // New Thumbnail
@@ -71,6 +107,7 @@ export namespace thumbnailStateReducer {
         diagramPosition: number;
         cutoutImage: string | null;
         cutoutPosition: number;
+        thumbnailDiagram: ThumbnailDiagramDocument | null;
         editingThumbnailId: string | null;
       }
     | { type: "delete-thumbnail"; thumbnailId: string }
@@ -84,6 +121,8 @@ const INITIAL_EDITOR_STATE = {
   diagramPosition: 50,
   cutoutImage: null,
   cutoutPosition: 50,
+  thumbnailDiagram: null,
+  drawingImage: null,
   editingThumbnailId: null,
   backgroundRemovalError: null,
   previewDataUrl: null,
@@ -93,6 +132,7 @@ const INITIAL_EDITOR_STATE = {
 export const createInitialThumbnailState = (): thumbnailStateReducer.State => ({
   cameraOpen: false,
   ...INITIAL_EDITOR_STATE,
+  diagramSession: 0,
   removingBackground: false,
   saving: false,
   deleting: null,
@@ -145,6 +185,9 @@ export const thumbnailStateReducer: EffectReducer<
 
     // Diagram
     case "diagram-pasted":
+      // Only an old Thumbnail's pasted PNG is replaced by a paste: anything
+      // else has a Thumbnail Diagram, and the editor refuses images.
+      if (selectDiagramKind(state) === "drawing") return state;
       return {
         ...state,
         diagramImage: action.dataUrl,
@@ -164,6 +207,18 @@ export const thumbnailStateReducer: EffectReducer<
         ...(state.editingThumbnailId && { pendingAutoSave: true }),
       };
 
+    // Thumbnail Diagram
+    case "drawing-changed":
+      return {
+        ...state,
+        thumbnailDiagram: action.document,
+        drawingImage: action.image,
+        // No face yet, no Thumbnail to save it to.
+        ...(state.capturedPhoto && { pendingAutoSave: true }),
+      };
+    case "drawing-rendered":
+      return { ...state, drawingImage: action.image };
+
     // Cutout
     case "cutout-removed":
       return {
@@ -175,6 +230,20 @@ export const thumbnailStateReducer: EffectReducer<
       return {
         ...state,
         cutoutPosition: action.value,
+        ...(state.editingThumbnailId && { pendingAutoSave: true }),
+      };
+
+    case "face-nudged":
+      return {
+        ...state,
+        cutoutPosition: Math.min(
+          100,
+          Math.max(
+            0,
+            state.cutoutPosition +
+              action.direction * (action.big ? FACE_BIG_NUDGE : FACE_NUDGE)
+          )
+        ),
         ...(state.editingThumbnailId && { pendingAutoSave: true }),
       };
 
@@ -190,6 +259,10 @@ export const thumbnailStateReducer: EffectReducer<
         diagramPosition: state.diagramPosition,
         cutoutImage: state.cutoutImage,
         cutoutPosition: state.cutoutPosition,
+        thumbnailDiagram:
+          selectDiagramKind(state) === "drawing"
+            ? state.thumbnailDiagram
+            : null,
         editingThumbnailId: state.editingThumbnailId,
       });
       return { ...state, saving: true, pendingAutoSave: false };
@@ -227,6 +300,9 @@ export const thumbnailStateReducer: EffectReducer<
         diagramPosition: action.diagramPosition,
         cutoutImage: action.cutoutImage,
         cutoutPosition: action.cutoutPosition,
+        thumbnailDiagram: action.thumbnailDiagram,
+        drawingImage: null,
+        diagramSession: state.diagramSession + 1,
         backgroundRemovalError: null,
       };
     case "edit-failed":
@@ -237,6 +313,7 @@ export const thumbnailStateReducer: EffectReducer<
       return {
         ...state,
         ...INITIAL_EDITOR_STATE,
+        diagramSession: state.diagramSession + 1,
       };
 
     // Preview
@@ -245,3 +322,33 @@ export const thumbnailStateReducer: EffectReducer<
   }
   action satisfies never;
 };
+
+/**
+ * What the Thumbnail's diagram is: an old Thumbnail's pasted PNG, while it
+ * has one, or otherwise a Thumbnail Diagram drawn in the editor.
+ */
+export const selectDiagramKind = (
+  state: thumbnailStateReducer.State
+): "pasted" | "drawing" => (state.diagramImage ? "pasted" : "drawing");
+
+/** The layers the composite (and the saved PNG) is drawn from. */
+export const selectCompositeLayers = (
+  state: thumbnailStateReducer.State
+): ThumbnailLayers =>
+  selectDiagramKind(state) === "pasted"
+    ? {
+        capturedPhoto: state.capturedPhoto,
+        diagramImage: state.diagramImage,
+        diagramPosition: state.diagramPosition,
+        cutoutImage: state.cutoutImage,
+        cutoutPosition: state.cutoutPosition,
+      }
+    : {
+        capturedPhoto: state.capturedPhoto,
+        // The drawing is exported at the frame's own 1280×720, which the
+        // compositor draws at x = 0 from position 50.
+        diagramImage: state.drawingImage,
+        diagramPosition: 50,
+        cutoutImage: state.cutoutImage,
+        cutoutPosition: state.cutoutPosition,
+      };

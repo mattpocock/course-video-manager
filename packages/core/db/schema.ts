@@ -1812,6 +1812,13 @@ export const thumbnails = createTable("thumbnail", {
     .notNull(),
   layers: jsonb("layers").notNull(),
   filePath: text("file_path"),
+  /**
+   * The Thumbnail Diagram: the drawing edited in place on the thumbnail page,
+   * a tldraw `document` in the same format as a Diagram's `headScene` (ADR
+   * 0060). Drawing only: the face is in `layers`. Null on a Thumbnail saved
+   * before Thumbnail Diagrams, which keeps its pasted diagram PNG layer.
+   */
+  thumbnailDiagram: jsonb("thumbnail_diagram"),
   selectedForUpload: boolean("selected_for_upload").notNull().default(false),
   /**
    * Set when the author deletes the Thumbnail: the row and its files stay so

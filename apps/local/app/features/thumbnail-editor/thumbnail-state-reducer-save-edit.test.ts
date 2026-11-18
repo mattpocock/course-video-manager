@@ -45,6 +45,7 @@ describe("Save", () => {
       diagramPosition: 60,
       cutoutImage: "cutout",
       cutoutPosition: 40,
+      thumbnailDiagram: null,
       editingThumbnailId: null,
     });
   });
@@ -207,6 +208,7 @@ describe("Edit", () => {
         diagramPosition: 30,
         cutoutImage: "cutout",
         cutoutPosition: 70,
+        thumbnailDiagram: null,
       })
       .getState();
 

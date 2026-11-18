@@ -10,6 +10,7 @@ import {
   writeVideoFile,
 } from "@/services/video-files";
 import { data } from "react-router";
+import { readThumbnailDiagramField } from "@/features/thumbnail-editor/thumbnail-diagram-payload";
 
 function decodeDataUrl(dataUrl: string): Uint8Array {
   const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
@@ -37,6 +38,7 @@ export const action = makeAction({
         diagramPosition,
         cutoutDataUrl,
         cutoutPosition,
+        thumbnailDiagram: thumbnailDiagramField,
       } = body;
 
       if (
@@ -45,6 +47,15 @@ export const action = makeAction({
       ) {
         return yield* Effect.die(
           data("imageDataUrl is required", { status: 400 })
+        );
+      }
+
+      const thumbnailDiagram = readThumbnailDiagramField(thumbnailDiagramField);
+      if (thumbnailDiagram === undefined) {
+        return yield* Effect.die(
+          data("thumbnailDiagram must be a tldraw document or null", {
+            status: 400,
+          })
         );
       }
 
@@ -151,6 +162,7 @@ export const action = makeAction({
       const updated = yield* thumbnailOps.updateThumbnail(thumbnailId, {
         layers,
         filePath: compositePath,
+        thumbnailDiagram,
       });
 
       return { success: true, thumbnailId: updated.id };

@@ -375,6 +375,8 @@ export const makeDuplicateCourse = (db: Database) =>
                       sourceVideo.lineageId,
                       newLineageId
                     ),
+              // Vector and text only (ADR 0060): no paths to rebase.
+              thumbnailDiagram: thumbnail.thumbnailDiagram,
               selectedForUpload: thumbnail.selectedForUpload,
             }))
           );
