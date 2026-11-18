@@ -25,6 +25,8 @@ import {
   Box,
   getSnapshot,
   loadSnapshot,
+  useEditor,
+  useValue,
   type Editor,
   type TLCameraOptions,
   type TLComponents,
@@ -44,6 +46,7 @@ import {
   TLDRAW_DARK_BACKGROUND,
   scaledLayerBox,
 } from "./canvas-compositor";
+import { darkPanelSpan, type DarkPanelSpan } from "./dark-panel";
 import type { ThumbnailDiagramDocument } from "./thumbnail-state-reducer";
 import type { ThumbnailDiagramSource } from "@cvm/core/lib/thumbnail-diagram-sources";
 
@@ -102,6 +105,36 @@ type FaceView = {
 
 const FaceContext = createContext<FaceView | null>(null);
 
+/**
+ * Whether the Thumbnail Diagram has its dark panel: on unless turned off.
+ * The setting is part of the drawing (its document record's meta), so it is
+ * saved, loaded and undone with it.
+ */
+const DARK_PANEL_META_KEY = "thumbnailDarkPanel";
+
+function isDarkPanelOn(editor: Editor): boolean {
+  return editor.getDocumentSettings().meta[DARK_PANEL_META_KEY] !== false;
+}
+
+function setDarkPanelOn(editor: Editor, on: boolean) {
+  const document = editor.getDocumentSettings();
+  editor.markHistoryStoppingPoint("dark panel");
+  // Written as a store change, not updateDocumentSettings (which skips the
+  // history): it is an edit of the drawing, so it is undone and saved.
+  editor.store.put([
+    { ...document, meta: { ...document.meta, [DARK_PANEL_META_KEY]: on } },
+  ]);
+}
+
+/** The dark panel the drawing sits on now; null when off or nothing is in the frame. */
+function currentDarkPanel(editor: Editor): DarkPanelSpan | null {
+  if (!isDarkPanelOn(editor)) return null;
+  const topLevel = editor.getSortedChildIdsForParent(editor.getCurrentPageId());
+  return darkPanelSpan(
+    topLevel.flatMap((id) => editor.getShapePageBounds(id) ?? [])
+  );
+}
+
 const pct = (n: number) => `${(n / CANVAS_WIDTH) * 100}%`;
 
 /** One face layer, laid out exactly as `composeThumbnailLayers` draws it. */
@@ -143,12 +176,29 @@ function FaceLayer({
 
 function PhotoBackground() {
   const face = useContext(FaceContext);
+  const editor = useEditor();
+  const panel = useValue("dark panel", () => currentDarkPanel(editor), [
+    editor,
+  ]);
   return (
     <div
       className="tl-background"
       style={{ background: TLDRAW_DARK_BACKGROUND, overflow: "hidden" }}
     >
       {face && <FaceLayer src={face.photo} position={face.position} />}
+      {panel && (
+        <div
+          data-testid="dark-panel"
+          style={{
+            position: "absolute",
+            top: 0,
+            height: "100%",
+            left: pct(panel.x),
+            width: pct(panel.width),
+            background: TLDRAW_DARK_BACKGROUND,
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -183,10 +233,14 @@ const COMPONENTS: TLComponents = {
   InFrontOfTheCanvas: CutoutInFront,
 };
 
-/** The drawing alone, as a transparent 1280×720 PNG; null when it is empty. */
+/**
+ * The drawing on its dark panel, as a 1280×720 PNG that is transparent
+ * outside the panel; null when the drawing is empty.
+ */
 async function renderDrawing(editor: Editor): Promise<string | null> {
   const ids = [...editor.getCurrentPageShapeIds()];
   if (ids.length === 0) return null;
+  const panel = currentDarkPanel(editor);
   const { blob } = await editor.toImage(ids, {
     bounds: FRAME,
     background: false,
@@ -194,12 +248,17 @@ async function renderDrawing(editor: Editor): Promise<string | null> {
     pixelRatio: 1,
     format: "png",
   });
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(new Error("Couldn't read the drawing"));
-    reader.readAsDataURL(blob);
-  });
+  const canvas = document.createElement("canvas");
+  canvas.width = CANVAS_WIDTH;
+  canvas.height = CANVAS_HEIGHT;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Couldn't draw the drawing");
+  if (panel) {
+    ctx.fillStyle = TLDRAW_DARK_BACKGROUND;
+    ctx.fillRect(panel.x, 0, panel.width, CANVAS_HEIGHT);
+  }
+  ctx.drawImage(await createImageBitmap(blob), 0, 0);
+  return canvas.toDataURL("image/png");
 }
 
 /**
@@ -215,6 +274,7 @@ export function ThumbnailDiagramEditor({
   onDrawingChanged,
   onDrawingRendered,
   onInsertSource,
+  children,
 }: {
   initialDocument: ThumbnailDiagramDocument | null;
   photo: string;
@@ -229,8 +289,16 @@ export function ThumbnailDiagramEditor({
   onDrawingRendered: (image: string | null) => void;
   /** A palette insert landed: where it came from (ADR 0060). */
   onInsertSource: (source: ThumbnailDiagramSource) => void;
+  /** The host's controls, directly under the frame (the face slider). */
+  children: React.ReactNode;
 }) {
   const [hovering, setHovering] = useState(false);
+  const [editor, setEditor] = useState<Editor | null>(null);
+  const darkPanelOn = useValue(
+    "dark panel on",
+    () => (editor ? isDarkPanelOn(editor) : true),
+    [editor]
+  );
   const callbacks = useRef({
     onDrawingChanged,
     onDrawingRendered,
@@ -254,6 +322,7 @@ export function ThumbnailDiagramEditor({
       });
     }
     editor.clearHistory();
+    setEditor(editor);
 
     let disposed = false;
     let seq = 0;
@@ -289,6 +358,7 @@ export function ThumbnailDiagramEditor({
     // Pending edits die with the editor: they belong to the Thumbnail being
     // left, not to the one opened next.
     return () => {
+      setEditor(null);
       disposed = true;
       clearTimeout(timer);
       unlisten();
@@ -301,21 +371,35 @@ export function ThumbnailDiagramEditor({
   );
 
   return (
-    <div
-      className="relative aspect-video w-full overflow-hidden rounded-lg border"
-      onPointerEnter={() => setHovering(true)}
-      onPointerLeave={() => setHovering(false)}
-    >
-      <PlaygroundStatusProvider value={STATUS}>
-        <FaceContext.Provider value={face}>
-          <DiagramEditor
-            onMount={handleMount}
-            paletteHandlers={paletteHandlers}
-            cameraOptions={CAMERA}
-            components={COMPONENTS}
-          />
-        </FaceContext.Provider>
-      </PlaygroundStatusProvider>
-    </div>
+    <>
+      <div
+        className="relative aspect-video w-full overflow-hidden rounded-lg border"
+        onPointerEnter={() => setHovering(true)}
+        onPointerLeave={() => setHovering(false)}
+      >
+        <PlaygroundStatusProvider value={STATUS}>
+          <FaceContext.Provider value={face}>
+            <DiagramEditor
+              onMount={handleMount}
+              paletteHandlers={paletteHandlers}
+              cameraOptions={CAMERA}
+              components={COMPONENTS}
+            />
+          </FaceContext.Provider>
+        </PlaygroundStatusProvider>
+      </div>
+      {children}
+      <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <input
+          type="checkbox"
+          checked={darkPanelOn}
+          disabled={!editor}
+          onChange={(e) => {
+            if (editor) setDarkPanelOn(editor, e.target.checked);
+          }}
+        />
+        Dark panel behind the drawing
+      </label>
+    </>
   );
 }
