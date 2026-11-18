@@ -5,3 +5,9 @@ A **Thumbnail** gets its drawing edited in place, beside the author's face, so i
 We chose this because a thumbnail has no Clips, so the snapshot machinery would only add rules to think about without telling us anything, and because Diagrams are vector-only (ADR 0003, "Asset policy for v1") while a Thumbnail Diagram may need image shapes for the face. We also had no concrete use case for keeping thumbnails inside the Diagram model.
 
 The model must not lose information. A Thumbnail Diagram starts empty, and whenever shapes are copied into it from a Diagram, a DiagramSnapshot or another Thumbnail Diagram, it records each source. Copying from a Diagram's head first pins that head as an unpreserved DiagramSnapshot (content-hash deduped, hidden from the timeline, never hard-deleted), so the record points at exactly what was copied rather than at a head that keeps moving. That keeps a later merge cheap: both sides store the same JSON, so turning Thumbnail Diagrams into Diagram rows is a migration, not a rewrite. Separating the two after mixing them would be the hard direction.
+
+## Consequences
+
+- The thumbnail editor and the Diagram Playground are the same editor: same Diagram Component search and save, same Icon handling, same way of finding Diagrams and DiagramSnapshots. Two subtly different diagram editors would be a constant paper cut.
+- Thumbnails are archived, never hard-deleted, so a recorded source keeps resolving.
+- Deliberate gap: shapes pasted in through tldraw's clipboard record no source. Making the clipboard carry a Diagram id was judged not worth the complexity.
