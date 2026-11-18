@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Archive, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DiagramThumbnail } from "@/features/diagrams/diagram-thumbnail";
@@ -17,6 +17,7 @@ export function TimelinePanel({
   onRestoreRequest,
   refreshKey,
   activeContentHash,
+  highlightedSnapshotId,
 }: {
   diagramId: string;
   /**
@@ -31,6 +32,11 @@ export function TimelinePanel({
   refreshKey: string;
   /** The snapshot on the canvas, by content (`activeSnapshotHash`). */
   activeContentHash: string | null;
+  /**
+   * A snapshot picked in diagram search: marked and scrolled into view, but
+   * not restored (the canvas keeps the head).
+   */
+  highlightedSnapshotId: string | null;
 }) {
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
@@ -59,6 +65,14 @@ export function TimelinePanel({
   useEffect(() => {
     return fetchSnapshots();
   }, [fetchSnapshots, refreshKey]);
+
+  const highlightedRow = useRef<HTMLButtonElement | null>(null);
+  const highlightShown = snapshots.some((s) => s.id === highlightedSnapshotId);
+  useEffect(() => {
+    if (highlightShown) {
+      highlightedRow.current?.scrollIntoView({ block: "nearest" });
+    }
+  }, [highlightShown, highlightedSnapshotId]);
 
   const handleRestoreClick = (snapshot: Snapshot) => {
     onRestoreRequest(snapshot, snapshots);
@@ -122,14 +136,23 @@ export function TimelinePanel({
         <button
           key={snapshot.id}
           type="button"
+          ref={
+            snapshot.id === highlightedSnapshotId ? highlightedRow : undefined
+          }
           onClick={() => handleRestoreClick(snapshot)}
           title="Restore snapshot"
+          data-highlighted={
+            snapshot.id === highlightedSnapshotId ? "true" : undefined
+          }
           aria-current={
             snapshot.contentHash === activeContentHash ? "true" : undefined
           }
           className={
             "group flex h-14 items-center gap-2 overflow-hidden rounded border pr-2 text-left focus:outline-none focus-visible:ring-1 focus-visible:ring-zinc-400 " +
-            railRowClass(snapshot.contentHash === activeContentHash)
+            railRowClass(snapshot.contentHash === activeContentHash) +
+            (snapshot.id === highlightedSnapshotId
+              ? " outline outline-2 outline-offset-1 outline-sky-400"
+              : "")
           }
         >
           <DiagramThumbnail

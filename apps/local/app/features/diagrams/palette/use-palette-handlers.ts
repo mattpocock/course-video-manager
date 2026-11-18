@@ -5,6 +5,7 @@ import {
   type Snapshot,
 } from "@/features/diagrams/snapshot-list";
 import { usePlaygroundStatus } from "@/features/diagrams/playground-status";
+import { highlightedSnapshotUrl } from "@/lib/diagram-protocol";
 import type { PaletteHandlers } from "./use-palette";
 
 /**
@@ -24,8 +25,6 @@ export type PaletteWiring = {
   handleRestoreRequest: (snapshot: Snapshot, timeline: Snapshot[]) => void;
   handleCopyDiagramContents: (id: string) => Promise<void>;
   handleCreateDiagram: () => void;
-  /** Re-reads head from the server and loads it into the editor. */
-  reloadScene: (id: string) => void;
   /** The same camera move the manual Cmd/Ctrl+0 shortcut runs. */
   recentreDiagram: () => void;
 };
@@ -38,7 +37,6 @@ export function usePaletteHandlers(opts: PaletteWiring): PaletteHandlers {
     handleRestoreRequest,
     handleCopyDiagramContents,
     handleCreateDiagram,
-    reloadScene,
     recentreDiagram,
   } = opts;
 
@@ -98,39 +96,13 @@ export function usePaletteHandlers(opts: PaletteWiring): PaletteHandlers {
         // without this, up to 500ms of edits is lost on every jump.
         await flushPendingSave();
 
-        // A snapshot hit means "take me to that state", so it goes through the
-        // SAME endpoint Playground Home's search box uses: `restore-from-search`
-        // preserves the current head as a snapshot of its own before restoring,
-        // so nothing is lost and the timeline records the detour.
-        if (target.source === "snapshot" && target.snapshotId) {
-          try {
-            const res = await fetch(
-              `/api/diagrams/${target.diagramId}/restore-from-search`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ snapshotId: target.snapshotId }),
-              }
-            );
-            // Reported, unlike on Home: when the hit is in the diagram already
-            // open, a silent failure would leave the author looking at an
-            // unchanged canvas with nothing to explain it.
-            if (!res.ok) status.reportError("Failed to restore that snapshot");
-          } catch {
-            status.reportError("Failed to restore that snapshot");
-          }
-        }
-
-        // Same diagram: React Router has nowhere to navigate to, so the route's
-        // "reload on id change" effect never fires and the canvas would keep
-        // showing the pre-restore scene — which the next autosave would then
-        // write back over the restore. Reload it explicitly.
-        if (target.diagramId === diagramId) {
-          reloadScene(diagramId);
-          return;
-        }
+        // A snapshot hit is only highlighted in the Snapshot Timeline, never
+        // restored: the head, and so the next Clip, stays as it is. Restore
+        // to Head is its own explicit action.
         Promise.resolve(
-          navigate(`/diagram-playground/${target.diagramId}`)
+          navigate(
+            highlightedSnapshotUrl(target.diagramId, target.highlightSnapshotId)
+          )
         ).catch(() => {
           status.reportError("Failed to open that diagram");
         });
@@ -143,7 +115,6 @@ export function usePaletteHandlers(opts: PaletteWiring): PaletteHandlers {
       handleRestoreRequest,
       handleCopyDiagramContents,
       handleCreateDiagram,
-      reloadScene,
       recentreDiagram,
       navigate,
       revalidator,
