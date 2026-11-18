@@ -175,7 +175,13 @@ describe("duplicateCourse — schema-drift guard", () => {
     },
     thumbnail: {
       table: schema.thumbnails,
-      copied: ["layers", "filePath", "thumbnailDiagram", "selectedForUpload"],
+      copied: [
+        "layers",
+        "filePath",
+        "thumbnailDiagram",
+        "diagramSearchText",
+        "selectedForUpload",
+      ],
       notCopied: [
         "id",
         "videoId",

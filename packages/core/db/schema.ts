@@ -1821,6 +1821,12 @@ export const thumbnails = createTable("thumbnail", {
    */
   thumbnailDiagram: jsonb("thumbnail_diagram"),
   /**
+   * The Thumbnail Diagram's text (`extractSceneText`), written with it, so
+   * diagram search finds it the way it finds a Diagram. Null with no drawing.
+   * No stored vector: the table is small, so search builds it per query.
+   */
+  diagramSearchText: text("diagram_search_text"),
+  /**
    * Where the Thumbnail Diagram's inserted shapes came from, each once, in
    * the order first recorded (ADR 0060). Only ever added to: see
    * `mergeThumbnailDiagramSources`.

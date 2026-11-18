@@ -414,6 +414,13 @@
       "when": 1795007309265,
       "tag": "0058_next_jocasta",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1795008425134,
+      "tag": "0059_workable_tarot",
+      "breakpoints": true
     }
   ]
 }
