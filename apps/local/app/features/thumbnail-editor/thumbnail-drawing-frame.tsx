@@ -59,9 +59,12 @@ export function ThumbnailDrawingFrame({
           onPointerUp={() => dispatch({ type: "face-slide-ended" })}
           onPointerCancel={() => dispatch({ type: "face-slide-ended" })}
           onKeyDown={(e) => {
-            // tldraw ignores keys outside the canvas, so the slider forwards
-            // Cmd+Z / Cmd+Shift+Z to the editor's one history.
+            // Cmd+Z / Cmd+Shift+Z here is the editor's one history too.
+            // While the editor counts as focused, tldraw's own shortcut (on
+            // <body>, below React's root on the document) has already run it
+            // and prevented the default; otherwise the slider forwards it.
             if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") {
+              if (e.defaultPrevented) return;
               e.preventDefault();
               if (e.shiftKey) historyRef.current?.redo();
               else historyRef.current?.undo();
