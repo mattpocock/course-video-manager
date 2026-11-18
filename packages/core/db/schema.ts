@@ -1813,6 +1813,14 @@ export const thumbnails = createTable("thumbnail", {
   layers: jsonb("layers").notNull(),
   filePath: text("file_path"),
   selectedForUpload: boolean("selected_for_upload").notNull().default(false),
+  /**
+   * Set when the author deletes the Thumbnail: the row and its files stay so
+   * a recorded source keeps resolving (ADR 0060), but it leaves every list.
+   */
+  archivedAt: timestamp("archived_at", {
+    mode: "date",
+    withTimezone: true,
+  }),
   createdAt: timestamp("created_at", {
     mode: "date",
     withTimezone: true,

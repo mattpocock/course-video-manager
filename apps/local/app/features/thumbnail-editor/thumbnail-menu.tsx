@@ -27,8 +27,9 @@ function download(thumbnailId: string) {
 /**
  * A Thumbnail's actions, the same on the Thumbnails page and the post page's
  * selector. `onEdit` is the surface's own way in (load it into the editor,
- * or go to the Thumbnails page). Deleting removes the image files for good,
- * so it confirms first; render `deleteDialog` once beside the menus.
+ * or go to the Thumbnails page). Deleting archives the Thumbnail (its row and
+ * image files stay, ADR 0060) but takes it out of every picker, so it
+ * confirms first; render `deleteDialog` once beside the menus.
  */
 export function useThumbnailMenu({
   onEdit,
@@ -41,7 +42,7 @@ export function useThumbnailMenu({
   const confirmDelete = useConfirmDelete<string>({
     title: "Delete Thumbnail",
     description: () =>
-      "Delete this Thumbnail and its image files? This cannot be undone.",
+      "Delete this Thumbnail? It leaves this Video's thumbnails and can no longer be uploaded.",
     onConfirm: (thumbnailId) => onDelete?.(thumbnailId),
   });
 
