@@ -487,7 +487,7 @@ _Avoid_: Cover, Poster, Preview
 
 **Thumbnail Diagram**:
 The drawing that belongs to one **Thumbnail**, edited in place beside the author's face. It is not a **Diagram** and has no snapshots, but it can start as a copy of a Diagram, a **DiagramSnapshot** or another Thumbnail Diagram, and remembers which.
-_Avoid_: Thumbnail Drawing, Thumbnail Snapshot
+_Avoid_: Thumbnail Drawing, Thumbnail Diagram Snapshot, Thumbnail Scene
 
 **Cutout**:
 The author's face with its background removed, laid over a **Thumbnail Diagram** so the face sits in front of it.
