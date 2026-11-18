@@ -20,6 +20,8 @@ import { pitchCommand } from "./commands/pitch";
 import { deliverableCommand } from "./commands/deliverable";
 import { diagramCommand } from "./commands/diagram";
 import { searchCommand } from "./commands/search";
+import { jobCommand } from "./commands/job";
+import { thumbnailCommand } from "./commands/thumbnail";
 
 /**
  * Top-level `cvm --help` text. This is a DOMAIN-TEACHING document — keep it in
@@ -140,6 +142,9 @@ WHAT NEEDS A MACHINE
     cvm course publish      the same, plus ffmpeg
     cvm short render        the Sidecar's ffmpeg and finished-videos/ (the vertical file)
     cvm clip frame          raw footage and the overlay renderer (a Clip's composed frame)
+    cvm video post-youtube  the Sidecar, the export and the Thumbnail file (a YouTube upload)
+    cvm job …               the Sidecar's Job queue, on this machine's database connection
+    cvm thumbnail …         Thumbnail files on disk
   Anywhere else they are refused before doing any work — exit 7, _tag
   "LocalOnlyCommandError", with the reason in the message. That is a STOP, not
   a retry: no token, no pull and no repeat will make them work, and nothing is
@@ -204,6 +209,10 @@ WRITES
     short render                     render a Short's vertical file into
                                      finished-videos/ and print its path
                                      (LOCAL-ONLY; a Sidecar Job)
+    video post-youtube               upload a Landscape Video's export to
+                                     YouTube, unlisted or private, with one
+                                     of its CVM Thumbnails (LOCAL-ONLY; a
+                                     Sidecar Job, --dry-run, --wait)
     section
             create/rename/move/      create a section in a Version, rename it,
             archive                  reorder it, or soft-delete it ('archive'
@@ -258,7 +267,12 @@ WRITES
 NOUNS
   course version section learning-goal lesson video short clip clip-mockup
   clip-mockup-chapter clip-mockup-comment chapter overlay chat-highlight beat file footage
-  pitch deliverable diagram
+  pitch deliverable diagram job thumbnail
+
+  job get|list|wait: the Sidecar's Jobs (an upload, a render, a Publish) —
+  read one, list them, or wait until they settle (LOCAL-ONLY).
+  thumbnail list --video <id>: a Video's Thumbnails, to pick the one a
+  YouTube upload sends (LOCAL-ONLY).
 
   chat-highlight list (--recording-session <id> | --video <id>): a Streamed
   Recording Session's Chat Highlights (id, shownAt/hiddenAt in seconds on its
@@ -299,6 +313,8 @@ export const rootCommand = Command.make("cvm").pipe(
     pitchCommand,
     deliverableCommand,
     diagramCommand,
+    jobCommand,
+    thumbnailCommand,
     searchCommand,
   ])
 );

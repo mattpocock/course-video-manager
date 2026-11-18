@@ -6,6 +6,7 @@ import {
   truncateAllTables,
   type TestDb,
 } from "@/test-utils/test-db";
+import * as schema from "@/db/schema";
 import { LOCAL_MACHINE_ENV_KEY } from "./env";
 import {
   buildWriteLayer,
@@ -141,6 +142,33 @@ describe("on a box that is not the author's", () => {
     expect(failureOf(result)._tag).toBe("LocalOnlyCommandError");
     expect(failureOf(result).command).toBe("cvm short render");
     expect(result.stdout).toBe("");
+  });
+
+  it("refuses cvm video post-youtube, every cvm job verb and cvm thumbnail list, queueing nothing", async () => {
+    const invocations: ReadonlyArray<ReadonlyArray<string>> = [
+      ["video", "post-youtube", "--thumbnail", "t_1", s.standaloneActiveId],
+      [
+        "video",
+        "post-youtube",
+        "--thumbnail",
+        "t_1",
+        "--dry-run",
+        s.standaloneActiveId,
+      ],
+      ["job", "get", "job_1"],
+      ["job", "list"],
+      ["job", "wait", "job_1"],
+      ["thumbnail", "list", "--video", s.standaloneActiveId],
+    ];
+
+    for (const argv of invocations) {
+      const result = await run(argv);
+
+      expect(result.exitCode, argv.join(" ")).toBe(7);
+      expect(failureOf(result)._tag).toBe("LocalOnlyCommandError");
+      expect(result.stdout).toBe("");
+    }
+    expect(await testDb.select().from(schema.jobs)).toEqual([]);
   });
 
   it("refuses cvm clip frame", async () => {

@@ -8,6 +8,7 @@ import {
   PublishValidationError,
 } from "@/services/course-publish-errors";
 import { mayLeavePendingVersion } from "@/features/jobs/job-wire";
+import { followJob } from "./job-follow";
 
 /**
  * `cvm course publish --wait`: follow a Publish Job the Sidecar runs until it
@@ -164,70 +165,59 @@ export const waitForPublishJob = Effect.fn("waitForPublishJob")(
   }) {
     const ops = yield* JobOperationsService;
     let lastEventId = 0;
-    let warnedNoSidecar = false;
-    while (true) {
-      const job = yield* ops.getJob(input.jobId);
-      const events = yield* ops.listJobEvents(input.jobId);
-      for (const event of events) {
-        if (event.id <= lastEventId) continue;
-        lastEventId = event.id;
-        const line = describeJobEvent(event);
-        if (line) yield* input.onProgress(line);
-      }
-      if (!job) {
-        return yield* new PublishJobFailedError({
-          jobId: input.jobId,
-          message: `no Job ${input.jobId}: it was never enqueued, or was deleted`,
-          cause: null,
-        });
-      }
-      switch (job.status) {
-        case "succeeded": {
-          const published = events.findLast((e) => e.type === "published");
-          const data = (published?.data ?? {}) as Record<string, unknown>;
-          if (
-            typeof data.publishedVersionId !== "string" ||
-            typeof data.newDraftVersionId !== "string"
-          ) {
-            return yield* new PublishResultLostError({
-              jobId: job.id,
-              message:
-                "The Publish Job succeeded, but its result (the published and new Draft version ids) was never recorded. The release is out: see it on the web publish page (/courses/<courseId>/publish); `cvm course get <courseId>` gives the new draftVersionId. Do NOT publish again.",
-            });
+    let events: readonly JobEvent[] = [];
+    const job = yield* followJob({
+      jobId: input.jobId,
+      pollMs: input.pollMs,
+      what: "the Publish",
+      onWaiting: input.onProgress,
+      onPoll: () =>
+        Effect.gen(function* () {
+          events = yield* ops.listJobEvents(input.jobId);
+          for (const event of events) {
+            if (event.id <= lastEventId) continue;
+            lastEventId = event.id;
+            const line = describeJobEvent(event);
+            if (line) yield* input.onProgress(line);
           }
-          return {
-            publishedVersionId: data.publishedVersionId,
-            newDraftVersionId: data.newDraftVersionId,
-            lessons: data.lessons ?? null,
-          } satisfies PublishedResult;
-        }
-        case "failed":
-          return yield* rebuildFailure(job, events, job.error);
-        case "interrupted":
-        case "cancelled":
-          return yield* new PublishInterruptedError({
+        }),
+    });
+    if (!job) {
+      return yield* new PublishJobFailedError({
+        jobId: input.jobId,
+        message: `no Job ${input.jobId}: it was never enqueued, or was deleted`,
+        cause: null,
+      });
+    }
+    switch (job.status) {
+      case "succeeded": {
+        const published = events.findLast((e) => e.type === "published");
+        const data = (published?.data ?? {}) as Record<string, unknown>;
+        if (
+          typeof data.publishedVersionId !== "string" ||
+          typeof data.newDraftVersionId !== "string"
+        ) {
+          return yield* new PublishResultLostError({
             jobId: job.id,
             message:
-              "The Publish was cut off before it finished, and is never re-run on its own. If it got past Submit, its Pending Version is waiting on the web publish page (/courses/<courseId>/publish): Promote or Discard it there, then publish again.",
+              "The Publish Job succeeded, but its result (the published and new Draft version ids) was never recorded. The release is out: see it on the web publish page (/courses/<courseId>/publish); `cvm course get <courseId>` gives the new draftVersionId. Do NOT publish again.",
           });
-        case "queued": {
-          if (!warnedNoSidecar) {
-            const lease = yield* ops.getSidecarLease();
-            if (!lease || lease.leaseUntil.getTime() < Date.now()) {
-              warnedNoSidecar = true;
-              yield* input.onProgress({
-                event: "waiting",
-                message:
-                  "the sidecar is not running: the Publish starts when it does (`pnpm dev` or `pnpm start` runs it)",
-              });
-            }
-          }
-          break;
         }
-        case "running":
-          break;
+        return {
+          publishedVersionId: data.publishedVersionId,
+          newDraftVersionId: data.newDraftVersionId,
+          lessons: data.lessons ?? null,
+        } satisfies PublishedResult;
       }
-      yield* Effect.sleep(input.pollMs);
+      case "failed":
+        return yield* rebuildFailure(job, events, job.error);
+      case "interrupted":
+      case "cancelled":
+        return yield* new PublishInterruptedError({
+          jobId: job.id,
+          message:
+            "The Publish was cut off before it finished, and is never re-run on its own. If it got past Submit, its Pending Version is waiting on the web publish page (/courses/<courseId>/publish): Promote or Discard it there, then publish again.",
+        });
     }
   }
 );

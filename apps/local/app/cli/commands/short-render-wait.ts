@@ -1,11 +1,11 @@
 import { Data, Effect } from "effect";
 import { JobOperationsService } from "@cvm/core/services/db-job-operations.server";
 import { RENDER_VERTICAL_EVENTS } from "@/features/jobs/render-vertical-job";
+import { followJob, jobFailureOf } from "./job-follow";
 
 /**
  * `cvm short render`: follow the `render-vertical` Job the Sidecar runs until
- * it settles. A failed attempt that has attempts left goes back to `queued`,
- * so only the Job's last word counts.
+ * it settles (`followJob`), and say what its last word means.
  */
 
 /** The Job was cut off and not put back (its Sidecar stopped mid-render). */
@@ -32,62 +32,39 @@ export const waitForShortRender = Effect.fn("waitForShortRender")(
     readonly onWaiting: (line: Record<string, unknown>) => Effect.Effect<void>;
   }) {
     const ops = yield* JobOperationsService;
-    let warnedNoSidecar = false;
-    while (true) {
-      const job = yield* ops.getJob(input.jobId);
-      if (!job) {
+    const job = yield* followJob({ ...input, what: "the render" });
+    if (!job) {
+      return yield* new ShortRenderLostError({
+        jobId: input.jobId,
+        message: `no Job ${input.jobId}: it was never enqueued, or was deleted`,
+      });
+    }
+    switch (job.status) {
+      case "succeeded": {
+        const events = yield* ops.listJobEvents(job.id);
+        const path = (
+          events.findLast((e) => e.type === RENDER_VERTICAL_EVENTS.rendered)
+            ?.data as { path?: unknown } | undefined
+        )?.path;
+        if (typeof path === "string") return path;
         return yield* new ShortRenderLostError({
-          jobId: input.jobId,
-          message: `no Job ${input.jobId}: it was never enqueued, or was deleted`,
+          jobId: job.id,
+          message: `the render Job ${job.id} succeeded but did not record its file: look in finished-videos/`,
         });
       }
-      switch (job.status) {
-        case "succeeded": {
-          const events = yield* ops.listJobEvents(job.id);
-          const path = (
-            events.findLast((e) => e.type === RENDER_VERTICAL_EVENTS.rendered)
-              ?.data as { path?: unknown } | undefined
-          )?.path;
-          if (typeof path === "string") return path;
-          return yield* new ShortRenderLostError({
-            jobId: job.id,
-            message: `the render Job ${job.id} succeeded but did not record its file: look in finished-videos/`,
-          });
-        }
-        case "failed": {
-          const error = job.error as {
-            tag?: string | null;
-            message?: string;
-          } | null;
-          return yield* Effect.fail<ShortRenderJobFailure>({
-            _tag: error?.tag ?? "ShortRenderFailedError",
-            message: error?.message ?? "the vertical render failed",
-          });
-        }
-        case "interrupted":
-        case "cancelled":
-          return yield* new ShortRenderInterruptedError({
-            jobId: job.id,
-            message: `the render Job ${job.id} was cut off (its Sidecar stopped). Run 'cvm short render' again.`,
-          });
-        case "queued": {
-          if (!warnedNoSidecar) {
-            const lease = yield* ops.getSidecarLease();
-            if (!lease || lease.leaseUntil.getTime() < Date.now()) {
-              warnedNoSidecar = true;
-              yield* input.onWaiting({
-                event: "waiting",
-                message:
-                  "the sidecar is not running: the render starts when it does (`pnpm dev` or `pnpm start` runs it)",
-              });
-            }
-          }
-          break;
-        }
-        case "running":
-          break;
+      case "failed": {
+        const error = jobFailureOf(job);
+        return yield* Effect.fail<ShortRenderJobFailure>({
+          _tag: error.tag ?? "ShortRenderFailedError",
+          message: error.message ?? "the vertical render failed",
+        });
       }
-      yield* Effect.sleep(input.pollMs);
+      case "interrupted":
+      case "cancelled":
+        return yield* new ShortRenderInterruptedError({
+          jobId: job.id,
+          message: `the render Job ${job.id} was cut off (its Sidecar stopped). Run 'cvm short render' again.`,
+        });
     }
   }
 );

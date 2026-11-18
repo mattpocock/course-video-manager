@@ -45,6 +45,12 @@ export const NEEDS_THE_SIDECAR_TO_POST =
   "it adds Shorts to the Posting Queue, which only this machine's Sidecar posts from: it renders each Short with ffmpeg at its Posting Slot and uploads it";
 export const NEEDS_THE_SIDECAR_TO_CHANGE_THE_QUEUE =
   "it changes the Posting Queue, which only this machine's Sidecar posts from";
+export const NEEDS_THE_SIDECAR_TO_UPLOAD =
+  "it queues a YouTube upload for this machine's Sidecar, which sends the Video's export from the finished videos directory and its Thumbnail from the Video Files directory on this machine's disk";
+export const NEEDS_THE_JOB_QUEUE =
+  "it reads the Sidecar's Job queue through this machine's own database connection (DATABASE_URL), which only the author's machine has";
+export const NEEDS_THUMBNAIL_FILES =
+  "it reads Thumbnail rows through this machine's own database connection and checks each Thumbnail's file on this machine's disk";
 export const NEEDS_FOOTAGE_ON_DISK =
   "it reads raw footage files on this machine's disk (with ffmpeg) and caches their transcripts beside them";
 

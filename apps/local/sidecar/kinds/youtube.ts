@@ -1,8 +1,7 @@
 import { Data, Effect } from "effect";
 import { JOB_PARAMS } from "../job-params";
 import { CoursePublishService } from "@/services/course-publish-service";
-import { ThumbnailOperationsService } from "@/services/db-thumbnail-operations.server";
-import { locateStoredVideoFile } from "@/services/video-files";
+import { loadUploadableThumbnail } from "@/services/youtube-thumbnail.server";
 import { getValidAccessToken } from "@/services/youtube-auth-service";
 import {
   setYouTubeThumbnail,
@@ -32,24 +31,21 @@ export const youtubeJobKind = definePostingJobKind({
   params: JOB_PARAMS["youtube"],
   run: (params, ctx) =>
     Effect.gen(function* () {
-      const thumbnail = yield* Effect.gen(function* () {
-        const thumbnails = yield* ThumbnailOperationsService;
-        return yield* thumbnails.getThumbnailById(params.thumbnailId);
-      }).pipe(Effect.catchTag("NotFoundError", () => Effect.succeed(null)));
-      // An archived Thumbnail is a deleted one: it is never uploaded.
-      if (
-        !thumbnail?.filePath ||
-        thumbnail.videoId !== params.videoId ||
-        thumbnail.archivedAt
-      ) {
-        return yield* new PostNotStartedError({
-          message: "A thumbnail must be selected before uploading",
-        });
-      }
+      // The same check `cvm video post-youtube` makes before it queues:
+      // this Video's own, rendered, not archived (youtube-thumbnail.server).
+      const thumbnail = yield* loadUploadableThumbnail({
+        thumbnailId: params.thumbnailId,
+        videoId: params.videoId,
+      }).pipe(
+        Effect.catchTag(
+          "ThumbnailNotUploadableError",
+          () =>
+            new PostNotStartedError({
+              message: "A thumbnail must be selected before uploading",
+            })
+        )
+      );
       const publish = yield* CoursePublishService;
-      // Root-relative on whichever Storage Root has it (ADR 0040).
-      const thumbnailFile =
-        locateStoredVideoFile(thumbnail.filePath) ?? thumbnail.filePath;
       const filePath = yield* publish.resolveExportPath(params.videoId);
       if (!filePath) {
         return yield* new PostNotStartedError({
@@ -79,7 +75,8 @@ export const youtubeJobKind = definePostingJobKind({
         yield* setYouTubeThumbnail({
           accessToken,
           youtubeVideoId: uploaded.videoId,
-          thumbnailFilePath: thumbnailFile,
+          // On whichever Storage Root has it (ADR 0040).
+          thumbnailFilePath: thumbnail.path,
         });
         return uploaded;
       }).pipe(Effect.ensuring(reports.flush));
