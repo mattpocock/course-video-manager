@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 import { IconGlyph } from "./icon-glyph";
 import { ComponentCard, DiagramCard } from "./result-cards";
 import { GROUP_ORDER, PAGE_META, type PaletteGroup } from "./palette-model";
-import { diagramHitKey } from "./palette-reducer";
+import { diagramHitKey } from "./diagram-hits";
 import { usePalette, type PaletteHandlers } from "./use-palette";
 import { useGridNav } from "./use-grid-nav";
 import "./command-palette.css";
