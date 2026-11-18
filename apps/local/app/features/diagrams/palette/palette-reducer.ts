@@ -28,6 +28,7 @@ export type PageKey =
   | "replaceIcon"
   | "components"
   | "diagrams"
+  | "insertDiagram"
   | "nameComponent"
   | "renameComponent"
   | "renameDiagram";
@@ -58,6 +59,16 @@ export type DiagramHit = {
 export type DiagramTarget = Pick<DiagramHit, "diagramId" | "source"> & {
   highlightSnapshotId: string | null;
 };
+
+/**
+ * What inserting a result needs to know: which drawing to fetch (a
+ * DiagramSnapshot's, or the Diagram's head when `snapshotId` is null), and the
+ * kind of hit it was.
+ */
+export type DiagramInsertTarget = Pick<
+  DiagramHit,
+  "diagramId" | "snapshotId" | "source"
+>;
 
 /** A root row that fires at once rather than opening a page. */
 export type RootCommand =
@@ -156,7 +167,11 @@ export namespace paletteReducer {
     | { type: "components-list-failed" }
     | { type: "diagrams-found"; seq: number; hits: DiagramHit[] }
     | { type: "spinner-delay-elapsed" }
+    /** Enter on a hit: what it does is the PAGE's — go to, or insert. */
     | { type: "diagram-picked"; hit: DiagramHit }
+    /** The insert ran; `landed` is false at the page's shape cap. */
+    | { type: "diagram-inserted"; landed: boolean }
+    | { type: "diagram-insert-failed"; reason: "empty" | "request-failed" }
     | { type: "went-to-diagram" }
     | { type: "diagram-renamed" };
 
@@ -174,6 +189,7 @@ export namespace paletteReducer {
     | { type: "search-diagrams"; query: string; seq: number; delayMs: number }
     | { type: "wait-for-spinner"; delayMs: number }
     | { type: "go-to-diagram"; target: DiagramTarget }
+    | { type: "insert-diagram"; target: DiagramInsertTarget }
     | { type: "rename-diagram"; name: string }
     | { type: "report-error"; message: string }
     | { type: "report-success" };
@@ -201,6 +217,14 @@ export const createInitialPaletteState = (): State => ({
   busy: false,
   spinnerDelay: null,
 });
+
+/** A diagram hit's cmdk value: its snapshot, or its Diagram's head. */
+export const diagramHitKey = (hit: DiagramHit) =>
+  hit.snapshotId ?? `${hit.diagramId}:current`;
+
+/** Both pages run the same diagram search; only Enter differs. */
+const isDiagramSearch = (page: PageKey) =>
+  page === "diagrams" || page === "insertDiagram";
 
 export function currentPage(nav: PaletteNav): PageKey {
   return nav.stack[nav.stack.length - 1] ?? "root";
@@ -284,8 +308,8 @@ const startWorking = (state: State, exec: Exec, effect: Effect): State => {
 };
 
 /**
- * The page-entry rules, applied after every transition: the diagrams page
- * searches whenever it is entered or its query changes, and the components
+ * The page-entry rules, applied after every transition: each diagram search
+ * page searches whenever it is entered or its query changes, and the components
  * page lists the library whenever it is entered while open.
  */
 const followPage = (prev: State, next: State, exec: Exec): State => {
@@ -301,8 +325,8 @@ const followPage = (prev: State, next: State, exec: Exec): State => {
     exec({ type: "list-components" });
   }
 
-  if (page === "diagrams") {
-    if (prevPage !== "diagrams" || prev.nav.query !== next.nav.query) {
+  if (isDiagramSearch(page)) {
+    if (prevPage !== page || prev.nav.query !== next.nav.query) {
       // An empty query is a REQUEST, not a skip: the route answers it with the
       // most recently touched diagrams, so the page opens on something
       // jumpable. It goes out at once — the debounce spares the server a query
@@ -321,7 +345,7 @@ const followPage = (prev: State, next: State, exec: Exec): State => {
         }),
       };
     }
-  } else if (prevPage === "diagrams" && state.search) {
+  } else if (isDiagramSearch(prevPage) && state.search) {
     // Leaving the page cancels a search still waiting out its debounce.
     exec.stop(state.search);
     state = { ...state, search: null };
@@ -532,8 +556,15 @@ const on: Handlers = {
   "diagrams-found": (state, action) => {
     // A slow early response cannot overwrite a fast later one.
     if (action.seq !== state.searchSeq) return state;
+    // The first hit is highlighted, unless the highlight is still on a hit,
+    // so Enter right after typing acts on it with no arrow key in between.
+    const keys = action.hits.map(diagramHitKey);
+    const value = keys.includes(state.nav.value)
+      ? state.nav.value
+      : (keys[0] ?? "");
     return {
       ...state,
+      nav: { ...state.nav, value },
       diagramHits: action.hits,
       searching: false,
       search: null,
@@ -544,6 +575,14 @@ const on: Handlers = {
     return { ...state, busy: true, spinnerDelay: null };
   },
   "diagram-picked": (state, action, exec) => {
+    if (currentPage(state.nav) === "insertDiagram") {
+      if (state.working) return state;
+      const { diagramId, snapshotId, source } = action.hit;
+      return startWorking(state, exec, {
+        type: "insert-diagram",
+        target: { diagramId, snapshotId, source },
+      });
+    }
     // Looking, not restoring: a snapshot hit only highlights the snapshot.
     const { diagramId, snapshotId, source } = action.hit;
     exec({
@@ -551,6 +590,23 @@ const on: Handlers = {
       target: { diagramId, source, highlightSnapshotId: snapshotId },
     });
     return state;
+  },
+  "diagram-inserted": (state, action, exec) => {
+    // As with a component: the palette closes when the shapes LAND, so at the
+    // page's shape cap it stays up and retrying is one Enter.
+    if (!action.landed) return doneWorking(state, exec);
+    exec({ type: "report-success" });
+    return closed(doneWorking(state, exec));
+  },
+  "diagram-insert-failed": (state, action, exec) => {
+    exec({
+      type: "report-error",
+      message:
+        action.reason === "empty"
+          ? "That diagram is empty"
+          : "Couldn't insert that diagram",
+    });
+    return doneWorking(state, exec);
   },
   "went-to-diagram": (state) => closed(state),
   "diagram-renamed": (state) => closed(state),

@@ -9,7 +9,14 @@
  */
 
 import { createShapeId } from "tldraw";
-import type { Editor, SerializedSchema, TLContent } from "tldraw";
+import type {
+  Editor,
+  SerializedSchema,
+  TLContent,
+  TLShapeId,
+  TLShapePartial,
+  VecLike,
+} from "tldraw";
 
 /**
  * Icons insert at the rung of this ladder closest to 48 screen px at the
@@ -155,4 +162,116 @@ export function insertContentAtViewportCentre(
   });
 
   return editor.getCurrentPageShapeIds().size > shapesBefore;
+}
+
+/** The records of a stored scene, as far as building content needs them. */
+type StoredRecord = { typeName: string; id: string; parentId?: string };
+
+function isStoredScene(
+  scene: unknown
+): scene is { store: Record<string, StoredRecord>; schema: SerializedSchema } {
+  return (
+    typeof scene === "object" &&
+    scene !== null &&
+    "store" in scene &&
+    typeof scene.store === "object" &&
+    scene.store !== null &&
+    "schema" in scene
+  );
+}
+
+/**
+ * A stored scene (a Diagram's head, a DiagramSnapshot's scene: the `document`
+ * half of a tldraw store snapshot) as `TLContent`: every shape, binding and
+ * asset, with the roots being the shapes whose parent is not another shape.
+ * Null when there is nothing to insert.
+ */
+export function buildSceneContent(scene: unknown): TLContent | null {
+  if (!isStoredScene(scene)) return null;
+  const records = Object.values(scene.store);
+  const shapes = records.filter((r) => r.typeName === "shape");
+  if (shapes.length === 0) return null;
+  const shapeIds = new Set(shapes.map((r) => r.id));
+  return {
+    shapes,
+    bindings: records.filter((r) => r.typeName === "binding"),
+    assets: records.filter((r) => r.typeName === "asset"),
+    rootShapeIds: shapes
+      .filter((r) => !r.parentId || !shapeIds.has(r.parentId))
+      .map((r) => r.id),
+    schema: scene.schema,
+  } as unknown as TLContent;
+}
+
+/** How much of the view an inserted whole drawing fills, along its tighter side. */
+const DRAWING_FIT = 0.8;
+
+/**
+ * A whole drawing onto the canvas as ONE group, scaled to fit the view.
+ *
+ * The same put as every other insert, then, inside the same history step (no
+ * mark between them), the landed roots are scaled about their centre and
+ * grouped, so one Cmd+Z removes all of it. Known rough edge: fixed-width text
+ * can re-wrap.
+ */
+export function insertDrawingAsGroup(
+  editor: Editor,
+  content: TLContent
+): boolean {
+  const landed = insertContentAtViewportCentre(editor, content, {
+    historyLabel: "insert diagram",
+  });
+  if (!landed) return false;
+  const roots = editor.getSelectedShapeIds();
+  const bounds = editor.getSelectionPageBounds();
+  if (bounds && bounds.w > 0 && bounds.h > 0) {
+    const viewport = editor.getViewportPageBounds();
+    const scale = Math.min(
+      (viewport.w * DRAWING_FIT) / bounds.w,
+      (viewport.h * DRAWING_FIT) / bounds.h
+    );
+    scaleAbout(editor, roots, scale, bounds.center);
+  }
+  if (roots.length > 1) editor.groupShapes(roots, { select: true });
+  return true;
+}
+
+/**
+ * Scale shapes about a page point, text and strokes included.
+ *
+ * Geometry goes through `resizeShape`. Resizing a GROUP is a no-op in tldraw,
+ * so a group's children are scaled directly instead. Then every shape with a
+ * `scale` prop (a geo's label and stroke, an arrow's, a draw stroke) has it
+ * multiplied, which is what makes a label grow with its box. Text shapes
+ * already multiply their own `scale` in `scale_shape` mode.
+ */
+function scaleAbout(
+  editor: Editor,
+  ids: TLShapeId[],
+  scale: number,
+  origin: VecLike
+) {
+  for (const id of ids) {
+    const shape = editor.getShape(id);
+    if (!shape) continue;
+    if (shape.type === "group") {
+      scaleAbout(editor, editor.getSortedChildIdsForParent(id), scale, origin);
+      continue;
+    }
+    editor.resizeShape(
+      id,
+      { x: scale, y: scale },
+      { scaleOrigin: origin, mode: "scale_shape" }
+    );
+    const after = editor.getShape(id);
+    if (!after || after.type === "text") continue;
+    const current = "scale" in after.props ? after.props.scale : undefined;
+    if (typeof current === "number") {
+      editor.updateShape({
+        id,
+        type: after.type,
+        props: { scale: current * scale },
+      } as TLShapePartial);
+    }
+  }
 }

@@ -434,6 +434,104 @@ describe("diagrams", () => {
   });
 });
 
+describe("insert diagram", () => {
+  /** On the Insert diagram page, its first search answered. */
+  const onInsertDiagram = (hits: DiagramHit[] = [hit("auth")]) =>
+    tester()
+      .send(summoned())
+      .send(row("insert-diagram"))
+      .send({ type: "diagrams-found", seq: 1, hits })
+      .resetExec();
+
+  it("sits in the Insert group, next to icons and components", () => {
+    const insert = ROOT_ACTIONS.filter((a) => a.group === "Insert").map(
+      (a) => a.label
+    );
+    expect(insert).toEqual(
+      expect.arrayContaining([
+        "Insert icon",
+        "Insert component",
+        "Insert diagram",
+      ])
+    );
+  });
+
+  it("opens the same diagram search, which searches on the way in and as you type", () => {
+    const t = tester()
+      .send(summoned())
+      .send(row("insert-diagram"))
+      .send({ type: "query-typed", query: "auth" });
+    expect(page(t)).toBe("insertDiagram");
+    expect(t.getEffects()).toEqual([
+      { type: "search-diagrams", query: "", seq: 1, delayMs: 0 },
+      { type: "search-diagrams", query: "auth", seq: 2, delayMs: 180 },
+    ]);
+  });
+
+  it("highlights the first hit when the answer arrives, so Enter right after typing acts on it", () => {
+    const second = { ...hit("auth"), snapshotId: "s2" };
+    const t = onInsertDiagram([hit("auth"), second]);
+    expect(t.getState().nav.value).toBe("s1");
+
+    // A highlight the author moved onto a hit that is still there stays put.
+    t.send({ type: "highlight-moved", value: "s2" })
+      .send({ type: "query-typed", query: "a" })
+      .send({ type: "diagrams-found", seq: 2, hits: [hit("auth"), second] });
+    expect(t.getState().nav.value).toBe("s2");
+  });
+
+  it("inserts on Enter, rather than going to the diagram, and closes once it lands", () => {
+    const t = onInsertDiagram().send({
+      type: "diagram-picked",
+      hit: hit("auth"),
+    });
+    expect(t.getState().open).toBe(true);
+
+    t.send({ type: "diagram-inserted", landed: true });
+    expect(t.getState()).toMatchObject({ open: false, working: false });
+    expect(t.getEffects()).toEqual([
+      {
+        type: "insert-diagram",
+        target: { diagramId: "auth", snapshotId: "s1", source: "snapshot" },
+      },
+      { type: "wait-for-spinner", delayMs: 150 },
+      { type: "report-success" },
+    ]);
+  });
+
+  it("ignores a second Enter while an insert is in flight, and stays up at the shape cap", () => {
+    const t = onInsertDiagram()
+      .send({ type: "diagram-picked", hit: hit("auth") })
+      .send({ type: "diagram-picked", hit: hit("auth") })
+      .send({ type: "diagram-inserted", landed: false });
+    expect(t.getState()).toMatchObject({ open: true, working: false });
+    expect(
+      t.getEffects().filter((e) => e.type === "insert-diagram")
+    ).toHaveLength(1);
+  });
+
+  it("stays up and says why when the drawing is empty or can't be fetched", () => {
+    const t = onInsertDiagram()
+      .send({ type: "diagram-picked", hit: hit("auth") })
+      .send({ type: "diagram-insert-failed", reason: "empty" })
+      .send({ type: "diagram-picked", hit: hit("auth") })
+      .send({ type: "diagram-insert-failed", reason: "request-failed" });
+    expect(t.getState()).toMatchObject({ open: true, working: false });
+    expect(t.getEffects().filter((e) => e.type === "report-error")).toEqual([
+      { type: "report-error", message: "That diagram is empty" },
+      { type: "report-error", message: "Couldn't insert that diagram" },
+    ]);
+  });
+
+  it("leaves the diagram search meaning go to", () => {
+    const t = tester()
+      .send(summoned("diagrams"))
+      .resetExec()
+      .send({ type: "diagram-picked", hit: hit("auth") });
+    expect(t.getEffects().map((e) => e.type)).toEqual(["go-to-diagram"]);
+  });
+});
+
 describe("the root list in an editor with no Diagram of its own", () => {
   // The thumbnail editor edits a Thumbnail Diagram, which has no snapshots,
   // no name and no tuned camera (ADR 0060).
@@ -459,6 +557,7 @@ describe("the root list in an editor with no Diagram of its own", () => {
       expect.arrayContaining([
         "insert-icon",
         "insert-component",
+        "insert-diagram",
         "go-to-diagram",
       ])
     );

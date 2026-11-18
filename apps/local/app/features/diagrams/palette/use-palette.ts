@@ -6,7 +6,9 @@ import { searchIconNames } from "@/packages/lucide-icons";
 import { renderThumbnailPngBase64 } from "@/features/diagrams/render-thumbnail";
 import {
   buildIconContent,
+  buildSceneContent,
   insertContentAtViewportCentre,
+  insertDrawingAsGroup,
   quantiseIconSize,
 } from "@/features/diagrams/insert-onto-canvas";
 import {
@@ -21,6 +23,7 @@ import {
   selectComponents,
   selectPage,
   selectRootActions,
+  type DiagramInsertTarget,
   type DiagramTarget,
   type PageKey,
 } from "./palette-reducer";
@@ -190,6 +193,9 @@ export function usePalette(opts: {
       void Promise.resolve(handlersRef.current.onGoToDiagram(target)).then(() =>
         dispatch({ type: "went-to-diagram" })
       );
+    },
+    "insert-diagram": (_state, { target }, dispatch) => {
+      void insertDiagram(editorRef.current, target).then(dispatch);
     },
     "rename-diagram": (_state, { name }, dispatch) => {
       const handlers = handlersRef.current.diagram;
@@ -380,6 +386,50 @@ async function insertComponent(
     // reachable from the console.
     console.error("Component insert failed", error);
     return failed("incompatible");
+  }
+}
+
+/**
+ * Fetches a Diagram's head, or a DiagramSnapshot's drawing, and puts it onto
+ * the canvas whole: one group, scaled to fit, through the single insertion
+ * path.
+ */
+async function insertDiagram(
+  editor: Editor | null,
+  target: DiagramInsertTarget
+): Promise<paletteReducer.Action> {
+  const failed: paletteReducer.Action = {
+    type: "diagram-insert-failed",
+    reason: "request-failed",
+  };
+  if (!editor) return { type: "diagram-inserted", landed: false };
+
+  let scene: unknown;
+  try {
+    const res = await fetch(
+      target.snapshotId
+        ? `/api/diagram-snapshots/${target.snapshotId}`
+        : `/api/diagrams/${target.diagramId}/head`
+    );
+    if (!res.ok) return failed;
+    const data = await res.json();
+    scene = target.snapshotId ? data.scene : data.headScene;
+  } catch {
+    return failed;
+  }
+
+  const content = buildSceneContent(scene);
+  if (!content) return { type: "diagram-insert-failed", reason: "empty" };
+  try {
+    return {
+      type: "diagram-inserted",
+      landed: insertDrawingAsGroup(editor, content),
+    };
+  } catch (error) {
+    // Any throw out of the put (a scene tldraw can't migrate, say) lands
+    // here; logged so the real cause stays reachable from the console.
+    console.error("Diagram insert failed", error);
+    return failed;
   }
 }
 
