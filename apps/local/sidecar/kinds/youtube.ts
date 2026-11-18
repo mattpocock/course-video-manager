@@ -36,7 +36,12 @@ export const youtubeJobKind = definePostingJobKind({
         const thumbnails = yield* ThumbnailOperationsService;
         return yield* thumbnails.getThumbnailById(params.thumbnailId);
       }).pipe(Effect.catchTag("NotFoundError", () => Effect.succeed(null)));
-      if (!thumbnail?.filePath || thumbnail.videoId !== params.videoId) {
+      // An archived Thumbnail is a deleted one: it is never uploaded.
+      if (
+        !thumbnail?.filePath ||
+        thumbnail.videoId !== params.videoId ||
+        thumbnail.archivedAt
+      ) {
         return yield* new PostNotStartedError({
           message: "A thumbnail must be selected before uploading",
         });

@@ -1,7 +1,7 @@
 import { DrizzleService, type Database } from "./drizzle-service.server.js";
 import { thumbnails } from "../db/schema.js";
 import { NotFoundError, UnknownDBServiceError } from "./db-service-errors.js";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
 const makeDbCall = <T>(fn: () => Promise<T>) => {
@@ -17,7 +17,10 @@ const createThumbnailOperations = (db: Database) => {
   ) {
     return yield* makeDbCall(() =>
       db.query.thumbnails.findMany({
-        where: eq(thumbnails.videoId, videoId),
+        where: and(
+          eq(thumbnails.videoId, videoId),
+          isNull(thumbnails.archivedAt)
+        ),
         orderBy: desc(thumbnails.createdAt),
       })
     );
@@ -91,21 +94,31 @@ const createThumbnailOperations = (db: Database) => {
     return updated;
   });
 
-  const deleteThumbnail = Effect.fn("deleteThumbnail")(function* (
+  /**
+   * The author's Delete. The row and its files stay, so the Thumbnail still
+   * resolves by id wherever it was recorded as a source (ADR 0060); it drops
+   * out of `getThumbnailsByVideoId` and can no longer be uploaded. Archiving
+   * an archived Thumbnail keeps its first `archivedAt`.
+   */
+  const archiveThumbnail = Effect.fn("archiveThumbnail")(function* (
     thumbnailId: string
   ) {
-    const [deleted] = yield* makeDbCall(() =>
-      db.delete(thumbnails).where(eq(thumbnails.id, thumbnailId)).returning()
+    const [archived] = yield* makeDbCall(() =>
+      db
+        .update(thumbnails)
+        .set({ archivedAt: sql`COALESCE(${thumbnails.archivedAt}, now())` })
+        .where(eq(thumbnails.id, thumbnailId))
+        .returning()
     );
 
-    if (!deleted) {
+    if (!archived) {
       return yield* new NotFoundError({
-        type: "deleteThumbnail",
+        type: "archiveThumbnail",
         params: { thumbnailId },
       });
     }
 
-    return deleted;
+    return archived;
   });
 
   return {
@@ -113,7 +126,7 @@ const createThumbnailOperations = (db: Database) => {
     createThumbnail,
     getThumbnailById,
     updateThumbnail,
-    deleteThumbnail,
+    archiveThumbnail,
   };
 };
 
