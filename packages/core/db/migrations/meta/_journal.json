@@ -393,6 +393,13 @@
       "when": 1794487956754,
       "tag": "0055_writer_chat",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1795011964445,
+      "tag": "0056_thumbnail_diagram",
+      "breakpoints": true
     }
   ]
 }
