@@ -39,49 +39,50 @@ export function ThumbnailDrawingFrame({
         }
         onFaceRestored={(face) => dispatch({ type: "face-restored", face })}
         historyRef={historyRef}
-      />
-      {/* The whole frame's width: a fraction of the old slider's travel per pixel. */}
-      <input
-        type="range"
-        aria-label="Face position"
-        min={0}
-        max={100}
-        step={0.05}
-        value={state.cutoutPosition}
-        onChange={(e) =>
-          dispatch({
-            type: "cutout-position-changed",
-            value: Number(e.target.value),
-          })
-        }
-        // One drag is one undo step.
-        onPointerDown={() => dispatch({ type: "face-slide-started" })}
-        onPointerUp={() => dispatch({ type: "face-slide-ended" })}
-        onPointerCancel={() => dispatch({ type: "face-slide-ended" })}
-        onKeyDown={(e) => {
-          // tldraw ignores keys outside the canvas, so the slider forwards
-          // Cmd+Z / Cmd+Shift+Z to the editor's one history.
-          if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") {
-            e.preventDefault();
-            if (e.shiftKey) historyRef.current?.redo();
-            else historyRef.current?.undo();
-            return;
+      >
+        {/* The whole frame's width: a fraction of the old slider's travel per pixel. */}
+        <input
+          type="range"
+          aria-label="Face position"
+          min={0}
+          max={100}
+          step={0.05}
+          value={state.cutoutPosition}
+          onChange={(e) =>
+            dispatch({
+              type: "cutout-position-changed",
+              value: Number(e.target.value),
+            })
           }
-          if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
-          e.preventDefault();
-          dispatch({
-            type: "face-nudged",
-            direction: e.key === "ArrowLeft" ? -1 : 1,
-            big: e.shiftKey,
-          });
-        }}
-        className="w-full"
-      />
-      <p className="text-xs text-muted-foreground">
-        Draw in the frame. Slide the face, or focus the slider and use ←/→
-        (Shift for bigger steps). Cmd+Z undoes face moves with the drawing.
-        Cmd+K opens the diagram palette while the canvas has focus.
-      </p>
+          // One drag is one undo step.
+          onPointerDown={() => dispatch({ type: "face-slide-started" })}
+          onPointerUp={() => dispatch({ type: "face-slide-ended" })}
+          onPointerCancel={() => dispatch({ type: "face-slide-ended" })}
+          onKeyDown={(e) => {
+            // tldraw ignores keys outside the canvas, so the slider forwards
+            // Cmd+Z / Cmd+Shift+Z to the editor's one history.
+            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") {
+              e.preventDefault();
+              if (e.shiftKey) historyRef.current?.redo();
+              else historyRef.current?.undo();
+              return;
+            }
+            if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+            e.preventDefault();
+            dispatch({
+              type: "face-nudged",
+              direction: e.key === "ArrowLeft" ? -1 : 1,
+              big: e.shiftKey,
+            });
+          }}
+          className="w-full"
+        />
+        <p className="text-xs text-muted-foreground">
+          Draw in the frame. Slide the face, or focus the slider and use ←/→
+          (Shift for bigger steps). Cmd+Z undoes face moves with the drawing.
+          Cmd+K opens the diagram palette while the canvas has focus.
+        </p>
+      </ThumbnailDiagramEditor>
     </div>
   );
 }

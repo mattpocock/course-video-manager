@@ -197,7 +197,7 @@ describe("Saving splits the face from the drawing", () => {
         name: "",
         gridSize: 10,
         meta: {
-          other: "kept",
+          thumbnailDarkPanel: false,
           thumbnailFace: {
             photo: "photo",
             cutout: "cutout",
@@ -210,7 +210,7 @@ describe("Saving splits the face from the drawing", () => {
     schema: { schemaVersion: 2, sequences: {} },
   };
 
-  it("the face goes to the Thumbnail's layers; the Thumbnail Diagram is the drawing alone", () => {
+  it("the face goes to the Thumbnail's layers; the Thumbnail Diagram is the drawing alone, its dark panel setting kept", () => {
     const tester = editing({ cutoutPosition: 70 }).send({
       type: "drawing-changed",
       document: withFaceInMeta,
@@ -224,7 +224,7 @@ describe("Saving splits the face from the drawing", () => {
       cutoutPosition: 70,
       thumbnailDiagram: {
         store: {
-          "document:document": { meta: { other: "kept" } },
+          "document:document": { meta: { thumbnailDarkPanel: false } },
           "shape:a": { props: { text: "Agent" } },
         },
       },
