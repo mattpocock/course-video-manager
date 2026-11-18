@@ -1,0 +1,1 @@
+ALTER TABLE "course-video-manager_thumbnail" ADD COLUMN "diagram_search_text" text;

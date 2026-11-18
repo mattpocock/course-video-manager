@@ -395,6 +395,7 @@ export const createVersionCopyOps = (db: Database) => {
                     layers: thumbnail.layers,
                     filePath: thumbnail.filePath,
                     thumbnailDiagram: thumbnail.thumbnailDiagram,
+                    diagramSearchText: thumbnail.diagramSearchText,
                     diagramSources: sourcesOfCopiedThumbnail(thumbnail),
                     selectedForUpload: thumbnail.selectedForUpload,
                   }))

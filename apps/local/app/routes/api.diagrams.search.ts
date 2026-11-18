@@ -1,5 +1,6 @@
 import { Effect } from "effect";
 import { DiagramOperationsService } from "@/services/db-diagram-operations.server";
+import { ThumbnailOperationsService } from "@/services/db-thumbnail-operations.server";
 import { makeLoader } from "@/services/route-action.server";
 import { newestSnapshotHashByDiagram } from "@/lib/filtered-newest-snapshot";
 import { data } from "react-router";
@@ -48,7 +49,17 @@ export const loader = makeLoader({
         });
       }
 
-      const results = yield* diagramOps.searchDiagrams(q);
+      // Past Thumbnail Diagrams are found too, labelled with their Video
+      // (ADR 0060), in one recency order with the Diagrams. Only here:
+      // Playground Home calls `searchDiagrams` alone and never lists them.
+      const thumbnailOps = yield* ThumbnailOperationsService;
+      const [drawings, thumbnailDiagrams] = yield* Effect.all(
+        [diagramOps.searchDiagrams(q), thumbnailOps.searchThumbnailDiagrams(q)],
+        { concurrency: "unbounded" }
+      );
+      const results = [...drawings, ...thumbnailDiagrams].sort(
+        (a, b) => new Date(b.sortKey).getTime() - new Date(a.sortKey).getTime()
+      );
       return data({
         results: results.map(({ sortKey: _sortKey, ...rest }) => rest),
       });

@@ -38,7 +38,7 @@ import {
   type PlaygroundStatus,
 } from "@/features/diagrams/playground-status";
 import type { PaletteHandlers } from "@/features/diagrams/palette/use-palette";
-import { highlightedSnapshotUrl } from "@/lib/diagram-protocol";
+import { goToUrl } from "@/features/diagrams/palette/go-to-url";
 import { toast } from "@/components/ui/toast";
 import {
   CANVAS_HEIGHT,
@@ -87,12 +87,9 @@ const PALETTE_HANDLERS: Omit<PaletteHandlers, "onInsertSource"> = {
   diagram: null,
   keysFrom: "canvas",
   onGoToDiagram: (target) => {
-    // Leaving the page would leave the Thumbnail: the playground opens beside it.
-    window.open(
-      highlightedSnapshotUrl(target.diagramId, target.highlightSnapshotId),
-      "_blank",
-      "noopener"
-    );
+    // Leaving the page would leave the Thumbnail: a Diagram opens in the
+    // playground beside it, and another Thumbnail in a creator beside it.
+    window.open(goToUrl(target), "_blank", "noopener");
   },
 };
 
