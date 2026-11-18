@@ -4,7 +4,10 @@ import { makeAction } from "@/services/route-action.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { videoFileRowPath, writeVideoFile } from "@/services/video-files";
 import { data } from "react-router";
-import { readThumbnailDiagramField } from "@/features/thumbnail-editor/thumbnail-diagram-payload";
+import {
+  readDiagramSourcesField,
+  readThumbnailDiagramField,
+} from "@/features/thumbnail-editor/thumbnail-diagram-payload";
 
 function decodeDataUrl(dataUrl: string): Uint8Array {
   const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
@@ -32,6 +35,7 @@ interface CreateThumbnailPayload {
   cutoutDataUrl?: unknown;
   cutoutPosition?: unknown;
   thumbnailDiagram?: unknown;
+  diagramSources?: unknown;
 }
 
 export const action = makeAction({
@@ -47,6 +51,7 @@ export const action = makeAction({
         cutoutDataUrl,
         cutoutPosition,
         thumbnailDiagram: thumbnailDiagramField,
+        diagramSources: diagramSourcesField,
       } = (payload ?? {}) as CreateThumbnailPayload;
 
       if (typeof videoId !== "string" || !videoId) {
@@ -69,6 +74,9 @@ export const action = makeAction({
           })
         );
       }
+
+      const diagramSources =
+        yield* readDiagramSourcesField(diagramSourcesField);
 
       const thumbnailOps = yield* ThumbnailOperationsService;
       const videoOps = yield* VideoOperationsService;
@@ -137,6 +145,7 @@ export const action = makeAction({
         layers,
         filePath,
         thumbnailDiagram,
+        diagramSources,
       });
 
       return { success: true, thumbnailId: thumbnail.id };

@@ -10,7 +10,10 @@ import {
   writeVideoFile,
 } from "@/services/video-files";
 import { data } from "react-router";
-import { readThumbnailDiagramField } from "@/features/thumbnail-editor/thumbnail-diagram-payload";
+import {
+  readDiagramSourcesField,
+  readThumbnailDiagramField,
+} from "@/features/thumbnail-editor/thumbnail-diagram-payload";
 
 function decodeDataUrl(dataUrl: string): Uint8Array {
   const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
@@ -39,6 +42,7 @@ export const action = makeAction({
         cutoutDataUrl,
         cutoutPosition,
         thumbnailDiagram: thumbnailDiagramField,
+        diagramSources: diagramSourcesField,
       } = body;
 
       if (
@@ -58,6 +62,9 @@ export const action = makeAction({
           })
         );
       }
+
+      const diagramSources =
+        yield* readDiagramSourcesField(diagramSourcesField);
 
       const thumbnailId = params.thumbnailId!;
       const thumbnailOps = yield* ThumbnailOperationsService;
@@ -163,6 +170,7 @@ export const action = makeAction({
         layers,
         filePath: compositePath,
         thumbnailDiagram,
+        diagramSources,
       });
 
       return { success: true, thumbnailId: updated.id };

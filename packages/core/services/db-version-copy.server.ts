@@ -41,6 +41,7 @@ import {
   copyLearningGoalValues,
   insertInChunks,
 } from "./copy-child-rows.js";
+import { sourcesOfCopiedThumbnail } from "../lib/thumbnail-diagram-sources.js";
 
 const makeDbCall = <T>(fn: () => Promise<T>) =>
   Effect.tryPromise({
@@ -394,6 +395,7 @@ export const createVersionCopyOps = (db: Database) => {
                     layers: thumbnail.layers,
                     filePath: thumbnail.filePath,
                     thumbnailDiagram: thumbnail.thumbnailDiagram,
+                    diagramSources: sourcesOfCopiedThumbnail(thumbnail),
                     selectedForUpload: thumbnail.selectedForUpload,
                   }))
                 )

@@ -1,5 +1,9 @@
 import type { EffectReducer } from "use-effect-reducer";
 import type { ThumbnailLayers } from "./canvas-compositor";
+import {
+  mergeThumbnailDiagramSources,
+  type ThumbnailDiagramSource,
+} from "@cvm/core/lib/thumbnail-diagram-sources";
 
 /**
  * A Thumbnail Diagram as saved: a tldraw `document` (`getSnapshot(store)
@@ -26,6 +30,11 @@ export namespace thumbnailStateReducer {
     thumbnailDiagram: ThumbnailDiagramDocument | null;
     /** The Thumbnail Diagram drawn as a 1280×720 PNG, for the composite. */
     drawingImage: string | null;
+    /**
+     * Where this Thumbnail's inserts came from since it was opened. Sent with
+     * every save; the server adds them to the ones already recorded.
+     */
+    diagramSources: readonly ThumbnailDiagramSource[];
     /**
      * Bumped whenever a different Thumbnail's drawing is loaded, so the page
      * mounts a fresh editor (and undo history) for it, and only then.
@@ -65,6 +74,8 @@ export namespace thumbnailStateReducer {
       }
     /** A loaded drawing, drawn for the composite: not an edit. */
     | { type: "drawing-rendered"; image: string | null }
+    /** The palette inserted a Diagram Component or DiagramSnapshot. */
+    | { type: "insert-source-recorded"; source: ThumbnailDiagramSource }
     // Cutout
     | { type: "cutout-removed" }
     | { type: "cutout-position-changed"; value: number }
@@ -108,6 +119,7 @@ export namespace thumbnailStateReducer {
         cutoutImage: string | null;
         cutoutPosition: number;
         thumbnailDiagram: ThumbnailDiagramDocument | null;
+        diagramSources: readonly ThumbnailDiagramSource[];
         editingThumbnailId: string | null;
       }
     | { type: "delete-thumbnail"; thumbnailId: string }
@@ -123,6 +135,7 @@ const INITIAL_EDITOR_STATE = {
   cutoutPosition: 50,
   thumbnailDiagram: null,
   drawingImage: null,
+  diagramSources: [],
   editingThumbnailId: null,
   backgroundRemovalError: null,
   previewDataUrl: null,
@@ -218,6 +231,14 @@ export const thumbnailStateReducer: EffectReducer<
       };
     case "drawing-rendered":
       return { ...state, drawingImage: action.image };
+    case "insert-source-recorded":
+      return {
+        ...state,
+        diagramSources: mergeThumbnailDiagramSources(state.diagramSources, [
+          action.source,
+        ]),
+        ...(state.capturedPhoto && { pendingAutoSave: true }),
+      };
 
     // Cutout
     case "cutout-removed":
@@ -263,6 +284,7 @@ export const thumbnailStateReducer: EffectReducer<
           selectDiagramKind(state) === "drawing"
             ? state.thumbnailDiagram
             : null,
+        diagramSources: state.diagramSources,
         editingThumbnailId: state.editingThumbnailId,
       });
       return { ...state, saving: true, pendingAutoSave: false };
@@ -302,6 +324,7 @@ export const thumbnailStateReducer: EffectReducer<
         cutoutPosition: action.cutoutPosition,
         thumbnailDiagram: action.thumbnailDiagram,
         drawingImage: null,
+        diagramSources: [],
         diagramSession: state.diagramSession + 1,
         backgroundRemovalError: null,
       };

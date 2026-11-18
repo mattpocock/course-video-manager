@@ -45,6 +45,7 @@ import {
   scaledLayerBox,
 } from "./canvas-compositor";
 import type { ThumbnailDiagramDocument } from "./thumbnail-state-reducer";
+import type { ThumbnailDiagramSource } from "@cvm/core/lib/thumbnail-diagram-sources";
 
 const FRAME = new Box(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
@@ -77,8 +78,9 @@ const STATUS: PlaygroundStatus = {
  * The thumbnail editor has no Diagram of its own, so the palette leaves out
  * every action on one. Cmd/Ctrl+K and +F are the palette's only while the
  * canvas has focus: elsewhere on the page they are Global Search and find.
+ * Where each insert came from is the component's to report (see below).
  */
-const PALETTE_HANDLERS: PaletteHandlers = {
+const PALETTE_HANDLERS: Omit<PaletteHandlers, "onInsertSource"> = {
   diagram: null,
   keysFrom: "canvas",
   onGoToDiagram: (target) => {
@@ -212,6 +214,7 @@ export function ThumbnailDiagramEditor({
   facePosition,
   onDrawingChanged,
   onDrawingRendered,
+  onInsertSource,
 }: {
   initialDocument: ThumbnailDiagramDocument | null;
   photo: string;
@@ -224,10 +227,23 @@ export function ThumbnailDiagramEditor({
   ) => void;
   /** The loaded drawing, drawn for the composite: not an edit. */
   onDrawingRendered: (image: string | null) => void;
+  /** A palette insert landed: where it came from (ADR 0060). */
+  onInsertSource: (source: ThumbnailDiagramSource) => void;
 }) {
   const [hovering, setHovering] = useState(false);
-  const callbacks = useRef({ onDrawingChanged, onDrawingRendered });
-  callbacks.current = { onDrawingChanged, onDrawingRendered };
+  const callbacks = useRef({
+    onDrawingChanged,
+    onDrawingRendered,
+    onInsertSource,
+  });
+  callbacks.current = { onDrawingChanged, onDrawingRendered, onInsertSource };
+  const paletteHandlers = useMemo<PaletteHandlers>(
+    () => ({
+      ...PALETTE_HANDLERS,
+      onInsertSource: (source) => callbacks.current.onInsertSource(source),
+    }),
+    []
+  );
   const initial = useRef(initialDocument);
 
   const handleMount = useCallback((editor: Editor) => {
@@ -294,7 +310,7 @@ export function ThumbnailDiagramEditor({
         <FaceContext.Provider value={face}>
           <DiagramEditor
             onMount={handleMount}
-            paletteHandlers={PALETTE_HANDLERS}
+            paletteHandlers={paletteHandlers}
             cameraOptions={CAMERA}
             components={COMPONENTS}
           />

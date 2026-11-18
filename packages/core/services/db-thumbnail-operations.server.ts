@@ -1,8 +1,13 @@
 import { DrizzleService, type Database } from "./drizzle-service.server.js";
+import { withDbTransaction } from "./with-db-transaction.server.js";
 import { thumbnails } from "../db/schema.js";
 import { NotFoundError, UnknownDBServiceError } from "./db-service-errors.js";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { Effect } from "effect";
+import {
+  mergeThumbnailDiagramSources,
+  type ThumbnailDiagramSource,
+} from "../lib/thumbnail-diagram-sources.js";
 
 const makeDbCall = <T>(fn: () => Promise<T>) => {
   return Effect.tryPromise({
@@ -32,6 +37,8 @@ const createThumbnailOperations = (db: Database) => {
     filePath: string | null;
     /** A tldraw `document`; null for a pasted-PNG Thumbnail (ADR 0060). */
     thumbnailDiagram: unknown;
+    /** Where its inserts came from; none when nothing was inserted. */
+    diagramSources?: readonly ThumbnailDiagramSource[];
   }) {
     const [record] = yield* makeDbCall(() =>
       db
@@ -41,6 +48,10 @@ const createThumbnailOperations = (db: Database) => {
           layers: params.layers,
           filePath: params.filePath,
           thumbnailDiagram: params.thumbnailDiagram,
+          diagramSources: mergeThumbnailDiagramSources(
+            [],
+            params.diagramSources ?? []
+          ),
         })
         .returning()
     );
@@ -76,18 +87,40 @@ const createThumbnailOperations = (db: Database) => {
       filePath: string | null;
       /** Replaces the stored Thumbnail Diagram; null for a pasted-PNG one. */
       thumbnailDiagram: unknown;
+      /**
+       * Sources of inserts since the page opened the Thumbnail. Added to the
+       * recorded ones, never replacing them: a link is never lost (ADR 0060).
+       */
+      diagramSources?: readonly ThumbnailDiagramSource[];
     }
   ) {
-    const [updated] = yield* makeDbCall(() =>
-      db
-        .update(thumbnails)
-        .set({
-          layers: params.layers,
-          filePath: params.filePath,
-          thumbnailDiagram: params.thumbnailDiagram,
-        })
-        .where(eq(thumbnails.id, thumbnailId))
-        .returning()
+    const updated = yield* withDbTransaction(db, (tx) =>
+      Effect.gen(function* () {
+        const [existing] = yield* makeDbCall(() =>
+          tx
+            .select({ diagramSources: thumbnails.diagramSources })
+            .from(thumbnails)
+            .where(eq(thumbnails.id, thumbnailId))
+            .for("update")
+        );
+        if (!existing) return undefined;
+        const [row] = yield* makeDbCall(() =>
+          tx
+            .update(thumbnails)
+            .set({
+              layers: params.layers,
+              filePath: params.filePath,
+              thumbnailDiagram: params.thumbnailDiagram,
+              diagramSources: mergeThumbnailDiagramSources(
+                existing.diagramSources,
+                params.diagramSources ?? []
+              ),
+            })
+            .where(eq(thumbnails.id, thumbnailId))
+            .returning()
+        );
+        return row;
+      })
     );
 
     if (!updated) {
