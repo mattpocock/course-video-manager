@@ -9,5 +9,6 @@ The model must not lose information. A Thumbnail Diagram starts empty, and whene
 ## Consequences
 
 - The thumbnail editor and the Diagram Playground are the same editor: same Diagram Component search and save, same Icon handling, same way of finding Diagrams and DiagramSnapshots. Two subtly different diagram editors would be a constant paper cut.
+- There is one search across both editors: it finds Diagrams, DiagramSnapshots and Thumbnail Diagrams (each labelled with its Video) from the playground and from the thumbnail editor alike. A result can be opened where it lives or inserted onto the current canvas.
 - Thumbnails are archived, never hard-deleted, so a recorded source keeps resolving.
 - Deliberate gap: shapes pasted in through tldraw's clipboard record no source. Making the clipboard carry a Diagram id was judged not worth the complexity.
