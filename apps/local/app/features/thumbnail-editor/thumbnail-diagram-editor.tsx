@@ -58,6 +58,7 @@ import {
   attachFaceHistory,
   type ThumbnailEditorHistory,
 } from "./thumbnail-face-history";
+import type { ThumbnailDiagramSource } from "@cvm/core/lib/thumbnail-diagram-sources";
 
 const FRAME = new Box(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
@@ -90,8 +91,9 @@ const STATUS: PlaygroundStatus = {
  * The thumbnail editor has no Diagram of its own, so the palette leaves out
  * every action on one. Cmd/Ctrl+K and +F are the palette's only while the
  * canvas has focus: elsewhere on the page they are Global Search and find.
+ * Where each insert came from is the component's to report (see below).
  */
-const PALETTE_HANDLERS: PaletteHandlers = {
+const PALETTE_HANDLERS: Omit<PaletteHandlers, "onInsertSource"> = {
   diagram: null,
   keysFrom: "canvas",
   onGoToDiagram: (target) => {
@@ -283,6 +285,7 @@ export function ThumbnailDiagramEditor({
   onDrawingRendered,
   onFaceRestored,
   historyRef,
+  onInsertSource,
   children,
 }: {
   initialDocument: ThumbnailDiagramDocument | null;
@@ -300,6 +303,8 @@ export function ThumbnailDiagramEditor({
   onFaceRestored: (face: ThumbnailFace) => void;
   /** Set while the editor is mounted: face changes go on its history here. */
   historyRef: React.RefObject<ThumbnailEditorHistory | null>;
+  /** A palette insert landed: where it came from (ADR 0060). */
+  onInsertSource: (source: ThumbnailDiagramSource) => void;
   /** The host's controls, directly under the frame (the face slider). */
   children: React.ReactNode;
 }) {
@@ -314,8 +319,21 @@ export function ThumbnailDiagramEditor({
     onDrawingChanged,
     onDrawingRendered,
     onFaceRestored,
+    onInsertSource,
   });
-  callbacks.current = { onDrawingChanged, onDrawingRendered, onFaceRestored };
+  callbacks.current = {
+    onDrawingChanged,
+    onDrawingRendered,
+    onFaceRestored,
+    onInsertSource,
+  };
+  const paletteHandlers = useMemo<PaletteHandlers>(
+    () => ({
+      ...PALETTE_HANDLERS,
+      onInsertSource: (source) => callbacks.current.onInsertSource(source),
+    }),
+    []
+  );
   const initial = useRef(initialDocument);
   // The face the editor opens with: read on mount, like the drawing.
   const initialFace = useRef<ThumbnailFace>({
@@ -407,7 +425,7 @@ export function ThumbnailDiagramEditor({
           <FaceContext.Provider value={face}>
             <DiagramEditor
               onMount={handleMount}
-              paletteHandlers={PALETTE_HANDLERS}
+              paletteHandlers={paletteHandlers}
               cameraOptions={CAMERA}
               components={COMPONENTS}
             />

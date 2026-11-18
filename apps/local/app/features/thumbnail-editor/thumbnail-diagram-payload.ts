@@ -1,3 +1,10 @@
+import { Effect } from "effect";
+import { data } from "react-router";
+import {
+  readThumbnailDiagramSources,
+  type ThumbnailDiagramSource,
+} from "@cvm/core/lib/thumbnail-diagram-sources";
+
 /**
  * Reads the `thumbnailDiagram` field the thumbnail page saves: a tldraw
  * `document` (`{ store, schema }`, the format of a Diagram's head, ADR 0060)
@@ -22,3 +29,21 @@ export function readThumbnailDiagramField(
   }
   return undefined;
 }
+
+/**
+ * Reads the `diagramSources` field the thumbnail page saves: where its
+ * inserts came from (ADR 0060). Missing records nothing; anything that isn't
+ * a list of sources dies with a 400.
+ */
+export const readDiagramSourcesField = (
+  value: unknown
+): Effect.Effect<ThumbnailDiagramSource[]> => {
+  const sources = readThumbnailDiagramSources(value);
+  return sources === undefined
+    ? Effect.die(
+        data("diagramSources must be a list of insert sources", {
+          status: 400,
+        })
+      )
+    : Effect.succeed(sources);
+};

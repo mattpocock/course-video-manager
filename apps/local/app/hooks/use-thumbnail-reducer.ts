@@ -90,6 +90,7 @@ export function useThumbnailReducer(thumbnails: Thumbnail[]) {
         cutoutDataUrl: effect.cutoutImage,
         cutoutPosition: effect.cutoutImage ? effect.cutoutPosition : undefined,
         thumbnailDiagram: effect.thumbnailDiagram,
+        diagramSources: effect.diagramSources,
       };
 
       fetch(

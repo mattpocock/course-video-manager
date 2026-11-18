@@ -39,6 +39,9 @@ export function ThumbnailDrawingFrame({
         }
         onFaceRestored={(face) => dispatch({ type: "face-restored", face })}
         historyRef={historyRef}
+        onInsertSource={(source) =>
+          dispatch({ type: "insert-source-recorded", source })
+        }
       >
         {/* The whole frame's width: a fraction of the old slider's travel per pixel. */}
         <input

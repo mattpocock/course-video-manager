@@ -102,6 +102,8 @@ export function usePlaygroundPaletteHandlers(
       diagram,
       // Global Search is not mounted on the playground: the keys are ours.
       keysFrom: "anywhere",
+      // A Diagram records no sources: its inserts are its own drawing.
+      onInsertSource: null,
       onGoToDiagram: async (target) => {
         // Every existing flow that leaves the current diagram flushes first;
         // without this, up to 500ms of edits is lost on every jump.
