@@ -52,6 +52,14 @@ export const ROOT_ACTIONS: RootAction[] = [
     opens: "components",
   },
   {
+    id: "insert-diagram",
+    label: "Insert diagram",
+    hint: "A Diagram or snapshot, whole, as one group scaled to fit",
+    group: "Insert",
+    icon: "file-input",
+    opens: "insertDiagram",
+  },
+  {
     id: "replace-icon",
     label: "Replace icon",
     hint: "Swap the selected icon, keeping its size and position",
@@ -169,6 +177,13 @@ export const PAGE_META: Record<
     columns: 4,
   },
   diagrams: { title: "Go to diagram", placeholder: "Search…", columns: 3 },
+  // The same search as `diagrams`, and a separate page for the same reason as
+  // `replaceIcon`: the page IS what Enter means, so Enter here inserts.
+  insertDiagram: {
+    title: "Insert diagram",
+    placeholder: "Search…",
+    columns: 3,
+  },
   nameComponent: {
     title: "Save selection as component",
     placeholder: "Name this component…",

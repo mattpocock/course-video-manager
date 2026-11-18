@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { IconGlyph } from "./icon-glyph";
 import { ComponentCard, DiagramCard } from "./result-cards";
 import { GROUP_ORDER, PAGE_META, type PaletteGroup } from "./palette-model";
+import { diagramHitKey } from "./palette-reducer";
 import { usePalette, type PaletteHandlers } from "./use-palette";
 import { useGridNav } from "./use-grid-nav";
 import "./command-palette.css";
@@ -304,7 +305,7 @@ export function CommandPalette({
               </CommandGroup>
             )}
 
-            {state.page === "diagrams" && (
+            {(state.page === "diagrams" || state.page === "insertDiagram") && (
               <CommandGroup
                 heading={
                   state.searching
@@ -323,7 +324,7 @@ export function CommandPalette({
                   </p>
                 )}
                 {state.diagramHits.map((hit) => {
-                  const key = hit.snapshotId ?? `${hit.diagramId}:current`;
+                  const key = diagramHitKey(hit);
                   return (
                     <CommandItem
                       key={key}
@@ -382,7 +383,9 @@ export function CommandPalette({
 
           <div className="flex items-center gap-3 border-t border-zinc-700 px-3 py-1.5 text-[10px] text-zinc-500">
             <span>↑↓{columns ? "←→" : ""} navigate</span>
-            <span>⏎ select</span>
+            <span>
+              ⏎ {state.page === "insertDiagram" ? "insert" : "select"}
+            </span>
             <span>{state.nav.stack.length > 1 ? "esc back" : "esc close"}</span>
           </div>
         </Command>
