@@ -482,15 +482,15 @@ _Avoid_: Glyph, Symbol, Image
 ### Thumbnails
 
 **Thumbnail**:
-The image a **Video** shows on YouTube: the author's face, a **Thumbnail Drawing**, and a **Cutout** over the drawing.
+The image a **Video** shows on YouTube: the author's face, a **Thumbnail Diagram**, and a **Cutout** over the drawing.
 _Avoid_: Cover, Poster, Preview
 
-**Thumbnail Drawing**:
-The drawing that belongs to one **Thumbnail**, edited in place beside the author's face. It is not a **Diagram** and has no snapshots, but it can start as a copy of a Diagram, a **DiagramSnapshot** or another Thumbnail Drawing, and remembers which.
-_Avoid_: Thumbnail Diagram, Thumbnail Snapshot
+**Thumbnail Diagram**:
+The drawing that belongs to one **Thumbnail**, edited in place beside the author's face. It is not a **Diagram** and has no snapshots, but it can start as a copy of a Diagram, a **DiagramSnapshot** or another Thumbnail Diagram, and remembers which.
+_Avoid_: Thumbnail Drawing, Thumbnail Snapshot
 
 **Cutout**:
-The author's face with its background removed, laid over a **Thumbnail Drawing** so the face sits in front of it.
+The author's face with its background removed, laid over a **Thumbnail Diagram** so the face sits in front of it.
 _Avoid_: Mask, Sticker
 
 ### Lesson body
