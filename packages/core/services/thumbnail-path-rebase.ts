@@ -1,3 +1,6 @@
+import type { thumbnails } from "../db/schema.js";
+import { sourcesOfCopiedThumbnail } from "../lib/thumbnail-diagram-sources.js";
+
 /**
  * Point a duplicated Thumbnail's stored paths at the duplicate's OWN Video
  * File directory.
@@ -58,3 +61,33 @@ export const rebaseLineagePathsDeep = (
   }
   return value;
 };
+
+/**
+ * The row a copy of `thumbnail` on a Video with a fresh lineage inserts
+ * (Duplicate Course, Duplicate Video): its paths rebased onto the copy's
+ * lineage, its Thumbnail Diagram verbatim (vector and text, no paths), and
+ * the original recorded as its source (ADR 0060).
+ */
+export const copiedThumbnailValues = (
+  thumbnail: typeof thumbnails.$inferSelect,
+  copy: { videoId: string; sourceLineageId: string; newLineageId: string }
+): typeof thumbnails.$inferInsert => ({
+  videoId: copy.videoId,
+  layers: rebaseLineagePathsDeep(
+    thumbnail.layers,
+    copy.sourceLineageId,
+    copy.newLineageId
+  ),
+  filePath:
+    thumbnail.filePath === null
+      ? null
+      : rebaseLineagePath(
+          thumbnail.filePath,
+          copy.sourceLineageId,
+          copy.newLineageId
+        ),
+  thumbnailDiagram: thumbnail.thumbnailDiagram,
+  diagramSearchText: thumbnail.diagramSearchText,
+  diagramSources: sourcesOfCopiedThumbnail(thumbnail),
+  selectedForUpload: thumbnail.selectedForUpload,
+});

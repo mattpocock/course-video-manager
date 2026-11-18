@@ -95,6 +95,9 @@ export const setThumbnailOnBroadcast = Effect.fn("setThumbnailOnBroadcast")(
     if (row === null || row.videoId !== o.videoId) {
       return thumbnailFailed("the thumbnail is not one of this Video's.");
     }
+    if (row.archivedAt) {
+      return thumbnailFailed("the thumbnail was deleted: pick another.");
+    }
     if (!row.filePath) {
       return thumbnailFailed(
         "the thumbnail has no image yet: save it in the thumbnail creator."

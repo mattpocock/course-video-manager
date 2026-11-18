@@ -18,6 +18,7 @@ import {
 } from "../features/videos/video-format.js";
 import { and, asc, desc, eq, ilike, inArray, isNull } from "drizzle-orm";
 import { Effect } from "effect";
+import { escapeLike } from "../lib/escape-like.js";
 
 const makeDbCall = <T>(fn: () => Promise<T>) =>
   Effect.tryPromise({
@@ -141,9 +142,6 @@ export interface SearchParams {
 
 /** A matched field name paired with a snippet excerpt drawn from its value. */
 type FieldMatch = { field: string; snippet: string };
-
-/** Chars that are wildcards inside a LIKE/ILIKE pattern; escaped to stay literal. */
-const escapeLike = (q: string): string => q.replace(/[\\%_]/g, (c) => `\\${c}`);
 
 const SNIPPET_RADIUS = 60;
 
