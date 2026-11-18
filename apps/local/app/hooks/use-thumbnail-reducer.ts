@@ -5,9 +5,9 @@ import { toast } from "@/components/ui/toast";
 import {
   thumbnailStateReducer,
   createInitialThumbnailState,
-  type ThumbnailDiagramDocument,
 } from "@/features/thumbnail-editor/thumbnail-state-reducer";
 import type { ThumbnailEditorHistory } from "@/features/thumbnail-editor/thumbnail-face-history";
+import type { ThumbnailDiagramDocument } from "@cvm/core/lib/thumbnail-diagram";
 
 function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -38,7 +38,7 @@ interface Thumbnail {
   id: string;
   layers: unknown;
   /** The stored tldraw `document`, or null (ADR 0060). */
-  thumbnailDiagram: unknown;
+  thumbnailDiagram: ThumbnailDiagramDocument | null;
 }
 
 export function useThumbnailReducer(thumbnails: Thumbnail[]) {
@@ -168,9 +168,7 @@ export function useThumbnailReducer(thumbnails: Thumbnail[]) {
             diagramPosition: layers.diagram?.horizontalPosition ?? 50,
             cutoutImage: cutDataUrl,
             cutoutPosition: layers.cutout?.horizontalPosition ?? 50,
-            // Written only by this page's save, as a tldraw `document`.
-            thumbnailDiagram:
-              thumbnail.thumbnailDiagram as ThumbnailDiagramDocument | null,
+            thumbnailDiagram: thumbnail.thumbnailDiagram,
           });
         })
         .catch((error) => {

@@ -1,6 +1,6 @@
 import { entityPath } from "@/features/entity-links/entity-deep-link";
 import { highlightedSnapshotUrl } from "@/lib/diagram-protocol";
-import type { DiagramTarget } from "./palette-reducer";
+import type { DiagramTarget } from "./diagram-hits";
 
 /**
  * Where "go to" on a diagram search result opens it, in either editor: a

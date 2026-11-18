@@ -23,18 +23,11 @@ import {
   selectComponents,
   selectPage,
   selectRootActions,
-  type DiagramInsertTarget,
-  type DiagramTarget,
   type PageKey,
 } from "./palette-reducer";
+import type { DiagramInsertTarget, DiagramTarget } from "./diagram-hits";
 import { paletteKeyCommand } from "./palette-shortcuts";
 import type { ThumbnailDiagramSource } from "@cvm/core/lib/thumbnail-diagram-sources";
-
-export type {
-  ComponentSummary,
-  DiagramHit,
-  DiagramTarget,
-} from "./palette-reducer";
 
 /**
  * The actions on the Diagram the editor edits. Only the playground has one:

@@ -12,8 +12,8 @@ import * as schema from "../db/schema.js";
 
 /**
  * A copied Video's Thumbnails keep their Thumbnail Diagrams and record the
- * originals as their source (ADR 0060), through both copies that carry
- * Thumbnails: Submit and Duplicate Course.
+ * originals as their source (ADR 0060), through Submit and Duplicate Course.
+ * Duplicate Video does the same: db-video-copy.thumbnails.test.ts.
  */
 
 let testDb: TestDb;

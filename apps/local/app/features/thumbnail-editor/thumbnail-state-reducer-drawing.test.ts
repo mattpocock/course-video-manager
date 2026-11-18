@@ -4,8 +4,8 @@ import {
   createInitialThumbnailState,
   selectCompositeLayers,
   selectDiagramKind,
-  type ThumbnailDiagramDocument,
 } from "./thumbnail-state-reducer";
+import type { ThumbnailDiagramDocument } from "@cvm/core/lib/thumbnail-diagram";
 import { ReducerTester } from "@/test-utils/reducer-tester";
 
 /**

@@ -127,6 +127,7 @@ describe("a Thumbnail Diagram's recorded sources", () => {
         layers,
         filePath: null,
         thumbnailDiagram: drawing("Pasted only"),
+        diagramSources: [],
       });
 
       expect((yield* ops.getThumbnailById(created.id)).diagramSources).toEqual(
@@ -164,6 +165,7 @@ describe("a Thumbnail Diagram's recorded sources", () => {
           layers,
           filePath: null,
           thumbnailDiagram: drawing("Agent, trimmed again"),
+          diagramSources: [],
         });
 
         expect(
@@ -184,6 +186,7 @@ describe("a Thumbnail Diagram's recorded sources", () => {
         layers,
         filePath: null,
         thumbnailDiagram: drawing("Original"),
+        diagramSources: [],
       });
       const reuse = yield* ops.createThumbnail({
         videoId: video.id,

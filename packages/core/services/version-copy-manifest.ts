@@ -156,12 +156,7 @@ export const COPY_PATHS: Record<CopyPathName, CopyPath> = {
       clip_mockup: "copied",
       clip_mockup_chapter: "copied",
       clip_mockup_comment: "copied",
-      thumbnail: {
-        notCopied:
-          "Thumbnail PNG paths are keyed by the source Video's lineage " +
-          "(#1674) and this path neither rebases nor moves them, so verbatim " +
-          "rows would alias the source's files. A copy starts without one.",
-      },
+      thumbnail: "copied",
       video_post: { notCopied: NEVER_POSTED },
       writer_chat: { notCopied: OWN_WRITER_CHAT },
       posting_queue_entry: { notCopied: NEVER_QUEUED },

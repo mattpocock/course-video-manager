@@ -4,6 +4,8 @@
  * past Thumbnail's Thumbnail Diagram (ADR 0060).
  */
 
+import type { ThumbnailDiagramHit } from "@cvm/core/lib/thumbnail-diagram";
+
 /** A Diagram's head (`current`), or one of its DiagramSnapshots. */
 export type DrawingHit = {
   diagramId: string;
@@ -12,18 +14,6 @@ export type DrawingHit = {
   contentHash: string | null;
   searchText: string | null;
   source: "snapshot" | "current";
-};
-
-/**
- * A past Thumbnail's drawing, labelled with its Video. It is not a Diagram
- * (ADR 0060): it opens in, and is inserted from, its Thumbnail.
- */
-export type ThumbnailDiagramHit = {
-  source: "thumbnail-diagram";
-  thumbnailId: string;
-  videoId: string;
-  videoTitle: string;
-  searchText: string | null;
 };
 
 export type DiagramHit = DrawingHit | ThumbnailDiagramHit;

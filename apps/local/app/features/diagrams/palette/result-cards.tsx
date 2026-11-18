@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { makeSnippet } from "@/features/diagrams/make-snippet";
-import type { ComponentSummary, DiagramHit } from "./use-palette";
+import type { ComponentSummary } from "./palette-reducer";
+import type { DiagramHit } from "./diagram-hits";
 
 /**
  * Same URL as `DiagramThumbnail`, but tracking the failure itself.

@@ -10,11 +10,7 @@ import {
   type ThumbnailDiagramSource,
 } from "@cvm/core/lib/thumbnail-diagram-sources";
 
-/**
- * A Thumbnail Diagram as saved: a tldraw `document` (`getSnapshot(store)
- * .document`), the same format as a Diagram's head (ADR 0060).
- */
-export type ThumbnailDiagramDocument = { store: object; schema: object };
+import type { ThumbnailDiagramDocument } from "@cvm/core/lib/thumbnail-diagram";
 
 /** Arrow-key nudges of the face, in slider units (100 = its whole travel). */
 export const FACE_NUDGE = 0.25;

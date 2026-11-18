@@ -30,7 +30,7 @@ beforeEach(async () => {
   await truncateAllTables(testDb);
 });
 
-const createVideo = async (title: string) => {
+const createVideo = async (title: string, lineageId?: string) => {
   const [course] = await testDb
     .insert(schema.courses)
     .values({ name: "Course" })
@@ -53,6 +53,7 @@ const createVideo = async (title: string) => {
       lessonId: lesson!.id,
       title,
       originalFootagePath: "/footage/raw-01.mp4",
+      ...(lineageId && { lineageId }),
     })
     .returning();
   return video!;
@@ -77,7 +78,10 @@ const drawing = (text: string) => ({
   schema: { schemaVersion: 2, sequences: {} },
 });
 
-const saveThumbnail = (videoId: string, thumbnailDiagram: unknown) =>
+const saveThumbnail = (
+  videoId: string,
+  thumbnailDiagram: ReturnType<typeof drawing> | null
+) =>
   Effect.gen(function* () {
     const ops = yield* ThumbnailOperationsService;
     return yield* ops.createThumbnail({
@@ -85,6 +89,24 @@ const saveThumbnail = (videoId: string, thumbnailDiagram: unknown) =>
       layers,
       filePath: null,
       thumbnailDiagram,
+      diagramSources: [],
+    });
+  });
+
+/** A copy of `originalId`'s Thumbnail, as a copy path writes it. */
+const copyThumbnail = (
+  videoId: string,
+  originalId: string,
+  thumbnailDiagram: ReturnType<typeof drawing>
+) =>
+  Effect.gen(function* () {
+    const ops = yield* ThumbnailOperationsService;
+    return yield* ops.createThumbnail({
+      videoId,
+      layers,
+      filePath: null,
+      thumbnailDiagram,
+      diagramSources: [{ kind: "thumbnail-diagram", thumbnailId: originalId }],
     });
   });
 
@@ -137,6 +159,7 @@ describe("searchThumbnailDiagrams", () => {
         layers,
         filePath: null,
         thumbnailDiagram: drawing("Afterwards"),
+        diagramSources: [],
       });
 
       expect(yield* ops.searchThumbnailDiagrams("before")).toEqual([]);
@@ -162,25 +185,79 @@ describe("searchThumbnailDiagrams", () => {
       }).pipe(Effect.provide(testLayer))
   );
 
+  it.effect("shows A/B Thumbnails with identical drawings, one hit each", () =>
+    Effect.gen(function* () {
+      const video = yield* Effect.promise(() => createVideo("Agents"));
+      const a = yield* saveThumbnail(video.id, drawing("Loop"));
+      const b = yield* saveThumbnail(video.id, drawing("Loop"));
+
+      const ops = yield* ThumbnailOperationsService;
+      const hits = yield* ops.searchThumbnailDiagrams("loop");
+
+      expect(hits.map((h) => h.thumbnailId).sort()).toEqual(
+        [a.id, b.id].sort()
+      );
+    }).pipe(Effect.provide(testLayer))
+  );
+
   it.effect(
-    "shows one drawing once: a copy's hit stands for the original",
+    "shows a Version copy's unchanged drawing once: the copy's hit stands for the original",
     () =>
       Effect.gen(function* () {
         const original = yield* Effect.promise(() => createVideo("Agents v1"));
-        yield* saveThumbnail(original.id, drawing("Loop"));
-        const copied = yield* Effect.promise(() => createVideo("Agents v2"));
-        const copy = yield* saveThumbnail(copied.id, drawing("Loop"));
-        const different = yield* saveThumbnail(
-          copied.id,
-          drawing("Loop twice")
+        const before = yield* saveThumbnail(original.id, drawing("Loop"));
+        const draft = yield* Effect.promise(() =>
+          createVideo("Agents v2", original.lineageId)
+        );
+        const copy = yield* copyThumbnail(draft.id, before.id, drawing("Loop"));
+        const edited = yield* saveThumbnail(original.id, drawing("Loop"));
+        const editedCopy = yield* copyThumbnail(
+          draft.id,
+          edited.id,
+          drawing("Loop again")
         );
 
         const ops = yield* ThumbnailOperationsService;
         const hits = yield* ops.searchThumbnailDiagrams("loop");
 
         expect(hits.map((h) => h.thumbnailId).sort()).toEqual(
-          [copy.id, different.id].sort()
+          [copy.id, edited.id, editedCopy.id].sort()
         );
       }).pipe(Effect.provide(testLayer))
+  );
+
+  it.effect(
+    "shows both when the same drawing was copied to a different Video",
+    () =>
+      Effect.gen(function* () {
+        const original = yield* Effect.promise(() => createVideo("Agents"));
+        const source = yield* saveThumbnail(original.id, drawing("Loop"));
+        const other = yield* Effect.promise(() => createVideo("Tools"));
+        const copy = yield* copyThumbnail(other.id, source.id, drawing("Loop"));
+
+        const ops = yield* ThumbnailOperationsService;
+        const hits = yield* ops.searchThumbnailDiagrams("loop");
+
+        expect(hits.map((h) => h.thumbnailId).sort()).toEqual(
+          [source.id, copy.id].sort()
+        );
+      }).pipe(Effect.provide(testLayer))
+  );
+
+  it.effect("matches %, _ and \\ in a title literally", () =>
+    Effect.gen(function* () {
+      const literal = yield* Effect.promise(() => createVideo("100% agents"));
+      const thumbnail = yield* saveThumbnail(literal.id, drawing("Box"));
+      const other = yield* Effect.promise(() => createVideo("100 agents"));
+      yield* saveThumbnail(other.id, drawing("Box"));
+
+      const ops = yield* ThumbnailOperationsService;
+
+      expect(
+        (yield* ops.searchThumbnailDiagrams("0%")).map((h) => h.thumbnailId)
+      ).toEqual([thumbnail.id]);
+      expect(yield* ops.searchThumbnailDiagrams("1_0")).toEqual([]);
+      expect(yield* ops.searchThumbnailDiagrams("\\")).toEqual([]);
+    }).pipe(Effect.provide(testLayer))
   );
 });

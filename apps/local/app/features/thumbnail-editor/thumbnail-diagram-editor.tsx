@@ -52,7 +52,7 @@ import {
   scaledLayerBox,
 } from "./canvas-compositor";
 import { darkPanelSpan, type DarkPanelSpan } from "./dark-panel";
-import type { ThumbnailDiagramDocument } from "./thumbnail-state-reducer";
+import type { ThumbnailDiagramDocument } from "@cvm/core/lib/thumbnail-diagram";
 import { withoutFace, type ThumbnailFace } from "./thumbnail-face";
 import {
   attachFaceHistory,

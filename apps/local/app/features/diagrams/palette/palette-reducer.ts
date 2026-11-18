@@ -49,15 +49,6 @@ export type PaletteNav = {
 
 export type ComponentSummary = { id: string; name: string };
 
-export {
-  diagramHitKey,
-  type DiagramHit,
-  type DiagramInsertTarget,
-  type DiagramTarget,
-  type DrawingHit,
-  type ThumbnailDiagramHit,
-} from "./diagram-hits";
-
 /** A root row that fires at once rather than opening a page. */
 export type RootCommand =
   | "preserve-snapshot"
