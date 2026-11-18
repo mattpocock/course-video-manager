@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { VIDEO_FORMATS } from "@/features/videos/video-format";
 import { createPopupChannel } from "./popup-channel";
+import { entityPath } from "@/features/entity-links/entity-deep-link";
 
 export const ParentToChild = z.discriminatedUnion("type", [
   /**
@@ -72,6 +73,24 @@ export function playgroundUrl(diagramId: string, snapshotId?: string): string {
   const path = `/diagram-playground/${encodeURIComponent(diagramId)}`;
   return snapshotId
     ? `${path}?snapshot=${encodeURIComponent(snapshotId)}`
+    : path;
+}
+
+/**
+ * The Active Diagram page's URL for `diagramId`, with `snapshotId` (if any)
+ * highlighted in its Snapshot Timeline. Unlike `playgroundUrl`, nothing is
+ * restored: the head stays as it is.
+ */
+export function highlightedSnapshotUrl(
+  diagramId: string,
+  snapshotId: string | null
+): string {
+  // The Diagram's link is entityPath's; `highlight` is appended rather than a
+  // CHILD_PARAM because it is view state, not an entity: a DiagramSnapshot
+  // has no link of its own, and parseEntityRef must still read a Diagram.
+  const path = entityPath({ type: "diagram", id: diagramId });
+  return snapshotId
+    ? `${path}?highlight=${encodeURIComponent(snapshotId)}`
     : path;
 }
 

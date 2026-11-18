@@ -42,8 +42,7 @@ export type PaletteHandlers = {
   onRecentreDiagram: () => void;
   /**
    * Navigating away flushes the pending save first — see the call site. A
-   * snapshot hit is restored on the way, so the author arrives at the state
-   * they picked out of the results.
+   * snapshot hit is highlighted in the Snapshot Timeline, never restored.
    */
   onGoToDiagram: (target: DiagramTarget) => void | Promise<void>;
 };

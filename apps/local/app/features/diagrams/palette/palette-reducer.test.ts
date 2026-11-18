@@ -372,18 +372,47 @@ describe("diagrams", () => {
     ]);
   });
 
-  it("goes to the whole hit picked, snapshot and all, and closes once there", () => {
+  it("goes to a DiagramSnapshot hit by opening its Diagram with the snapshot highlighted, never restoring it, and closes once there", () => {
     const t = tester()
       .send(summoned("diagrams"))
       .resetExec()
       .send({ type: "diagram-picked", hit: hit("auth") });
     expect(t.getState().open).toBe(true);
     expect(t.getEffects()).toEqual([
-      { type: "go-to-diagram", target: hit("auth") },
+      {
+        type: "go-to-diagram",
+        target: {
+          diagramId: "auth",
+          source: "snapshot",
+          highlightSnapshotId: "s1",
+        },
+      },
     ]);
+    // Looking at a snapshot never changes what the next Clip is filmed against.
+    expect(t.getEffects().map((e) => e.type)).not.toContain("run-root-command");
 
     t.send({ type: "went-to-diagram" });
     expect(t.getState().open).toBe(false);
+  });
+
+  it("goes to a Diagram hit's head, with nothing highlighted", () => {
+    const t = tester()
+      .send(summoned("diagrams"))
+      .resetExec()
+      .send({
+        type: "diagram-picked",
+        hit: { ...hit("auth"), snapshotId: null, source: "current" },
+      });
+    expect(t.getEffects()).toEqual([
+      {
+        type: "go-to-diagram",
+        target: {
+          diagramId: "auth",
+          source: "current",
+          highlightSnapshotId: null,
+        },
+      },
+    ]);
   });
 
   it("renames the open diagram under its trimmed name, then closes", () => {
