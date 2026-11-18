@@ -3,6 +3,7 @@ import { withDbTransaction } from "./with-db-transaction.server.js";
 import { thumbnails, videos } from "../db/schema.js";
 import { NotFoundError, UnknownDBServiceError } from "./db-service-errors.js";
 import { and, desc, eq, ilike, isNotNull, isNull, or, sql } from "drizzle-orm";
+import type { PgUpdateSetSource } from "drizzle-orm/pg-core";
 import { Effect } from "effect";
 import {
   mergeThumbnailDiagramSources,
@@ -103,6 +104,48 @@ const createThumbnailOperations = (db: Database) => {
     return thumbnail;
   });
 
+  /**
+   * Writes `set(existing)` to one Thumbnail: the row locked, and the Draft
+   * guard run, in the write's own transaction. NotFoundError if missing.
+   */
+  const writeThumbnail = (
+    type: string,
+    thumbnailId: string,
+    set: (existing: {
+      diagramSources: ThumbnailDiagramSource[];
+    }) => PgUpdateSetSource<typeof thumbnails>
+  ) =>
+    Effect.gen(function* () {
+      const written = yield* withDbTransaction(db, (tx) =>
+        Effect.gen(function* () {
+          const [existing] = yield* makeDbCall(() =>
+            tx
+              .select({
+                videoId: thumbnails.videoId,
+                diagramSources: thumbnails.diagramSources,
+              })
+              .from(thumbnails)
+              .where(eq(thumbnails.id, thumbnailId))
+              .for("update")
+          );
+          if (!existing) return undefined;
+          yield* requireDraftVersionForVideo(tx, existing.videoId);
+          const [row] = yield* makeDbCall(() =>
+            tx
+              .update(thumbnails)
+              .set(set(existing))
+              .where(eq(thumbnails.id, thumbnailId))
+              .returning()
+          );
+          return row;
+        })
+      );
+      if (!written) {
+        return yield* new NotFoundError({ type, params: { thumbnailId } });
+      }
+      return written;
+    });
+
   const updateThumbnail = Effect.fn("updateThumbnail")(function* (
     thumbnailId: string,
     params: {
@@ -117,48 +160,43 @@ const createThumbnailOperations = (db: Database) => {
       diagramSources: readonly ThumbnailDiagramSource[];
     }
   ) {
-    const updated = yield* withDbTransaction(db, (tx) =>
-      Effect.gen(function* () {
-        const [existing] = yield* makeDbCall(() =>
-          tx
-            .select({
-              videoId: thumbnails.videoId,
-              diagramSources: thumbnails.diagramSources,
-            })
-            .from(thumbnails)
-            .where(eq(thumbnails.id, thumbnailId))
-            .for("update")
-        );
-        if (!existing) return undefined;
-        yield* requireDraftVersionForVideo(tx, existing.videoId);
-        const [row] = yield* makeDbCall(() =>
-          tx
-            .update(thumbnails)
-            .set({
-              layers: params.layers,
-              filePath: params.filePath,
-              thumbnailDiagram: params.thumbnailDiagram,
-              diagramSearchText: diagramSearchTextOf(params.thumbnailDiagram),
-              diagramSources: mergeThumbnailDiagramSources(
-                existing.diagramSources,
-                params.diagramSources
-              ),
-            })
-            .where(eq(thumbnails.id, thumbnailId))
-            .returning()
-        );
-        return row;
+    return yield* writeThumbnail(
+      "updateThumbnail",
+      thumbnailId,
+      (existing) => ({
+        layers: params.layers,
+        filePath: params.filePath,
+        thumbnailDiagram: params.thumbnailDiagram,
+        diagramSearchText: diagramSearchTextOf(params.thumbnailDiagram),
+        diagramSources: mergeThumbnailDiagramSources(
+          existing.diagramSources,
+          params.diagramSources
+        ),
       })
     );
+  });
 
-    if (!updated) {
-      return yield* new NotFoundError({
-        type: "updateThumbnail",
-        params: { thumbnailId },
-      });
-    }
-
-    return updated;
+  /**
+   * Adds insert sources to a Thumbnail and writes nothing else: the page
+   * sends these alone as it goes away, when a whole save (its PNGs) is too
+   * big to outlive it (ADR 0060: a link is never lost).
+   */
+  const recordThumbnailDiagramSources = Effect.fn(
+    "recordThumbnailDiagramSources"
+  )(function* (
+    thumbnailId: string,
+    diagramSources: readonly ThumbnailDiagramSource[]
+  ) {
+    return yield* writeThumbnail(
+      "recordThumbnailDiagramSources",
+      thumbnailId,
+      (existing) => ({
+        diagramSources: mergeThumbnailDiagramSources(
+          existing.diagramSources,
+          diagramSources
+        ),
+      })
+    );
   });
 
   /**
@@ -170,37 +208,9 @@ const createThumbnailOperations = (db: Database) => {
   const archiveThumbnail = Effect.fn("archiveThumbnail")(function* (
     thumbnailId: string
   ) {
-    const archived = yield* withDbTransaction(db, (tx) =>
-      Effect.gen(function* () {
-        const [existing] = yield* makeDbCall(() =>
-          tx
-            .select({ videoId: thumbnails.videoId })
-            .from(thumbnails)
-            .where(eq(thumbnails.id, thumbnailId))
-        );
-        if (!existing) return undefined;
-        yield* requireDraftVersionForVideo(tx, existing.videoId);
-        const [row] = yield* makeDbCall(() =>
-          tx
-            .update(thumbnails)
-            .set({
-              archivedAt: sql`COALESCE(${thumbnails.archivedAt}, now())`,
-            })
-            .where(eq(thumbnails.id, thumbnailId))
-            .returning()
-        );
-        return row;
-      })
-    );
-
-    if (!archived) {
-      return yield* new NotFoundError({
-        type: "archiveThumbnail",
-        params: { thumbnailId },
-      });
-    }
-
-    return archived;
+    return yield* writeThumbnail("archiveThumbnail", thumbnailId, () => ({
+      archivedAt: sql`COALESCE(${thumbnails.archivedAt}, now())`,
+    }));
   });
 
   /**
@@ -258,6 +268,7 @@ const createThumbnailOperations = (db: Database) => {
     createThumbnail,
     getThumbnailById,
     updateThumbnail,
+    recordThumbnailDiagramSources,
     archiveThumbnail,
   };
 };

@@ -56,7 +56,10 @@ export const loader = makeLoader({
 
 export default function ThumbnailsPage({ loaderData }: Route.ComponentProps) {
   const { videoId, thumbnails } = loaderData;
-  const { state, dispatch, editorHistory } = useThumbnailReducer(thumbnails);
+  const { state, dispatch, editorHistory } = useThumbnailReducer(
+    videoId,
+    thumbnails
+  );
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const diagramKind = selectDiagramKind(state);
   const layers = selectCompositeLayers(state);
@@ -181,11 +184,13 @@ export default function ThumbnailsPage({ loaderData }: Route.ComponentProps) {
       id: t.id,
       key: t.id,
     })),
-    onFocus: ({ id }) => dispatch({ type: "edit-requested", thumbnailId: id }),
+    onFocus: ({ id }) =>
+      dispatch({ type: "edit-requested", thumbnailId: id, videoId }),
   });
 
   const thumbnailMenu = useThumbnailMenu({
-    onEdit: (thumbnailId) => dispatch({ type: "edit-requested", thumbnailId }),
+    onEdit: (thumbnailId) =>
+      dispatch({ type: "edit-requested", thumbnailId, videoId }),
     onDelete: (thumbnailId) =>
       dispatch({ type: "delete-requested", thumbnailId }),
   });
@@ -214,6 +219,7 @@ export default function ThumbnailsPage({ loaderData }: Route.ComponentProps) {
                       dispatch({
                         type: "edit-requested",
                         thumbnailId: thumbnail.id,
+                        videoId,
                       })
                     }
                   >
@@ -253,7 +259,7 @@ export default function ThumbnailsPage({ loaderData }: Route.ComponentProps) {
           </div>
           <button
             className="mt-2 flex w-full items-center justify-center rounded-lg border border-dashed border-border p-2 text-muted-foreground hover:border-muted-foreground hover:text-foreground transition-colors"
-            onClick={() => dispatch({ type: "new-thumbnail-clicked" })}
+            onClick={() => dispatch({ type: "new-thumbnail-clicked", videoId })}
           >
             <PlusIcon className="size-4" />
           </button>
@@ -480,7 +486,9 @@ export default function ThumbnailsPage({ loaderData }: Route.ComponentProps) {
               {state.editingThumbnailId && (
                 <Button
                   variant="outline"
-                  onClick={() => dispatch({ type: "new-thumbnail-clicked" })}
+                  onClick={() =>
+                    dispatch({ type: "new-thumbnail-clicked", videoId })
+                  }
                 >
                   <PlusIcon />
                   New Thumbnail

@@ -92,7 +92,7 @@ describe("Thumbnail writes and the Draft guard", () => {
   );
 
   it.effect(
-    "refuses to save or archive a Thumbnail once its Version is published",
+    "refuses to save, archive or record sources on a Thumbnail once its Version is published",
     () =>
       Effect.gen(function* () {
         const { version, video } = yield* Effect.promise(createVideo);
@@ -114,6 +114,11 @@ describe("Thumbnail writes and the Draft guard", () => {
         const archive = yield* ops
           .archiveThumbnail(created.id)
           .pipe(Effect.either);
+        const sources = yield* ops
+          .recordThumbnailDiagramSources(created.id, [
+            { kind: "thumbnail-diagram", thumbnailId: "other" },
+          ])
+          .pipe(Effect.either);
 
         expect(Either.isLeft(update) && update.left._tag).toBe(
           "VersionNotDraftError"
@@ -121,9 +126,13 @@ describe("Thumbnail writes and the Draft guard", () => {
         expect(Either.isLeft(archive) && archive.left._tag).toBe(
           "VersionNotDraftError"
         );
+        expect(Either.isLeft(sources) && sources.left._tag).toBe(
+          "VersionNotDraftError"
+        );
         const stored = yield* ops.getThumbnailById(created.id);
         expect(stored.filePath).toBeNull();
         expect(stored.archivedAt).toBeNull();
+        expect(stored.diagramSources).toEqual([]);
       }).pipe(Effect.provide(testLayer))
   );
 

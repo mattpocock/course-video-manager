@@ -209,7 +209,9 @@ describe("Reopening a Thumbnail", () => {
     });
     const before = tester.getState().diagramSession;
 
-    const state = tester.send({ type: "new-thumbnail-clicked" }).getState();
+    const state = tester
+      .send({ type: "new-thumbnail-clicked", videoId: "v1" })
+      .getState();
 
     expect(state.thumbnailDiagram).toBeNull();
     expect(state.diagramSession).not.toBe(before);

@@ -137,6 +137,36 @@ describe("a Thumbnail Diagram's recorded sources", () => {
   );
 
   it.effect(
+    "can be recorded on their own, as the page does while it is going away",
+    () =>
+      Effect.gen(function* () {
+        const video = yield* Effect.promise(createVideo);
+        const ops = yield* ThumbnailOperationsService;
+        const created = yield* ops.createThumbnail({
+          videoId: video.id,
+          layers,
+          filePath: "/t.png",
+          thumbnailDiagram: drawing("Agent"),
+          diagramSources: [component],
+        });
+        const snapshot = {
+          kind: "diagram-snapshot",
+          diagramSnapshotId: "snapshot-1",
+        } as const;
+
+        yield* ops.recordThumbnailDiagramSources(created.id, [
+          snapshot,
+          component,
+        ]);
+
+        const stored = yield* ops.getThumbnailById(created.id);
+        expect(stored.diagramSources).toEqual([component, snapshot]);
+        expect(stored.thumbnailDiagram).toEqual(drawing("Agent"));
+        expect(stored.filePath).toBe("/t.png");
+      }).pipe(Effect.provide(testLayer))
+  );
+
+  it.effect(
     "are never lost: a later save adds its sources to the ones recorded",
     () =>
       Effect.gen(function* () {
