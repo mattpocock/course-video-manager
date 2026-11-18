@@ -22,6 +22,8 @@ import type { VideoFormat } from "../features/videos/video-format.js";
 import type { TranscriptionStatus } from "../features/videos/transcription-status.js";
 import type { ClipMockupVoiceStatus } from "../features/clip-mockups/voice-status.js";
 import type { ClipOrigin } from "../features/videos/clip-origin.js";
+import type { ThumbnailDiagramSource } from "../lib/thumbnail-diagram-sources.js";
+import type { ThumbnailDiagramDocument } from "../lib/thumbnail-diagram.js";
 import type {
   AgentSessionEntryKind,
   SkillCallVia,
@@ -1812,7 +1814,38 @@ export const thumbnails = createTable("thumbnail", {
     .notNull(),
   layers: jsonb("layers").notNull(),
   filePath: text("file_path"),
+  /**
+   * The Thumbnail Diagram: the drawing edited in place on the thumbnail page,
+   * a tldraw `document` in the same format as a Diagram's `headScene` (ADR
+   * 0060). Drawing only: the face is in `layers`. Null on a Thumbnail saved
+   * before Thumbnail Diagrams, which keeps its pasted diagram PNG layer.
+   */
+  thumbnailDiagram:
+    jsonb("thumbnail_diagram").$type<ThumbnailDiagramDocument>(),
+  /**
+   * The Thumbnail Diagram's text (`extractSceneText`), written with it, so
+   * diagram search finds it the way it finds a Diagram. Null with no drawing.
+   * No stored vector: the table is small, so search builds it per query.
+   */
+  diagramSearchText: text("diagram_search_text"),
+  /**
+   * Where the Thumbnail Diagram's inserted shapes came from, each once, in
+   * the order first recorded (ADR 0060). Only ever added to: see
+   * `mergeThumbnailDiagramSources`.
+   */
+  diagramSources: jsonb("diagram_sources")
+    .$type<ThumbnailDiagramSource[]>()
+    .notNull()
+    .default([]),
   selectedForUpload: boolean("selected_for_upload").notNull().default(false),
+  /**
+   * Set when the author deletes the Thumbnail: the row and its files stay so
+   * a recorded source keeps resolving (ADR 0060), but it leaves every list.
+   */
+  archivedAt: timestamp("archived_at", {
+    mode: "date",
+    withTimezone: true,
+  }),
   createdAt: timestamp("created_at", {
     mode: "date",
     withTimezone: true,

@@ -47,6 +47,12 @@ const NOT_CARRIED: Record<string, string> = {
   "clip_mockup.createdAt": "a copy is a new row",
   "clip_mockup_chapter.createdAt": "a copy is a new row",
   "thumbnail.createdAt": "a copy is a new row",
+  "thumbnail.diagramSources":
+    "records the original as a source (db-thumbnail-diagram-copy.test.ts)",
+  "thumbnail.thumbnailDiagram":
+    "not carried until Submit copies the Thumbnail Diagram (#2728)",
+  "thumbnail.diagramSearchText":
+    "not carried until Submit copies the Thumbnail Diagram (#2728)",
 };
 
 /**
