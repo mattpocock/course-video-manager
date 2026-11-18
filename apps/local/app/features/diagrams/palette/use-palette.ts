@@ -28,6 +28,7 @@ import {
   type PageKey,
 } from "./palette-reducer";
 import { paletteKeyCommand } from "./palette-shortcuts";
+import type { ThumbnailDiagramSource } from "@cvm/core/lib/thumbnail-diagram-sources";
 
 export type {
   ComponentSummary,
@@ -35,7 +36,12 @@ export type {
   DiagramTarget,
 } from "./palette-reducer";
 
-export type PaletteHandlers = {
+/**
+ * The actions on the Diagram the editor edits. Only the playground has one:
+ * the thumbnail editor edits a Thumbnail Diagram (ADR 0060), and the palette
+ * leaves these rows out there.
+ */
+export type DiagramPaletteHandlers = {
   onPreserveSnapshot: () => void | Promise<void>;
   onRestoreToHead: () => void | Promise<void>;
   onCopyContents: () => void | Promise<void>;
@@ -43,11 +49,25 @@ export type PaletteHandlers = {
   onNewDiagram: () => void | Promise<void>;
   /** The same camera move the manual Cmd/Ctrl+0 shortcut runs. */
   onRecentreDiagram: () => void;
+};
+
+export type PaletteHandlers = {
+  /** Null in an editor with no Diagram of its own. */
+  diagram: DiagramPaletteHandlers | null;
   /**
    * Navigating away flushes the pending save first — see the call site. A
    * snapshot hit is highlighted in the Snapshot Timeline, never restored.
    */
   onGoToDiagram: (target: DiagramTarget) => void | Promise<void>;
+  /** See `paletteKeyCommand`: where Cmd/Ctrl+K and +F are the palette's. */
+  keysFrom: "anywhere" | "canvas";
+  /**
+   * Told where each landed insert came from, in an editor whose drawing
+   * records its sources (a Thumbnail Diagram, ADR 0060); null in one that
+   * doesn't. With it, inserting a Diagram's head first pins the head as an
+   * unpreserved DiagramSnapshot, and that snapshot is the source.
+   */
+  onInsertSource: ((source: ThumbnailDiagramSource) => void) | null;
 };
 
 /**
@@ -74,7 +94,9 @@ export function usePalette(opts: {
     paletteReducer.Effect
   >(paletteReducer, createInitialPaletteState(), {
     "run-root-command": (_state, { command }) => {
-      const handlers = handlersRef.current;
+      const handlers = handlersRef.current.diagram;
+      // The row is absent without a Diagram, so this cannot be picked.
+      if (!handlers) return;
       const run = {
         "preserve-snapshot": handlers.onPreserveSnapshot,
         "restore-head": handlers.onRestoreToHead,
@@ -114,7 +136,15 @@ export function usePalette(opts: {
       void saveComponent(editorRef.current, name).then(dispatch);
     },
     "insert-component": (_state, { componentId }, dispatch) => {
-      void insertComponent(editorRef.current, componentId).then(dispatch);
+      void insertComponent(editorRef.current, componentId).then((outcome) => {
+        if (outcome.type === "component-inserted" && outcome.landed) {
+          handlersRef.current.onInsertSource?.({
+            kind: "diagram-component",
+            diagramComponentId: componentId,
+          });
+        }
+        dispatch(outcome);
+      });
     },
     "rename-component": (_state, { componentId, name }, dispatch) => {
       const body = new FormData();
@@ -181,10 +211,27 @@ export function usePalette(opts: {
       );
     },
     "insert-diagram": (_state, { target }, dispatch) => {
-      void insertDiagram(editorRef.current, target).then(dispatch);
+      const onInsertSource = handlersRef.current.onInsertSource;
+      void insertDiagram(editorRef.current, target, {
+        pinHead: onInsertSource !== null,
+      }).then(({ outcome, snapshotId }) => {
+        if (
+          outcome.type === "diagram-inserted" &&
+          outcome.landed &&
+          snapshotId
+        ) {
+          onInsertSource?.({
+            kind: "diagram-snapshot",
+            diagramSnapshotId: snapshotId,
+          });
+        }
+        dispatch(outcome);
+      });
     },
     "rename-diagram": (_state, { name }, dispatch) => {
-      void Promise.resolve(handlersRef.current.onRenameDiagram(name)).then(() =>
+      const handlers = handlersRef.current.diagram;
+      if (!handlers) return;
+      void Promise.resolve(handlers.onRenameDiagram(name)).then(() =>
         dispatch({ type: "diagram-renamed" })
       );
     },
@@ -213,6 +260,7 @@ export function usePalette(opts: {
         hasSelection: selected.length > 0,
         selectedIcon: singleSelectedIcon(selected),
         recentIcons: readRecentIcons(),
+        hostsDiagram: handlersRef.current.diagram !== null,
       });
     },
     [editorRef, dispatch]
@@ -230,15 +278,27 @@ export function usePalette(opts: {
   // --- Shortcuts -----------------------------------------------------------
   useEffect(() => {
     function onKeyDown(e: globalThis.KeyboardEvent) {
-      const command = paletteKeyCommand(e, { isOpen: state.open });
+      const container = editorRef.current?.getContainer();
+      const command = paletteKeyCommand(e, {
+        isOpen: state.open,
+        keysFrom: handlersRef.current.keysFrom,
+        canvasFocused:
+          !!container &&
+          e.target instanceof Node &&
+          container.contains(e.target),
+      });
       if (!command) return;
       e.preventDefault();
+      // Taken in the capture phase, before Global Search's own listener on
+      // the document sees the same Cmd/Ctrl+K.
+      e.stopPropagation();
       if (command.command === "close") dispatch({ type: "palette-dismissed" });
       else summon(command.page);
     }
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [state.open, summon, dispatch]);
+    window.addEventListener("keydown", onKeyDown, { capture: true });
+    return () =>
+      window.removeEventListener("keydown", onKeyDown, { capture: true });
+  }, [state.open, summon, dispatch, editorRef]);
 
   // At `maxShapesPerPage`, `putContentOntoCurrentPage` bails SILENTLY — it
   // emits this event and returns. Without listening, an insert at the cap looks
@@ -363,38 +423,70 @@ async function insertComponent(
 /**
  * Fetches a Diagram's head, or a DiagramSnapshot's drawing, and puts it onto
  * the canvas whole: one group, scaled to fit, through the single insertion
- * path.
+ * path. With `pinHead`, a head is first kept as an unpreserved
+ * DiagramSnapshot (content-hash deduped, off the Snapshot Timeline), and
+ * that drawing is what lands. `snapshotId` is the drawing that was inserted,
+ * when it is a snapshot.
  */
 async function insertDiagram(
   editor: Editor | null,
-  target: DiagramInsertTarget
-): Promise<paletteReducer.Action> {
-  const failed: paletteReducer.Action = {
-    type: "diagram-insert-failed",
-    reason: "request-failed",
+  target: DiagramInsertTarget,
+  { pinHead }: { pinHead: boolean }
+): Promise<{ outcome: paletteReducer.Action; snapshotId: string | null }> {
+  const failed = {
+    outcome: {
+      type: "diagram-insert-failed",
+      reason: "request-failed",
+    } satisfies paletteReducer.Action,
+    snapshotId: null,
   };
-  if (!editor) return { type: "diagram-inserted", landed: false };
+  if (!editor) {
+    return {
+      outcome: { type: "diagram-inserted", landed: false },
+      snapshotId: null,
+    };
+  }
 
   let scene: unknown;
+  let snapshotId: string | null = target.snapshotId;
   try {
-    const res = await fetch(
-      target.snapshotId
-        ? `/api/diagram-snapshots/${target.snapshotId}`
-        : `/api/diagrams/${target.diagramId}/head`
-    );
-    if (!res.ok) return failed;
-    const data = await res.json();
-    scene = target.snapshotId ? data.scene : data.headScene;
+    if (target.snapshotId) {
+      const res = await fetch(`/api/diagram-snapshots/${target.snapshotId}`);
+      if (!res.ok) return failed;
+      scene = (await res.json()).scene;
+    } else if (pinHead) {
+      const res = await fetch(`/api/diagrams/${target.diagramId}/snapshots`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) return failed;
+      const { snapshot } = await res.json();
+      scene = snapshot.scene;
+      snapshotId = snapshot.id;
+    } else {
+      const res = await fetch(`/api/diagrams/${target.diagramId}/head`);
+      if (!res.ok) return failed;
+      scene = (await res.json()).headScene;
+    }
   } catch {
     return failed;
   }
 
   const content = buildSceneContent(scene);
-  if (!content) return { type: "diagram-insert-failed", reason: "empty" };
+  if (!content) {
+    return {
+      outcome: { type: "diagram-insert-failed", reason: "empty" },
+      snapshotId: null,
+    };
+  }
   try {
     return {
-      type: "diagram-inserted",
-      landed: insertDrawingAsGroup(editor, content),
+      outcome: {
+        type: "diagram-inserted",
+        landed: insertDrawingAsGroup(editor, content),
+      },
+      snapshotId,
     };
   } catch (error) {
     // Any throw out of the put (a scene tldraw can't migrate, say) lands

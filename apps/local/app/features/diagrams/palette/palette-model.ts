@@ -12,10 +12,10 @@ export type RootAction = {
   /** Pushes a nested page rather than firing immediately. */
   opens?: PageKey;
   /**
-   * What the tldraw selection has to be for this row to exist at all. A row
-   * whose requirement is unmet is ABSENT, never greyed out.
+   * What the tldraw selection, or the host, has to be for this row to exist
+   * at all. A row whose requirement is unmet is ABSENT, never greyed out.
    */
-  requires?: keyof PaletteSelection;
+  requires?: keyof PaletteConditions;
 };
 
 /** What the palette knows about the canvas selection when it opens. */
@@ -24,6 +24,14 @@ export type PaletteSelection = {
   /** Exactly one shape is selected and it is a `cvm-icon`. */
   hasSingleIcon: boolean;
 };
+
+/**
+ * What the palette knows when it opens: the selection, and whether the editor
+ * it is mounted in edits a Diagram. The playground does; the thumbnail editor
+ * edits a Thumbnail Diagram, which has no snapshots, name or tuned camera
+ * (ADR 0060), so every action on the Diagram is absent there.
+ */
+export type PaletteConditions = PaletteSelection & { hostsDiagram: boolean };
 
 /**
  * The v1 action list, grouped rather than flat-and-frequency-ordered: the
@@ -95,6 +103,7 @@ export const ROOT_ACTIONS: RootAction[] = [
     hint: "Snap the camera back to the tuned, face-cam-aware centre (Cmd/Ctrl+0)",
     group: "Navigate",
     icon: "crosshair",
+    requires: "hostsDiagram",
   },
   {
     id: "preserve-snapshot",
@@ -102,6 +111,7 @@ export const ROOT_ACTIONS: RootAction[] = [
     hint: "Pin this state to the timeline",
     group: "Snapshot",
     icon: "save",
+    requires: "hostsDiagram",
   },
   {
     id: "restore-head",
@@ -111,6 +121,7 @@ export const ROOT_ACTIONS: RootAction[] = [
     // lucide renamed `history` to `rotate-ccw-clock`; the frozen table carries
     // the canonical name, and the old one survives only as a search synonym.
     icon: "rotate-ccw-clock",
+    requires: "hostsDiagram",
   },
   {
     id: "copy-contents",
@@ -118,6 +129,7 @@ export const ROOT_ACTIONS: RootAction[] = [
     hint: "Copy every shape to the clipboard",
     group: "Diagram",
     icon: "copy",
+    requires: "hostsDiagram",
   },
   {
     id: "rename-diagram",
@@ -126,6 +138,7 @@ export const ROOT_ACTIONS: RootAction[] = [
     group: "Diagram",
     icon: "pen-line",
     opens: "renameDiagram",
+    requires: "hostsDiagram",
   },
   {
     id: "new-diagram",
@@ -133,6 +146,7 @@ export const ROOT_ACTIONS: RootAction[] = [
     hint: "Create and switch to a blank diagram",
     group: "Diagram",
     icon: "plus",
+    requires: "hostsDiagram",
   },
 ];
 
@@ -150,8 +164,8 @@ export const GROUP_ORDER: PaletteGroup[] = [
  * Actions that make no sense are ABSENT rather than greyed out, so the list
  * stays short and everything in it is actionable.
  */
-export function visibleRootActions(selection: PaletteSelection) {
-  return ROOT_ACTIONS.filter((a) => !a.requires || selection[a.requires]);
+export function visibleRootActions(conditions: PaletteConditions) {
+  return ROOT_ACTIONS.filter((a) => !a.requires || conditions[a.requires]);
 }
 
 /**
