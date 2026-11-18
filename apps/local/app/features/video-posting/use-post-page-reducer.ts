@@ -17,6 +17,10 @@ import {
   postPageReducer,
   selectUnsavedYoutubeDraft,
 } from "./post-page-reducer";
+import {
+  parsePostVisibility,
+  POST_VISIBILITY_STORAGE_KEY,
+} from "./post-visibility";
 
 const YOUTUBE_VIDEO_ID_STORAGE_KEY = (videoId: string) =>
   `youtube-video-id-${videoId}`;
@@ -100,6 +104,20 @@ export function usePostPageReducer({
         writeStored(
           YOUTUBE_VIDEO_ID_STORAGE_KEY(effect.videoId),
           effect.youtubeVideoId
+        );
+      },
+      "read-stored-post-visibility": (_state, effect, dispatch) => {
+        dispatch({
+          type: "stored-post-visibility-read",
+          visibility: parsePostVisibility(
+            readStored(POST_VISIBILITY_STORAGE_KEY(effect.videoId))
+          ),
+        });
+      },
+      "store-post-visibility": (_state, effect) => {
+        writeStored(
+          POST_VISIBILITY_STORAGE_KEY(effect.videoId),
+          effect.visibility
         );
       },
       "delete-thumbnail": (_state, effect) => {

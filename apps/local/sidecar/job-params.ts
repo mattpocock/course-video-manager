@@ -233,6 +233,11 @@ export const JOB_PARAMS = {
     body: Schema.String,
     description: Schema.String,
     slug: Schema.String,
+    // The Post page's visibility, so the AI Hero post matches YouTube. A Job
+    // queued before it was carried has none: unlisted, the page's default.
+    visibility: Schema.optionalWith(Schema.Literal("public", "unlisted"), {
+      default: () => "unlisted",
+    }),
   }),
   "skills-changelog": Schema.Struct({
     videoId: Schema.String,

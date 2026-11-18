@@ -52,6 +52,7 @@ export interface UploadContextType {
     body: string,
     description: string,
     slug: string,
+    visibility: "public" | "unlisted",
     dependsOn?: string
   ) => string;
   startSkillsChangelogUpload: (
@@ -197,12 +198,13 @@ export function UploadProvider({
       body: string,
       description: string,
       slug: string,
+      visibility: "public" | "unlisted",
       dependsOn?: string
     ) =>
       startJob({
         kind: "ai-hero",
         title,
-        params: { videoId, title, body, description, slug },
+        params: { videoId, title, body, description, slug, visibility },
         subject: { type: "video", id: videoId },
         attemptsSpent: 0,
         dependsOn: dependsOn ?? null,

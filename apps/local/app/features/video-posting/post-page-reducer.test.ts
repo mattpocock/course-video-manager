@@ -199,6 +199,11 @@ describe("postPageReducer", () => {
 
     expect(tester.getState().checkingExport).toBeNull();
     expect(tester.getEffects()).toEqual([
+      {
+        type: "store-post-visibility",
+        videoId: "video-1",
+        visibility: "public",
+      },
       { type: "check-export", videoId: "video-1" },
       {
         type: "start-youtube-upload",
@@ -253,10 +258,36 @@ describe("postPageReducer", () => {
     expect(tester.getState().storedYoutubeVideoId).toBe("yt-123");
     expect(tester.getEffects()).toEqual([
       { type: "read-stored-youtube-video-id", videoId: "video-1" },
+      { type: "read-stored-post-visibility", videoId: "video-1" },
       {
         type: "store-youtube-video-id",
         videoId: "video-1",
         youtubeVideoId: "yt-123",
+      },
+    ]);
+  });
+
+  it("the visibility is read when the Video opens and stored when picked, so the AI Hero post can match it", () => {
+    const tester = page();
+    expect(tester.getState().privacyStatus).toBe("unlisted");
+
+    tester
+      .send({ type: "video-opened", videoId: "video-1" })
+      .send({ type: "stored-post-visibility-read", visibility: "public" });
+    expect(tester.getState().privacyStatus).toBe("public");
+
+    tester
+      .send({ type: "stored-post-visibility-read", visibility: null })
+      .send({ type: "privacy-status-selected", privacyStatus: "unlisted" });
+
+    expect(tester.getState().privacyStatus).toBe("unlisted");
+    expect(tester.getEffects()).toEqual([
+      { type: "read-stored-youtube-video-id", videoId: "video-1" },
+      { type: "read-stored-post-visibility", videoId: "video-1" },
+      {
+        type: "store-post-visibility",
+        videoId: "video-1",
+        visibility: "unlisted",
       },
     ]);
   });

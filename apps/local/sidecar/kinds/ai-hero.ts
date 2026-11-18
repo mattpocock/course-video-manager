@@ -36,6 +36,7 @@ export const aiHeroJobKind = definePostingJobKind({
         body: params.body,
         description: params.description.trim(),
         slug: params.slug,
+        visibility: params.visibility,
         onProgress: (percent) => reports.onProgress("uploading", percent),
       }).pipe(
         Effect.tap((r) =>
