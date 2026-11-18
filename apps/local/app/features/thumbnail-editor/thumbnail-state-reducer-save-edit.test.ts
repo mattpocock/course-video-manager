@@ -209,6 +209,7 @@ describe("Edit", () => {
       .send({
         type: "edit-loaded",
         thumbnailId: "thumb-1",
+        videoId: "v1",
         capturedPhoto: "bg-photo",
         diagramImage: "diagram",
         diagramPosition: 30,

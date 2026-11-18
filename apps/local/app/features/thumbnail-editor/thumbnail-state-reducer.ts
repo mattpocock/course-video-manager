@@ -111,6 +111,7 @@ export namespace thumbnailStateReducer {
     | {
         type: "edit-loaded";
         thumbnailId: string;
+        videoId: string;
         capturedPhoto: string;
         diagramImage: string | null;
         diagramPosition: number;
@@ -489,7 +490,8 @@ export const thumbnailStateReducer: EffectReducer<
       };
     case "edit-loaded":
       return {
-        ...state,
+        // An edit made while it loaded belongs to the Thumbnail being left.
+        ...flushPendingSave(state, action.videoId, exec),
         loadingEdit: null,
         editingThumbnailId: action.thumbnailId,
         capturedPhoto: action.capturedPhoto,

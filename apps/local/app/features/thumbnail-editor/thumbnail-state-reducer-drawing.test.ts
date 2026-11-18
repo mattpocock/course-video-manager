@@ -158,6 +158,7 @@ describe("Reopening a Thumbnail", () => {
   ): thumbnailStateReducer.Action => ({
     type: "edit-loaded",
     thumbnailId: "t1",
+    videoId: "v1",
     capturedPhoto: "photo",
     diagramImage: null,
     diagramPosition: 50,

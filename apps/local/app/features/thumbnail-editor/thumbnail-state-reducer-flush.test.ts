@@ -39,6 +39,7 @@ const loaded = (thumbnailId: string) =>
   ({
     type: "edit-loaded",
     thumbnailId,
+    videoId: "v1",
     capturedPhoto: "photo-2",
     diagramImage: null,
     diagramPosition: 50,
@@ -62,6 +63,27 @@ describe("Leaving a Thumbnail with an unsaved edit", () => {
       }),
     ]);
     expect(tester.getState().pendingAutoSave).toBe(false);
+  });
+
+  it("saves an edit made while the next Thumbnail loaded, to the one left", () => {
+    const tester = new ReducerTester(
+      thumbnailStateReducer,
+      pendingOnT1({ pendingAutoSave: false })
+    );
+
+    tester
+      .send({ type: "edit-requested", thumbnailId: "t2", videoId: "v1" })
+      .send({ type: "insert-source-recorded", source: component })
+      .send(loaded("t2"));
+
+    expect(saves(tester)).toEqual([
+      expect.objectContaining({
+        editingThumbnailId: "t1",
+        diagramSources: [component],
+      }),
+    ]);
+    expect(tester.getState().editingThumbnailId).toBe("t2");
+    expect(tester.getState().diagramSources).toEqual([]);
   });
 
   it("saves it before New", () => {

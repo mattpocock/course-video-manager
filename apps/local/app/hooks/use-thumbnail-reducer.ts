@@ -219,6 +219,7 @@ export function useThumbnailReducer(videoId: string, thumbnails: Thumbnail[]) {
           dispatch({
             type: "edit-loaded",
             thumbnailId: effect.thumbnailId,
+            videoId,
             capturedPhoto: bgDataUrl,
             diagramImage: diagDataUrl,
             diagramPosition: layers.diagram?.horizontalPosition ?? 50,
