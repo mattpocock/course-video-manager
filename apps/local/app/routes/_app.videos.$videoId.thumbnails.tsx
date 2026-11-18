@@ -56,7 +56,7 @@ export const loader = makeLoader({
 
 export default function ThumbnailsPage({ loaderData }: Route.ComponentProps) {
   const { videoId, thumbnails } = loaderData;
-  const { state, dispatch } = useThumbnailReducer(thumbnails);
+  const { state, dispatch, editorHistory } = useThumbnailReducer(thumbnails);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const diagramKind = selectDiagramKind(state);
   const layers = selectCompositeLayers(state);
@@ -291,6 +291,7 @@ export default function ThumbnailsPage({ loaderData }: Route.ComponentProps) {
                 state={state}
                 photo={state.capturedPhoto}
                 dispatch={dispatch}
+                historyRef={editorHistory}
               />
             )}
             {/* The composite: what is saved. With a Thumbnail Diagram the

@@ -12,6 +12,11 @@
  * The page's reducer holds the face and the drawing: this component reports
  * each drawing edit (the document, and the drawing as a PNG for the
  * composite) and never decides whether to save.
+ *
+ * The face is also written into the document's meta, so that moving or
+ * retaking it is an undo step with the drawing (`thumbnail-face-history.ts`):
+ * the page records face changes through `historyRef`, and hears back the
+ * face an undo or redo restores.
  */
 import {
   createContext,
@@ -48,6 +53,11 @@ import {
 } from "./canvas-compositor";
 import { darkPanelSpan, type DarkPanelSpan } from "./dark-panel";
 import type { ThumbnailDiagramDocument } from "./thumbnail-state-reducer";
+import { withoutFace, type ThumbnailFace } from "./thumbnail-face";
+import {
+  attachFaceHistory,
+  type ThumbnailEditorHistory,
+} from "./thumbnail-face-history";
 import type { ThumbnailDiagramSource } from "@cvm/core/lib/thumbnail-diagram-sources";
 
 const FRAME = new Box(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
@@ -270,6 +280,8 @@ export function ThumbnailDiagramEditor({
   facePosition,
   onDrawingChanged,
   onDrawingRendered,
+  onFaceRestored,
+  historyRef,
   onInsertSource,
   children,
 }: {
@@ -284,6 +296,10 @@ export function ThumbnailDiagramEditor({
   ) => void;
   /** The loaded drawing, drawn for the composite: not an edit. */
   onDrawingRendered: (image: string | null) => void;
+  /** The editor's undo or redo put the face back to this. */
+  onFaceRestored: (face: ThumbnailFace) => void;
+  /** Set while the editor is mounted: face changes go on its history here. */
+  historyRef: React.RefObject<ThumbnailEditorHistory | null>;
   /** A palette insert landed: where it came from (ADR 0060). */
   onInsertSource: (source: ThumbnailDiagramSource) => void;
   /** The host's controls, directly under the frame (the face slider). */
@@ -299,9 +315,15 @@ export function ThumbnailDiagramEditor({
   const callbacks = useRef({
     onDrawingChanged,
     onDrawingRendered,
+    onFaceRestored,
     onInsertSource,
   });
-  callbacks.current = { onDrawingChanged, onDrawingRendered, onInsertSource };
+  callbacks.current = {
+    onDrawingChanged,
+    onDrawingRendered,
+    onFaceRestored,
+    onInsertSource,
+  };
   const paletteHandlers = useMemo<PaletteHandlers>(
     () => ({
       ...PALETTE_HANDLERS,
@@ -310,57 +332,79 @@ export function ThumbnailDiagramEditor({
     []
   );
   const initial = useRef(initialDocument);
+  // The face the editor opens with: read on mount, like the drawing.
+  const initialFace = useRef<ThumbnailFace>({
+    photo,
+    cutout,
+    horizontalPosition: facePosition,
+  });
+  initialFace.current = { photo, cutout, horizontalPosition: facePosition };
 
-  const handleMount = useCallback((editor: Editor) => {
-    if (initial.current) {
-      loadSnapshot(editor.store, {
-        // Written by this editor's own getSnapshot, as a tldraw document.
-        document: initial.current as TLStoreSnapshot,
-      });
-    }
-    editor.clearHistory();
-    setEditor(editor);
+  const handleMount = useCallback(
+    (editor: Editor) => {
+      if (initial.current) {
+        loadSnapshot(editor.store, {
+          // Written by this editor's own getSnapshot, as a tldraw document.
+          document: initial.current as TLStoreSnapshot,
+        });
+      }
+      const faceHistory = attachFaceHistory(
+        editor,
+        initialFace.current,
+        (face) => callbacks.current.onFaceRestored(face)
+      );
+      historyRef.current = faceHistory.history;
+      editor.clearHistory();
+      setEditor(editor);
 
-    let disposed = false;
-    let seq = 0;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    // A store change is not an edit: the load above reaches the listener a
-    // frame later as a "user" change (see head-autosaver.ts). Only a document
-    // that differs from the last one seen is.
-    let seen = JSON.stringify(getSnapshot(editor.store).document);
+      let disposed = false;
+      let seq = 0;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      // A store change is not an edit: the load above reaches the listener a
+      // frame later as a "user" change (see head-autosaver.ts). Only a document
+      // that differs from the last one seen is, and the face in its meta is
+      // not the drawing.
+      const drawingNow = () =>
+        JSON.stringify(withoutFace(getSnapshot(editor.store).document));
+      let seen = drawingNow();
 
-    const report = async (edited: boolean) => {
-      const mine = ++seq;
-      const document = getSnapshot(editor.store).document;
-      const image = await renderDrawing(editor).catch(() => null);
-      if (disposed || mine !== seq) return;
-      if (edited) callbacks.current.onDrawingChanged(document, image);
-      else callbacks.current.onDrawingRendered(image);
-    };
+      const report = async (edited: boolean) => {
+        const mine = ++seq;
+        const document = getSnapshot(editor.store).document;
+        const image = await renderDrawing(editor).catch(() => null);
+        if (disposed || mine !== seq) return;
+        if (edited) callbacks.current.onDrawingChanged(document, image);
+        else callbacks.current.onDrawingRendered(image);
+      };
 
-    void report(false);
-    const unlisten = editor.store.listen(
-      () => {
+      void report(false);
+      const unlisten = editor.store.listen(
+        () => {
+          clearTimeout(timer);
+          timer = setTimeout(() => {
+            const now = drawingNow();
+            if (now === seen) return;
+            seen = now;
+            void report(true);
+          }, DRAWING_SETTLE_MS);
+        },
+        { scope: "document", source: "user" }
+      );
+
+      // Pending edits die with the editor: they belong to the Thumbnail being
+      // left, not to the one opened next.
+      return () => {
+        setEditor(null);
+        disposed = true;
         clearTimeout(timer);
-        timer = setTimeout(() => {
-          const now = JSON.stringify(getSnapshot(editor.store).document);
-          if (now === seen) return;
-          seen = now;
-          void report(true);
-        }, DRAWING_SETTLE_MS);
-      },
-      { scope: "document", source: "user" }
-    );
-
-    // Pending edits die with the editor: they belong to the Thumbnail being
-    // left, not to the one opened next.
-    return () => {
-      setEditor(null);
-      disposed = true;
-      clearTimeout(timer);
-      unlisten();
-    };
-  }, []);
+        unlisten();
+        faceHistory.dispose();
+        if (historyRef.current === faceHistory.history)
+          historyRef.current = null;
+      };
+    },
+    [historyRef]
+  );
 
   const face = useMemo(
     () => ({ photo, cutout, position: facePosition, ghost: hovering }),

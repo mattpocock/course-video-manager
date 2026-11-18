@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { useEffectReducer } from "@/hooks/use-effect-reducer";
 import { useRevalidator } from "react-router";
 import { toast } from "@/components/ui/toast";
@@ -6,6 +7,7 @@ import {
   createInitialThumbnailState,
   type ThumbnailDiagramDocument,
 } from "@/features/thumbnail-editor/thumbnail-state-reducer";
+import type { ThumbnailEditorHistory } from "@/features/thumbnail-editor/thumbnail-face-history";
 
 function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -41,6 +43,9 @@ interface Thumbnail {
 
 export function useThumbnailReducer(thumbnails: Thumbnail[]) {
   const revalidator = useRevalidator();
+  // The mounted thumbnail editor's undo history; null without an editor
+  // (an old pasted-PNG Thumbnail), which then opens with the reducer's face.
+  const editorHistory = useRef<ThumbnailEditorHistory | null>(null);
 
   const [state, dispatch] = useEffectReducer<
     thumbnailStateReducer.State,
@@ -69,6 +74,9 @@ export function useThumbnailReducer(thumbnails: Thumbnail[]) {
               "Background removal failed. You can retry or continue without it.",
           });
         });
+    },
+    "record-face": (_state, effect) => {
+      editorHistory.current?.recordFace(effect.face, effect.history);
     },
     "save-thumbnail": (_state, effect, dispatch) => {
       const payload = {
@@ -177,5 +185,5 @@ export function useThumbnailReducer(thumbnails: Thumbnail[]) {
     },
   });
 
-  return { state, dispatch };
+  return { state, dispatch, editorHistory };
 }
