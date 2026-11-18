@@ -9,6 +9,14 @@ import {
   visibleRootActions,
   type RootAction,
 } from "./palette-model";
+import {
+  diagramHitKey,
+  goToTarget,
+  insertTarget,
+  type DiagramHit,
+  type DiagramInsertTarget,
+  type DiagramTarget,
+} from "./diagram-hits";
 
 /**
  * The Cmd+K command palette, as a pure reducer: whether it is open, its page
@@ -40,35 +48,6 @@ export type PaletteNav = {
 };
 
 export type ComponentSummary = { id: string; name: string };
-
-export type DiagramHit = {
-  diagramId: string;
-  snapshotId: string | null;
-  diagramName: string;
-  contentHash: string | null;
-  searchText: string | null;
-  source: string;
-};
-
-/**
- * What "go to this result" needs to know. Going to a DiagramSnapshot hit opens
- * its Diagram with that snapshot highlighted in the Snapshot Timeline; it is
- * never restored to the head, so a search result can't change what the next
- * Clip is filmed against. Restore to Head is its own explicit action.
- */
-export type DiagramTarget = Pick<DiagramHit, "diagramId" | "source"> & {
-  highlightSnapshotId: string | null;
-};
-
-/**
- * What inserting a result needs to know: which drawing to fetch (a
- * DiagramSnapshot's, or the Diagram's head when `snapshotId` is null), and the
- * kind of hit it was.
- */
-export type DiagramInsertTarget = Pick<
-  DiagramHit,
-  "diagramId" | "snapshotId" | "source"
->;
 
 /** A root row that fires at once rather than opening a page. */
 export type RootCommand =
@@ -217,10 +196,6 @@ export const createInitialPaletteState = (): State => ({
   busy: false,
   spinnerDelay: null,
 });
-
-/** A diagram hit's cmdk value: its snapshot, or its Diagram's head. */
-export const diagramHitKey = (hit: DiagramHit) =>
-  hit.snapshotId ?? `${hit.diagramId}:current`;
 
 /** Both pages run the same diagram search; only Enter differs. */
 const isDiagramSearch = (page: PageKey) =>
@@ -577,18 +552,12 @@ const on: Handlers = {
   "diagram-picked": (state, action, exec) => {
     if (currentPage(state.nav) === "insertDiagram") {
       if (state.working) return state;
-      const { diagramId, snapshotId, source } = action.hit;
       return startWorking(state, exec, {
         type: "insert-diagram",
-        target: { diagramId, snapshotId, source },
+        target: insertTarget(action.hit),
       });
     }
-    // Looking, not restoring: a snapshot hit only highlights the snapshot.
-    const { diagramId, snapshotId, source } = action.hit;
-    exec({
-      type: "go-to-diagram",
-      target: { diagramId, source, highlightSnapshotId: snapshotId },
-    });
+    exec({ type: "go-to-diagram", target: goToTarget(action.hit) });
     return state;
   },
   "diagram-inserted": (state, action, exec) => {

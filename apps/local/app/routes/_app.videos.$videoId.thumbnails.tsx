@@ -49,13 +49,13 @@ export const loader = makeLoader({
       const videoId = params.videoId!;
       const db = yield* ThumbnailOperationsService;
       const thumbnails = yield* db.getThumbnailsByVideoId(videoId);
-      // Feature flag, OFF by default: whether a new Thumbnail is drawn in the
+      // Feature flag, ON by default: whether a new Thumbnail is drawn in the
       // editor (ADR 0060) or pasted onto as before. A Thumbnail that already
-      // has a Thumbnail Diagram opens in the editor either way. The stack's
-      // PR 9 turns it on by default; a later PR removes the flag.
+      // has a Thumbnail Diagram opens in the editor either way. A later PR
+      // removes the flag.
       const drawsNewThumbnails = yield* Config.boolean(
         "CVM_THUMBNAIL_DIAGRAMS"
-      ).pipe(Config.withDefault(false));
+      ).pipe(Config.withDefault(true));
 
       return { videoId, thumbnails, drawsNewThumbnails };
     }),

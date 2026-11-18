@@ -23,18 +23,11 @@ import {
   selectComponents,
   selectPage,
   selectRootActions,
-  type DiagramInsertTarget,
-  type DiagramTarget,
   type PageKey,
 } from "./palette-reducer";
+import type { DiagramInsertTarget, DiagramTarget } from "./diagram-hits";
 import { paletteKeyCommand } from "./palette-shortcuts";
 import type { ThumbnailDiagramSource } from "@cvm/core/lib/thumbnail-diagram-sources";
-
-export type {
-  ComponentSummary,
-  DiagramHit,
-  DiagramTarget,
-} from "./palette-reducer";
 
 /**
  * The actions on the Diagram the editor edits. Only the playground has one:
@@ -214,16 +207,9 @@ export function usePalette(opts: {
       const onInsertSource = handlersRef.current.onInsertSource;
       void insertDiagram(editorRef.current, target, {
         pinHead: onInsertSource !== null,
-      }).then(({ outcome, snapshotId }) => {
-        if (
-          outcome.type === "diagram-inserted" &&
-          outcome.landed &&
-          snapshotId
-        ) {
-          onInsertSource?.({
-            kind: "diagram-snapshot",
-            diagramSnapshotId: snapshotId,
-          });
+      }).then(({ outcome, source }) => {
+        if (outcome.type === "diagram-inserted" && outcome.landed && source) {
+          onInsertSource?.(source);
         }
         dispatch(outcome);
       });
@@ -420,64 +406,103 @@ async function insertComponent(
   }
 }
 
+type FetchedDrawing = {
+  scene: unknown;
+  /** What the drawing records as its source; null for an unpinned head. */
+  source: ThumbnailDiagramSource | null;
+};
+
 /**
- * Fetches a Diagram's head, or a DiagramSnapshot's drawing, and puts it onto
- * the canvas whole: one group, scaled to fit, through the single insertion
- * path. With `pinHead`, a head is first kept as an unpreserved
- * DiagramSnapshot (content-hash deduped, off the Snapshot Timeline), and
- * that drawing is what lands. `snapshotId` is the drawing that was inserted,
- * when it is a snapshot.
+ * Fetches the drawing a hit points at: a DiagramSnapshot's, a Thumbnail's
+ * Thumbnail Diagram, or a Diagram's head. With `pinHead`, a head is first
+ * kept as an unpreserved DiagramSnapshot (content-hash deduped, off the
+ * Snapshot Timeline), and that snapshot is the source. Null on a failed
+ * request.
+ */
+async function fetchDrawing(
+  target: DiagramInsertTarget,
+  { pinHead }: { pinHead: boolean }
+): Promise<FetchedDrawing | null> {
+  const snapshotDrawing = (snapshot: { id: string; scene: unknown }) => ({
+    scene: snapshot.scene,
+    source: {
+      kind: "diagram-snapshot",
+      diagramSnapshotId: snapshot.id,
+    } satisfies ThumbnailDiagramSource,
+  });
+  switch (target.source) {
+    case "thumbnail-diagram": {
+      const res = await fetch(`/api/thumbnails/${target.thumbnailId}/diagram`);
+      if (!res.ok) return null;
+      return {
+        scene: (await res.json()).thumbnailDiagram,
+        source: { kind: "thumbnail-diagram", thumbnailId: target.thumbnailId },
+      };
+    }
+    case "snapshot":
+    case "current": {
+      if (target.snapshotId) {
+        const res = await fetch(`/api/diagram-snapshots/${target.snapshotId}`);
+        if (!res.ok) return null;
+        const { scene } = await res.json();
+        return snapshotDrawing({ id: target.snapshotId, scene });
+      }
+      if (pinHead) {
+        const res = await fetch(`/api/diagrams/${target.diagramId}/snapshots`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        });
+        if (!res.ok) return null;
+        return snapshotDrawing((await res.json()).snapshot);
+      }
+      const res = await fetch(`/api/diagrams/${target.diagramId}/head`);
+      if (!res.ok) return null;
+      return { scene: (await res.json()).headScene, source: null };
+    }
+  }
+}
+
+/**
+ * Fetches a hit's drawing (see `fetchDrawing`) and puts it onto the canvas
+ * whole: one group, scaled to fit, through the single insertion path.
+ * `source` is where the inserted drawing came from, when it records one.
  */
 async function insertDiagram(
   editor: Editor | null,
   target: DiagramInsertTarget,
   { pinHead }: { pinHead: boolean }
-): Promise<{ outcome: paletteReducer.Action; snapshotId: string | null }> {
+): Promise<{
+  outcome: paletteReducer.Action;
+  source: ThumbnailDiagramSource | null;
+}> {
   const failed = {
     outcome: {
       type: "diagram-insert-failed",
       reason: "request-failed",
     } satisfies paletteReducer.Action,
-    snapshotId: null,
+    source: null,
   };
   if (!editor) {
     return {
       outcome: { type: "diagram-inserted", landed: false },
-      snapshotId: null,
+      source: null,
     };
   }
 
-  let scene: unknown;
-  let snapshotId: string | null = target.snapshotId;
+  let drawing: FetchedDrawing | null;
   try {
-    if (target.snapshotId) {
-      const res = await fetch(`/api/diagram-snapshots/${target.snapshotId}`);
-      if (!res.ok) return failed;
-      scene = (await res.json()).scene;
-    } else if (pinHead) {
-      const res = await fetch(`/api/diagrams/${target.diagramId}/snapshots`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      if (!res.ok) return failed;
-      const { snapshot } = await res.json();
-      scene = snapshot.scene;
-      snapshotId = snapshot.id;
-    } else {
-      const res = await fetch(`/api/diagrams/${target.diagramId}/head`);
-      if (!res.ok) return failed;
-      scene = (await res.json()).headScene;
-    }
+    drawing = await fetchDrawing(target, { pinHead });
   } catch {
     return failed;
   }
+  if (!drawing) return failed;
 
-  const content = buildSceneContent(scene);
+  const content = buildSceneContent(drawing.scene);
   if (!content) {
     return {
       outcome: { type: "diagram-insert-failed", reason: "empty" },
-      snapshotId: null,
+      source: null,
     };
   }
   try {
@@ -486,7 +511,7 @@ async function insertDiagram(
         type: "diagram-inserted",
         landed: insertDrawingAsGroup(editor, content),
       },
-      snapshotId,
+      source: drawing.source,
     };
   } catch (error) {
     // Any throw out of the put (a scene tldraw can't migrate, say) lands

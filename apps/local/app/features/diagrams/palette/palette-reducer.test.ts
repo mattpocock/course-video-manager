@@ -11,9 +11,9 @@ import {
   selectComponents,
   selectRootActions,
   type ComponentSummary,
-  type DiagramHit,
   type PageKey,
 } from "./palette-reducer";
+import type { DiagramHit, DrawingHit } from "./diagram-hits";
 
 const summoned = (
   page: PageKey | null = null,
@@ -53,7 +53,7 @@ const onComponents = () =>
     .send({ type: "components-listed", components: [box, arrow] })
     .resetExec();
 
-const hit = (diagramId: string): DiagramHit => ({
+const hit = (diagramId: string): DrawingHit => ({
   diagramId,
   snapshotId: "s1",
   diagramName: diagramId,
@@ -61,6 +61,15 @@ const hit = (diagramId: string): DiagramHit => ({
   searchText: null,
   source: "snapshot",
 });
+
+/** A past Thumbnail's drawing, found by the same diagram search. */
+const thumbnailHit: DiagramHit = {
+  source: "thumbnail-diagram",
+  thumbnailId: "t1",
+  videoId: "v1",
+  videoTitle: "Agent loops",
+  searchText: null,
+};
 
 describe("summoning", () => {
   it("always lands on the root with an empty query, whatever the last session did", () => {
@@ -421,6 +430,24 @@ describe("diagrams", () => {
     ]);
   });
 
+  it("goes to a Thumbnail Diagram hit by opening its Thumbnail", () => {
+    const t = tester()
+      .send(summoned("diagrams"))
+      .send({ type: "diagrams-found", seq: 1, hits: [thumbnailHit] })
+      .resetExec()
+      .send({ type: "diagram-picked", hit: thumbnailHit });
+    expect(t.getEffects()).toEqual([
+      {
+        type: "go-to-diagram",
+        target: {
+          source: "thumbnail-diagram",
+          thumbnailId: "t1",
+          videoId: "v1",
+        },
+      },
+    ]);
+  });
+
   it("renames the open diagram under its trimmed name, then closes", () => {
     const t = tester()
       .send(summoned())
@@ -497,6 +524,19 @@ describe("insert diagram", () => {
       { type: "wait-for-spinner", delayMs: 150 },
       { type: "report-success" },
     ]);
+  });
+
+  it("inserts a Thumbnail Diagram hit's drawing on Enter, highlighted as soon as it is found", () => {
+    const t = onInsertDiagram([thumbnailHit, hit("auth")]);
+    expect(t.getState().nav.value).not.toBe(
+      onInsertDiagram([hit("auth")]).getState().nav.value
+    );
+
+    t.send({ type: "diagram-picked", hit: thumbnailHit });
+    expect(t.getEffects()[0]).toEqual({
+      type: "insert-diagram",
+      target: { source: "thumbnail-diagram", thumbnailId: "t1" },
+    });
   });
 
   it("ignores a second Enter while an insert is in flight, and stays up at the shape cap", () => {

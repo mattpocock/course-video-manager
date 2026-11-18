@@ -5,7 +5,7 @@ import {
   type Snapshot,
 } from "@/features/diagrams/snapshot-list";
 import type { PlaygroundStatus } from "@/features/diagrams/playground-status";
-import { highlightedSnapshotUrl } from "@/lib/diagram-protocol";
+import { goToUrl } from "@/features/diagrams/palette/go-to-url";
 import type { PaletteHandlers } from "@/features/diagrams/palette/use-palette";
 
 /**
@@ -111,12 +111,9 @@ export function usePlaygroundPaletteHandlers(
 
         // A snapshot hit is only highlighted in the Snapshot Timeline, never
         // restored: the head, and so the next Clip, stays as it is. Restore
-        // to Head is its own explicit action.
-        Promise.resolve(
-          navigate(
-            highlightedSnapshotUrl(target.diagramId, target.highlightSnapshotId)
-          )
-        ).catch(() => {
+        // to Head is its own explicit action. A Thumbnail Diagram hit opens
+        // its Thumbnail in the thumbnail creator.
+        Promise.resolve(navigate(goToUrl(target))).catch(() => {
           status.reportError("Failed to open that diagram");
         });
       },

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { makeSnippet } from "@/features/diagrams/make-snippet";
-import type { ComponentSummary, DiagramHit } from "./use-palette";
+import type { ComponentSummary } from "./palette-reducer";
+import type { DiagramHit } from "./diagram-hits";
 
 /**
  * Same URL as `DiagramThumbnail`, but tracking the failure itself.
@@ -30,10 +31,32 @@ function Thumbnail({ src }: { src: string | null }) {
   );
 }
 
+/** Where a hit's picture comes from, and the name laid over it. */
+function cardFace(hit: DiagramHit): { src: string | null; label: string } {
+  switch (hit.source) {
+    case "snapshot":
+    case "current":
+      return {
+        src: hit.contentHash
+          ? `/api/diagram-thumbnails/${hit.diagramId}/${hit.contentHash}`
+          : null,
+        label: hit.diagramName,
+      };
+    case "thumbnail-diagram":
+      // The rendered Thumbnail, face and all: it is how the author knows it.
+      // Only the drawing is inserted (ADR 0060).
+      return {
+        src: `/api/thumbnails/${hit.thumbnailId}/image`,
+        label: hit.videoTitle,
+      };
+  }
+}
+
 /**
  * Mirrors the Playground Home diagrams page: real thumbnail, name overlaid
  * bottom-right, and the same 10-word matched-text snippet. No source badge and
- * no shape count — both were explicitly rejected.
+ * no shape count — both were explicitly rejected. A Thumbnail Diagram is
+ * labelled with its Video's title.
  */
 export function DiagramCard({
   hit,
@@ -43,18 +66,13 @@ export function DiagramCard({
   query: string;
 }) {
   const snippet = makeSnippet(hit.searchText, query);
+  const { src, label } = cardFace(hit);
   return (
     <>
       <div className="relative aspect-[16/10] w-full shrink-0 overflow-hidden rounded-t bg-zinc-950">
-        <Thumbnail
-          src={
-            hit.contentHash
-              ? `/api/diagram-thumbnails/${hit.diagramId}/${hit.contentHash}`
-              : null
-          }
-        />
+        <Thumbnail src={src} />
         <span className="absolute right-1 bottom-1 max-w-[85%] truncate rounded bg-zinc-950/85 px-1.5 py-0.5 text-[10px] font-medium text-zinc-100">
-          {hit.diagramName}
+          {label}
         </span>
       </div>
       {/* Fixed height, so a one-line snippet and a two-line one make cards of
