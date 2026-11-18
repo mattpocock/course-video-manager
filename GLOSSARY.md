@@ -471,13 +471,27 @@ _Avoid_: Manual snapshot, Saved snapshot, Bookmark
 Loading an older **DiagramSnapshot** back as the Active Diagram's current drawing, without losing the current one.
 _Avoid_: Revert, Roll back, Undo
 
-**Component**:
-A named, unchanging piece of a drawing that can be put into any Diagram.
-_Avoid_: Template, Stencil, Symbol
+**Diagram Component**:
+A named, unchanging piece of a drawing that can be put into any Diagram or **Thumbnail Diagram**.
+_Avoid_: Component, Template, Stencil, Symbol
 
 **Icon**:
 A named glyph on a Diagram.
 _Avoid_: Glyph, Symbol, Image
+
+### Thumbnails
+
+**Thumbnail**:
+The image a **Video** shows on YouTube: the author's face, a **Thumbnail Diagram**, and a **Cutout** over the drawing.
+_Avoid_: Cover, Poster, Preview
+
+**Thumbnail Diagram**:
+The drawing that belongs to one **Thumbnail**, edited in place beside the author's face. It is not a **Diagram** and has no snapshots. It starts empty; shapes inserted from a Diagram, a **DiagramSnapshot** or another Thumbnail Diagram remember where they came from.
+_Avoid_: Thumbnail Drawing, Thumbnail Diagram Snapshot, Thumbnail Scene
+
+**Cutout**:
+The author's face with its background removed, laid over a **Thumbnail Diagram** so the face sits in front of it.
+_Avoid_: Mask, Sticker
 
 ### Lesson body
 
