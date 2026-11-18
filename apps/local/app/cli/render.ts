@@ -75,6 +75,11 @@ const EXIT_CODES: Record<string, number> = {
   // in the Posting Queue): invalid input. Nothing changed.
   PostingQueueChangeRefusedError: 3,
   // Defensive: domain error tags that could leak through a command.
+  // `cvm video post-youtube` refused the Thumbnail before queueing anything.
+  ThumbnailNotUploadableError: 3,
+  // `cvm job wait` (and `--wait`): a Job ended badly, or --timeout ran out.
+  JobFailedError: 4,
+  JobWaitTimeoutError: 4,
   UnknownDBServiceError: 4,
   // The deployed API rejected the token — unknown, expired or revoked; it
   // never says which. This gets a code of its OWN because "your token expired"

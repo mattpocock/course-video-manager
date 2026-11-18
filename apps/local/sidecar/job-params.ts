@@ -221,7 +221,8 @@ export const JOB_PARAMS = {
       videoId: Schema.String,
       title: Schema.Trim.pipe(Schema.nonEmptyString()),
       description: Schema.Trim.pipe(Schema.nonEmptyString()),
-      privacyStatus: Schema.Literal("public", "unlisted"),
+      // `private` is only ever asked for by `cvm video post-youtube`.
+      privacyStatus: Schema.Literal("public", "unlisted", "private"),
       thumbnailId: Schema.String,
     })
   ),

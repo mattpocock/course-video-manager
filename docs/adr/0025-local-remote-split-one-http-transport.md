@@ -38,7 +38,7 @@ The gate protects the **next** command a box runs, not the one already in flight
 
 ## Local-only commands are refused, not ported
 
-`cvm file`, `cvm course publish` and `cvm course readiness` need the Video Files directory, the finished videos directory and ffmpeg. Each checks at the **front** of the command, before argument validation and before a row is read, and fails with a message naming the reason.
+`cvm file`, `cvm course publish` and `cvm course readiness` need the Video Files directory, the finished videos directory and ffmpeg. (The list has grown since; `local-only.ts` and the repo `CLAUDE.md` hold the current one — see the 2026-11-18 note at the end of this section.) Each checks at the **front** of the command, before argument validation and before a row is read, and fails with a message naming the reason.
 
 Both properties matter, and both are about what happens next. Naming the reason means an agent that reads "this needs the finished videos directory" stops and reports accurately, where one handed an `ENOENT` on an unfamiliar path retries. Failing first means a refused command cannot leave a **Course** half-changed — a `publish` that got as far as **Submit** would strand a **Pending Version**.
 
@@ -47,6 +47,8 @@ The machine is **declared**, with `CVM_LOCAL_MACHINE`, not detected. Every detec
 Commands that read domain data and write local files keep composing on the author's machine, and `cvm course publish` still runs there exactly as it did.
 
 One detail is worth stating plainly, because it is the single exception to "one transport": the publish command's own pre-flight reads and `CoursePublishService` build a **database-backed layer inside the handler** rather than going through the CLI's HTTP layer. That is deliberate — Publish runs the whole Version lifecycle transactionally, and it only ever runs on the machine that `apps/local` already connects to the database from. The exception is confined to a command that is refused everywhere else, so no box that has only a token can reach it.
+
+**Update, 2026-11-18.** The same exception now covers every local-only command that queues or follows a **Sidecar** Job, because the Job queue is served by no API route: `cvm footage`, `cvm short render`, `cvm course publish`, and the three added with #2764 — `cvm video post-youtube` (queues the Post page's `youtube` Job), `cvm job get|list|wait` (reads and waits on Jobs) and `cvm thumbnail list` (reads Thumbnail rows and their files). Each reads its domain data over HTTP where it can, and opens the author's machine's own database connection (`withSidecarDatabase`, `withFootageJobs`) only for the Job queue and the rows the Sidecar itself reads. All of them are refused on any other box first, so the rule above still holds: no box with only a token reaches a database connection.
 
 ## The backup guarantee that was given up
 

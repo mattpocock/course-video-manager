@@ -6,6 +6,7 @@ import {
 import { readFootageSidecar, sidecarPathFor } from "@/services/footage-cache";
 import { FOOTAGE_TRANSCRIPTION_EVENTS } from "@/features/jobs/transcribe-footage-job";
 import { parseError } from "@/cli/helpers";
+import { followJob, jobFailureOf } from "./job-follow";
 
 /**
  * `cvm footage transcribe`: follow the `transcribe-footage` Job the Sidecar
@@ -109,59 +110,41 @@ export const waitForFootageTranscription = Effect.fn(
   readonly onWaiting: (line: Record<string, unknown>) => Effect.Effect<void>;
 }) {
   const ops = yield* JobOperationsService;
-  let warnedNoSidecar = false;
-  while (true) {
-    const job = yield* ops.getJob(input.jobId);
-    if (!job) {
-      return yield* new FootageTranscriptionLostError({
-        jobId: input.jobId,
-        message: `no Job ${input.jobId}: it was never enqueued, or was deleted`,
+  const job = yield* followJob({
+    jobId: input.jobId,
+    pollMs: input.pollMs,
+    onWaiting: input.onWaiting,
+    what: "the transcription",
+  });
+  if (!job) {
+    return yield* new FootageTranscriptionLostError({
+      jobId: input.jobId,
+      message: `no Job ${input.jobId}: it was never enqueued, or was deleted`,
+    });
+  }
+  switch (job.status) {
+    case "succeeded":
+      return yield* resultOf(
+        job.id,
+        input.path,
+        yield* ops.listJobEvents(job.id)
+      );
+    case "failed": {
+      const error = jobFailureOf(job);
+      const message = error.message ?? "the footage transcription failed";
+      if (error.tag === FILE_MISSING_TAG) {
+        return yield* parseError(message, "footage");
+      }
+      return yield* Effect.fail<FootageJobFailure>({
+        _tag: error.tag ?? "FootageTranscriptionFailedError",
+        message,
       });
     }
-    switch (job.status) {
-      case "succeeded":
-        return yield* resultOf(
-          job.id,
-          input.path,
-          yield* ops.listJobEvents(job.id)
-        );
-      case "failed": {
-        const error = job.error as {
-          tag?: string | null;
-          message?: string;
-        } | null;
-        const message = error?.message ?? "the footage transcription failed";
-        if (error?.tag === FILE_MISSING_TAG) {
-          return yield* parseError(message, "footage");
-        }
-        return yield* Effect.fail<FootageJobFailure>({
-          _tag: error?.tag ?? "FootageTranscriptionFailedError",
-          message,
-        });
-      }
-      case "interrupted":
-      case "cancelled":
-        return yield* new FootageTranscriptionInterruptedError({
-          jobId: job.id,
-          message: `the transcription of ${input.path} was cut off (its Sidecar stopped). Run 'cvm footage transcribe' again: the chunks Whisper already answered are cached and are not sent again.`,
-        });
-      case "queued": {
-        if (!warnedNoSidecar) {
-          const lease = yield* ops.getSidecarLease();
-          if (!lease || lease.leaseUntil.getTime() < Date.now()) {
-            warnedNoSidecar = true;
-            yield* input.onWaiting({
-              event: "waiting",
-              message:
-                "the sidecar is not running: the transcription starts when it does (`pnpm dev` or `pnpm start` runs it)",
-            });
-          }
-        }
-        break;
-      }
-      case "running":
-        break;
-    }
-    yield* Effect.sleep(input.pollMs);
+    case "interrupted":
+    case "cancelled":
+      return yield* new FootageTranscriptionInterruptedError({
+        jobId: job.id,
+        message: `the transcription of ${input.path} was cut off (its Sidecar stopped). Run 'cvm footage transcribe' again: the chunks Whisper already answered are cached and are not sent again.`,
+      });
   }
 });

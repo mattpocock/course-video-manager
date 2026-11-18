@@ -31,7 +31,7 @@ const initiateResumableUpload = (opts: {
   accessToken: string;
   title: string;
   description: string;
-  privacyStatus: "public" | "unlisted";
+  privacyStatus: "public" | "unlisted" | "private";
   notifySubscribers: boolean;
   fileSize: number;
 }) =>
@@ -97,7 +97,7 @@ export const uploadVideoToYouTube = (opts: {
   filePath: string;
   title: string;
   description: string;
-  privacyStatus: "public" | "unlisted";
+  privacyStatus: "public" | "unlisted" | "private";
   notifySubscribers: boolean;
   onProgress: (percentage: number) => void;
 }) =>

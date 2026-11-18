@@ -36,6 +36,7 @@ export { FREE_LOST_RUNS } from "./db-job-settle.server.js";
 import { createEnqueueJobOperations } from "./db-job-enqueue.server.js";
 import { createCancelJobOperations } from "./db-job-cancel.server.js";
 import { createStageHistoryOperations } from "./db-job-stage-history.server.js";
+import { createJobReadOperations } from "./db-job-reads.server.js";
 export { STAGE_HISTORY_JOBS_PER_KIND } from "./db-job-stage-history.server.js";
 import {
   createJobFeedOperations,
@@ -410,23 +411,6 @@ export const createJobOperations = (db: Database) => {
     );
   });
 
-  const getJob = Effect.fn("getJob")(function* (jobId: string) {
-    const [job] = yield* makeDbCall(() =>
-      db.select().from(jobs).where(eq(jobs.id, jobId))
-    );
-    return job;
-  });
-
-  const listJobEvents = Effect.fn("listJobEvents")(function* (jobId: string) {
-    return yield* makeDbCall(() =>
-      db
-        .select()
-        .from(jobEvents)
-        .where(eq(jobEvents.jobId, jobId))
-        .orderBy(asc(jobEvents.id))
-    );
-  });
-
   /**
    * Every event of one `type` written by any Job of `kind` about one subject,
    * oldest first: what earlier Jobs recorded about the same thing (the
@@ -636,8 +620,7 @@ export const createJobOperations = (db: Database) => {
     listRecentJobs,
     ...createStageHistoryOperations(db),
     ...createDismissJobOperations(db),
-    getJob,
-    listJobEvents,
+    ...createJobReadOperations(db),
     listSubjectJobEvents,
     acquireSidecarLease,
     renewSidecarLease,
