@@ -16,6 +16,7 @@ import {
   generatedFieldReducer,
 } from "./generated-field-reducer";
 import type { CreatedShortLink, GenerateTextRequest } from "./posting-requests";
+import type { PostVisibility } from "./post-visibility";
 
 /**
  * The post page: a Video's YouTube title and description (generated, copied
@@ -27,7 +28,7 @@ import type { CreatedShortLink, GenerateTextRequest } from "./posting-requests";
  */
 export namespace postPageReducer {
   export type Field = "title" | "description";
-  export type PrivacyStatus = "public" | "unlisted";
+  export type PrivacyStatus = PostVisibility;
 
   /** Everything the upload Job needs, fixed when Post was pressed. */
   export type Upload = {
@@ -69,6 +70,8 @@ export namespace postPageReducer {
     | { type: "copy-from-pitch-clicked"; pitchTitle: string }
     | { type: "video-opened"; videoId: string }
     | { type: "stored-youtube-video-id-read"; youtubeVideoId: string | null }
+    /** The visibility this browser last picked for the Video, if any. */
+    | { type: "stored-post-visibility-read"; visibility: PrivacyStatus | null }
     /** This Video's YouTube upload Job succeeded, as the jobs list reports. */
     | {
         type: "youtube-upload-succeeded";
@@ -105,6 +108,13 @@ export namespace postPageReducer {
         type: "store-youtube-video-id";
         videoId: string;
         youtubeVideoId: string;
+      }
+    /** The visibility is kept per Video, so the AI Hero page can match it. */
+    | { type: "read-stored-post-visibility"; videoId: string }
+    | {
+        type: "store-post-visibility";
+        videoId: string;
+        visibility: PrivacyStatus;
       }
     | { type: "delete-thumbnail"; thumbnailId: string }
     | { type: "check-export"; videoId: string }
@@ -421,7 +431,12 @@ export const postPageReducer: EffectReducer<
       );
     case "video-opened":
       exec({ type: "read-stored-youtube-video-id", videoId: action.videoId });
+      exec({ type: "read-stored-post-visibility", videoId: action.videoId });
       return state;
+    case "stored-post-visibility-read":
+      // Nothing stored keeps the page's default.
+      if (!action.visibility) return state;
+      return { ...state, privacyStatus: action.visibility };
     case "stored-youtube-video-id-read":
       // Nothing stored keeps what the page already shows.
       if (!action.youtubeVideoId) return state;
@@ -434,6 +449,11 @@ export const postPageReducer: EffectReducer<
       });
       return { ...state, storedYoutubeVideoId: action.youtubeVideoId };
     case "privacy-status-selected":
+      exec({
+        type: "store-post-visibility",
+        videoId: state.videoId,
+        visibility: action.privacyStatus,
+      });
       return { ...state, privacyStatus: action.privacyStatus };
     case "thumbnail-selected":
       return { ...state, selectedThumbnailId: action.thumbnailId };

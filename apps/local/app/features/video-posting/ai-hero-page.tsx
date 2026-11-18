@@ -33,6 +33,11 @@ import {
   AiHeroConnectionStatus,
 } from "./ai-hero-components";
 import { ImageUploadDropdown } from "./skills-changelog-helpers";
+import {
+  DEFAULT_POST_VISIBILITY,
+  parsePostVisibility,
+  POST_VISIBILITY_STORAGE_KEY,
+} from "./post-visibility";
 
 const AI_HERO_TITLE_STORAGE_KEY = (videoId: string) =>
   `ai-hero-title-${videoId}`;
@@ -82,6 +87,14 @@ export function AiHeroPage({
   const [slug, setSlug] = useLocalStorage(
     AI_HERO_FORM_SLUG_STORAGE_KEY(videoId)
   );
+
+  // Picked on the Post page, so the AI Hero post matches the YouTube one.
+  const [storedVisibility] = useLocalStorage(
+    POST_VISIBILITY_STORAGE_KEY(videoId),
+    DEFAULT_POST_VISIBILITY
+  );
+  const visibility =
+    parsePostVisibility(storedVisibility) ?? DEFAULT_POST_VISIBILITY;
 
   // A stored slug is one the author typed; an empty one still tracks the title.
   const slugInputTouched = useRef(slug !== "");
@@ -141,13 +154,28 @@ export function AiHeroPage({
       const { exists } = await res.json();
 
       if (exists) {
-        startAiHeroUpload(videoId, title, body, seoDescription, slug);
+        startAiHeroUpload(
+          videoId,
+          title,
+          body,
+          seoDescription,
+          slug,
+          visibility
+        );
         toast("Post started", {
           description: `"${title}" is posting to AI Hero`,
         });
       } else {
         const exportId = startExportUpload(videoId, title);
-        startAiHeroUpload(videoId, title, body, seoDescription, slug, exportId);
+        startAiHeroUpload(
+          videoId,
+          title,
+          body,
+          seoDescription,
+          slug,
+          visibility,
+          exportId
+        );
         toast("Export + post started", {
           description: `"${title}" will export first, then post to AI Hero`,
         });
@@ -349,6 +377,14 @@ export function AiHeroPage({
             {seoDescription.length}/160
           </p>
         </div>
+
+        <p className="text-xs text-muted-foreground">
+          Posts as{" "}
+          <span className="font-medium">
+            {visibility === "public" ? "Public" : "Unlisted"}
+          </span>
+          , matching the Visibility on the Post page.
+        </p>
 
         {/* Post to AI Hero button */}
         {storedSlug ? (

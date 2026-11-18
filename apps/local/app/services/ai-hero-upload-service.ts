@@ -371,8 +371,12 @@ const triggerVideoProcessing = (opts: {
       }),
   });
 
+/** Who can find an AI Hero post: everyone, or only those with its link. */
+export type AiHeroPostVisibility = "public" | "unlisted";
+
 /**
- * Step 5: Update the post with body and description.
+ * Step 5: Update the post with body, description and visibility. AI Hero
+ * creates every post public, so the visibility is always sent.
  */
 const updatePost = (opts: {
   baseUrl: string;
@@ -382,6 +386,7 @@ const updatePost = (opts: {
   slug: string;
   body: string;
   description: string;
+  visibility: AiHeroPostVisibility;
 }) =>
   Effect.tryPromise({
     try: async (signal) => {
@@ -401,6 +406,7 @@ const updatePost = (opts: {
               slug: opts.slug,
               body: opts.body,
               description: opts.description,
+              visibility: opts.visibility,
             },
             tags: [],
           }),
@@ -611,8 +617,8 @@ export const postSkillsChangelogToAiHero = (opts: {
  * 3. Complete multipart upload
  * 4. Create post
  * 5. Trigger video processing
- * 6. Update post with body + description
- * 7. Publish post
+ * 6. Update post with body + description + visibility
+ * 7. Publish post (it keeps the saved visibility)
  * 8. Return slug
  */
 export const postToAiHero = (opts: {
@@ -621,6 +627,7 @@ export const postToAiHero = (opts: {
   body: string;
   description: string;
   slug: string;
+  visibility: AiHeroPostVisibility;
   onProgress?: (percentage: number) => void;
 }) =>
   Effect.gen(function* () {
@@ -691,9 +698,11 @@ export const postToAiHero = (opts: {
       postId: post.id,
     });
 
-    // Step 6: Update post with body, description, and slug
+    // Step 6: Update post with body, description, slug and visibility
     const finalSlug = opts.slug || post.slug;
-    yield* Effect.logInfo("Updating post with body, description, and slug");
+    yield* Effect.logInfo(
+      `Updating post with body, description, slug and visibility (${opts.visibility})`
+    );
     yield* updatePost({
       baseUrl,
       accessToken,
@@ -702,6 +711,7 @@ export const postToAiHero = (opts: {
       slug: finalSlug,
       body: opts.body,
       description: opts.description,
+      visibility: opts.visibility,
     });
 
     // Step 7: Publish post
