@@ -46,6 +46,7 @@ Verbs:
   get <id...>          a Video plus its Chapters and clipCount — no Clips (variadic; NDJSON when >1 id)
   tree <id>            slim skeleton: video -> clip ids + chapters (--full adds clip text)
   transcript <id>      the ordered text projection (Clips + Chapters as prose)
+  chapters <id>        each Chapter's start time in the exported video (as YouTube / course.json get them)
   script <id>          the Video's teleprompter SCRIPT (internal; never published)
   create --name <n>    create a Video (--lesson <id> | --pitch <id> | neither=standalone; --format for standalone) (WRITE)
   move <id>            re-home a Video to a lesson/pitch (--lesson | --pitch) (WRITE)
@@ -102,6 +103,7 @@ Clips are deliberately left out: on a filmed Video they run to hundreds of KB
 (overlays, words, search vectors) and drown the row. To read them:
   cvm clip list --video <id>     the Video's Clips in timeline order (NDJSON)
   cvm video transcript <id>      the spoken text, Clips and Chapters interleaved
+  cvm video chapters <id>        each Chapter's start time in the exported video
   cvm video tree <id>            the Clip/Chapter skeleton, ids only
 
 Output:

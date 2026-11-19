@@ -2,14 +2,21 @@ import { describe, expect, it } from "vitest";
 import {
   buildVideoChapters,
   buildVideoChaptersFromRows,
+  exportedClipSeconds,
   toYouTubeChapters,
   type ChapterTimelineItem,
 } from "./video-chapters";
+import { LONG_PAUSE_DURATION_IN_SECONDS } from "./export-duration-check";
 
-const clip = (order: string, duration: number) => ({
+const clip = (
+  order: string,
+  duration: number,
+  pauseType: string | null = "none"
+) => ({
   order,
   sourceStartTime: 0,
   sourceEndTime: duration,
+  pauseType,
 });
 const chapter = (order: string, name: string) => ({ order, name });
 
@@ -99,6 +106,46 @@ describe("buildVideoChaptersFromRows", () => {
       { title: "Intro", startTime: 0 },
       { title: "Middle", startTime: 10 },
     ]);
+  });
+
+  // The export appends LONG_PAUSE_DURATION_IN_SECONDS (0.18 s) to every Clip
+  // whose Pause Type is "long", so the Chapters after it start that much later
+  // in the exported file. Ten long Pauses would otherwise put a Chapter 1.8 s
+  // early.
+  it("counts the long Pause the export adds to a Clip, as the export does", () => {
+    const longPauses = Array.from({ length: 10 }, (_, i) =>
+      clip(`a${i}`, 1, "long")
+    );
+    const result = buildVideoChaptersFromRows(
+      [...longPauses, clip("b1", 5)],
+      [chapter("b0", "After the pauses")]
+    );
+    // 10 × (1 + 0.18) = 11.8 → 11, where source time alone says 10.
+    expect(result).toEqual([
+      { title: "Intro", startTime: 0 },
+      { title: "After the pauses", startTime: 11 },
+    ]);
+  });
+
+  it("adds nothing for any Pause Type but long", () => {
+    const result = buildVideoChaptersFromRows(
+      [clip("a0", 10, null), clip("a1", 10, "short"), clip("a3", 5)],
+      [chapter("a2", "Third")]
+    );
+    expect(result).toEqual([
+      { title: "Intro", startTime: 0 },
+      { title: "Third", startTime: 20 },
+    ]);
+  });
+});
+
+describe("exportedClipSeconds", () => {
+  it("is the source span, plus the long Pause for a long-Pause Clip", () => {
+    const span = { sourceStartTime: 3, sourceEndTime: 10 };
+    expect(exportedClipSeconds({ ...span, pauseType: "none" })).toBe(7);
+    expect(exportedClipSeconds({ ...span, pauseType: "long" })).toBeCloseTo(
+      7 + LONG_PAUSE_DURATION_IN_SECONDS
+    );
   });
 });
 
