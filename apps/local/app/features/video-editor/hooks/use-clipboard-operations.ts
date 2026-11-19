@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import {
   buildVideoChapters,
+  exportedClipSeconds,
   toYouTubeChapters,
   type ChapterTimelineItem,
 } from "@/services/video-chapters";
@@ -66,7 +67,7 @@ export const useClipboardOperations = (items: TimelineItem[]) => {
         } else if (isClip(item) && item.type === "on-database") {
           return {
             kind: "clip",
-            durationSeconds: item.sourceEndTime - item.sourceStartTime,
+            durationSeconds: exportedClipSeconds(item),
           };
         }
         return null;

@@ -43,6 +43,7 @@ import {
   UNARCHIVE_HELP,
 } from "./video.help";
 import { agentSessionsCommand } from "./video.agent-sessions";
+import { chaptersCommand } from "./video.chapters";
 
 // ---------------------------------------------------------------------------
 // Shared fetch — return undefined for an absent row (CLI owns not-found).
@@ -644,6 +645,7 @@ export const videoCommand = Command.make("video").pipe(
     getCmd,
     treeCmd,
     transcriptCmd,
+    chaptersCommand,
     scriptCmd,
     createCmd,
     moveCmd,
