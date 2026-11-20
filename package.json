@@ -1,6 +1,7 @@
 {
   "name": "course-video-manager",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "packageManager": "pnpm@9.12.3",
   "bin": {
