@@ -394,6 +394,10 @@ _Avoid_: Layer, Track, Effect
 Which content an **Overlay** carries: a **Definition Card**, a **Bullet Panel**, a **Chat Card** or a **Call to Action**.
 _Avoid_: Type, Variant, Overlay Type
 
+**Overlay Transform**:
+The sideways slide of the footage that an **Overlay Kind** asks for while its **Overlay** is on screen, making room for it. It never magnifies the footage.
+_Avoid_: Pan, Zoom
+
 **Definition Card**:
 An **Overlay** that defines a term on screen at the moment it is said.
 _Avoid_: Term, Definition, Glossary Entry, Card, Tooltip
