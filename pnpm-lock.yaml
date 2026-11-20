@@ -309,6 +309,9 @@ importers:
       ws:
         specifier: ^8.18.3
         version: 8.21.1
+      xstate:
+        specifier: 6.0.0-beta.3
+        version: 6.0.0-beta.3
       zod:
         specifier: ^4.1.1
         version: 4.4.3
@@ -7141,6 +7144,10 @@ packages:
         optional: true
       utf-8-validate:
         optional: true
+
+  xstate@6.0.0-beta.3:
+    resolution: {integrity: sha512-b6C6SQ9cern6sD531uHcwOH94lBL+701Jd/VRSkzT8oAV1AKTT9oXFZtvC5DajUU4+8gmTLBTMHjZjd0VrsmAg==}
+    hasBin: true
 
   xtend@4.0.2:
     resolution: {integrity: sha512-LKYU1iAXJXUgAXn9URjiu+MWhyUXHsvfp7mcuYm9dSUKK0/CjtrUwFAxD82/mCWbtLsGjFIad0wIsod4zrTAEQ==}
@@ -14042,6 +14049,8 @@ snapshots:
   ws@8.17.1: {}
 
   ws@8.21.1: {}
+
+  xstate@6.0.0-beta.3: {}
 
   xtend@4.0.2: {}
 
