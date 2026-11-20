@@ -1,31 +1,3 @@
-/**
- * Overlay Transform — the camera move an Overlay's KIND asks for.
- *
- * A Clip Zoom (see {@link ./clip-zoom.ts}) is a static CROP of a whole Clip: it
- * throws source away and magnifies what is left. A Transform is the other
- * thing entirely — a pure SLIDE. The footage keeps its own scale to the pixel
- * and simply travels sideways in frame, scoped to one Overlay's own window, so
- * it can move aside for a panel and come back when the panel goes.
- *
- * NO ZOOM, EVER. The source footage is never magnified by a Transform, and
- * that is the point rather than an accident of the numbers: a presenter shot
- * that grows when a panel arrives reads as a cut to a different framing. A
- * shot that slides reads as the frame making room. So a Transform's two ends
- * are one number each — how far right the footage sits — and there is no
- * scale, and no origin, to get wrong.
- *
- * Nobody authors it. An Overlay carries no keyframes and the CLI has no flag
- * for them: the move is looked up from the Overlay's `kind`, so creating a
- * `bulletPanel` is all it takes to get the panel and the camera move together,
- * in sync, every time. {@link OVERLAY_TRANSFORMS} is a
- * `Record<OverlayKind, …>`, so a third content-kind is a compile error here
- * until somebody says whether it moves the camera.
- *
- * A Transform and a Clip Zoom are still never applied to the same footage:
- * `cvm overlay add` refuses a Transform-carrying Overlay whose window lands on
- * a zoomed Clip.
- */
-
 import { resolveOverlayKind, type OverlayKind } from "./overlay-kind.js";
 import {
   easeOverlayTransformProgress,
@@ -34,17 +6,6 @@ import {
   fmt,
 } from "./overlay-transform-ease.js";
 
-/**
- * Where the footage sits in frame: `offsetX` is how far RIGHT it has travelled
- * from where it was filmed, as a fraction of the frame's own width, so it is
- * resolution-independent. `0` is untouched; `0.25` has the footage a quarter of
- * a frame to the right, with its left quarter now empty and its right quarter
- * pushed off the edge.
- *
- * One number, because a Transform slides and never zooms. There is deliberately
- * no `scale` and no vertical partner: adding either would let a Transform do
- * the thing this feature exists not to do.
- */
 export type OverlayFraming = {
   readonly offsetX: number;
 };
