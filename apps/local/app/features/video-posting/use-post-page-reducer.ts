@@ -21,6 +21,7 @@ import {
   parsePostVisibility,
   POST_VISIBILITY_STORAGE_KEY,
 } from "./post-visibility";
+import { log } from "@/packages/log";
 
 const YOUTUBE_VIDEO_ID_STORAGE_KEY = (videoId: string) =>
   `youtube-video-id-${videoId}`;
@@ -68,7 +69,7 @@ export function usePostPageReducer({
             dispatch({ type: "text-generated", field: effect.field, text })
           )
           .catch((error) => {
-            console.error(`Failed to generate ${effect.field}:`, error);
+            log.error(`Failed to generate ${effect.field}:`, error);
             dispatch({ type: "text-generation-failed", field: effect.field });
           });
       },
@@ -151,7 +152,7 @@ export function usePostPageReducer({
         createShortLinks(effect.urls, effect.linkDescription)
           .then((links) => dispatch({ type: "short-links-created", links }))
           .catch((error) => {
-            console.error("Failed to convert short links:", error);
+            log.error("Failed to convert short links:", error);
             dispatch({
               type: "short-links-failed",
               message:
@@ -204,7 +205,7 @@ export function usePostPageReducer({
       if (!draft) return;
       // The page is going, so there is nowhere left to show a failure.
       saveYoutubeDraft(draft, { keepalive: true }).catch((error: unknown) =>
-        console.error("Failed to save the YouTube Draft on leaving:", error)
+        log.error("Failed to save the YouTube Draft on leaving:", error)
       );
     };
     window.addEventListener("pagehide", flush);

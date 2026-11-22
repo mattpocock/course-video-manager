@@ -548,8 +548,9 @@ describe("the Stream Key", () => {
         logged.push(a.map(String).join(" "));
         write(...a);
       };
-    vi.spyOn(console, "log").mockImplementation(keep(() => {}));
-    vi.spyOn(console, "error").mockImplementation(keep(() => {}));
+    for (const method of ["log", "info", "warn", "error", "debug"] as const) {
+      vi.spyOn(console, method).mockImplementation(keep(() => {}));
+    }
     const r = await ready();
     await r.goLive();
     await vi.waitFor(() =>

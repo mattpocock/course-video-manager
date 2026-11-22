@@ -112,7 +112,9 @@ export const cardServerStall = async (
   relaunchedBetween: (from: number, to: number) => boolean
 ) => {
   const from = performance.now();
-  ctx.log(`streamed: the card server stalls for ${CARD_SERVER_STALL_MS} ms`);
+  ctx.logLine(
+    `streamed: the card server stalls for ${CARD_SERVER_STALL_MS} ms`
+  );
   const stalled = await ctx.service.stallCardServer(CARD_SERVER_STALL_MS);
   await hold(ctx, 500);
   const during = await click(ctx, CARD_CLICKS + 1, undefined);

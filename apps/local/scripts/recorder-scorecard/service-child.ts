@@ -11,6 +11,7 @@ import { LIVE_STREAM_SETTINGS } from "../../recorder-service/go-live";
 import { leastDelayedClock, onlyToSink } from "./stream-sink";
 import { guardWindows } from "../windows-guard";
 import { useGuard } from "./windows";
+import { log } from "@/packages/log";
 
 /**
  * The real recorder service in a process of its own, as `service-process.ts`
@@ -29,7 +30,7 @@ import { useGuard } from "./windows";
  */
 const [marker, stateDir, streamIngest] = process.argv.slice(2);
 if (!marker || !stateDir) {
-  console.error("Usage: service-child.ts <marker> <stateDir>");
+  log.error("Usage: service-child.ts <marker> <stateDir>");
   process.exit(2);
 }
 // Exits 3 if anything records: not one Windows process starts then.
@@ -112,10 +113,10 @@ const service = await startRecorderService({
   wakeSpacedesk: () =>
     Promise.reject(new Error("The scorecard records Landscape only.")),
 });
-console.log(`SCORECARD-SERVICE-PORT ${service.port}`);
+log.info(`SCORECARD-SERVICE-PORT ${service.port}`);
 try {
   await stopCleanlyOn(service, process, (line) =>
-    console.log(`scorecard service: ${line}`)
+    log.info(`scorecard service: ${line}`)
   );
 } finally {
   clock.stop();

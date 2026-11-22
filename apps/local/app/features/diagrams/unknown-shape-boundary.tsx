@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { log } from "@/packages/log";
 
 /**
  * A diagram containing a shape type this build does not understand fails schema
@@ -22,7 +23,7 @@ export class ShapeTypeErrorBoundary extends Component<
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error("Diagram render failed", error, info.componentStack);
+    log.error("Diagram render failed", error, info.componentStack);
   }
 
   render() {

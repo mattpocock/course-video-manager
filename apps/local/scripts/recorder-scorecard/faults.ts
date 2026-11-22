@@ -56,7 +56,7 @@ const reopening = (m: RecorderMessage) =>
  * camera capture must live through it (same Windows PID, never reopened).
  */
 export const cycles = async (ctx: Ctx, n: number) => {
-  ctx.log(`cycles: ${n} back-to-back Record/Stop`);
+  ctx.logLine(`cycles: ${n} back-to-back Record/Stop`);
   await sleep(2000);
   const before = await footprint(ctx);
   const acks: number[] = [];
@@ -159,7 +159,7 @@ export const cycles = async (ctx: Ctx, n: number) => {
  * repair the files and report the Recording Session recovered.
  */
 export const crash = async (ctx: Ctx) => {
-  ctx.log("crash: the service killed mid-take, then started again");
+  ctx.logLine("crash: the service killed mid-take, then started again");
   await sleep(2000);
   const offset = await windowsClockOffset();
   let killWin = 0;

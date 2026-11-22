@@ -30,6 +30,7 @@ import {
   resolveInsertionPoint,
 } from "@/services/clip-service";
 import type { VideoEditorLoaderData } from "@/services/video-editor-loader.server";
+import { log } from "@/packages/log";
 
 const clipService = createHttpClipService();
 
@@ -246,7 +247,7 @@ export const useVideoEditorWiring = (
         })
         .then(() => revalidator.revalidate())
         .catch((error) => {
-          console.error("Failed to add reference chapter", error);
+          log.error("Failed to add reference chapter", error);
         });
     },
     onEditReferenceChapterName: (chapterId, name) => {
@@ -254,7 +255,7 @@ export const useVideoEditorWiring = (
         .updateChapter(chapterId, name)
         .then(() => revalidator.revalidate())
         .catch((error) => {
-          console.error("Failed to edit reference chapter", error);
+          log.error("Failed to edit reference chapter", error);
         });
     },
     onDeleteReferenceChapter: (chapterId) => {
@@ -262,7 +263,7 @@ export const useVideoEditorWiring = (
         .archiveChapters([chapterId])
         .then(() => revalidator.revalidate())
         .catch((error) => {
-          console.error("Failed to delete reference chapter", error);
+          log.error("Failed to delete reference chapter", error);
         });
     },
     onAutofillChapters: async (videoId, sections) => {
@@ -284,7 +285,7 @@ export const useVideoEditorWiring = (
         // Not awaited: the chapters are already in the clip reducer.
         void revalidator.revalidate();
       } catch (error) {
-        console.error("Failed to autofill chapters", error);
+        log.error("Failed to autofill chapters", error);
         throw error;
       }
     },
@@ -304,7 +305,7 @@ export const useVideoEditorWiring = (
           })
         )
         .catch((error) => {
-          console.error("Failed to update diagram pin", error);
+          log.error("Failed to update diagram pin", error);
         });
     },
     onRemoveWebLink: (clipId, linkId) => {

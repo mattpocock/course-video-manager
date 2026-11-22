@@ -28,6 +28,7 @@ import {
 import type { DiagramInsertTarget, DiagramTarget } from "./diagram-hits";
 import { paletteKeyCommand } from "./palette-shortcuts";
 import type { ThumbnailDiagramSource } from "@cvm/core/lib/thumbnail-diagram-sources";
+import { log } from "@/packages/log";
 
 /**
  * The actions on the Diagram the editor edits. Only the playground has one:
@@ -401,7 +402,7 @@ async function insertComponent(
     // Logged as well as reported: the message names the likeliest cause, but
     // any throw out of the put lands here, so the real one has to stay
     // reachable from the console.
-    console.error("Component insert failed", error);
+    log.error("Component insert failed", error);
     return failed("incompatible");
   }
 }
@@ -516,7 +517,7 @@ async function insertDiagram(
   } catch (error) {
     // Any throw out of the put (a scene tldraw can't migrate, say) lands
     // here; logged so the real cause stays reachable from the console.
-    console.error("Diagram insert failed", error);
+    log.error("Diagram insert failed", error);
     return failed;
   }
 }

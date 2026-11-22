@@ -9,6 +9,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { DumpError, writeDump } from "./db-dump";
 import { scriptPgClient } from "./script-database-url";
+import { log } from "@/packages/log";
 
 const DIR = path.join(os.homedir(), "backups/cvm");
 const KEEP = 14;
@@ -18,7 +19,7 @@ if (process.argv.includes("--cron-line")) {
     fileURLToPath(new URL("../../..", import.meta.url))
   );
   const bin = path.dirname(process.execPath);
-  console.log(
+  log.info(
     `17 3 * * * cd ${repo} && mkdir -p -m 700 ${DIR} && PATH=${bin}:/usr/bin:/bin nice -n 19 pnpm db:dump >> ${DIR}/dump.log 2>&1`
   );
   process.exit(0);
@@ -41,10 +42,10 @@ try {
     now: new Date(),
     pgDump: ["pg_dump"],
   });
-  console.log(`${new Date().toISOString()} dumped ${file}`);
-  for (const f of removed) console.log(`  removed ${f} (keeping ${KEEP})`);
+  log.info(`${new Date().toISOString()} dumped ${file}`);
+  for (const f of removed) log.info(`  removed ${f} (keeping ${KEEP})`);
 } catch (error) {
   if (!(error instanceof DumpError)) throw error;
-  console.error(`${new Date().toISOString()} dump FAILED: ${error.message}`);
+  log.error(`${new Date().toISOString()} dump FAILED: ${error.message}`);
   process.exit(1);
 }

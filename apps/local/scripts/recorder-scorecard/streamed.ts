@@ -318,7 +318,7 @@ export const streamed = async (
     relaunchedBetween: (from: number, to: number) => boolean;
   }) => Promise<() => Promise<void>> = async () => async () => {}
 ) => {
-  ctx.log(`streamed: a ${seconds} s Live Stream, pushed to a local sink`);
+  ctx.logLine(`streamed: a ${seconds} s Live Stream, pushed to a local sink`);
   await sleep(2000);
   // Beside the footage, on WSL's disk: never a Windows drive.
   const sinkFile = (n: number) =>

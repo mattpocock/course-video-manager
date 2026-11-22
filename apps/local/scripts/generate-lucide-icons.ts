@@ -30,6 +30,7 @@ import {
   type IconTable,
   type SynonymTable,
 } from "@cvm/lucide-icons/generator";
+import { log } from "@/packages/log";
 
 const GENERATED_DIR = path.join(
   import.meta.dirname,
@@ -81,7 +82,7 @@ async function fetchIconModules(version: string): Promise<Map<string, string>> {
 
 const version = flag("lucide");
 if (!version) {
-  console.error(
+  log.error(
     "usage: gen:lucide-icons -- --lucide <version> [--only a,b,c] [--synonyms]"
   );
   process.exit(1);
@@ -102,7 +103,7 @@ const { table, added } = appendIcons(existing, parsed.icons, { only });
 fs.mkdirSync(GENERATED_DIR, { recursive: true });
 fs.writeFileSync(TABLE_PATH, serialiseIconTable(table));
 
-console.log(
+log.info(
   `lucide ${version}: parsed ${Object.keys(parsed.icons).length} icons, ` +
     `${parsed.unparsed.length} unparsed. Added ${added.length}; ` +
     `table now holds ${Object.keys(table).length}.`
@@ -132,5 +133,5 @@ if (withSynonyms) {
   for (const alias of Object.keys(synonyms).sort())
     ordered[alias] = synonyms[alias]!;
   fs.writeFileSync(SYNONYMS_PATH, JSON.stringify(ordered));
-  console.log(`synonyms: ${Object.keys(ordered).length} aliases written.`);
+  log.info(`synonyms: ${Object.keys(ordered).length} aliases written.`);
 }

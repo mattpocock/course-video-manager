@@ -40,6 +40,7 @@ import {
 } from "./cvm-recorder-wire";
 import type { RecorderCapture } from "./recorder-capture";
 import { toFrontendSpeechDetectorState } from "./speech-detector-reducer";
+import { log } from "@/packages/log";
 
 export type CvmRecorderStore = EffectStore<
   cvmRecorderReducer.State,
@@ -219,10 +220,7 @@ export const useCvmRecorder = (o: {
           .then(answer)
           .catch((error: unknown) =>
             // Not fatal: only a Stream Deck Record needs it, and says so.
-            console.error(
-              "Could not tell the recorder the Silence Length",
-              error
-            )
+            log.error("Could not tell the recorder the Silence Length", error)
           );
       },
       "start-session": (_state, effect) => {
@@ -275,7 +273,7 @@ export const useCvmRecorder = (o: {
           );
       },
       "log-unexpected": (_state, effect) => {
-        console.warn(effect.message);
+        log.warn(effect.message);
       },
       "stop-recording": (_state, _effect, dispatch) => {
         fetch(`/api/videos/${videoId}/recorder/stop`, {
@@ -314,7 +312,7 @@ export const useCvmRecorder = (o: {
       insertionPoint = o.insertionPoint();
     } catch (error) {
       // Not lost: unplaced, the app server saves it after the Video's last item.
-      console.error("Could not say where the last take goes", error);
+      log.error("Could not say where the last take goes", error);
     }
     fetch(`/api/videos/${videoId}/recorder/stop`, {
       method: "POST",

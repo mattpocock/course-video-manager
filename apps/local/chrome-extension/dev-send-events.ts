@@ -23,6 +23,7 @@ import {
   type BrowserEventMessage,
 } from "../stream-deck-forwarder/stream-deck-forwarder-types";
 import { isMainCheckout } from "../live-desk/live-desk";
+import { log } from "@/packages/log";
 
 const HUB_URL = "ws://localhost:5172";
 
@@ -35,24 +36,24 @@ async function main() {
   // The hub is Matt's live desk: these events would land in his editor. Only
   // his main checkout may send to it (see live-desk/live-desk.ts).
   if (!isMainCheckout(process.cwd())) {
-    console.error(
+    log.error(
       `Refusing to send to ${HUB_URL}: this is not the main checkout, and that hub is Matt's live desk.`
     );
     process.exit(1);
   }
   const ws = new WebSocket(HUB_URL);
   ws.addEventListener("error", () => {
-    console.error(
+    log.error(
       `Could not connect to the forwarder hub at ${HUB_URL}. Is the CVM dev server running?`
     );
     process.exit(1);
   });
   await once(ws, "open");
-  console.log(`Connected to ${HUB_URL}`);
+  log.info(`Connected to ${HUB_URL}`);
 
   const emit = (message: BrowserEventMessage) => {
     ws.send(createBrowserEventMessage(message));
-    console.log("→", JSON.stringify(message));
+    log.info("→", JSON.stringify(message));
   };
 
   emit({ type: "browser-focus", focused: true, ts: Date.now() });
@@ -64,7 +65,7 @@ async function main() {
 
   await sleep(200);
   ws.close();
-  console.log("Done.");
+  log.info("Done.");
   process.exit(0);
 }
 

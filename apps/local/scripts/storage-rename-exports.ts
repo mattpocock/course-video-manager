@@ -28,11 +28,12 @@ import {
 import { scriptDrizzle } from "./script-database-url";
 import { CVM_APP_PORT, refuseApplyWhileCvmRuns } from "./running-cvm";
 import { sidecarSocketPath } from "@/services/sidecar-socket.server";
+import { log } from "@/packages/log";
 
 const apply = process.argv.includes("--apply");
 const roots = readStorageRootsSync();
-console.log(`Storage Roots: ${roots.join(", ")}`);
-console.log(apply ? "Mode: APPLY" : "Mode: dry run (pass --apply to rename)");
+log.info(`Storage Roots: ${roots.join(", ")}`);
+log.info(apply ? "Mode: APPLY" : "Mode: dry run (pass --apply to rename)");
 
 if (apply) {
   await refuseApplyWhileCvmRuns({
@@ -43,36 +44,35 @@ if (apply) {
 
 const { db } = scriptDrizzle();
 const videos = await listVideosForExportHash(db as Database);
-console.log(`Videos in the database: ${videos.length}`);
+log.info(`Videos in the database: ${videos.length}`);
 
 const program = Effect.gen(function* () {
   const plan = yield* planExportRenameOnDisk(videos, roots);
   const exportsToRename = plan.renames.filter((r) => r.from.endsWith(".mp4"));
-  console.log(`\nExports to rename: ${exportsToRename.length}`);
-  console.log(`  (files incl. digests: ${plan.renames.length})`);
-  for (const { from, to } of plan.renames)
-    console.log(`  ${from}\n    -> ${to}`);
-  console.log(`Already at their new name: ${plan.alreadyCurrent.length}`);
-  console.log(
+  log.info(`\nExports to rename: ${exportsToRename.length}`);
+  log.info(`  (files incl. digests: ${plan.renames.length})`);
+  for (const { from, to } of plan.renames) log.info(`  ${from}\n    -> ${to}`);
+  log.info(`Already at their new name: ${plan.alreadyCurrent.length}`);
+  log.info(
     `Matching no Video, left alone (Standalone/Shorts/legacy): ${plan.leftAlone.length}`
   );
-  for (const file of plan.leftAlone) console.log(`  ${file}`);
+  for (const file of plan.leftAlone) log.info(`  ${file}`);
 
   if (plan.problems.length > 0) {
-    console.error(
+    log.error(
       `\nABORTED: ${plan.problems.length} problem(s). Nothing was renamed.`
     );
-    for (const p of plan.problems) console.error(`  [${p.kind}] ${p.message}`);
+    for (const p of plan.problems) log.error(`  [${p.kind}] ${p.message}`);
     return 1;
   }
   if (!apply) {
-    console.log(
+    log.info(
       "\nDry run: nothing renamed. Re-run with --apply to rename and re-enable export GC."
     );
     return 0;
   }
   const { renamed } = yield* applyExportRename(plan, roots);
-  console.log(`\nRenamed ${renamed} file(s). Export GC is back on.`);
+  log.info(`\nRenamed ${renamed} file(s). Export GC is back on.`);
   return 0;
 });
 
@@ -80,7 +80,7 @@ const code = await Effect.runPromise(
   program.pipe(
     Effect.catchAll((error) =>
       Effect.sync(() => {
-        console.error(`\nFAILED: ${error.message}`);
+        log.error(`\nFAILED: ${error.message}`);
         return 1;
       })
     ),

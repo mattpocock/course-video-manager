@@ -1,3 +1,5 @@
+import { log } from "@/packages/log";
+
 const API_URL = "http://localhost:5173/api/courses/update";
 
 const payload = {
@@ -19,14 +21,14 @@ async function main() {
     });
 
     const data = await res.text();
-    console.log("Status:", res.status);
-    console.log("Response:", data);
+    log.info("Status:", res.status);
+    log.info("Response:", data);
   } catch (err) {
-    console.error("Error:", err);
+    log.error("Error:", err);
   }
 }
 
 main().catch((err: unknown) => {
-  console.error("Error:", err);
+  log.error("Error:", err);
   process.exitCode = 1;
 });

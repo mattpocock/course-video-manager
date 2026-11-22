@@ -1,4 +1,5 @@
 import { createIdleStop } from "@/services/idle-stop";
+import { log } from "@/packages/log";
 
 /**
  * THE RECORDER SERVICE ON DEMAND (ADR 0053). The app server starts Matt's
@@ -60,7 +61,7 @@ export const createServiceOnDemand = (o: {
     busy: async () => o.busy() || (await o.launcher.busy()),
     onIdle: () => {
       if (!running || needed) return;
-      console.log(
+      log.info(
         `recorder service: nothing has needed it for ${o.idleMs / 60_000} minutes; stopping it.`
       );
       stopping = true;
@@ -93,7 +94,7 @@ export const createServiceOnDemand = (o: {
     launching = true;
     o.changed();
     o.launcher.start().then(started, (error: unknown) => {
-      console.error("recorder service: could not start it", error);
+      log.error("recorder service: could not start it", error);
       started(undefined);
     });
   };

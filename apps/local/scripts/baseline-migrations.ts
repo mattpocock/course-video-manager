@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { scriptPgClient } from "./script-database-url";
+import { log } from "@/packages/log";
 
 const MIGRATIONS_DIR = join(
   import.meta.dirname,
@@ -13,7 +14,7 @@ const journal = JSON.parse(readFileSync(journalPath, "utf-8"));
 const baseline = journal.entries[0];
 
 if (!baseline || baseline.idx !== 0) {
-  console.error("No baseline (idx=0) entry found in _journal.json");
+  log.error("No baseline (idx=0) entry found in _journal.json");
   process.exit(1);
 }
 
@@ -45,14 +46,14 @@ try {
   );
 
   if (existing.rows.length > 0) {
-    console.log("Baseline migration already registered — nothing to do.");
+    log.info("Baseline migration already registered — nothing to do.");
   } else {
     await client.query(
       `INSERT INTO drizzle.__drizzle_migrations (hash, created_at)
        VALUES ($1, $2)`,
       [hash, baseline.when]
     );
-    console.log(
+    log.info(
       `Registered baseline migration ${baseline.tag} (hash=${hash.slice(0, 12)}…, when=${baseline.when})`
     );
   }

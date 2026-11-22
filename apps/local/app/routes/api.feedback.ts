@@ -4,6 +4,7 @@ import { promisify } from "node:util";
 import type { Route } from "./+types/api.feedback";
 import { anthropic } from "@ai-sdk/anthropic";
 import { generateText } from "ai";
+import { log } from "@/packages/log";
 
 const execFileAsync = promisify(execFile);
 
@@ -32,7 +33,7 @@ export const action = async (args: Route.ActionArgs) => {
     });
     title = result.text.trim();
   } catch (error) {
-    console.error("Failed to generate title, using fallback:", error);
+    log.error("Failed to generate title, using fallback:", error);
     // Fallback: use the first line/sentence of the description, truncated
     title = descriptionText.split(/[.\n]/)[0]!.slice(0, 80);
   }
@@ -72,7 +73,7 @@ export const action = async (args: Route.ActionArgs) => {
 
     return { success: true, openIssueCount };
   } catch (error) {
-    console.error("Failed to create GitHub issue:", error);
+    log.error("Failed to create GitHub issue:", error);
     throw data("Failed to create GitHub issue", { status: 500 });
   }
 };

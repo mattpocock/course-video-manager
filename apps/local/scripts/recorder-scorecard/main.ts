@@ -53,6 +53,7 @@ import {
   guardWindows,
   REFUSED_EXIT_CODE,
 } from "../windows-guard";
+import { log } from "@/packages/log";
 
 const args = process.argv.slice(2);
 const flag = (name: string) => {
@@ -82,7 +83,7 @@ const SCENARIOS = [
 ];
 const unknownScenarios = only?.filter((o) => !SCENARIOS.includes(o)) ?? [];
 if (unknownScenarios.length) {
-  console.error(
+  log.error(
     `--only: no scenario ${unknownScenarios.join(", ")} (${SCENARIOS.join(", ")})`
   );
   process.exit(2);
@@ -98,8 +99,8 @@ const workDir = path.join(os.tmpdir(), `cvm-recorder-scorecard-${runId}`);
 /** The local RTMP sink the streamed scenario's Live Stream pushes to. */
 const sinkPort = 19350 + (randomBytes(2).readUInt16BE(0) % 600);
 
-const log = (line: string) =>
-  console.log(`[scorecard ${new Date().toISOString().slice(11, 19)}] ${line}`);
+const logLine = (line: string) =>
+  log.info(`[scorecard ${new Date().toISOString().slice(11, 19)}] ${line}`);
 
 /** Nothing the scorecard writes may land on a Windows drive. */
 const refuseMnt = (dir: string) => {
@@ -138,7 +139,9 @@ const main = async () => {
   // while OBS runs; everything that does start runs at Idle on cores 6-9.
   const reasons = checkWindows();
   if (reasons.length > 0) {
-    log(`not run, the Windows guard refuses:\n  - ${reasons.join("\n  - ")}`);
+    logLine(
+      `not run, the Windows guard refuses:\n  - ${reasons.join("\n  - ")}`
+    );
     process.exitCode = REFUSED_EXIT_CODE;
     return;
   }
@@ -158,10 +161,10 @@ const main = async () => {
   const emergency = (why: string) => {
     if (aborted) return;
     aborted = true;
-    log(`STOPPING NOW: ${why}`);
+    logLine(`STOPPING NOW: ${why}`);
     notes.push(`ABORTED at ${new Date().toISOString()}: ${why}.`);
     void stopEverything().then(() =>
-      log("every Windows process of the run is stopped")
+      logLine("every Windows process of the run is stopped")
     );
   };
   let checking = false;
@@ -189,7 +192,7 @@ const main = async () => {
       `GPU before the service started: ${Math.round(gpuBefore.gpuPct)}% busy, NVENC ${Math.round(gpuBefore.encoderPct)}%, ${Math.round(gpuBefore.memoryMb)} MiB.`
     );
   const cpus = await logicalCpus();
-  log(`run ${runId}: service starting (marker ${marker})`);
+  logLine(`run ${runId}: service starting (marker ${marker})`);
   const service = await startService({
     marker,
     stateDir,
@@ -228,7 +231,7 @@ const main = async () => {
     cpus,
     measured,
     details,
-    log,
+    logLine,
     checkAbort: () => {
       if (aborted) throw new Aborted("The guard stopped the run");
     },
@@ -236,7 +239,7 @@ const main = async () => {
   ctxRef = ctx;
 
   details.openToLiveMs = await openRecorder(ctx);
-  log(`camera live after ${Math.round(details.openToLiveMs as number)} ms`);
+  logLine(`camera live after ${Math.round(details.openToLiveMs as number)} ms`);
   try {
     ctx.probe = await openPreviewProbe(service.port);
   } catch (e) {
@@ -280,7 +283,7 @@ const main = async () => {
       await run();
     } catch (e) {
       if (e instanceof Aborted) break;
-      log(`${name} failed: ${e instanceof Error ? e.stack : String(e)}`);
+      logLine(`${name} failed: ${e instanceof Error ? e.stack : String(e)}`);
       (details.errors as Record<string, string>)[name] =
         e instanceof Error ? e.message.slice(0, 2000) : String(e);
       // A take left recording is stopped before the next scenario.
@@ -292,7 +295,7 @@ const main = async () => {
   clearInterval(guard);
   await ctx.probe?.close();
   if (!aborted) {
-    log("closing");
+    logLine("closing");
     try {
       const from = ctx.client.send({ type: "stop" });
       await sleep(1000);
@@ -302,7 +305,7 @@ const main = async () => {
         timeoutMs: 30_000,
       });
     } catch (e) {
-      log(`close: ${e instanceof Error ? e.message : String(e)}`);
+      logLine(`close: ${e instanceof Error ? e.message : String(e)}`);
     }
     await ctx.service.stop();
   }
@@ -328,7 +331,7 @@ const main = async () => {
     path.join(outDir, "scorecard.md"),
     renderMarkdown(run, measured)
   );
-  log(`report: ${path.join(outDir, "scorecard.md")}`);
+  logLine(`report: ${path.join(outDir, "scorecard.md")}`);
 };
 
 try {
@@ -337,6 +340,6 @@ try {
   // Whatever happened, nothing of this run is left running on Windows.
   await killRun(marker).catch(() => 0);
   if (!keepFootage) fs.rmSync(workDir, { recursive: true, force: true });
-  else log(`footage kept in ${workDir}`);
+  else logLine(`footage kept in ${workDir}`);
 }
 process.exit(0);

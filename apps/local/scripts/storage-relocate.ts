@@ -32,13 +32,14 @@ import {
 import { scriptDrizzle } from "./script-database-url";
 import { CVM_APP_PORT, refuseApplyWhileCvmRuns } from "./running-cvm";
 import { sidecarSocketPath } from "@/services/sidecar-socket.server";
+import { log } from "@/packages/log";
 
 const apply = process.argv.includes("--apply");
 const roots = readStorageRootsSync();
 const legacy = legacyVideoFilesStores();
-console.log(`Storage Roots: ${roots.join(", ")} (writing to ${roots[0]})`);
-console.log(`Legacy Video Files stores: ${legacy.join(", ") || "none"}`);
-console.log(apply ? "Mode: APPLY" : "Mode: dry run (pass --apply to move)");
+log.info(`Storage Roots: ${roots.join(", ")} (writing to ${roots[0]})`);
+log.info(`Legacy Video Files stores: ${legacy.join(", ") || "none"}`);
+log.info(apply ? "Mode: APPLY" : "Mode: dry run (pass --apply to move)");
 
 if (apply) {
   await refuseApplyWhileCvmRuns({
@@ -55,8 +56,8 @@ const program = Effect.gen(function* () {
     legacyVideoFilesStores: legacy,
   });
   const list = (title: string, items: readonly string[]) => {
-    console.log(`\n${title}: ${items.length}`);
-    for (const item of items) console.log(`  ${item}`);
+    log.info(`\n${title}: ${items.length}`);
+    for (const item of items) log.info(`  ${item}`);
   };
   list(
     "Files to copy",
@@ -75,21 +76,21 @@ const program = Effect.gen(function* () {
   list("Legacy Video Files left in place (shadowed)", plan.shadowed);
 
   if (plan.problems.length > 0) {
-    console.error(
+    log.error(
       `\nABORTED: ${plan.problems.length} problem(s). Nothing was changed.`
     );
-    for (const p of plan.problems) console.error(`  ${p}`);
+    for (const p of plan.problems) log.error(`  ${p}`);
     return 1;
   }
   if (!apply) {
-    console.log("\nDry run: nothing changed. Re-run with --apply to move.");
+    log.info("\nDry run: nothing changed. Re-run with --apply to move.");
     return 0;
   }
   const result = yield* applyRelocation(db as Database, plan, roots);
-  console.log(
+  log.info(
     `\nCopied ${result.copied} file(s), rewrote ${result.rows} path(s), renamed ${result.exportsRenamed} export file(s).`
   );
-  console.log(
+  log.info(
     `Removed ${result.originalsRemoved} original(s); ${result.originalsLeft} could not be removed (open on Windows?) — remove them by hand, or re-run.`
   );
   return 0;
@@ -99,7 +100,7 @@ const code = await Effect.runPromise(
   program.pipe(
     Effect.catchAll((error) =>
       Effect.sync(() => {
-        console.error(`\nFAILED: ${error.message}`);
+        log.error(`\nFAILED: ${error.message}`);
         return 1;
       })
     ),
