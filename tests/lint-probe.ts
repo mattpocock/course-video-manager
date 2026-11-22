@@ -29,15 +29,21 @@ const isReport = (value: unknown): value is { diagnostics: Diagnostic[] } =>
 /**
  * Lints probe files with the repo's real `.oxlintrc.json` and local plugin,
  * in a throwaway directory: each key of `files` is a repo-relative path and
- * its value the source planted there. Returns Oxlint's diagnostics, and
- * `remove` to delete the directory.
+ * its value the source planted there. `glossary` replaces the copy of the
+ * repo's `GLOSSARY.md`. Returns Oxlint's diagnostics, and `remove` to delete
+ * the directory.
  */
-export const lintProbes = (files: Record<string, string>) => {
+export const lintProbes = (
+  files: Record<string, string>,
+  { glossary }: { glossary?: string } = {}
+) => {
   const dir = mkdtempSync(path.join(tmpdir(), "lint-probe-"));
-  copyFileSync(
-    path.join(ROOT, ".oxlintrc.json"),
-    path.join(dir, ".oxlintrc.json")
-  );
+  for (const file of [".oxlintrc.json", "GLOSSARY.md"]) {
+    copyFileSync(path.join(ROOT, file), path.join(dir, file));
+  }
+  if (glossary !== undefined) {
+    writeFileSync(path.join(dir, "GLOSSARY.md"), glossary);
+  }
   symlinkSync(path.join(ROOT, "lint"), path.join(dir, "lint"));
   mkdirSync(path.join(dir, "node_modules"));
   symlinkSync(

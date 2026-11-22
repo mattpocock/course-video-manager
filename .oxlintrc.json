@@ -38,6 +38,11 @@
     // A disable directive names the rules it silences. A bare one would also
     // silence local/allowed-directives, and this rule cannot be silenced.
     "unicorn/no-abusive-eslint-disable": "error",
+    // Code uses the glossary's words: an identifier built from an entry of a
+    // GLOSSARY.md `_Avoid_` list fails, naming the term to use instead. The
+    // rule reads the lists, so editing the glossary changes what fails. A
+    // GLOSSARY-MAP.md context would point an override at its own glossary.
+    "local/glossary-terms": ["error", { "glossary": "GLOSSARY.md" }],
     // Overload signatures are never checked against the implementation.
     "local/no-overloads": "error",
     // CODING STANDARD: "Every `any` is a leak". Narrow a type instead of

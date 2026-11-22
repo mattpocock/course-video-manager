@@ -33,6 +33,7 @@ const EXPECTED = [
   "local(no-cjs-paths)",
   "local(response-body)",
   "local(routes-folder)",
+  "local(glossary-terms)",
   "eslint(no-restricted-imports)",
 ];
 

@@ -118,7 +118,10 @@ const FILES: Record<string, readonly Ban[]> = {
 };
 
 const banOf = (d: Diagnostic): string | undefined => {
-  if (d.code.startsWith("local(")) return d.code.slice(6, -1);
+  const local = /^local\((db-clients|clip-inserts|script-db-url)\)$/.exec(
+    d.code
+  );
+  if (local) return local[1];
   if (d.code !== "eslint(no-restricted-imports)") return undefined;
   return `import ${/'([^']+)'/.exec(d.message)?.[1]}`;
 };
