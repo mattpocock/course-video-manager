@@ -401,7 +401,7 @@
     "typescript(no-unsafe-return)": 2
   },
   "apps/local/app/cli/cli-layer.test.ts": {
-    "eslint(no-restricted-properties)": 9,
+    "eslint(no-restricted-properties)": 8,
     "local(no-comments)": 20,
     "local(no-unsafe-as)": 4,
     "typescript(no-non-null-assertion)": 2
@@ -7365,6 +7365,7 @@
     "local(no-comments)": 8
   },
   "apps/local/recorder-service/windows-launcher.ts": {
+    "eslint(no-restricted-properties)": 2,
     "local(no-comments)": 12
   },
   "apps/local/recorder-service/writer-graph.ts": {
