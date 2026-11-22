@@ -94,8 +94,7 @@
     }
   },
   "lint-staged": {
-    "*": "prettier --ignore-unknown --write",
-    "*.{js,jsx,ts,tsx,mjs,cjs,mts,cts}": "node scripts/lint-ratchet.ts"
+    "*": "prettier --write"
   },
   "devDependencies": {
     "@ai-hero/sandcastle": "^0.10.0",

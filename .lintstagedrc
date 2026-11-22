@@ -1,3 +1,4 @@
 {
-  "*": "prettier --ignore-unknown --write"
+  "*": "prettier --ignore-unknown --write",
+  "*.{js,jsx,ts,tsx,mjs,cjs,mts,cts}": "node scripts/lint-ratchet.ts"
 }
