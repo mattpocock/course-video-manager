@@ -157,6 +157,7 @@ export function findNetworkUses(program: Node): Node[] {
   const sdkModules = new Set<string>();
   const cloudinaryNames = new Set<string>();
   const effectHttpNames = new Set<string>();
+  const httpOwnerNames = new Set<string>();
   if (program.type === "Program") {
     for (const statement of program.body) {
       if (statement.type !== "ImportDeclaration") continue;
@@ -195,6 +196,10 @@ export function findNetworkUses(program: Node): Node[] {
           }
         }
         if (from === "cloudinary") cloudinaryNames.add(local);
+        // The fetch owner: a call through it is still an outbound call.
+        if (from === "@/packages/http" && imported === "httpRequest") {
+          httpOwnerNames.add(local);
+        }
         // Effect's HTTP client: `HttpClient` from `@effect/platform`, or the
         // `@effect/platform/HttpClient` module itself.
         if (EFFECT_HTTP_MODULES.test(from)) {
@@ -217,7 +222,7 @@ export function findNetworkUses(program: Node): Node[] {
         parent?.type === "MemberExpression" && key === "object";
       if (effectHttpNames.has(name)) {
         uses.push(node);
-      } else if (name === "fetch") {
+      } else if (name === "fetch" || httpOwnerNames.has(name)) {
         const call = parent?.type === "CallExpression" && key === "callee";
         if (!(call && isSameOriginFetch(parent))) uses.push(node);
       } else if (aiValues.has(name) || sdkClients.has(name)) {

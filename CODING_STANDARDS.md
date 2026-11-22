@@ -390,6 +390,12 @@ Avoid shallow modules: large interface with many methods that just pass through
 to thin implementation. When designing, ask: can I reduce the number of methods?
 Can I simplify the parameters? Can I hide more complexity inside?
 
+### Global APIs have one owner
+
+Raw `process.env`, `fetch`, `Date`, timers, `Math.random`, `console` and
+`localStorage` fail lint outside their owner, which the error names. Old hits
+sit in `lint-baseline.json`.
+
 ### Design for testability
 
 1. **Accept dependencies, don't create them** — pass external dependencies in rather than constructing them internally.

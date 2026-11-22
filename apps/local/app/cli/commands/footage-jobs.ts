@@ -3,7 +3,7 @@ import { ConfigProvider, Effect, Layer, Option } from "effect";
 import { GitWorktreeProbeLive } from "@cvm/core/git-worktree";
 import { JobOperationsService } from "@cvm/core/services/db-job-operations.server";
 import { DrizzleService } from "@/services/drizzle-service.server";
-import { loadRepoEnv } from "@/services/repo-env";
+import { loadRepoEnv } from "@/packages/env";
 import { readStorageRootsSync } from "@/services/storage-roots";
 import { NEEDS_FOOTAGE_ON_DISK, requireLocalMachine } from "@/cli/local-only";
 import { parseError } from "@/cli/helpers";

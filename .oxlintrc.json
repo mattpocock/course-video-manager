@@ -62,12 +62,56 @@
         ]
       }
     ],
-    // CODING STANDARD: localStorage goes through the hook.
+    // CODING STANDARD: "Global APIs have one owner". Each raw global is
+    // banned here, and each message names its owner. Each owner's override at
+    // the bottom re-lists every ban but its own, because an override replaces
+    // a rule's whole option list.
     "no-restricted-globals": [
       "error",
       {
+        "name": "fetch",
+        "message": "In Effect code use HttpClient from @effect/platform. Elsewhere in apps/local use httpRequest from @/packages/http."
+      },
+      {
+        "name": "Date",
+        "message": "In Effect code use Clock or DateTime. Elsewhere in apps/local use now, nowMs or toDate from @/packages/clock; in packages/core use features/time/london-time.ts. Date as a type annotation is fine."
+      },
+      {
+        "name": "setTimeout",
+        "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+      },
+      {
+        "name": "setInterval",
+        "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+      },
+      {
+        "name": "clearTimeout",
+        "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+      },
+      {
+        "name": "clearInterval",
+        "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+      },
+      {
+        "name": "console",
+        "message": "In Effect code use Effect.log*; the Sidecar logs through its JSON logger (sidecar/json-logger.ts). Elsewhere in apps/local use log from @/packages/log, and CLI commands write through CliOutput (app/cli/output.ts)."
+      },
+      {
         "name": "localStorage",
         "message": "Use useLocalStorage from @/hooks/use-local-storage. It handles the SSR guard, the stored-value fallback and the save on every change."
+      }
+    ],
+    "no-restricted-properties": [
+      "error",
+      {
+        "object": "process",
+        "property": "env",
+        "message": "In Effect code use Config. Elsewhere in apps/local use readEnv or the .env reader from @/packages/env; in packages/core the database URL comes from packages/core/db/database-url.ts."
+      },
+      {
+        "object": "Math",
+        "property": "random",
+        "message": "In Effect code use Random. Elsewhere in apps/local use randomFraction or randomInt from @/packages/random."
       }
     ],
     // CODING STANDARD: "Effects are run, never dropped" — never `await` an
@@ -167,36 +211,10 @@
       }
     },
     {
-      // The hook itself is the one place raw localStorage belongs.
-      "files": ["apps/local/app/hooks/use-local-storage.ts"],
-      "rules": { "no-restricted-globals": "off" }
-    },
-    {
-      // Tests assert on what was stored, so they read the real thing.
-      "files": ["**/*.test.ts", "**/*.test.tsx"],
-      "rules": { "no-restricted-globals": "off" }
-    },
-    {
       // A test reads top to bottom as a script of events; complexity is a
       // production-code standard.
       "files": ["**/*.test.ts", "**/*.test.tsx"],
       "rules": { "complexity": "off" }
-    },
-    {
-      // Legacy: these files predate the standard. THIS LIST ONLY SHRINKS —
-      // move a file onto useLocalStorage and delete its line. Do not add one.
-      "files": [
-        "apps/local/app/features/article-writer/write-utils.ts",
-        "apps/local/app/features/article-writer/writer-engine-utils.ts",
-        "apps/local/app/features/diagrams/diagram-centering-settings.ts",
-        "apps/local/app/features/video-posting/ai-hero-page.tsx",
-        "apps/local/app/features/video-posting/newsletter-page.tsx",
-        "apps/local/app/features/video-posting/post-page.tsx",
-        "apps/local/app/features/video-posting/skills-changelog-page.tsx",
-        "apps/local/app/features/video-posting/social-page.tsx",
-        "apps/local/app/routes/_app._index.tsx"
-      ],
-      "rules": { "no-restricted-globals": "off" }
     },
     {
       // Legacy complexity: these files had functions over the limit when the
@@ -304,6 +322,207 @@
         "scripts/check-background-jobs.ts"
       ],
       "rules": { "complexity": "off" }
+    },
+    {
+      // Owns localStorage: the useLocalStorage hook.
+      "files": ["apps/local/app/hooks/use-local-storage.ts"],
+      "rules": {
+        "no-restricted-globals": [
+          "error",
+          {
+            "name": "fetch",
+            "message": "In Effect code use HttpClient from @effect/platform. Elsewhere in apps/local use httpRequest from @/packages/http."
+          },
+          {
+            "name": "Date",
+            "message": "In Effect code use Clock or DateTime. Elsewhere in apps/local use now, nowMs or toDate from @/packages/clock; in packages/core use features/time/london-time.ts. Date as a type annotation is fine."
+          },
+          {
+            "name": "setTimeout",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "name": "setInterval",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "name": "clearTimeout",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "name": "clearInterval",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "name": "console",
+            "message": "In Effect code use Effect.log*; the Sidecar logs through its JSON logger (sidecar/json-logger.ts). Elsewhere in apps/local use log from @/packages/log, and CLI commands write through CliOutput (app/cli/output.ts)."
+          }
+        ]
+      }
+    },
+    {
+      // Owns process.env: the env package in apps/local, and the
+      // database-URL resolver in packages/core.
+      "files": [
+        "apps/local/app/packages/env/lib/**",
+        "packages/core/db/database-url.ts"
+      ],
+      "rules": {
+        "no-restricted-properties": [
+          "error",
+          {
+            "object": "Math",
+            "property": "random",
+            "message": "In Effect code use Random. Elsewhere in apps/local use randomFraction or randomInt from @/packages/random."
+          }
+        ]
+      }
+    },
+    {
+      // Owns fetch: the http package.
+      "files": ["apps/local/app/packages/http/lib/**"],
+      "rules": {
+        "no-restricted-globals": [
+          "error",
+          {
+            "name": "Date",
+            "message": "In Effect code use Clock or DateTime. Elsewhere in apps/local use now, nowMs or toDate from @/packages/clock; in packages/core use features/time/london-time.ts. Date as a type annotation is fine."
+          },
+          {
+            "name": "setTimeout",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "name": "setInterval",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "name": "clearTimeout",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "name": "clearInterval",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "name": "console",
+            "message": "In Effect code use Effect.log*; the Sidecar logs through its JSON logger (sidecar/json-logger.ts). Elsewhere in apps/local use log from @/packages/log, and CLI commands write through CliOutput (app/cli/output.ts)."
+          },
+          {
+            "name": "localStorage",
+            "message": "Use useLocalStorage from @/hooks/use-local-storage. It handles the SSR guard, the stored-value fallback and the save on every change."
+          }
+        ]
+      }
+    },
+    {
+      // Owns Date and the timers: the clock package.
+      "files": ["apps/local/app/packages/clock/lib/**"],
+      "rules": {
+        "no-restricted-globals": [
+          "error",
+          {
+            "name": "fetch",
+            "message": "In Effect code use HttpClient from @effect/platform. Elsewhere in apps/local use httpRequest from @/packages/http."
+          },
+          {
+            "name": "console",
+            "message": "In Effect code use Effect.log*; the Sidecar logs through its JSON logger (sidecar/json-logger.ts). Elsewhere in apps/local use log from @/packages/log, and CLI commands write through CliOutput (app/cli/output.ts)."
+          },
+          {
+            "name": "localStorage",
+            "message": "Use useLocalStorage from @/hooks/use-local-storage. It handles the SSR guard, the stored-value fallback and the save on every change."
+          }
+        ]
+      }
+    },
+    {
+      // Owns Date in packages/core: the time feature.
+      "files": ["packages/core/features/time/london-time.ts"],
+      "rules": {
+        "no-restricted-globals": [
+          "error",
+          {
+            "name": "fetch",
+            "message": "In Effect code use HttpClient from @effect/platform. Elsewhere in apps/local use httpRequest from @/packages/http."
+          },
+          {
+            "name": "setTimeout",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "name": "setInterval",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "name": "clearTimeout",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "name": "clearInterval",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "name": "console",
+            "message": "In Effect code use Effect.log*; the Sidecar logs through its JSON logger (sidecar/json-logger.ts). Elsewhere in apps/local use log from @/packages/log, and CLI commands write through CliOutput (app/cli/output.ts)."
+          },
+          {
+            "name": "localStorage",
+            "message": "Use useLocalStorage from @/hooks/use-local-storage. It handles the SSR guard, the stored-value fallback and the save on every change."
+          }
+        ]
+      }
+    },
+    {
+      // Owns Math.random: the random package.
+      "files": ["apps/local/app/packages/random/lib/**"],
+      "rules": {
+        "no-restricted-properties": [
+          "error",
+          {
+            "object": "process",
+            "property": "env",
+            "message": "In Effect code use Config. Elsewhere in apps/local use readEnv or the .env reader from @/packages/env; in packages/core the database URL comes from packages/core/db/database-url.ts."
+          }
+        ]
+      }
+    },
+    {
+      // Owns console: the log package.
+      "files": ["apps/local/app/packages/log/lib/**"],
+      "rules": {
+        "no-restricted-globals": [
+          "error",
+          {
+            "name": "fetch",
+            "message": "In Effect code use HttpClient from @effect/platform. Elsewhere in apps/local use httpRequest from @/packages/http."
+          },
+          {
+            "name": "Date",
+            "message": "In Effect code use Clock or DateTime. Elsewhere in apps/local use now, nowMs or toDate from @/packages/clock; in packages/core use features/time/london-time.ts. Date as a type annotation is fine."
+          },
+          {
+            "name": "setTimeout",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "name": "setInterval",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "name": "clearTimeout",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "name": "clearInterval",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "name": "localStorage",
+            "message": "Use useLocalStorage from @/hooks/use-local-storage. It handles the SSR guard, the stored-value fallback and the save on every change."
+          }
+        ]
+      }
     }
   ]
 }

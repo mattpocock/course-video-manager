@@ -10,6 +10,7 @@ export interface Diagnostic {
   code: string;
   severity: string;
   message: string;
+  help?: string;
   labels?: { span: { line: number; column: number } }[];
 }
 

@@ -16,6 +16,8 @@ const EXPECTED = [
   "local(allowed-directives)",
   "oxlint(unused-disable-directive)",
   "unicorn(no-abusive-eslint-disable)",
+  "eslint(no-restricted-globals)",
+  "eslint(no-restricted-properties)",
 ];
 
 const SELF_DISABLE = "lint/canary/self-disable.ts";

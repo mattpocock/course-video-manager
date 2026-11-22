@@ -161,6 +161,11 @@ describe("scan", () => {
       SERVICE,
       `import { HttpClient } from "@effect/platform";\nexport const c = HttpClient.HttpClient;`,
     ],
+    [
+      "the http package's fetch, under any name",
+      SERVICE,
+      `import { httpRequest as get } from "@/packages/http";\nexport const f = () => get("https://a.com");`,
+    ],
   ])("counts %s", (_, file, source) => {
     expect(guards(scan(file, source))).toContain("network");
   });

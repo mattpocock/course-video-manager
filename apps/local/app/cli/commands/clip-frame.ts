@@ -4,7 +4,7 @@ import { OverlayFrameService } from "@/services/overlay-frame";
 import { clipFrame } from "@/services/clip-frame";
 import { detail, emitObject } from "@/cli/helpers";
 import { NEEDS_FOOTAGE_ON_DISK, requireLocalMachine } from "@/cli/local-only";
-import { loadRepoEnv } from "@/services/repo-env";
+import { loadRepoEnv } from "@/packages/env";
 import { entityIdArg } from "../entity-id";
 import { requireActiveClip } from "./clip.shared";
 import { atOption, frameLayer } from "./footage-frame";

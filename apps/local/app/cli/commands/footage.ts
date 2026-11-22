@@ -29,7 +29,7 @@ import {
   parseError,
 } from "@/cli/helpers";
 import { CliOutput } from "@/cli/output";
-import { loadRepoEnv } from "@/services/repo-env";
+import { loadRepoEnv } from "@/packages/env";
 import { enqueueJob, JOB_KIND_SPECS } from "../../../sidecar/job-specs";
 import { FILE_NAMES } from "recorder-service/capture-args";
 import { footageOnDisk } from "./footage-on-disk";

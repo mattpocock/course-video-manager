@@ -7,7 +7,7 @@ import {
   PUBLISH_BLOCKING_LISTS,
   validatePublishability,
 } from "@/services/course-publish-readiness";
-import { loadRepoEnv } from "@/services/repo-env";
+import { loadRepoEnv } from "@/packages/env";
 import {
   NEEDS_FINISHED_VIDEOS_DIRECTORY,
   requireLocalMachine,
