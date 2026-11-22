@@ -182,7 +182,6 @@ function MeasuredSpine({
     // section's rendered items via revalidateKey — an in-place reorder leaves
     // spinePairs and the container box unchanged, so neither pairsKey nor the
     // ResizeObserver would otherwise fire. See docs/adr/0010.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pairsKey, revalidateKey]);
 
   return (

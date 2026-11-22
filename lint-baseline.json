@@ -194,9 +194,6 @@
   "apps/local/sidecar/sidecar.ts": {
     "unicorn(no-thenable)": 1
   },
-  "packages/core/services/patient-connection-pool.test.ts": {
-    "local(no-overloads)": 2
-  },
   "packages/core/services/version-copy-manifest.ts": {
     "oxc(only-used-in-recursion)": 1
   },

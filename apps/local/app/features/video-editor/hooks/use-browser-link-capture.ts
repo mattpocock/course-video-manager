@@ -37,6 +37,5 @@ export function useBrowserLinkCapture(
     };
     // The socket is opened once; `onEvent` is captured on mount. Callers pass a
     // stable dispatch, so we intentionally do not re-subscribe on identity.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 }

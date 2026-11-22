@@ -241,7 +241,7 @@ export function AiHeroPage({
         })
         .catch(console.error);
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleRegenerate = async () => {
     const text = await generateSeoDescription();

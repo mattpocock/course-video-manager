@@ -1,0 +1,37 @@
+[
+  {
+    "file": "apps/local/app/features/imported-footage/youtube-footage.ts",
+    "directive": "eslint-disable-next-line no-control-regex",
+    "reason": "The pattern strips characters no file name may hold, and control codes are among them: matching them is its job."
+  },
+  {
+    "file": "apps/local/app/services/clip-mockup-daemon/server.ts",
+    "directive": "@effect-diagnostics-next-line globalErrorInEffectFailure:off",
+    "reason": "The throw is in a plain async request handler, not an Effect; its .then turns the rejection into a 400, so it never reaches an Effect's failure channel."
+  },
+  {
+    "file": "apps/local/app/services/route-action.server.test.ts",
+    "directive": "@effect-diagnostics-next-line globalErrorInEffectFailure:off",
+    "reason": "The test fails with a deliberately untagged Error to pin the action's fallback to a 500 for an error with no _tag."
+  },
+  {
+    "file": "apps/local/sidecar/posting-kinds.test.ts",
+    "directive": "@ts-expect-error a posting kind's policy is fixed: no attempts to set",
+    "reason": "A type test: it passes only while the compiler refuses maxAttempts on a posting kind."
+  },
+  {
+    "file": "apps/local/sidecar/posting-kinds.test.ts",
+    "directive": "@ts-expect-error a kind that posts is defined with definePostingJobKind",
+    "reason": "A type test: it passes only while the compiler refuses posting: true on defineJobKind."
+  },
+  {
+    "file": "apps/local/sidecar/posting-kinds.test.ts",
+    "directive": "@ts-expect-error checkPosted is required",
+    "reason": "A type test: it passes only while the compiler refuses a posting kind with no checkPosted."
+  },
+  {
+    "file": "packages/core/services/patient-connection-pool.test.ts",
+    "directive": "oxlint-disable-next-line local/no-overloads",
+    "reason": "The fake overrides pg.Client's overloaded connect, and an override must match both library signatures. One generic signature is rejected (TS2416), and the other ways out are an any return, an as never cast, or widening makeConnectionPool's Client option in production code."
+  }
+]

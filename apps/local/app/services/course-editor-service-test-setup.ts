@@ -23,7 +23,6 @@ export let testDb: TestDb;
 export let editorService: CourseEditorService;
 
 export function setupEditorServiceTests() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let runtime: ManagedRuntime.ManagedRuntime<any, any>;
 
   beforeAll(async () => {

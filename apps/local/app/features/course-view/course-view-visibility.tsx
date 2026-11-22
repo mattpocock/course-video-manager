@@ -192,7 +192,6 @@ export function CourseViewVisibilityProvider({
 
   const value = useMemo(
     () => ({ prefs, effective, setPref }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [prefs, effective]
   );
 

@@ -11,6 +11,9 @@ const EXPECTED = [
   "eslint(no-debugger)",
   "typescript(no-floating-promises)",
   "local(no-overloads)",
+  "local(allowed-directives)",
+  "oxlint(unused-disable-directive)",
+  "unicorn(no-abusive-eslint-disable)",
 ];
 
 function main() {

@@ -28,7 +28,6 @@ function mockFFmpeg(opts: {
   } as unknown as FFmpegCommandsService;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const run = <A>(effect: Effect.Effect<A, any, any>): Promise<A> =>
   Effect.runPromise(
     effect.pipe(Effect.provide(NodeContext.layer)) as Effect.Effect<A>
