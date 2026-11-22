@@ -12,6 +12,7 @@ import {
   type ExportOverlay,
 } from "@/services/export-hash";
 import { garbageCollect } from "@/services/export-hash.server";
+import { now } from "@/packages/clock";
 
 const makeClip = (
   overrides: Partial<ExportClip> &
@@ -332,7 +333,7 @@ describe("export-hash", () => {
         repoId: "course-1",
         name: "v",
         description: "",
-        createdAt: new Date(),
+        createdAt: now(),
       }));
 
       const dbLayer = Layer.succeed(VersionOperationsService, {

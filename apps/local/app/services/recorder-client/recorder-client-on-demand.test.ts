@@ -15,6 +15,7 @@ import {
   RECORDER_IDLE_MS,
   type RecorderServiceLauncher,
 } from "./service-on-demand";
+import { delay } from "@/packages/clock";
 
 /**
  * The recorder service on demand (ADR 0053), end to end without hardware:
@@ -87,7 +88,7 @@ const setup = async () => {
   return { client, log, video, heard, open };
 };
 
-const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const wait = (ms: number) => delay(ms);
 
 describe("the recorder service on demand", () => {
   it("idles out 2 minutes after nothing needs it (#2383)", () => {

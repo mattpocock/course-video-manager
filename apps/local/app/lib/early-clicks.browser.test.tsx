@@ -4,6 +4,7 @@ import { hydrateRoot, type Root } from "react-dom/client";
 import { renderToString } from "react-dom/server";
 import { afterEach, expect, it, vi } from "vitest";
 import { captureEarlyClicks, replayEarlyClicks } from "./early-clicks";
+import { delay } from "@/packages/clock";
 
 /**
  * The bug: the server-rendered page paints its buttons before React attaches
@@ -99,6 +100,6 @@ it("posts once when the dead-looking page was clicked twice before hydration", a
   await expect.poll(() => onPost.mock.calls.length).toBe(1);
   // Replayed back to back in one task, the second click would get past the
   // disabled guard before React re-renders: two posts (2 before the fix).
-  await new Promise((resolve) => setTimeout(resolve, 50));
+  await delay(50);
   expect(onPost).toHaveBeenCalledTimes(1);
 });

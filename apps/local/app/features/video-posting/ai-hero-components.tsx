@@ -18,6 +18,7 @@ import {
   UnplugIcon,
   XCircleIcon,
 } from "lucide-react";
+import { after } from "@/packages/clock";
 
 export function AiHeroConnectCard() {
   const [deviceFlow, setDeviceFlow] = useState<{
@@ -72,7 +73,7 @@ export function AiHeroConnectCard() {
     if (deviceFlow) {
       navigator.clipboard.writeText(deviceFlow.userCode);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      after(2000, () => setCopied(false));
     }
   };
 

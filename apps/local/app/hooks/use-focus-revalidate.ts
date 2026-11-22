@@ -1,6 +1,7 @@
 import { useRevalidator } from "react-router";
 import { toast } from "@/components/ui/toast";
 import { useEffect } from "react";
+import { every } from "@/packages/clock";
 
 interface UseFocusRevalidateOptions {
   /**
@@ -47,17 +48,17 @@ export function useFocusRevalidate(options: UseFocusRevalidateOptions = {}) {
       }
     );
 
-    let interval: ReturnType<typeof setInterval> | undefined;
+    let stopTimer: (() => void) | undefined;
     if (intervalMs) {
-      interval = setInterval(() => {
+      stopTimer = every(intervalMs, () => {
         revalidate();
-      }, intervalMs);
+      });
     }
 
     return () => {
       abortController.abort();
-      if (interval) {
-        clearInterval(interval);
+      if (stopTimer) {
+        stopTimer();
       }
     };
   }, [enabled, intervalMs, revalidator]);

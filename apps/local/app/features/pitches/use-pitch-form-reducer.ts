@@ -7,6 +7,7 @@ import {
   pitchFormReducer,
   selectWaitingSave,
 } from "./pitch-form-reducer";
+import { after } from "@/packages/clock";
 
 /** How long typing must pause before an edit saves. */
 const EDIT_PAUSE_MS = 600;
@@ -35,11 +36,10 @@ export function usePitchFormReducer(fields: pitchFormReducer.Fields) {
     pitchFormReducer.Effect
   >(pitchFormReducer, createInitialPitchFormState(fields), {
     "wait-for-edit-pause": (_state, effect, dispatch) => {
-      const timer = setTimeout(
-        () => dispatch({ type: "edit-pause-elapsed", editId: effect.editId }),
-        EDIT_PAUSE_MS
+      const cancelTimer = after(EDIT_PAUSE_MS, () =>
+        dispatch({ type: "edit-pause-elapsed", editId: effect.editId })
       );
-      return () => clearTimeout(timer);
+      return cancelTimer;
     },
     "save-pitch-field": (_state, effect, dispatch) => {
       savePitchField(effect)
@@ -54,11 +54,10 @@ export function usePitchFormReducer(fields: pitchFormReducer.Fields) {
       void revalidator.revalidate();
     },
     "wait-before-hiding-saved": (_state, effect, dispatch) => {
-      const timer = setTimeout(
-        () => dispatch({ type: "saved-shown-elapsed", editId: effect.editId }),
-        SAVED_SHOWN_MS
+      const cancelTimer = after(SAVED_SHOWN_MS, () =>
+        dispatch({ type: "saved-shown-elapsed", editId: effect.editId })
       );
-      return () => clearTimeout(timer);
+      return cancelTimer;
     },
     "show-error": (_state, effect) => {
       toast.error(effect.message);

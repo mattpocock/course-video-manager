@@ -43,6 +43,7 @@ import {
   type StorageFileKind,
 } from "@/packages/storage/client";
 import type { Route } from "./+types/_app.storage";
+import { toDate } from "@/packages/clock";
 
 export const meta: Route.MetaFunction = () => [{ title: "CVM - Storage" }];
 
@@ -257,7 +258,7 @@ function ScanStatus({ state }: { state: storagePageReducer.State }) {
       Counted at{" "}
       {state.fetchedAt === null
         ? "—"
-        : new Date(state.fetchedAt).toLocaleTimeString()}
+        : toDate(state.fetchedAt).toLocaleTimeString()}
       .
     </p>
   );

@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/toast";
 import { scriptPreview } from "./section-scripts-utils";
+import { after } from "@/packages/clock";
 
 const SAVE_DEBOUNCE_MS = 700;
 
@@ -59,7 +60,7 @@ export function SectionScriptField({
   // revalidation can't clobber in-progress edits.
   const [draft, setDraft] = useState(initialScript);
   const focusedRef = useRef(false);
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveTimer = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (!focusedRef.current) setDraft(initialScript);
@@ -81,18 +82,15 @@ export function SectionScriptField({
 
   const scheduleSave = useCallback(
     (value: string) => {
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-      saveTimer.current = setTimeout(
-        () => persistScript(value),
-        SAVE_DEBOUNCE_MS
-      );
+      if (saveTimer.current) saveTimer.current();
+      saveTimer.current = after(SAVE_DEBOUNCE_MS, () => persistScript(value));
     },
     [persistScript]
   );
 
   useEffect(
     () => () => {
-      if (saveTimer.current) clearTimeout(saveTimer.current);
+      if (saveTimer.current) saveTimer.current();
     },
     []
   );
@@ -164,7 +162,7 @@ export function SectionScriptField({
           }}
           onBlur={() => {
             focusedRef.current = false;
-            if (saveTimer.current) clearTimeout(saveTimer.current);
+            if (saveTimer.current) saveTimer.current();
             if (draft !== initialScript) persistScript(draft);
           }}
           onChange={(e) => {

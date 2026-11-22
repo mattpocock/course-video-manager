@@ -13,6 +13,7 @@ import {
   COURSE_EDITOR_KEY_PREFIX,
   DELETE_VIDEO_KEY_PREFIX,
 } from "./optimistic-applier";
+import { after } from "@/packages/clock";
 
 function parseCourseEditorEvent(
   fetcher: ReturnType<typeof useFetchers>[number]
@@ -81,7 +82,7 @@ export function useCourseEditorFailureToast() {
               // Draft — the write can never succeed against this version.
               if (message === VERSION_NOT_DRAFT_MESSAGE) {
                 toast.error(message);
-                setTimeout(() => window.location.reload(), 1500);
+                after(1500, () => window.location.reload());
                 return;
               }
               setDivergenceReport(message);

@@ -44,6 +44,7 @@ import {
   handleTogglePauseForClip,
   handleToggleZoomForClip,
 } from "./clip-state-reducer-timeline";
+import { nowMs } from "@/packages/clock";
 
 export namespace clipStateReducer {
   export type State = ClipReducerState;
@@ -128,7 +129,7 @@ export const clipStateReducer: EffectReducer<
         error: {
           message: action.message,
           effectType: action.effectType,
-          timestamp: Date.now(),
+          timestamp: nowMs(),
         },
       };
     }

@@ -4,6 +4,7 @@ import type {
 } from "@/features/video-editor/cvm-recorder-wire";
 import type { InsertionPoint } from "@/services/clip-service";
 import type { AskEditor } from "./ingest.server";
+import { after } from "@/packages/clock";
 
 /**
  * The editor following a Recording Session is going away (New Short, another
@@ -49,14 +50,14 @@ export const createTakePlacer = (o: {
         const leftAt = left.get(recordingSessionId);
         if (leftAt?.videoId === videoId) return Promise.resolve(leftAt.point);
         return new Promise((resolve) => {
-          const timer = setTimeout(() => {
+          const cancelTimer = after(o.timeoutMs, () => {
             asking.delete(recordingSessionId);
             resolve(null);
-          }, o.timeoutMs);
+          });
           asking.set(recordingSessionId, {
             videoId,
             answer: (point) => {
-              clearTimeout(timer);
+              cancelTimer();
               asking.delete(recordingSessionId);
               resolve(point);
               return new Promise((placed) => (answered = placed));

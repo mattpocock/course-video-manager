@@ -1,4 +1,5 @@
 import type { LoaderData } from "./course-view-types";
+import { now } from "@/packages/clock";
 
 export function makeVideo(
   overrides: Partial<
@@ -17,7 +18,7 @@ export function makeVideo(
     totalDuration: 120,
     firstClipId: null,
     archived: false,
-    createdAt: new Date(),
+    createdAt: now(),
     lessonId: "lesson-1",
     pitchId: null,
     lineageId: "lineage-video-1",
@@ -28,7 +29,7 @@ export function makeVideo(
     youtubeDraftDescription: null,
     format: "landscape",
     recorder: null,
-    updatedAt: new Date(),
+    updatedAt: now(),
     clipCount: 0,
     hasScript: false,
     warnings: [],

@@ -13,6 +13,7 @@
  * of whichever editor is mounted.
  */
 import type { z } from "zod";
+import { nowMs } from "@/packages/clock";
 
 /** How long after a ping the popup is presumed still there. The popup pings
  * every 2s, so this survives one missed beat. */
@@ -87,7 +88,7 @@ export function createPopupChannel<
   let popupRef: Window | null = null;
 
   subscribe(toParent, (msg) => {
-    if (msg.type === "ping") lastPingAt = Date.now();
+    if (msg.type === "ping") lastPingAt = nowMs();
   });
 
   const isOpen = (): boolean => {
@@ -96,7 +97,7 @@ export function createPopupChannel<
       lastPingAt = 0;
       return false;
     }
-    return isPingFresh(lastPingAt, Date.now());
+    return isPingFresh(lastPingAt, nowMs());
   };
 
   return {

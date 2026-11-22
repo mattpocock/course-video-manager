@@ -2,6 +2,7 @@ import { DEFAULT_MIC_EQ, type MicEq } from "@cvm/core/features/videos/recorder";
 import type { EffectReducerExec } from "use-effect-reducer";
 import { MIC_OFFSET_SHARED_WITH_FROZEN_VERSION_MESSAGE } from "@/services/recording-session-shared-message";
 import type { clipStateReducer } from "./clip-state-reducer";
+import { nowMs } from "@/packages/clock";
 
 type MicSettingsSubmitted = Extract<
   clipStateReducer.Action,
@@ -90,7 +91,7 @@ export const handleMicOffsetSaveFailed = (
       error: {
         message: action.message,
         effectType: "update-mic-offset",
-        timestamp: Date.now(),
+        timestamp: nowMs(),
       },
     };
   }

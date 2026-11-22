@@ -1,12 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "@/components/ui/toast";
 import { copyToClipboard, pasteFromClipboard } from "./clipboard";
+import { delay } from "@/packages/clock";
 
 vi.mock("@/components/ui/toast", () => ({
   toast: { error: vi.fn() },
 }));
 
-const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+const settle = () => delay(0);
 
 describe("writer clipboard buttons", () => {
   beforeEach(() => {

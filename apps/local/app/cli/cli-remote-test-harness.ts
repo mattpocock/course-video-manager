@@ -7,6 +7,7 @@ import { Layer, ManagedRuntime } from "effect";
 import type { TestDb } from "@/test-utils/test-db";
 import type { SchemaVersionClaim } from "./rpc-client";
 import { makeRemoteLayer, type RemoteServices } from "./rpc-layer";
+import { nowMs, toDate } from "@/packages/clock";
 
 /**
  * The transport, wired end to end, with no server and no port.
@@ -69,7 +70,7 @@ const makeAppFetch = (
           id: HARNESS_TOKEN.id,
           tokenHash: HARNESS_TOKEN.tokenHash,
           name: "cli test harness",
-          expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+          expiresAt: toDate(nowMs() + 60 * 60 * 1000),
         })
         .onConflictDoNothing()
         .catch(() => undefined);

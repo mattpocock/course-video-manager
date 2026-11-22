@@ -1,3 +1,5 @@
+import { nowMs } from "@/packages/clock";
+
 /**
  * IDLE STOP: the one lifecycle shared by the on-demand processes the app
  * starts — the **Local Whisper** worker (`sidecar/local-whisper-engine.ts`)
@@ -40,13 +42,13 @@ export const createIdleStop = (o: {
 
   const arm = () => {
     cancel();
-    const held = (o.heldUntil?.() ?? 0) - Date.now();
+    const held = (o.heldUntil?.() ?? 0) - nowMs();
     schedule(Math.max(o.idleMs, held), () => void expire(generation, false));
   };
 
   const expire = async (mine: number, wasBusy: boolean) => {
     timer = null;
-    if ((o.heldUntil?.() ?? 0) > Date.now()) return arm();
+    if ((o.heldUntil?.() ?? 0) > nowMs()) return arm();
     const busy = (await o.busy?.()) ?? false;
     if (mine !== generation) return;
     if (busy)

@@ -40,6 +40,7 @@ import {
   trackedCalibration,
   startServiceAndClient as setup,
 } from "./recorder-client-test-harness";
+import { toDate } from "@/packages/clock";
 
 /**
  * End to end, without hardware (recorder-client-test-harness.ts): Record, speak, Stop:
@@ -434,7 +435,7 @@ const calibrated = (
   const speechLufs = o.speechLufs ?? -27;
   return testDb.insert(avCalibrations).values({
     id,
-    createdAt: new Date(T0_MS - o.minutesBefore * 60_000),
+    createdAt: toDate(T0_MS - o.minutesBefore * 60_000),
     outcome: o.outcome ?? "passed",
     noiseFloorDb: -80,
     speechLufs,

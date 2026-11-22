@@ -14,10 +14,11 @@ import {
   type HeadAutosaver,
   type HeadSaveResult,
 } from "./head-autosaver";
+import { delay } from "@/packages/clock";
 
 const DEBOUNCE_MS = 10;
 /** Past the store's next-frame listener flush and the debounce together. */
-const settle = () => new Promise((resolve) => setTimeout(resolve, 100));
+const settle = () => delay(100);
 
 const PAGE_ID = PageRecordType.createId("page");
 

@@ -11,6 +11,7 @@ import { VideoProcessingService } from "../../app/services/video-processing-serv
 import { analysePicture, decodeStamps } from "./footage-analysis";
 import { CAMERA_FPS } from "./synthetic-sources";
 import { hold, recordTake, sleep, type Ctx } from "./takes";
+import { nowMs, every } from "@/packages/clock";
 
 /**
  * STILLS MID-TAKE (#2214, #2294): the editor's stills, asked for while a take
@@ -39,12 +40,12 @@ const recordingSignal = (ctx: Ctx) => {
   };
   const listeners = new Set<(recording: boolean) => void>();
   let was = kindNow() === "recording";
-  const poll = setInterval(() => {
+  const stopPoll = every(50, () => {
     const now = kindNow() === "recording";
     if (now === was) return;
     was = now;
     for (const l of [...listeners]) l(now);
-  }, 50);
+  });
   const signal: RecordingSignal = {
     recording: () => kindNow() === "recording",
     onRecordingChange: (listener) => {
@@ -52,7 +53,7 @@ const recordingSignal = (ctx: Ctx) => {
       return () => void listeners.delete(listener);
     },
   };
-  return { signal, close: () => clearInterval(poll) };
+  return { signal, close: () => stopPoll() };
 };
 
 export const stillsMidTake = async (ctx: Ctx, seconds: number) => {
@@ -102,7 +103,7 @@ export const stillsMidTake = async (ctx: Ctx, seconds: number) => {
       await hold(ctx, PLACEMENT_GAP_MS);
       while (performance.now() + PLACEMENT_GAP_MS < end) {
         // A Take placed now: its Clip ended a moment ago.
-        const atS = Math.max(0.5, (Date.now() - t0Ms) / 1000 - 1);
+        const atS = Math.max(0.5, (nowMs() - t0Ms) / 1000 - 1);
         const at = (time: number): ClipFrame => ({
           kind: "composite",
           format: "landscape",

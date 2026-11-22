@@ -59,6 +59,7 @@ import {
   type ThumbnailEditorHistory,
 } from "./thumbnail-face-history";
 import type { ThumbnailDiagramSource } from "@cvm/core/lib/thumbnail-diagram-sources";
+import { after } from "@/packages/clock";
 
 const FRAME = new Box(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
@@ -359,7 +360,7 @@ export function ThumbnailDiagramEditor({
 
       let disposed = false;
       let seq = 0;
-      let timer: ReturnType<typeof setTimeout> | undefined;
+      let cancelTimer: (() => void) | undefined;
       // A store change is not an edit: the load above reaches the listener a
       // frame later as a "user" change (see head-autosaver.ts). Only a document
       // that differs from the last one seen is, and the face in its meta is
@@ -380,13 +381,13 @@ export function ThumbnailDiagramEditor({
       void report(false);
       const unlisten = editor.store.listen(
         () => {
-          clearTimeout(timer);
-          timer = setTimeout(() => {
+          cancelTimer?.();
+          cancelTimer = after(DRAWING_SETTLE_MS, () => {
             const now = drawingNow();
             if (now === seen) return;
             seen = now;
             void report(true);
-          }, DRAWING_SETTLE_MS);
+          });
         },
         { scope: "document", source: "user" }
       );
@@ -396,7 +397,7 @@ export function ThumbnailDiagramEditor({
       return () => {
         setEditor(null);
         disposed = true;
-        clearTimeout(timer);
+        cancelTimer?.();
         unlisten();
         faceHistory.dispose();
         if (historyRef.current === faceHistory.history)

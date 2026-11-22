@@ -8,6 +8,7 @@ import {
   PublishValidationError,
 } from "@/services/course-publish-errors";
 import { mayLeavePendingVersion } from "@/features/jobs/job-wire";
+import { nowMs } from "@/packages/clock";
 
 /**
  * `cvm course publish --wait`: follow a Publish Job the Sidecar runs until it
@@ -213,7 +214,7 @@ export const waitForPublishJob = Effect.fn("waitForPublishJob")(
         case "queued": {
           if (!warnedNoSidecar) {
             const lease = yield* ops.getSidecarLease();
-            if (!lease || lease.leaseUntil.getTime() < Date.now()) {
+            if (!lease || lease.leaseUntil.getTime() < nowMs()) {
               warnedNoSidecar = true;
               yield* input.onProgress({
                 event: "waiting",

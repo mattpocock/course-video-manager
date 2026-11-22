@@ -21,6 +21,7 @@ import type {
 } from "./clip-state-reducer.types";
 import { createFrontendId, createSessionId } from "./clip-state-reducer.types";
 import { insertAtPoint } from "./insert-at-point";
+import { nowMs } from "@/packages/clock";
 
 type RecordingAction = Extract<
   ClipReducerAction,
@@ -138,7 +139,7 @@ const handleRecordingStarted = (
     displayNumber: nextDisplayNumber,
     status: "recording",
     outputPath: action.outputPath,
-    startedAt: Date.now(),
+    startedAt: nowMs(),
     silenceLength: action.silenceLength,
   };
 
@@ -243,7 +244,7 @@ const handleNewOptimisticClipDetected = (
       displayNumber: nextDisplayNumber,
       status: "recording",
       outputPath: "",
-      startedAt: Date.now(),
+      startedAt: nowMs(),
       silenceLength: DEFAULT_SILENCE_LENGTH,
     };
     sessions = [...sessions, activeSession];
@@ -268,7 +269,7 @@ const handleNewOptimisticClipDetected = (
     soundDetectionId: action.soundDetectionId,
     sessionId: activeSession.id,
     pendingWebLinks: seed
-      ? [{ url: seed.url, title: seed.title, capturedAt: Date.now() }]
+      ? [{ url: seed.url, title: seed.title, capturedAt: nowMs() }]
       : undefined,
   };
 

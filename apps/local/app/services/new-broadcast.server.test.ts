@@ -12,6 +12,7 @@ import {
 } from "@/services/new-broadcast.server";
 import { useFakeYouTube, youtube } from "@/test-utils/fake-youtube-live";
 import { readEnv } from "@/packages/env";
+import { toDate } from "@/packages/clock";
 
 /**
  * **New Broadcast** on the app server, as its route runs it: YouTube faked
@@ -62,7 +63,7 @@ const create = (
   runWithFakeYouTube(
     createNewBroadcast({
       settings,
-      submittedAt: new Date("2026-11-04T10:00:00Z"),
+      submittedAt: toDate("2026-11-04T10:00:00Z"),
       envPath,
       thumbnail,
     })

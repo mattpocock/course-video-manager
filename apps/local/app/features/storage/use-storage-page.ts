@@ -16,6 +16,7 @@ import {
   createInitialStoragePageState,
   storagePageReducer,
 } from "./storage-page-reducer";
+import { nowMs } from "@/packages/clock";
 
 /**
  * The `listen-to-scan` effect: listens to `GET /api/storage/scan` while the
@@ -32,7 +33,7 @@ const listenToScan = (
       const message = JSON.parse(event.data) as StorageScanMessage;
       dispatch(
         message.type === "scan-completed"
-          ? { type: "scan-completed", at: Date.now() }
+          ? { type: "scan-completed", at: nowMs() }
           : message
       );
     });
@@ -81,7 +82,7 @@ export const useStoragePage = () => {
   useEffect(() => {
     dispatch({
       type: "page-opened",
-      now: Date.now(),
+      now: nowMs(),
       cached: storageCache.scan(),
     });
   }, [dispatch]);

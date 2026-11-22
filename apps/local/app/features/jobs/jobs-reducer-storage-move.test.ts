@@ -8,6 +8,7 @@ import {
   toJobsAction,
 } from "./jobs-reducer";
 import { jobUploadEntries } from "./jobs-selectors";
+import { toDate } from "@/packages/clock";
 
 /** A Storage move's row (#2109): the one row with a Cancel. */
 
@@ -39,7 +40,7 @@ const heard = (
         at: "2026-10-13T12:00:00.000Z",
       },
     },
-    Date.parse("2026-10-13T12:00:00.000Z")
+    toDate("2026-10-13T12:00:00.000Z").getTime()
   );
   if (!action) throw new Error(`no action for ${type}`);
   return action;

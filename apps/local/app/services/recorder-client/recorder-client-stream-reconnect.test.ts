@@ -5,6 +5,7 @@ import type { StreamHealth } from "recorder-service/stream-protocol";
 import { clock, connect } from "recorder-service/test-utils/service-harness";
 import { ended, ready, setupGoLiveTests } from "./go-live-test-harness";
 import { startService } from "./recorder-client-test-harness";
+import { nowMs, toDate, every, delay } from "@/packages/clock";
 
 /**
  * The Live Stream reconnects for ever, and says how it is doing (spec #2445,
@@ -153,7 +154,7 @@ describe("the stream reconnects for ever, and the recording carries on", () => {
     expect(third.written).toContain("q");
     expect(ended(r.streamStatuses())).toEqual(["End Stream."]);
     // Once ended, nothing is launched again.
-    await new Promise((resolve) => setTimeout(resolve, 600));
+    await delay(600);
     expect(r.windows.streams).toHaveLength(3);
   });
 
@@ -179,16 +180,13 @@ describe("the stream reconnects for ever, and the recording carries on", () => {
 
     // ffmpeg keeps saying how it is doing, on its own clock, while its frame
     // count is stuck: what a camera feed that ended looked like (#2502).
-    const ticking = setInterval(
-      () => first.stdout(progress({ frame: 61 })),
-      20
-    );
+    const stopTicking = every(20, () => first.stdout(progress({ frame: 61 })));
     try {
       await vi.waitFor(() =>
         expect(r.windows.streams.length).toBeGreaterThan(1)
       );
     } finally {
-      clearInterval(ticking);
+      stopTicking();
     }
     expect(first.written).toContain("q");
     expect(r.kinds()).toContain("reconnecting");
@@ -227,14 +225,14 @@ describe("the Live Timer", () => {
     );
     expect(r.liveStreams.at(-1)?.liveSince).toBeNull();
 
-    const beforeLive = Date.now();
+    const beforeLive = nowMs();
     stream.stdout(progress({ frame: 60 }));
     await vi.waitFor(() =>
       expect(r.liveStreams.at(-1)?.status.kind).toBe("live")
     );
     const liveSince = r.liveStreams.at(-1)!.liveSince!;
-    expect(Date.parse(liveSince)).toBeGreaterThanOrEqual(beforeLive);
-    expect(Date.parse(liveSince)).toBeLessThanOrEqual(Date.now());
+    expect(toDate(liveSince).getTime()).toBeGreaterThanOrEqual(beforeLive);
+    expect(toDate(liveSince).getTime()).toBeLessThanOrEqual(nowMs());
 
     stream.stderr(
       "[fifo @ 0001] [error] Error opening rtmps://a.rtmps.youtube.com:443/live2/key: I/O error\r\n"

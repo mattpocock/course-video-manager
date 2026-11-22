@@ -14,6 +14,7 @@ import {
   youtube,
 } from "@/test-utils/fake-youtube-live";
 import { handClock } from "@/test-utils/hand-clock";
+import { delay, nowMs, after } from "@/packages/clock";
 
 /**
  * The picked Broadcast's live chat, read by the app server from a YouTube
@@ -187,7 +188,7 @@ describe("the Broadcast's live chat, owned by the app server", () => {
       sendPages(res, [
         chatPage({ messages: [fakeViewerMessage(1)], nextPageToken: "t1" }),
       ]);
-      setTimeout(() => res.destroy(), 20);
+      after(20, () => res.destroy());
     });
     youtube.chatStreams.push((res) =>
       sendPages(res, [
@@ -226,7 +227,7 @@ describe("the Broadcast's live chat, owned by the app server", () => {
       sendPages(res, [
         chatPage({ messages: [fakeViewerMessage(1)], nextPageToken: "t1" }),
       ]);
-      setTimeout(() => res.end("]"), 5);
+      after(5, () => res.end("]"));
     });
     youtube.chatStreams.push((res) =>
       sendPages(res, [
@@ -304,7 +305,7 @@ describe("the Broadcast's live chat, owned by the app server", () => {
     // YouTube opens every stream connection, then ends it with no page.
     const flap = (res: http.ServerResponse) => {
       holdOpen(res);
-      setTimeout(() => res.end("]"), 5);
+      after(5, () => res.end("]"));
       youtube.chatStreams.push(flap);
     };
     youtube.chatStreams.push(flap);
@@ -320,7 +321,7 @@ describe("the Broadcast's live chat, owned by the app server", () => {
       broadcastId: "office-hours",
       liveChatId: "chat-office-hours",
     });
-    await new Promise((resolve) => setTimeout(resolve, 600));
+    await delay(600);
 
     // Pauses of 20, 40, 80, 160, 160… ms: about six opens in 0.6 s, where a
     // pause that started over at 20 ms would open about twenty.
@@ -367,7 +368,7 @@ describe("the Broadcast's live chat, owned by the app server", () => {
         message: "YouTube answered 403: Forbidden",
       })
     );
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    await delay(200);
     expect(chatRequests().map((r) => r.pathname)).toEqual([
       "/youtube/v3/liveChat/messages/stream",
     ]);
@@ -404,7 +405,7 @@ describe("the Broadcast's live chat, owned by the app server", () => {
       expect(chat.snapshot().messages).toEqual([shown(1)])
     );
     await pick(chat, officeHours);
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await delay(100);
     expect(chatRequests()).toHaveLength(2);
     expect(chat.snapshot().messages).toEqual([shown(1)]);
   });
@@ -415,7 +416,7 @@ describe("the Broadcast's live chat, owned by the app server", () => {
       sendPages(res, [
         chatPage({ messages: [fakeViewerMessage(1)], nextPageToken: "t1" }),
       ]);
-      setTimeout(() => res.destroy(), 20);
+      after(20, () => res.destroy());
     });
     // Every stream connection from here on is refused.
     for (let i = 0; i < 20; i++) youtube.chatStreams.push(refuseStream);
@@ -441,7 +442,7 @@ describe("the Broadcast's live chat, owned by the app server", () => {
     const heard = listen(chat);
     const heardAt: number[] = [];
     chat.subscribe((e) => {
-      if (e.type === "chat-message-received") heardAt.push(Date.now());
+      if (e.type === "chat-message-received") heardAt.push(nowMs());
     });
 
     await pick(chat, {
@@ -564,7 +565,7 @@ describe("the Broadcast's live chat, owned by the app server", () => {
     const secondClosed = new Promise((resolve) => second!.on("close", resolve));
     chat.end();
     await secondClosed;
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await delay(100);
 
     expect(heard.at(-1)).toEqual({
       type: "chat-attached",

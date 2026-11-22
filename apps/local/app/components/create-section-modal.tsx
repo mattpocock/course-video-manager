@@ -8,6 +8,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useEffect, useRef, useState } from "react";
+import { after } from "@/packages/clock";
 
 export function CreateSectionModal(props: {
   repoVersionId: string;
@@ -22,11 +23,11 @@ export function CreateSectionModal(props: {
 
   useEffect(() => {
     if (!props.open) return;
-    const timer = setTimeout(() => {
+    const cancelTimer = after(100, () => {
       inputRef.current?.focus();
       inputRef.current?.select();
-    }, 100);
-    return () => clearTimeout(timer);
+    });
+    return cancelTimer;
   }, [props.open]);
 
   return (

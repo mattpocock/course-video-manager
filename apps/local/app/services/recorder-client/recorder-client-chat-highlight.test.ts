@@ -22,6 +22,7 @@ import {
   setupGoLiveTests,
 } from "./go-live-test-harness";
 import { hideChatHighlight, showChatHighlight } from "./chat-highlight.server";
+import { delay, every } from "@/packages/clock";
 
 /**
  * CHAT HIGHLIGHTS end to end (spec #2445, stories 69–82), through Go Live
@@ -33,11 +34,11 @@ setupGoLiveTests();
 
 // The recorder's Windows clock moves on in real time, so the card feed's
 // frames (one per 1/60 s of it) keep coming.
-let ticking: ReturnType<typeof setInterval>;
+let stopTicking: () => void;
 beforeEach(() => {
-  ticking = setInterval(() => (clock.ms += 5), 5);
+  stopTicking = every(5, () => (clock.ms += 5));
 });
-afterEach(() => clearInterval(ticking));
+afterEach(() => stopTicking());
 
 /** Two fake viewers' messages in the picked Broadcast's chat. */
 const chat: ChatSnapshot = {
@@ -180,14 +181,10 @@ describe("Chat Highlights", () => {
     const r = await live({ cardAnswerMs: 300, streamStallMs: 200 });
     // ffmpeg's -progress, 20 times a second, as it goes on whatever its inputs do.
     let frame = 60;
-    const progress = setInterval(
-      () =>
-        r.windows.streams[0]!.stdout(
-          `frame=${(frame += 3)}\nprogress=continue\n`
-        ),
-      50
+    const stopProgress = every(50, () =>
+      r.windows.streams[0]!.stdout(`frame=${(frame += 3)}\nprogress=continue\n`)
     );
-    onTestFinished(() => clearInterval(progress));
+    onTestFinished(() => stopProgress());
     r.windows.cardServers[0]!.stalled = true;
     const read = r.windows.cardFeeds[0]!.bytes();
 
@@ -237,8 +234,8 @@ describe("Chat Highlights", () => {
     await vi.waitFor(() => expect(feed.opacities().at(-1)).toBeGreaterThan(0));
     // Mid-entrance, the recorder's clock stops, then jumps on 0.8 s: 48
     // slots are due at once (within the 1 s the feed may hold unread).
-    clearInterval(ticking);
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    stopTicking();
+    await delay(50);
     const sent = feed.opacities().length;
     const atJump = feed.opacities().at(-1)!;
     clock.ms += 800;
@@ -280,7 +277,7 @@ describe("Chat Highlights", () => {
     r.windows.streams[0]!.exit(1);
     // An earlier connection still open when the relaunch connects (its
     // close not yet heard): the relaunched process must get the card.
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await delay(50);
     const lingering = net.connect(cardPort, "127.0.0.1");
     lingering.on("error", () => {});
     onTestFinished(() => void lingering.destroy());

@@ -29,6 +29,7 @@ import type { DiagramInsertTarget, DiagramTarget } from "./diagram-hits";
 import { paletteKeyCommand } from "./palette-shortcuts";
 import type { ThumbnailDiagramSource } from "@cvm/core/lib/thumbnail-diagram-sources";
 import { log } from "@/packages/log";
+import { after } from "@/packages/clock";
 
 /**
  * The actions on the Diagram the editor edits. Only the playground has one:
@@ -183,21 +184,20 @@ export function usePalette(opts: {
         .catch(() => dispatch({ type: "components-list-failed" }));
     },
     "search-diagrams": (_state, { query, seq, delayMs }, dispatch) => {
-      const timer = setTimeout(() => {
+      const cancelTimer = after(delayMs, () => {
         void fetch(`/api/diagrams/search?q=${encodeURIComponent(query)}`)
           .then((res) => res.json())
           .then((data) => data.results ?? [])
           .catch(() => [])
           .then((hits) => dispatch({ type: "diagrams-found", seq, hits }));
-      }, delayMs);
-      return () => clearTimeout(timer);
+      });
+      return cancelTimer;
     },
     "wait-for-spinner": (_state, { delayMs }, dispatch) => {
-      const timer = setTimeout(
-        () => dispatch({ type: "spinner-delay-elapsed" }),
-        delayMs
+      const cancelTimer = after(delayMs, () =>
+        dispatch({ type: "spinner-delay-elapsed" })
       );
-      return () => clearTimeout(timer);
+      return cancelTimer;
     },
     "go-to-diagram": (_state, { target }, dispatch) => {
       void Promise.resolve(handlersRef.current.onGoToDiagram(target)).then(() =>

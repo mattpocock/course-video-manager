@@ -8,6 +8,7 @@ import {
 import { isClip, isChapter } from "../clip-utils";
 import type { TimelineItem } from "../clip-state-reducer";
 import { log } from "@/packages/log";
+import { after } from "@/packages/clock";
 
 /**
  * Custom hook for clipboard operations in the video editor.
@@ -52,7 +53,7 @@ export const useClipboardOperations = (items: TimelineItem[]) => {
 
       await navigator.clipboard.writeText(transcript);
       setIsCopied(true);
-      setTimeout(() => setIsCopied(false), 2000);
+      after(2000, () => setIsCopied(false));
     } catch (error) {
       log.error("Failed to copy transcript to clipboard:", error);
     }
@@ -86,7 +87,7 @@ export const useClipboardOperations = (items: TimelineItem[]) => {
 
       await navigator.clipboard.writeText(chaptersText);
       setIsChaptersCopied(true);
-      setTimeout(() => setIsChaptersCopied(false), 2000);
+      after(2000, () => setIsChaptersCopied(false));
     } catch (error) {
       log.error("Failed to copy YouTube chapters to clipboard:", error);
     }

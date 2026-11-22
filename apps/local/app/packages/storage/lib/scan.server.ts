@@ -20,6 +20,7 @@ import type {
   StorageSizeDelta,
 } from "./scan-wire";
 import { rootLabel, STORAGE_FOLDERS, type StorageRoots } from "./storage-roots";
+import { nowMs } from "@/packages/clock";
 
 /** Flush counted sizes after this many files, or this long, whichever first. */
 const FLUSH_EVERY_FILES = 200;
@@ -119,17 +120,17 @@ const walk = (
  */
 const batcher = <T>(onBatch: (items: T[]) => void) => {
   let pending: T[] = [];
-  let lastFlush = Date.now();
+  let lastFlush = nowMs();
   const flush = () => {
     if (pending.length > 0) onBatch(pending);
     pending = [];
-    lastFlush = Date.now();
+    lastFlush = nowMs();
   };
   const add = (item: T) => {
     pending.push(item);
     if (
       pending.length >= FLUSH_EVERY_FILES ||
-      Date.now() - lastFlush >= FLUSH_EVERY_MS
+      nowMs() - lastFlush >= FLUSH_EVERY_MS
     ) {
       flush();
     }

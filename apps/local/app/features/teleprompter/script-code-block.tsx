@@ -9,6 +9,7 @@
 import { CheckIcon, CopyIcon } from "lucide-react";
 import { useState } from "react";
 import { TYPE } from "./teleprompter-settings";
+import { after } from "@/packages/clock";
 
 const COPIED_FOR_MS = 2000;
 
@@ -50,7 +51,7 @@ export function ScriptCodeBlock(props: {
           e.currentTarget.blur();
           void navigator.clipboard.writeText(props.code).then(() => {
             setCopied(true);
-            setTimeout(() => setCopied(false), COPIED_FOR_MS);
+            after(COPIED_FOR_MS, () => setCopied(false));
           });
         }}
       >

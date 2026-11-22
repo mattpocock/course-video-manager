@@ -28,6 +28,7 @@ import {
   SpeakResponse,
   VersionResponse,
 } from "./protocol";
+import { now } from "@/packages/clock";
 
 /**
  * THE CLIP MOCKUP DAEMON: one process per machine (per checkout, strictly)
@@ -52,7 +53,7 @@ import {
  */
 
 const log = (message: string) =>
-  process.stdout.write(`${new Date().toISOString()} ${message}\n`);
+  process.stdout.write(`${now().toISOString()} ${message}\n`);
 
 /** Is there a live process with this pid? EPERM means yes, owned by another user. */
 const isAlive = (pid: number) => {

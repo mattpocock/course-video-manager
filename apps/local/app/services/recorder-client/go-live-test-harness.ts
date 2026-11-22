@@ -34,6 +34,7 @@ import {
 } from "./recorder-client-test-harness";
 import { endStream, goLive } from "./go-live.server";
 import type { RecorderLiveStream } from "./live-stream-commands";
+import { nowMs, toDate } from "@/packages/clock";
 
 /**
  * The Go Live end-to-end harness (ADR 0054), without hardware: the real
@@ -46,7 +47,7 @@ import type { RecorderLiveStream } from "./live-stream-commands";
 export const KEY = "fake-key-q7w2-9xk4-mm31";
 
 /** While the test's AV Calibration (a day old by the service's clock) is fresh. */
-export const NOW = new Date(CALIBRATION.createdAtMs + 60 * 60 * 1000);
+export const NOW = toDate(CALIBRATION.createdAtMs + 60 * 60 * 1000);
 
 /** The YouTube stream whose ingest name is the Stream Key. */
 export const KEYS_STREAM = "stream-with-the-key";
@@ -304,7 +305,7 @@ export const ready = async (
   await testDb.insert(schema.youtubeAuth).values({
     accessToken: "stored-access-token",
     refreshToken: "stored-refresh-token",
-    expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+    expiresAt: toDate(nowMs() + 60 * 60 * 1000),
   });
   youtube.broadcasts = [broadcast("office-hours")];
   youtube.streams = [

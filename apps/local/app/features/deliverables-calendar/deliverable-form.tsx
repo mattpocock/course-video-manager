@@ -27,6 +27,7 @@ import {
   PITCH_STATE_META,
   type PitchState,
 } from "@/components/status-icon-badge";
+import { after, now } from "@/packages/clock";
 
 export interface DeliverableForForm {
   id: string;
@@ -221,7 +222,7 @@ export function DeliverableForm({
     .slice()
     .sort((a, b) => a.name.localeCompare(b.name));
   const todayStr = (() => {
-    const t = new Date();
+    const t = now();
     const y = t.getFullYear();
     const m = String(t.getMonth() + 1).padStart(2, "0");
     const day = String(t.getDate()).padStart(2, "0");
@@ -264,7 +265,7 @@ export function DeliverableForm({
       method="post"
       action={action}
       className="rounded-lg border border-foreground/20 p-4 bg-background space-y-3"
-      onSubmit={() => setTimeout(() => onClose(), 0)}
+      onSubmit={() => after(0, () => onClose())}
     >
       <div className="grid grid-cols-2 gap-3">
         <input

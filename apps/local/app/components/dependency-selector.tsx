@@ -9,6 +9,7 @@ import {
 import { AlertTriangle, Link2 } from "lucide-react";
 import { wouldCreateCycle } from "@/features/course-view/dependency-drag";
 import { useDependencyDragOptional } from "@/features/course-view/dependency-drag-context";
+import { after } from "@/packages/clock";
 
 export interface DependencyLessonItem {
   id: string;
@@ -59,7 +60,7 @@ export function DependencySelector({
   useEffect(() => {
     if (open) {
       setSearch("");
-      setTimeout(() => inputRef.current?.focus(), 0);
+      after(0, () => inputRef.current?.focus());
     }
   }, [open]);
 

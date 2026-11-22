@@ -30,6 +30,7 @@ import {
 import { useState, useEffect } from "react";
 import { useLoaderData } from "react-router";
 import type { Route } from "./+types/_app._index";
+import { toDate, now } from "@/packages/clock";
 
 export const meta: Route.MetaFunction = () => {
   return [{ title: "CVM - Deliverables Calendar" }];
@@ -257,7 +258,7 @@ export default function DeliverablesCalendarPage() {
     }
   };
 
-  const today = new Date();
+  const today = now();
   const todayWeek = isoWeek(today);
   const todayStr = formatDateStr(today);
 
@@ -268,7 +269,7 @@ export default function DeliverablesCalendarPage() {
   const deliverablesWithLinks: DeliverableWithLinks[] = deliverables.map(
     (d) => ({
       ...d,
-      createdAt: new Date(d.createdAt),
+      createdAt: toDate(d.createdAt),
     })
   );
 

@@ -26,6 +26,7 @@ import { footagePlaybackFrame } from "./footage-playback-frame";
 import { useStillsWaitForVideo } from "./components/queued-still";
 import { usePreloadableClipReducer } from "./hooks/use-preloadable-clip-reducer";
 import { log } from "@/packages/log";
+import { after } from "@/packages/clock";
 
 /**
  * play() rejects when a pause or a new src interrupts it (AbortError); the
@@ -384,9 +385,9 @@ export const PreloadableClipManager = (props: {
           }
 
           if (clip.pauseType === "long") {
-            setTimeout(() => {
+            after(BEAT_DURATION * 1000, () => {
               props.onClipFinished();
-            }, BEAT_DURATION * 1000);
+            });
           } else {
             props.onClipFinished();
           }

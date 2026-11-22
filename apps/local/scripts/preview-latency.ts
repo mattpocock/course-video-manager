@@ -61,6 +61,7 @@ import { startPreviewFeeds } from "../recorder-service/preview-feeds";
 import { findFfmpegExe } from "../recorder-service/windows-launcher";
 import { guardWindows } from "./windows-guard";
 import { log } from "@/packages/log";
+import { after, delay, nowMs } from "@/packages/clock";
 
 const SCENARIOS = [
   "floor",
@@ -405,16 +406,16 @@ const measure = async (scenario: Scenario) => {
   try {
     const tab = await browser.newPage();
     await tab.goto(`http://127.0.0.1:${httpPort}/`, { waitUntil: "commit" });
-    await new Promise((r) => setTimeout(r, WARMUP_SECONDS * 1000));
+    await delay(WARMUP_SECONDS * 1000);
     await tab.evaluate(() => {
       (window as unknown as { __latencies: number[] }).__latencies = [];
     });
     // A take starts as measuring does: T0 now, on the WSL clock (as
     // Windows' would be, give or take).
     if (writer !== undefined)
-      ffs[writer]!.stdin?.write(takeStartCommand(Date.now()));
+      ffs[writer]!.stdin?.write(takeStartCommand(nowMs()));
     measuring = true;
-    await new Promise((r) => setTimeout(r, seconds * 1000));
+    await delay(seconds * 1000);
     measuring = false;
     const latencies = await tab.evaluate(
       () => (window as unknown as { __latencies: number[] }).__latencies
@@ -432,9 +433,9 @@ const measure = async (scenario: Scenario) => {
     // others are asked to quit.
     source.kill();
     for (const p of ffs) if (p !== ff) p.stdin?.write("q");
-    const kill = setTimeout(() => ffs.forEach((p) => p.kill("SIGKILL")), 5000);
+    const cancelKill = after(5000, () => ffs.forEach((p) => p.kill("SIGKILL")));
     await ffClosed;
-    clearTimeout(kill);
+    cancelKill();
     server.closeAllConnections();
     server.close();
     await feeds.close();

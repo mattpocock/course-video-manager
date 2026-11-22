@@ -8,6 +8,7 @@ import {
 import type { BroadcastChatEvent } from "@/features/streaming/broadcast-chat";
 import { useFakeYouTube, youtube } from "@/test-utils/fake-youtube-live";
 import { handClock } from "@/test-utils/hand-clock";
+import { delay } from "@/packages/clock";
 
 /**
  * The picked Broadcast's **Concurrent Viewers**, read by the app server's
@@ -107,7 +108,7 @@ describe("the Broadcast's Concurrent Viewers, read by the app server", () => {
 
     // The failed read kept 12: the count went 12, 15, then none once ended.
     expect(time.now() - pickedAt).toBe(4 * 30_000);
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await delay(50);
     // Ended: no fifth pause, no sixth read.
     expect(viewerRequests()).toHaveLength(5);
     const [first] = viewerRequests();
@@ -154,7 +155,7 @@ describe("the Broadcast's Concurrent Viewers, read by the app server", () => {
         },
       },
     ]);
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await delay(50);
     expect(viewerRequests()).toHaveLength(1);
   });
 
@@ -162,7 +163,7 @@ describe("the Broadcast's Concurrent Viewers, read by the app server", () => {
     await storeGrant();
     const chat = startChat();
     await pick(chat, { broadcastId: "office-hours", liveChatId: null });
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await delay(50);
     expect(viewerRequests()).toEqual([]);
   });
 });

@@ -15,6 +15,7 @@ import {
 } from "recorder-service/stream-protocol";
 import { END_STREAM_WAIT_MS } from "@/features/streaming/broadcast";
 import { NOT_RUNNING, RecorderRefusedError } from "./recorder-command";
+import { now } from "@/packages/clock";
 
 /** End Stream's longest wait: its command may take that much longer. */
 const LONGEST_END_STREAM_WAIT_MS = Math.max(
@@ -44,7 +45,7 @@ const liveTimerStart = () => {
     hear(status: StreamStatus | null) {
       if (!isStreamOn(status)) liveSince = null;
       else if (status?.kind === "live" && liveSince === null)
-        liveSince = new Date().toISOString();
+        liveSince = now().toISOString();
     },
     since: () => liveSince,
   };

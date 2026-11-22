@@ -7,6 +7,7 @@ import {
   toJobsAction,
 } from "./jobs-reducer";
 import { jobUploadEntries } from "./jobs-selectors";
+import { toDate } from "@/packages/clock";
 
 const JOB_ID = "6b0c1f5e-0000-4000-8000-0000000000e1";
 const NEW_COURSE_ID = "6b0c1f5e-0000-4000-8000-0000000000c0";
@@ -33,7 +34,7 @@ const heard = (type: string, data: Record<string, unknown> = {}) => {
         at: "2026-10-09T12:00:00.000Z",
       },
     },
-    Date.parse("2026-10-09T12:00:00.000Z")
+    toDate("2026-10-09T12:00:00.000Z").getTime()
   );
   if (!action) throw new Error(`no action for ${type}`);
   return action;

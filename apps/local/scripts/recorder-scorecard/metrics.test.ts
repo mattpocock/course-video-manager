@@ -28,6 +28,7 @@ import {
   screenPreviewArgs,
 } from "../../recorder-service/capture-args";
 import { screenRecorderArgs } from "../../recorder-service/take-args";
+import { nowMs, after } from "@/packages/clock";
 
 const def = (id: string) => METRICS.find((m) => m.id === id)!;
 
@@ -421,7 +422,7 @@ describe.skipIf(!hasFfmpeg)("the synthetic screen in ffmpeg", () => {
       const behind: number[] = [];
       let pending = Buffer.alloc(0);
       let stalled = false;
-      const started = Date.now();
+      const started = nowMs();
       child.stdout.on("data", (d: Buffer) => {
         pending = Buffer.concat([pending, d]);
         while (pending.length >= size) {
@@ -431,13 +432,13 @@ describe.skipIf(!hasFfmpeg)("the synthetic screen in ffmpeg", () => {
             if (pending[y * CLOCK_WIDTH + x]! > 128) v += 2 ** k;
           }
           pending = pending.subarray(size);
-          if (stalled) behind.push((Date.now() - v) % CLOCK_MOD);
+          if (stalled) behind.push((nowMs() - v) % CLOCK_MOD);
         }
-        if (!stalled && Date.now() - started > 1000) {
+        if (!stalled && nowMs() - started > 1000) {
           stalled = true;
           child.stdout.pause();
-          setTimeout(() => child.stdout.resume(), stallMs);
-          setTimeout(() => child.kill("SIGKILL"), stallMs + 1000);
+          after(stallMs, () => child.stdout.resume());
+          after(stallMs + 1000, () => child.kill("SIGKILL"));
         }
       });
       child.once("error", reject);
@@ -475,18 +476,18 @@ describe.skipIf(!hasFfmpeg)("the synthetic screen in ffmpeg", () => {
       const stamps: ReturnType<typeof readStamp>[] = [];
       let pending = Buffer.alloc(0);
       let stalled = false;
-      const started = Date.now();
+      const started = nowMs();
       child.stdout.on("data", (d: Buffer) => {
         pending = Buffer.concat([pending, d]);
         while (pending.length >= size) {
           stamps.push(readStamp(pending.subarray(0, size)));
           pending = pending.subarray(size);
         }
-        if (!stalled && Date.now() - started > 1000) {
+        if (!stalled && nowMs() - started > 1000) {
           stalled = true;
           child.stdout.pause();
-          setTimeout(() => child.stdout.resume(), stallMs);
-          setTimeout(() => child.kill("SIGKILL"), stallMs + 1500);
+          after(stallMs, () => child.stdout.resume());
+          after(stallMs + 1500, () => child.kill("SIGKILL"));
         }
       });
       child.once("error", reject);
@@ -497,7 +498,7 @@ describe.skipIf(!hasFfmpeg)("the synthetic screen in ffmpeg", () => {
     const stamps = await stampsAroundStall(1500);
     const report = analysePicture(stamps, {
       fps: CAMERA_FPS,
-      t0Ms: Date.now(),
+      t0Ms: nowMs(),
     });
     // Read from the clock, as before, the stall scored as dozens of drops.
     expect(report.sourceStalls.frames).toBeGreaterThan(10);

@@ -1,5 +1,6 @@
 import * as schema from "@/db/schema";
 import type { TestDb } from "@/test-utils/test-db";
+import { toDate } from "@/packages/clock";
 
 export interface IntegrationSeed {
   courseAId: string;
@@ -42,7 +43,7 @@ export const seedIntegration = async (db: TestDb): Promise<IntegrationSeed> => {
       repoId: courseA!.id,
       name: "v1.0.0",
       description: "first publish",
-      createdAt: new Date("2020-01-01T00:00:00Z"),
+      createdAt: toDate("2020-01-01T00:00:00Z"),
     })
     .returning();
   const [draftVersion] = await db
@@ -50,7 +51,7 @@ export const seedIntegration = async (db: TestDb): Promise<IntegrationSeed> => {
     .values({
       repoId: courseA!.id,
       name: "",
-      createdAt: new Date("2024-01-01T00:00:00Z"),
+      createdAt: toDate("2024-01-01T00:00:00Z"),
     })
     .returning();
 
@@ -140,7 +141,7 @@ export const seedIntegration = async (db: TestDb): Promise<IntegrationSeed> => {
       repoVersionId: draftVersion!.id,
       title: "99-deleted",
       order: 99,
-      archivedAt: new Date("2024-02-01T00:00:00Z"),
+      archivedAt: toDate("2024-02-01T00:00:00Z"),
     })
     .returning();
 

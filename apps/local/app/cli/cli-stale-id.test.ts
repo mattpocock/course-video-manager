@@ -10,6 +10,7 @@ import {
   makeReadRun,
   type RunResult,
 } from "./cli-read-test-harness";
+import { toDate } from "@/packages/clock";
 
 // ===========================================================================
 // An id from an OLDER Course Version resolves to the Draft's equivalent.
@@ -56,7 +57,7 @@ beforeEach(async () => {
       repoId: course!.id,
       name: "v1",
       commitState: "published",
-      createdAt: new Date("2020-01-01T00:00:00Z"),
+      createdAt: toDate("2020-01-01T00:00:00Z"),
     })
     .returning();
   const [draft] = await testDb
@@ -65,7 +66,7 @@ beforeEach(async () => {
       repoId: course!.id,
       name: "",
       commitState: "draft",
-      createdAt: new Date("2024-01-01T00:00:00Z"),
+      createdAt: toDate("2024-01-01T00:00:00Z"),
     })
     .returning();
 

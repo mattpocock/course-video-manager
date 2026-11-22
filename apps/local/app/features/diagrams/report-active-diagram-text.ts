@@ -1,6 +1,7 @@
 import type { Editor } from "tldraw";
 import { extractSceneLines } from "@cvm/core/lib/extract-scene-text/index";
 import { diagramChannel } from "@/lib/diagram-protocol";
+import { every } from "@/packages/clock";
 
 /** As often as the playground pings, so an editor that opens late hears it. */
 const REPEAT_MS = 2000;
@@ -44,11 +45,11 @@ export function reportActiveDiagramText(
     },
     { scope: "document" }
   );
-  const interval = setInterval(send, REPEAT_MS);
+  const stopSend = every(REPEAT_MS, send);
   window.addEventListener("pagehide", sendNone);
   return () => {
     unlisten();
-    clearInterval(interval);
+    stopSend();
     window.removeEventListener("pagehide", sendNone);
     sendNone();
   };

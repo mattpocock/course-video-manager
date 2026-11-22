@@ -8,6 +8,7 @@ import {
 import { rootIsOnline } from "@/packages/storage/server";
 import { readStorageRootsOrNone } from "./storage-roots";
 import { log } from "@/packages/log";
+import { nowMs } from "@/packages/clock";
 
 /** An Offline Storage Root as the app banner shows it. */
 export interface OfflineStorageRoot {
@@ -69,7 +70,7 @@ export const makeStorageRootAvailability = <R>(opts: {
 
 const availability = makeStorageRootAvailability({
   isOnline: rootIsOnline,
-  now: () => Date.now(),
+  now: () => nowMs(),
   log: (line) => log.warn(line),
   ttlMs: 15_000,
 });

@@ -1,4 +1,5 @@
 import type { AgentSessionEntryContent } from "@cvm/core/features/agent-sessions/agent-session-entry";
+import { toDate } from "@/packages/clock";
 
 /**
  * Reads one Claude Code session file (its JSONL transcript) into the entries
@@ -433,7 +434,7 @@ export const readClaudeSession = (jsonl: string): ReadClaudeSession => {
   const counts: Counts = { thinkingBlocks: 0, systemMessages: 0 };
   const entries: ReadAgentSessionEntry[] = [];
   onBranch.forEach((line, i) => {
-    const wallClockMs = Date.parse(line.timestamp ?? "");
+    const wallClockMs = toDate(line.timestamp ?? "").getTime();
     const read =
       line.type === "assistant"
         ? { entries: assistantEntries(line, results, relative, counts) }

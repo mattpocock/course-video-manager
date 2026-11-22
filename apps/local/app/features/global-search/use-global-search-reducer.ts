@@ -4,6 +4,7 @@ import {
   createInitialGlobalSearchState,
   globalSearchReducer,
 } from "./global-search-reducer";
+import { after } from "@/packages/clock";
 
 /** How long typing must pause before a search goes out. */
 const SEARCH_DEBOUNCE_MS = 200;
@@ -20,7 +21,7 @@ export function useGlobalSearchReducer() {
     // request, so only the last query's search reaches the server.
     search: (_state, effect, dispatch) => {
       const controller = new AbortController();
-      const timer = setTimeout(() => {
+      const cancelTimer = after(SEARCH_DEBOUNCE_MS, () => {
         fetch(`/api/global-search?q=${encodeURIComponent(effect.query)}`, {
           signal: controller.signal,
         })
@@ -39,9 +40,9 @@ export function useGlobalSearchReducer() {
             if (controller.signal.aborted) return;
             dispatch({ type: "search-failed", query: effect.query });
           });
-      }, SEARCH_DEBOUNCE_MS);
+      });
       return () => {
-        clearTimeout(timer);
+        cancelTimer();
         controller.abort();
       };
     },

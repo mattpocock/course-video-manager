@@ -12,6 +12,7 @@ import {
   REMOVE_LOCAL_IMAGES_JOB_KIND,
   UPLOAD_IMAGES_JOB_KIND,
 } from "@/features/image-upload/image-upload-job";
+import { nowMs } from "@/packages/clock";
 
 export interface UploadContextType {
   /** Background Jobs the Sidecar runs (a Video export), as this tab sees them. */
@@ -149,7 +150,7 @@ export function useUploadActions(): UploadActions {
 
 export function UploadProvider({
   children,
-  clock = Date.now,
+  clock = nowMs,
 }: {
   children: React.ReactNode;
   /** "Now" for the ETA, so the ETA never reads a clock itself. */

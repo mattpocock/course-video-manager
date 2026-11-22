@@ -13,6 +13,7 @@ import { useLocalStorageBoolean } from "@/hooks/use-local-storage";
 import { useFetcher, useLocation } from "react-router";
 import { useCallback, useEffect, useRef } from "react";
 import { toast } from "@/components/ui/toast";
+import { after } from "@/packages/clock";
 
 const ADD_MORE_STORAGE_KEY = "feedback-modal-add-more";
 
@@ -29,7 +30,7 @@ export function FeedbackModal(props: {
   const [addMore, setAddMore] = useLocalStorageBoolean(ADD_MORE_STORAGE_KEY);
 
   const focusTextarea = useCallback(() => {
-    setTimeout(() => textareaRef.current?.focus(), 0);
+    after(0, () => textareaRef.current?.focus());
   }, []);
 
   useEffect(() => {
@@ -71,10 +72,10 @@ export function FeedbackModal(props: {
   // Defer reset so the fetcher captures form data before clearing
   const handleSubmit = useCallback(() => {
     if (addMoreRef.current) {
-      setTimeout(() => {
+      after(0, () => {
         formRef.current?.reset();
         focusTextarea();
-      }, 0);
+      });
     } else {
       props.onOpenChange(false);
     }

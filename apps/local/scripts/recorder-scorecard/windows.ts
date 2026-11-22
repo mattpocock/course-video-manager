@@ -6,6 +6,7 @@ import {
   reasonsToRefuse,
   type WindowsGuard,
 } from "../windows-guard";
+import { nowMs, after } from "@/packages/clock";
 
 /**
  * The scorecard's reach into Windows: its own ffmpeg.exe processes (found by
@@ -43,13 +44,13 @@ export const runPowerShell = (command: string, timeoutMs = 30_000) =>
       let stderr = "";
       child.stdout?.on("data", (d: Buffer) => (stdout += d.toString()));
       child.stderr?.on("data", (d: Buffer) => (stderr += d.toString()));
-      const timer = setTimeout(() => child.kill("SIGKILL"), timeoutMs);
+      const cancelTimer = after(timeoutMs, () => child.kill("SIGKILL"));
       child.once("close", (code) => {
-        clearTimeout(timer);
+        cancelTimer();
         resolve({ code, stdout, stderr });
       });
       child.once("error", (e) => {
-        clearTimeout(timer);
+        cancelTimer();
         resolve({ code: null, stdout, stderr: e.message });
       });
     }
@@ -129,7 +130,7 @@ export const sampleMarked = async (marker: string): Promise<ProcessSample> => {
     `${marked(marker)} | ForEach-Object { $g = Get-Process -Id $_.ProcessId -ErrorAction SilentlyContinue; if ($g) { $tag = [regex]::Match($_.CommandLine, 'comment=(cvm-recorder-[A-Za-z0-9-]+)').Groups[1].Value; "$($_.ProcessId)\`t$($_.KernelModeTime + $_.UserModeTime)\`t$($_.WorkingSetSize)\`t$($g.PriorityClass)\`t$([int64]$g.ProcessorAffinity)\`t$tag" } }`
   );
   return {
-    atMs: Date.now(),
+    atMs: nowMs(),
     processes: stdout
       .split(/\r?\n/)
       .filter(Boolean)
@@ -247,7 +248,7 @@ export const windowsClockOffset = () =>
     let best = -Infinity;
     let buffer = "";
     child.stdout?.on("data", (d: Buffer) => {
-      const at = Date.now();
+      const at = nowMs();
       buffer += d.toString();
       const lines = buffer.split(/\r?\n/);
       buffer = lines.pop() ?? "";

@@ -11,6 +11,7 @@ import {
   truncateAllTables,
   type TestDb,
 } from "@/test-utils/test-db";
+import { nowMs, toDate } from "@/packages/clock";
 
 /**
  * YouTube's live APIs faked at the HTTP boundary, through the YouTube API URL
@@ -157,7 +158,7 @@ export const useFakeYouTube = () => {
     testDb.insert(schema.youtubeAuth).values({
       accessToken: "stored-access-token",
       refreshToken: "stored-refresh-token",
-      expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      expiresAt: toDate(nowMs() + 60 * 60 * 1000),
     });
 
   /** A Video with one Thumbnail whose image is the file at `filePath`. */

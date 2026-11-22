@@ -13,13 +13,14 @@ import {
   type StageRecord,
 } from "./job-stage-history";
 import type { JobStageHistoryMessage, WireJob, WireJobEvent } from "./job-wire";
+import { toDate } from "@/packages/clock";
 
 /**
  * The ETA's stage history, folded from the Job Events of finished Jobs
  * (`GET /api/jobs/stage-history`) the way the live stream is folded.
  */
 
-const T0 = Date.parse("2026-10-09T12:00:00.000Z");
+const T0 = toDate("2026-10-09T12:00:00.000Z").getTime();
 
 const exportJob: WireJob = {
   id: "export-1",
@@ -54,7 +55,7 @@ const event = (
   jobId: job.id,
   type,
   data,
-  at: new Date(T0 + atMs).toISOString(),
+  at: toDate(T0 + atMs).toISOString(),
 });
 
 const exportRun = (job: WireJob, offsetMs: number, encodeMs: number) => [
@@ -121,7 +122,7 @@ const recordedLive = (runs: { job: WireJob; events: WireJobEvent[] }[]) => {
     const tester = new ReducerTester(jobsReducer, createInitialJobsState());
     const seen = new Set<object>();
     for (const e of events) {
-      const action = toJobsAction({ job, event: e }, Date.parse(e.at));
+      const action = toJobsAction({ job, event: e }, toDate(e.at).getTime());
       if (!action) continue;
       tester.send(action);
       for (const timing of Object.values(tester.getState().timings)) {

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { isHeadCaptured, type Snapshot } from "./snapshot-list";
 import { createSnapshotStepper } from "./snapshot-stepper";
+import { delay } from "@/packages/clock";
 
 const snapshot = (over: Partial<Snapshot>): Snapshot => ({
   id: "s1",
@@ -20,7 +21,7 @@ const timeline = [
 ];
 
 /** Let every pending promise settle. */
-const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+const settle = () => delay(0);
 
 /**
  * A stand-in for the server and canvas the stepper drives, wired at the same

@@ -32,6 +32,7 @@ import {
   LiveStreamHeard,
   liveStreamHeard,
 } from "@/features/streaming/live-stream-wire";
+import { after, nowMs } from "@/packages/clock";
 
 type Dispatch = (action: jobsReducer.Action) => void;
 
@@ -86,7 +87,7 @@ function useJobEventStream(
     source.addEventListener(JOB_STREAM_EVENTS.jobEvent, (event) => {
       const message = decodeStreamData(JobEventMessage, event.data);
       if (!message) return;
-      const action = toJobsAction(message, Date.now());
+      const action = toJobsAction(message, nowMs());
       if (action) dispatch(action);
       publish(message);
     });
@@ -174,8 +175,8 @@ export function useJobs() {
         void send();
         return;
       }
-      const timer = setTimeout(() => void send(), effect.afterMs);
-      return () => clearTimeout(timer);
+      const cancelTimer = after(effect.afterMs, () => void send());
+      return cancelTimer;
     },
     "cancel-job": (_state, effect, dispatch) => {
       fetch(jobCancelHref(effect.id), { method: "POST" })

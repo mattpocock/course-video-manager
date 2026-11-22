@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { makeWorker } from "./local-whisper-engine";
+import { delay } from "@/packages/clock";
 
 /**
  * A stand-in for worker.py that speaks the same protocol, so the engine's
@@ -86,11 +87,11 @@ describe("makeWorker", () => {
     w.keepWarm(400);
     expect(w.isRunning()).toBe(true);
     const during = await w.transcribe("/a.mp3");
-    await new Promise((r) => setTimeout(r, 200));
+    await delay(200);
     // Past the 50 ms idle time, still held: the same process answers.
     expect(w.isRunning()).toBe(true);
     expect(pidOf(await w.transcribe("/b.mp3"))).toBe(pidOf(during));
-    await new Promise((r) => setTimeout(r, 500));
+    await delay(500);
     expect(w.isRunning()).toBe(false);
     w.stop();
   });
@@ -99,7 +100,7 @@ describe("makeWorker", () => {
     const w = worker("ok", 50);
     const first = await w.transcribe("/a.mp3");
     expect(w.isRunning()).toBe(true);
-    await new Promise((r) => setTimeout(r, 200));
+    await delay(200);
     expect(w.isRunning()).toBe(false);
     const second = await w.transcribe("/b.mp3");
     expect(pidOf(second)).not.toBe(pidOf(first));

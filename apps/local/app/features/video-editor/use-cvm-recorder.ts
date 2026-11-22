@@ -41,6 +41,7 @@ import {
 import type { RecorderCapture } from "./recorder-capture";
 import { toFrontendSpeechDetectorState } from "./speech-detector-reducer";
 import { log } from "@/packages/log";
+import { after } from "@/packages/clock";
 
 export type CvmRecorderStore = EffectStore<
   cvmRecorderReducer.State,
@@ -104,11 +105,10 @@ export const useRecorderEvents = (
     createInitialRecorderAttentionState,
     {
       "wait-while-away": (_state, effect, dispatch) => {
-        const timer = setTimeout(
-          () => dispatch({ type: "away-time-elapsed" }),
-          effect.ms
+        const cancelTimer = after(effect.ms, () =>
+          dispatch({ type: "away-time-elapsed" })
         );
-        return () => clearTimeout(timer);
+        return cancelTimer;
       },
     }
   );

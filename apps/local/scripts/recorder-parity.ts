@@ -50,6 +50,7 @@ import {
 } from "./recorder-parity-metrics";
 import { scriptDrizzle } from "./script-database-url";
 import { log } from "@/packages/log";
+import { now } from "@/packages/clock";
 
 const USAGE =
   "Usage: recorder-parity <obs-clip-id> <cvm-clip-id> | --video <video-id>  [--seconds 4] [--out <dir>]";
@@ -68,7 +69,7 @@ const outDir = path.resolve(
   flag("--out") ??
     path.join(
       os.tmpdir(),
-      `recorder-parity-${new Date().toISOString().replace(/[:.]/g, "-")}`
+      `recorder-parity-${now().toISOString().replace(/[:.]/g, "-")}`
     )
 );
 if ((!videoId && args.length !== 2) || !(seconds > 0)) {

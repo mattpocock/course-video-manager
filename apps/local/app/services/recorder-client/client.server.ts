@@ -29,6 +29,7 @@ import { streamDeckPreparation } from "./stream-deck-prepare";
 import { watchRecorder } from "./recorder-watch";
 import type { RecorderClientOptions } from "./client-options";
 import { log } from "@/packages/log";
+import { after } from "@/packages/clock";
 
 /**
  * THE RECORDER CLIENT: the app server's one WebSocket to the recorder service
@@ -238,9 +239,8 @@ export const createRecorderClient = (o: RecorderClientOptions) => {
     const tries = before?.seq === event.seq ? before.tries + 1 : 1;
     failing.set(id, { seq: event.seq, tries });
     if (tries > MAX_SAVE_RETRIES) return;
-    setTimeout(
-      () => send({ type: "replay", recordingSessionId: id, afterSeq: 0 }),
-      o.retryMs * 2 ** (tries - 1)
+    after(o.retryMs * 2 ** (tries - 1), () =>
+      send({ type: "replay", recordingSessionId: id, afterSeq: 0 })
     );
   };
 
@@ -408,7 +408,7 @@ export const createRecorderClient = (o: RecorderClientOptions) => {
         meter.restart();
       }
       waiters.wentAway();
-      if (!closed) setTimeout(connect, o.reconnectMs);
+      if (!closed) after(o.reconnectMs, connect);
     });
   };
   connect();
@@ -461,11 +461,11 @@ export const createRecorderClient = (o: RecorderClientOptions) => {
         lastCamera.delete(videoId);
         for (const kind of Object.keys(WHILE_OPEN_MESSAGES))
           lastOpen.delete(`${videoId}:${kind}`);
-        setTimeout(() => {
+        after(o.closeGraceMs, () => {
           if (listeners.has(videoId)) return;
           wanted = wanted.filter((v) => v !== videoId);
           reconcile();
-        }, o.closeGraceMs);
+        });
       };
     },
 

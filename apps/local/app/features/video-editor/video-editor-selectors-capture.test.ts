@@ -8,6 +8,7 @@ import type {
   TimelineItem,
 } from "./clip-state-reducer";
 import { isCaptureInProgress } from "./video-editor-selectors";
+import { now } from "@/packages/clock";
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -25,7 +26,7 @@ const makeClipOnDatabase = (
   sourceStartTime: 0,
   sourceEndTime: 5,
   text: "hello world",
-  transcribedAt: new Date(),
+  transcribedAt: now(),
   transcriptionStatus: "done",
   scene: null,
   profile: null,

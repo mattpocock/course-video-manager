@@ -10,6 +10,7 @@ import type {
 } from "@cvm/core/services/db-footage-stats.server";
 import { Film } from "lucide-react";
 import { Fragment } from "react";
+import { toDate } from "@/packages/clock";
 
 const BLOCK_CLASS =
   "flex items-start gap-3 pt-3 mt-3 border-t text-xs leading-4 text-muted-foreground tabular-nums whitespace-nowrap cursor-default";
@@ -84,7 +85,7 @@ const LABELS = ["1D", "7D"] as const;
 /** A `YYYY-MM-DD` calendar day: `12 Oct` short, `Mon 12 Oct 2026` long. */
 function formatDay(date: string, style: "short" | "long"): string {
   // Noon UTC keeps the calendar day whatever zone formats it.
-  return new Date(`${date}T12:00:00Z`).toLocaleDateString("en-GB", {
+  return toDate(`${date}T12:00:00Z`).toLocaleDateString("en-GB", {
     timeZone: "UTC",
     day: "numeric",
     month: "short",

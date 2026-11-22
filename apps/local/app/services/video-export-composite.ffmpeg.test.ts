@@ -29,6 +29,7 @@ import {
   beeps,
 } from "@/test-utils/video-export-ffmpeg";
 import { idleGpuGate } from "@/test-utils/idle-gpu-gate";
+import { nowMs } from "@/packages/clock";
 
 /**
  * The export pass over a Video of CVM-recorder Clips, with the real ffmpeg on
@@ -39,7 +40,7 @@ import { idleGpuGate } from "@/test-utils/idle-gpu-gate";
 describe.skipIf(!hasFfmpeg)("exporting a Video of CVM-recorder Clips", () => {
   const dir = path.join(
     os.tmpdir(),
-    `composite-export-${process.pid}-${Date.now()}`
+    `composite-export-${process.pid}-${nowMs()}`
   );
   let commands: string[];
   let output: string;
@@ -136,7 +137,7 @@ describe.skipIf(!hasFfmpeg)(
   () => {
     const dir = path.join(
       os.tmpdir(),
-      `composite-transform-${process.pid}-${Date.now()}`
+      `composite-transform-${process.pid}-${nowMs()}`
     );
     const layer = (o: Partial<ClipLayerRow>): ClipLayerRow => ({
       position: 0,
@@ -289,7 +290,7 @@ describe.skipIf(!hasFfmpeg)(
 describe.skipIf(!hasFfmpeg)("joining CVM-recorder Clips", () => {
   const dir = path.join(
     os.tmpdir(),
-    `composite-join-${process.pid}-${Date.now()}`
+    `composite-join-${process.pid}-${nowMs()}`
   );
   const CLIP = 1.8137;
   const FRAMES = 109; // 1.8137 s rounded up to whole frames
@@ -373,10 +374,7 @@ describe.skipIf(!hasFfmpeg)("joining CVM-recorder Clips", () => {
 describe.skipIf(!hasFfmpeg)(
   "a 30 fps Imported Footage Clip among CVM-recorder Clips",
   () => {
-    const dir = path.join(
-      os.tmpdir(),
-      `import-join-${process.pid}-${Date.now()}`
-    );
+    const dir = path.join(os.tmpdir(), `import-join-${process.pid}-${nowMs()}`);
     const CLIP = 1.8137;
     const FRAMES = 109;
     const imported = (k: number) => {
@@ -491,7 +489,7 @@ describe.skipIf(!hasFfmpeg)(
 describe.skipIf(!hasFfmpeg)("encoding an Animatic", () => {
   const dir = path.join(
     os.tmpdir(),
-    `animatic-export-${process.pid}-${Date.now()}`
+    `animatic-export-${process.pid}-${nowMs()}`
   );
   let output: string;
 

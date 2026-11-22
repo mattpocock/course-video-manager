@@ -25,6 +25,7 @@ import { STORAGE_DELETED_EVENT } from "@/packages/storage/client";
 import type { JobContext } from "../job-kind";
 import { storageDeleteJobKind } from "./storage-delete";
 import { readEnv } from "@/packages/env";
+import { nowMs, toDate } from "@/packages/clock";
 
 /**
  * The `storage-delete` Sidecar Job's other operations (#2157, #2423):
@@ -79,7 +80,7 @@ const put = (dir: string, relative: string, content: Buffer | string) => {
   fs.writeFileSync(full, content);
 };
 
-const OLD = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+const OLD = toDate(nowMs() - 30 * 24 * 60 * 60 * 1000);
 
 /** A file last changed a month ago: old enough to be offered as Unused. */
 const putOld = (dir: string, relative: string, content: string) => {

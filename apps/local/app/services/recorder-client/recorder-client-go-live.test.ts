@@ -38,6 +38,7 @@ import {
   youtube,
   youtubeStream,
 } from "./go-live-test-harness";
+import { delay, toDate } from "@/packages/clock";
 
 /**
  * Go Live and End Stream end to end (ADR 0054), without hardware
@@ -138,7 +139,7 @@ describe("Go Live and End Stream", () => {
     expect(ended(r.streamStatuses())).toEqual(["End Stream."]);
 
     const again = r.goLive();
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    await delay(300);
     // Not launched while the last one runs.
     expect(r.windows.streams).toHaveLength(1);
     first.exit(0);
@@ -175,7 +176,7 @@ describe("Go Live and End Stream", () => {
     const answer = await r.goLive({
       broadcastId: null,
       envPath: envFile(false),
-      now: new Date(CALIBRATION.createdAtMs + 30 * 24 * 60 * 60 * 1000),
+      now: toDate(CALIBRATION.createdAtMs + 30 * 24 * 60 * 60 * 1000),
     });
 
     const reasons = reasonsOf(answer);
@@ -356,14 +357,14 @@ describe("End Stream completes the Broadcast", () => {
         expect(r.liveStreams.at(-1)?.status).toEqual({ kind: "ending" })
       );
       // Viewers are still behind: the push and the recording go on.
-      await new Promise((resolve) => setTimeout(resolve, 200));
+      await delay(200);
       expect(streamProcess.written).not.toContain("q");
       expect(streamProcess.running).toBe(true);
       expect(r.heard.map((m) => m.type)).not.toContain("recording-stopped");
       expect(transitions()).toHaveLength(0);
       // A second press while ending neither waits again nor ends it sooner.
       const again = r.client.endStream(r.video.id);
-      await new Promise((resolve) => setTimeout(resolve, 200));
+      await delay(200);
       expect(r.endClock.waits()).toEqual([waitMs]);
       expect(streamProcess.written).not.toContain("q");
 

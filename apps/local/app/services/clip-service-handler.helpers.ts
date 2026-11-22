@@ -17,6 +17,7 @@ import { requireDraftVersionForVideo } from "@/services/draft-guard.server";
 import { withDbTransaction } from "@/services/with-db-transaction.server";
 import { createVideoFromSelectionImpl } from "@/services/db-video-from-selection.server";
 import type { LogEvent } from "./video-editor-logger-service";
+import { now } from "@/packages/clock";
 
 // ============================================================================
 // Errors and the Drizzle bridge
@@ -323,7 +324,7 @@ export const createEffectClipAtPositionImpl = Effect.fn(
         pauseType,
         order: order!,
         archived: false,
-        transcribedAt: new Date(),
+        transcribedAt: now(),
         transcriptionStatus: "done",
       })
       .returning()

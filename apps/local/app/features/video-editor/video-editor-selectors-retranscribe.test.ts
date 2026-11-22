@@ -6,6 +6,7 @@ import type {
   SessionId,
 } from "./clip-state-reducer";
 import { getRetranscribableClipIds } from "./video-editor-selectors";
+import { now } from "@/packages/clock";
 
 const onDatabase = (frontendId: string): ClipOnDatabase => ({
   type: "on-database",
@@ -15,7 +16,7 @@ const onDatabase = (frontendId: string): ClipOnDatabase => ({
   sourceStartTime: 0,
   sourceEndTime: 5,
   text: "hello world",
-  transcribedAt: new Date(),
+  transcribedAt: now(),
   transcriptionStatus: "done",
   scene: null,
   profile: null,

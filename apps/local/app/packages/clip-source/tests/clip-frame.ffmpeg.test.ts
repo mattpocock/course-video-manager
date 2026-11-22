@@ -9,6 +9,7 @@ import {
   clipSource,
   type ClipFrame,
 } from "@/packages/clip-source";
+import { nowMs } from "@/packages/clock";
 
 /**
  * Renders a CVM-recorder Clip's first and last frames with the real ffmpeg
@@ -30,7 +31,7 @@ const H = 1080;
 
 describe.skipIf(!hasFfmpeg)("a CVM-recorder Clip's stills in ffmpeg", () => {
   // Made in beforeAll: a skipped describe still runs its body.
-  const dir = path.join(tmpdir(), `clip-frame-${process.pid}-${Date.now()}`);
+  const dir = path.join(tmpdir(), `clip-frame-${process.pid}-${nowMs()}`);
   afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
   const file = (name: string, lavfi: string) => {

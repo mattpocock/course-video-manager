@@ -37,6 +37,7 @@ import {
   postingQueueTickIn,
 } from "./posting-queue-tick";
 import { readEnv } from "@/packages/env";
+import { now } from "@/packages/clock";
 
 /**
  * The sidecar's entry point (`pnpm dev` runs it as `dev:sidecar`, `pnpm start`
@@ -57,7 +58,7 @@ import { readEnv } from "@/packages/env";
  */
 
 const say = (message: string) =>
-  process.stdout.write(`${new Date().toISOString()} [sidecar] ${message}\n`);
+  process.stdout.write(`${now().toISOString()} [sidecar] ${message}\n`);
 
 /** The checkout this file belongs to — its `.env`, `.data/` and git SHA. */
 const CHECKOUT = path.resolve(import.meta.dirname, "../../..");

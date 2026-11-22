@@ -6,6 +6,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { createTestDb } from "@/test-utils/test-db";
 import { DumpError, PG_ENV_NAMES, pgEnvFromUrl, writeDump } from "./db-dump";
 import { readEnv } from "@/packages/env";
+import { toDate, now } from "@/packages/clock";
 
 /**
  * Against the local test server only (`cvm-test-postgres`, Postgres 17). The
@@ -43,7 +44,7 @@ describe.skipIf(Boolean(readEnv("CVM_TEST_DATABASE_URL")))("writeDump", () => {
       serverMajor: 17,
       dir,
       keep: 14,
-      now: new Date("2026-11-03T03:17:00Z"),
+      now: toDate("2026-11-03T03:17:00Z"),
       pgDump: PG_DUMP,
     });
 
@@ -72,7 +73,7 @@ describe.skipIf(Boolean(readEnv("CVM_TEST_DATABASE_URL")))("writeDump", () => {
       serverMajor: 17,
       dir,
       keep: 14,
-      now: new Date("2026-11-03T03:17:00Z"),
+      now: toDate("2026-11-03T03:17:00Z"),
       pgDump: PG_DUMP,
     });
 
@@ -93,7 +94,7 @@ describe.skipIf(Boolean(readEnv("CVM_TEST_DATABASE_URL")))("writeDump", () => {
       serverMajor: 99,
       dir,
       keep: 14,
-      now: new Date(),
+      now: now(),
       pgDump: PG_DUMP,
     }).catch((e: unknown) => e);
 
@@ -115,7 +116,7 @@ describe.skipIf(Boolean(readEnv("CVM_TEST_DATABASE_URL")))("writeDump", () => {
         serverMajor: 17,
         dir,
         keep: 0,
-        now: new Date("2026-11-03T03:17:00Z"),
+        now: toDate("2026-11-03T03:17:00Z"),
         pgDump: PG_DUMP,
       })
     ).rejects.toThrow("pg_dump exited with");

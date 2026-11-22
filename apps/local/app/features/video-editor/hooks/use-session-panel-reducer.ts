@@ -6,6 +6,7 @@ import {
   createInitialSessionPanelState,
   sessionPanelReducer,
 } from "../session-panel-reducer";
+import { nowMs, every } from "@/packages/clock";
 
 const activeDiagramOpen = () => getActiveDiagramId() !== null;
 
@@ -28,7 +29,7 @@ export function useSessionPanelReducer(session: {
         {
           recording: session.isRecording,
           startedAt: session.startedAt,
-          at: Date.now(),
+          at: nowMs(),
           activeDiagramOpen: activeDiagramOpen(),
           diagramFocused: diagramFocus.isFocused(),
           browserFocused: browserFocus.isFocused(),
@@ -37,16 +38,14 @@ export function useSessionPanelReducer(session: {
       ),
     {
       "tick-every-second": (_state, _effect, dispatch) => {
-        const interval = setInterval(
-          () =>
-            dispatch({
-              type: "clock-ticked",
-              at: Date.now(),
-              activeDiagramOpen: activeDiagramOpen(),
-            }),
-          1000
+        const stopTimer = every(1000, () =>
+          dispatch({
+            type: "clock-ticked",
+            at: nowMs(),
+            activeDiagramOpen: activeDiagramOpen(),
+          })
         );
-        return () => clearInterval(interval);
+        return stopTimer;
       },
     }
   );
@@ -56,7 +55,7 @@ export function useSessionPanelReducer(session: {
       type: "session-heard",
       recording: session.isRecording,
       startedAt: session.startedAt,
-      at: Date.now(),
+      at: nowMs(),
       activeDiagramOpen: activeDiagramOpen(),
     });
   }, [session.isRecording, session.startedAt, dispatch]);

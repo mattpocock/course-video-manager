@@ -12,6 +12,7 @@ import { Ban, Copy, KeyRound } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useFetcher } from "react-router";
 import type { Route } from "./+types/_app.api-tokens";
+import { nowMs } from "@/packages/clock";
 
 export const meta: Route.MetaFunction = () => [{ title: "CVM - API Tokens" }];
 
@@ -71,7 +72,7 @@ type TokenRowProps = {
 
 const statusOf = (token: ApiTokenSummary): string => {
   if (token.revokedAt !== null) return "revoked";
-  if (new Date(token.expiresAt).getTime() <= Date.now()) return "expired";
+  if (new Date(token.expiresAt).getTime() <= nowMs()) return "expired";
   return "active";
 };
 

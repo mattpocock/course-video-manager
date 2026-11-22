@@ -7,6 +7,7 @@ import {
   createInitialCompositePlaybackState,
   type PictureSource,
 } from "./composite-playback-reducer";
+import { after } from "@/packages/clock";
 
 /**
  * The effect runner for `compositePlaybackReducer`, and the bridge from the
@@ -70,11 +71,10 @@ export const useCompositePlayback = (o: {
         }),
       "hold-clock": (_state, effect, dispatch) => {
         o.clock.current?.pause();
-        const timer = setTimeout(
-          () => dispatch({ type: "hold-expired", holdId: effect.holdId }),
-          effect.expiresAfterMs
+        const cancelTimer = after(effect.expiresAfterMs, () =>
+          dispatch({ type: "hold-expired", holdId: effect.holdId })
         );
-        return () => clearTimeout(timer);
+        return cancelTimer;
       },
       "play-clock": () => {
         void o.clock.current?.play().catch(() => {});

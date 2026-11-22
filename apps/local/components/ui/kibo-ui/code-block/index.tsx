@@ -107,6 +107,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { after } from "@/packages/clock";
 
 export type { BundledLanguage } from "shiki/bundle/web";
 
@@ -504,7 +505,7 @@ export const CodeBlockCopyButton = ({
       setIsCopied(true);
       onCopy?.();
 
-      setTimeout(() => setIsCopied(false), timeout);
+      after(timeout, () => setIsCopied(false));
     }, onError);
   };
 

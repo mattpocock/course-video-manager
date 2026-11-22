@@ -21,6 +21,7 @@ import {
 import { CalibrationTimelineView } from "./calibration-timeline-view";
 import { ClapStepView } from "./clap-step";
 import type { SavedAVCalibration } from "./calibration-wire";
+import { toDate } from "@/packages/clock";
 
 type State = avCalibrationReducer.State;
 
@@ -259,7 +260,7 @@ const Result = ({ calibration }: { calibration: SavedAVCalibration }) => {
       <p className="text-sm text-muted-foreground">
         Target band {TARGET_BAND.lowLufs} to {TARGET_BAND.highLufs} LUFS; true
         peak at most {MAX_TRUE_PEAK_DBTP} dBTP; then the clap step saved. Stored{" "}
-        {new Date(calibration.createdAt).toLocaleString()}, on{" "}
+        {toDate(calibration.createdAt).toLocaleString()}, on{" "}
         {calibration.recorderMic}
         {calibration.cameraDevice ? ` and ${calibration.cameraDevice}` : ""}.
       </p>

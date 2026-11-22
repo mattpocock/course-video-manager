@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { SavedAVCalibration } from "./calibration-wire";
 import { micOffsetColumn } from "./mic-offset-column";
+import { toDate } from "@/packages/clock";
 
 /**
  * The past AV Calibrations, newest first, passed and failed. Opening one
@@ -34,7 +35,7 @@ export const CalibrationHistory = ({
               className="flex items-center justify-between gap-4 py-2 text-sm"
             >
               <span className="tabular-nums">
-                {new Date(c.createdAt).toLocaleString()}
+                {toDate(c.createdAt).toLocaleString()}
               </span>
               <span
                 className={cn(

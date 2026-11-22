@@ -9,6 +9,7 @@ import {
   testDb,
   start,
 } from "./clip-service-test-setup";
+import { toDate } from "@/packages/clock";
 
 setupClipServiceTests();
 
@@ -35,15 +36,15 @@ const film = async (
   await testDb
     .update(clips)
     .set({
-      createdAt: new Date(createdAt),
-      transcribedAt: extra.transcribedAt ? new Date(extra.transcribedAt) : null,
+      createdAt: toDate(createdAt),
+      transcribedAt: extra.transcribedAt ? toDate(extra.transcribedAt) : null,
     })
     .where(eq(clips.id, clip!.id));
   return { clip: clip!, videoId };
 };
 
 const stats = (now: string, timeZone = LONDON) =>
-  clipService.getFootageStats({ now: new Date(now), timeZone });
+  clipService.getFootageStats({ now: toDate(now), timeZone });
 
 describe("ClipService.getFootageStats", () => {
   it("is zero with no Footage", async () => {
@@ -164,7 +165,7 @@ describe("ClipService.getFootageStats", () => {
     });
     await testDb
       .update(clips)
-      .set({ createdAt: new Date("2026-10-12T08:00:00Z") })
+      .set({ createdAt: toDate("2026-10-12T08:00:00Z") })
       .where(eq(clips.id, effectClip.id));
 
     expect((await stats(now)).todaySeconds).toBe(100);
@@ -234,7 +235,7 @@ describe("ClipService.getFootageStats", () => {
 
   it("counts efficiency across every Version, keeping only what the Draft keeps", async () => {
     const now = "2026-10-12T09:00:00Z";
-    const filmed = new Date("2026-10-12T08:00:00Z");
+    const filmed = toDate("2026-10-12T08:00:00Z");
     const [course] = await testDb
       .insert(schema.courses)
       .values({ name: "Course" })

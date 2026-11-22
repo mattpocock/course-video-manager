@@ -12,6 +12,7 @@ import {
   screenshotStep,
   type ScreenshotCaptureRequest,
 } from "./screenshot-navigation";
+import { after } from "@/packages/clock";
 
 const HIGHLIGHT_CLASSES = ["ring-2", "ring-primary", "ring-offset-2"];
 const HIGHLIGHT_MS = 1200;
@@ -45,10 +46,7 @@ export function useScreenshotNavigation(
       lastVisited.current = index;
       el.scrollIntoView({ behavior: "smooth", block: "center" });
       el.classList.add(...HIGHLIGHT_CLASSES);
-      window.setTimeout(
-        () => el.classList.remove(...HIGHLIGHT_CLASSES),
-        HIGHLIGHT_MS
-      );
+      after(HIGHLIGHT_MS, () => el.classList.remove(...HIGHLIGHT_CLASSES));
     };
 
     const onKeyDown = (e: KeyboardEvent) => {

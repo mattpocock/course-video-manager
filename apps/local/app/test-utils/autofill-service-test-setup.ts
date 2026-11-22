@@ -27,6 +27,7 @@ import { DrizzleService } from "@/services/drizzle-service.server";
 import { SidecarContextTest } from "@/services/sidecar-context";
 import { createFakeTextGeneration } from "@/test-utils/fake-text-generation";
 import type { TestDb } from "@/test-utils/test-db";
+import { now } from "@/packages/clock";
 
 export type VideoSpec = {
   readonly title?: string;
@@ -117,7 +118,7 @@ export const seedCourseVersion = async (
           // first Clip.
           order: clipOrders[clipIndex + 1]!,
           text: clipSpec.text,
-          transcribedAt: clipSpec.transcribed === false ? null : new Date(),
+          transcribedAt: clipSpec.transcribed === false ? null : now(),
           transcriptionStatus:
             clipSpec.transcribed === false ? "queued" : "done",
         });

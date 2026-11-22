@@ -25,6 +25,7 @@ import { LatestTranscript } from "@/features/teleprompter/latest-transcript";
 import { VideoLength } from "@/features/teleprompter/video-length";
 import { NO_TOASTS } from "@/lib/route-toasts";
 import type { Route } from "./+types/teleprompter";
+import { every, nowMs } from "@/packages/clock";
 
 const PING_INTERVAL_MS = 2000;
 const POLL_INTERVAL_MS = 3000;
@@ -64,7 +65,7 @@ export default function Teleprompter() {
           suggestion: msg.suggestion,
           suggestionId: msg.suggestionId,
           suggestionPreviousClips: msg.suggestionPreviousClips,
-          at: Date.now(),
+          at: nowMs(),
         });
       } else if (msg.type === "pong") {
         // A pong that revives a lapsed connection carries nothing, and the
@@ -72,7 +73,7 @@ export default function Teleprompter() {
         // stay blank until something in the editor happens to change.
         if (!connectedRef.current)
           teleprompterChannel.sendToParent({ type: "hello" });
-        dispatch({ type: "editor-alive", at: Date.now() });
+        dispatch({ type: "editor-alive", at: nowMs() });
       } else if (msg.type === "editorDisconnected") {
         dispatch({ type: "editor-disconnected" });
       } else if (msg.type === "contentChanged") {
@@ -82,7 +83,7 @@ export default function Teleprompter() {
           type: "script-pushed",
           videoId: msg.videoId,
           script: msg.script,
-          at: Date.now(),
+          at: nowMs(),
         });
       }
     });
@@ -94,13 +95,13 @@ export default function Teleprompter() {
     };
 
     knock();
-    const beat = setInterval(() => {
+    const stopBeat = every(PING_INTERVAL_MS, () => {
       knock();
-      dispatch({ type: "liveness-checked", at: Date.now() });
-    }, PING_INTERVAL_MS);
+      dispatch({ type: "liveness-checked", at: nowMs() });
+    });
 
     return () => {
-      clearInterval(beat);
+      stopBeat();
       unsub();
     };
   }, []);
@@ -126,7 +127,7 @@ export default function Teleprompter() {
           type: "content-fetched",
           videoId,
           content: json,
-          at: Date.now(),
+          at: nowMs(),
         });
       } catch {
         // Dev server restarting — the next tick picks it up.
@@ -135,10 +136,10 @@ export default function Teleprompter() {
 
     refetch.current = load;
     load();
-    const id = setInterval(load, POLL_INTERVAL_MS);
+    const stopLoad = every(POLL_INTERVAL_MS, load);
     return () => {
       cancelled = true;
-      clearInterval(id);
+      stopLoad();
     };
   }, [videoId]);
 

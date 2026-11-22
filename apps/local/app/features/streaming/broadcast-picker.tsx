@@ -26,6 +26,7 @@ import type { NewBroadcastVideo } from "./new-stream-video";
 import { useNewBroadcastReducer } from "./use-new-broadcast-reducer";
 import { unlistWhenEndedBesidePick } from "./unlist-when-ended";
 import { UnlistWhenEndedCheckbox } from "./unlist-when-ended-checkbox";
+import { toDate } from "@/packages/clock";
 
 const RECONNECT_MESSAGES: Record<ReconnectReason, string> = {
   "not-connected": "Connect Google to list your YouTube Broadcasts.",
@@ -36,7 +37,7 @@ const RECONNECT_MESSAGES: Record<ReconnectReason, string> = {
 const formatScheduledStart = (iso: string | null) =>
   iso === null
     ? "No scheduled start"
-    : new Date(iso).toLocaleString(undefined, {
+    : toDate(iso).toLocaleString(undefined, {
         weekday: "short",
         day: "numeric",
         month: "short",

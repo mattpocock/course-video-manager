@@ -11,6 +11,7 @@ import {
   deepLinkTarget,
   type DeepLinkTargetType,
 } from "./entity-deep-link";
+import { after } from "@/packages/clock";
 
 type Candidate = deepLinkFocusReducer.Candidate;
 
@@ -82,7 +83,7 @@ export function useDeepLinkFocus(props: {
             : `The linked ${label} isn't here — it may have been deleted or archived.`;
         // On first load this runs before the root's <Toaster> has subscribed,
         // which would drop the toast; a task later it is listening.
-        setTimeout(() =>
+        after(0, () =>
           toast.warning(message, { id: NOTICE_ID, duration: 10_000 })
         );
       },

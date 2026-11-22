@@ -1,5 +1,6 @@
 import { getAutoSelectThumbnailId } from "@/features/video-posting/auto-select-thumbnail";
 import type { NewBroadcastDraft } from "./broadcast";
+import { now } from "@/packages/clock";
 
 /**
  * Creating a Video to stream into: one standalone Landscape Video, made by
@@ -15,7 +16,7 @@ export const streamingUrl = (videoId: string): string =>
 /** The form `POST /api/videos/create` takes for a new Video to stream into. */
 export const newStreamVideoFormData = (): FormData => {
   const formData = new FormData();
-  formData.set("title", `Stream ${new Date().toLocaleDateString()}`);
+  formData.set("title", `Stream ${now().toLocaleDateString()}`);
   formData.set("format", "landscape");
   formData.set("redirectTo", "/streaming/{id}");
   return formData;

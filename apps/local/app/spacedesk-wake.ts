@@ -1,5 +1,6 @@
 import net from "node:net";
 import crypto from "node:crypto";
+import { after } from "@/packages/clock";
 
 /**
  * Wakes the spacedesk virtual display (the 1080x1080 monitor a Short is
@@ -172,26 +173,26 @@ export const wakeSpacedesk = (
     // Started once we're upgraded: if the server accepts us but never streams a
     // frame, we still succeed — the identification (which wakes the display) is
     // already sent.
-    let activationTimer: ReturnType<typeof setTimeout> | undefined;
+    let cancelActivation: (() => void) | undefined;
 
     const finish = (error?: SpacedeskWakeError) => {
       if (settled) return;
       settled = true;
-      clearTimeout(connectTimer);
-      clearTimeout(activationTimer);
+      cancelConnect();
+      cancelActivation?.();
       socket.destroy();
       if (error) reject(error);
       else resolve();
     };
 
-    const connectTimer = setTimeout(() => {
+    const cancelConnect = after(CONNECT_TIMEOUT_MS, () => {
       finish(
         new SpacedeskWakeError(
           `Timed out connecting to the spacedesk server at ${host}:${port}. Is spacedesk running on the PC?`,
           { cause: new Error("timeout") }
         )
       );
-    }, CONNECT_TIMEOUT_MS);
+    });
 
     socket.on("connect", () => {
       const key = crypto.randomBytes(16).toString("base64");
@@ -227,11 +228,11 @@ export const wakeSpacedesk = (
         }
         upgraded = true;
         buffer = buffer.slice(headerEnd + 4);
-        clearTimeout(connectTimer);
+        cancelConnect();
         socket.write(maskFrame(buildIdentificationPacket()));
         // Give the server a moment to start streaming as activation proof, but
         // don't fail if it doesn't — the packet is already sent.
-        activationTimer = setTimeout(() => finish(), ACTIVATION_TIMEOUT_MS);
+        cancelActivation = after(ACTIVATION_TIMEOUT_MS, () => finish());
       }
 
       // Any server frame after the handshake means the display is streaming.

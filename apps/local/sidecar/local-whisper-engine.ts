@@ -13,6 +13,7 @@ import {
   WORKER_SCRIPT,
 } from "./local-whisper-env";
 import { createIdleStop } from "@/services/idle-stop";
+import { nowMs } from "@/packages/clock";
 
 /**
  * The live **Local Whisper** engine, the Sidecar's only way to transcribe:
@@ -164,7 +165,7 @@ export const makeWorker = (config: WorkerConfig) => {
    * before it lapses; once it lapses the idle stop applies as before.
    */
   const keepWarm = (ms: number) => {
-    warmUntil = Math.max(warmUntil, Date.now() + ms);
+    warmUntil = Math.max(warmUntil, nowMs() + ms);
     if (!ready) {
       ready = start();
       // A worker that will not start is reported by the next transcription.

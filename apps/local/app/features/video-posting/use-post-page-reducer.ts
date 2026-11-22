@@ -22,6 +22,7 @@ import {
   POST_VISIBILITY_STORAGE_KEY,
 } from "./post-visibility";
 import { log } from "@/packages/log";
+import { after } from "@/packages/clock";
 
 const YOUTUBE_VIDEO_ID_STORAGE_KEY = (videoId: string) =>
   `youtube-video-id-${videoId}`;
@@ -74,7 +75,7 @@ export function usePostPageReducer({
           });
       },
       "save-youtube-draft": (_state, effect, dispatch) => {
-        const timer = setTimeout(() => {
+        const cancelTimer = after(effect.delayMs, () => {
           saveYoutubeDraft(effect)
             .then(() =>
               dispatch({
@@ -90,8 +91,8 @@ export function usePostPageReducer({
                   error instanceof Error ? error.message : "The save failed",
               })
             );
-        }, effect.delayMs);
-        return () => clearTimeout(timer);
+        });
+        return cancelTimer;
       },
       "read-stored-youtube-video-id": (_state, effect, dispatch) => {
         dispatch({

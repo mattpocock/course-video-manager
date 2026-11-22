@@ -17,6 +17,7 @@ import {
   type RemoteHarnessOptions,
 } from "./cli-remote-test-harness";
 import { readEnv } from "@/packages/env";
+import { toDate } from "@/packages/clock";
 
 /**
  * Shared harness for the `cvm` WRITE-verb integration tests. Mirrors the layer
@@ -173,7 +174,7 @@ export const seedWrite = async (db: TestDb): Promise<WriteSeed> => {
     .values({
       repoId: course!.id,
       name: "",
-      createdAt: new Date("2024-01-01T00:00:00Z"),
+      createdAt: toDate("2024-01-01T00:00:00Z"),
     })
     .returning();
   const [draftSection] = await db

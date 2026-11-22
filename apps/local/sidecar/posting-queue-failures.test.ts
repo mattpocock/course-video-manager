@@ -22,6 +22,7 @@ import {
   uk,
   youtubeInits,
 } from "./posting-queue-test-harness";
+import { now } from "@/packages/clock";
 
 // ===========================================================================
 // Posting Queue failures (#2618): only the failed channel is tried again, at
@@ -38,10 +39,10 @@ const latestJob = async (kind: string) => (await jobsOf(kind)).at(-1)!;
 
 /** The claimed posting Jobs, cut off mid-run: the Sidecar died under them. */
 const interruptBoth = async () => {
-  const startedAt = new Date();
+  const startedAt = now();
   await testDb
     .update(schema.jobs)
-    .set({ status: "interrupted", startedAt, finishedAt: new Date() })
+    .set({ status: "interrupted", startedAt, finishedAt: now() })
     .where(eq(schema.jobs.status, "queued"));
 };
 

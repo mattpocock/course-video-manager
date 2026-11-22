@@ -31,6 +31,7 @@ import {
   getSteerAnchors,
   getTranscribedClipIds,
 } from "../video-editor-selectors";
+import { after } from "@/packages/clock";
 
 /** One choice for every Video, not one per Video. */
 const INCLUDED_SOURCES_KEY = "video-editor:suggestions-sources";
@@ -171,11 +172,10 @@ export function useSuggestions(input: {
         writePickedFiles(effect.videoId, effect.paths);
       },
       "wait-for-edit-pause": (_state, effect, dispatch) => {
-        const timer = setTimeout(
-          () => dispatch({ type: "edit-pause-elapsed", editId: effect.editId }),
-          EDIT_PAUSE_MS
+        const cancelTimer = after(EDIT_PAUSE_MS, () =>
+          dispatch({ type: "edit-pause-elapsed", editId: effect.editId })
         );
-        return () => clearTimeout(timer);
+        return cancelTimer;
       },
     }
   );

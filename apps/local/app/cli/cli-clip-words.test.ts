@@ -20,6 +20,7 @@ import {
   type RunResult,
   type WriteSeed,
 } from "./cli-write-test-harness";
+import { now } from "@/packages/clock";
 
 // ===========================================================================
 // Transcript Words: `cvm clip words`, and the two write paths that fill it —
@@ -66,7 +67,7 @@ const seedFootageTranscript = (
       version: 1,
       sourcePath: source,
       sourceHash: createHash("sha256").update(content).digest("hex"),
-      transcribedAt: new Date().toISOString(),
+      transcribedAt: now().toISOString(),
       ...transcript,
     })
   );

@@ -27,6 +27,7 @@ import {
   BEAT_KIND_LABELS,
   type BeatKind,
 } from "./beat-kinds";
+import { after } from "@/packages/clock";
 
 /**
  * Where a new Beat should land. The kind chosen from the "Add beat" menu
@@ -112,11 +113,11 @@ function CreateBeatDialog({
   // focus to their trigger as they close — which lands *after* this mounts and
   // would steal focus from the input. Claim it back on the next tick.
   useEffect(() => {
-    const id = setTimeout(() => {
+    const cancelTimer = after(0, () => {
       inputRef.current?.focus();
       inputRef.current?.select();
-    }, 0);
-    return () => clearTimeout(id);
+    });
+    return cancelTimer;
   }, []);
 
   const confirm = () => onConfirm(title.trim(), kind);

@@ -21,6 +21,7 @@ import {
 } from "@/features/streaming/stream-chat-popout-reducer";
 import { NO_TOASTS } from "@/lib/route-toasts";
 import type { Route } from "./+types/stream-chat";
+import { every, nowMs } from "@/packages/clock";
 
 const PING_INTERVAL_MS = 2000;
 
@@ -39,16 +40,16 @@ export default function StreamChat() {
   // says this window is open and asks for the chat.
   useEffect(() => {
     const unsubscribe = streamChatChannel.subscribeChild((message) =>
-      dispatch({ type: "chat-view-heard", view: message.view, at: Date.now() })
+      dispatch({ type: "chat-view-heard", view: message.view, at: nowMs() })
     );
     const ping = () => {
       streamChatChannel.sendToParent({ type: "ping" });
-      dispatch({ type: "ticked", at: Date.now() });
+      dispatch({ type: "ticked", at: nowMs() });
     };
     ping();
-    const beat = setInterval(ping, PING_INTERVAL_MS);
+    const stopBeat = every(PING_INTERVAL_MS, ping);
     return () => {
-      clearInterval(beat);
+      stopBeat();
       unsubscribe();
     };
   }, []);

@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 import { DumpError, writeDump } from "./db-dump";
 import { scriptPgClient } from "./script-database-url";
 import { log } from "@/packages/log";
+import { now } from "@/packages/clock";
 
 const DIR = path.join(os.homedir(), "backups/cvm");
 const KEEP = 14;
@@ -39,13 +40,13 @@ try {
     serverMajor,
     dir: DIR,
     keep: KEEP,
-    now: new Date(),
+    now: now(),
     pgDump: ["pg_dump"],
   });
-  log.info(`${new Date().toISOString()} dumped ${file}`);
+  log.info(`${now().toISOString()} dumped ${file}`);
   for (const f of removed) log.info(`  removed ${f} (keeping ${KEEP})`);
 } catch (error) {
   if (!(error instanceof DumpError)) throw error;
-  log.error(`${new Date().toISOString()} dump FAILED: ${error.message}`);
+  log.error(`${now().toISOString()} dump FAILED: ${error.message}`);
   process.exit(1);
 }

@@ -21,6 +21,7 @@ import {
   flashes,
   beeps,
 } from "@/test-utils/video-export-ffmpeg";
+import { nowMs } from "@/packages/clock";
 
 /**
  * A B-roll as migration 0049 leaves it (#2576): one full-frame, muted Footage
@@ -37,7 +38,7 @@ describe.skipIf(!hasFfmpeg)(
   () => {
     const dir = path.join(
       os.tmpdir(),
-      `b-roll-layers-${process.pid}-${Date.now()}`
+      `b-roll-layers-${process.pid}-${nowMs()}`
     );
     const CLIP = 1.8137;
     const FRAMES = 109;

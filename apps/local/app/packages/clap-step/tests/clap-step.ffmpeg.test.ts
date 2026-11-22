@@ -11,6 +11,7 @@ import {
   clapPreviewMp4,
   readMicSamples,
 } from "@/packages/clap-step/server";
+import { nowMs } from "@/packages/clock";
 
 /**
  * A synthetic AV Calibration take, made with ffmpeg and no device: a mic file
@@ -190,7 +191,7 @@ const run = <A, E>(effect: Effect.Effect<A, E, never>) =>
  * at 2.013 s, the hands meeting on camera 120 ms later.
  */
 describe.skipIf(!hasFfmpeg)("the clap step over real files", () => {
-  const dir = path.join(tmpdir(), `clap-step-${process.pid}-${Date.now()}`);
+  const dir = path.join(tmpdir(), `clap-step-${process.pid}-${nowMs()}`);
   let files: { micFile: string; cameraFile: string };
   beforeAll(() => {
     mkdirSync(dir, { recursive: true });
