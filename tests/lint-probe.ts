@@ -118,3 +118,17 @@ export const configOverrides = (): Override[] => repoConfig().overrides;
 
 export const ownerPathExists = (file: string) =>
   existsSync(path.join(ROOT, file.split("*")[0] ?? file));
+
+/**
+ * What a probe diagnostic bans: a local rule's name (`db-clients`), or
+ * `import <module>` for a `no-restricted-imports` entry, with the
+ * `use-effect-reducer` entry named by its banned import.
+ */
+export const banOf = (d: Diagnostic): string | undefined => {
+  if (d.code.startsWith("local(")) return d.code.slice(6, -1);
+  if (d.code !== "eslint(no-restricted-imports)") return undefined;
+  const name = /'([^']+)'/.exec(d.message)?.[1];
+  return name === "use-effect-reducer"
+    ? "import useEffectReducer"
+    : `import ${name}`;
+};

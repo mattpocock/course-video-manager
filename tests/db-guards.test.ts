@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
+  banOf,
   configOverrides,
   type Diagnostic,
   lintProbes,
@@ -118,12 +119,6 @@ const FILES: Record<string, readonly Ban[]> = {
     EVERYWHERE,
     "clip-inserts"
   ),
-};
-
-const banOf = (d: Diagnostic): string | undefined => {
-  if (d.code.startsWith("local(")) return d.code.slice(6, -1);
-  if (d.code !== "eslint(no-restricted-imports)") return undefined;
-  return `import ${/'([^']+)'/.exec(d.message)?.[1]}`;
 };
 
 let diagnostics: Diagnostic[];

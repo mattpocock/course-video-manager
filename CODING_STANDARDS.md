@@ -262,7 +262,7 @@ query param, and anything on a Video in a Lesson also carries `course`, `section
 `lesson` params, which `EntityMenuContent` fills in from the nearest `LessonPlaceProvider`.
 A page that shows a Course's Videos provides one. A new entity type
 gets its route in both functions and a test case beside them, which checks they stay inverses. Never hand-roll a URL or a clipboard item in a menu: `EntityMenuContent` (below) adds it,
-and `scripts/check-entity-links.sh` fails a clipboard write of a hand-built app URL or a raw `.id`.
+and `local/entity-links` fails a clipboard write of a hand-built app URL or a raw `.id`.
 
 ### Filters stay in sync with the entity
 
@@ -368,7 +368,7 @@ counts and state-setting effects to a shrink-only allowlist. See
 Every duration shown to a person (a Video's length, a timecode, a
 YouTube chapter) goes through `formatDuration` in
 `app/lib/format-duration.ts`: `m:ss` under an hour, `h:mm:ss` from one.
-`scripts/check-duration-format.sh` fails a file that hand-rolls it (seconds
+`local/duration-format` fails a file that hand-rolls it (seconds
 `% 60` plus a two-digit `padStart`). The one exception is
 `formatRunningClock` beside it: the Live Timer's fixed-width `HH:MM:SS`
 clock. Rounded estimates (`~1h 5m`) keep their own wording.
