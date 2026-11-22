@@ -509,16 +509,16 @@ describe("@cvm/core's build, which apps/remote's types read", () => {
     expect(ratchet(dir).output).toContain(BUILD_FIRST);
   });
 
-  const build = (dir: string, at: Date) => {
+  const build = (dir: string, at: number) => {
     write(dir, "packages/core/dist/service.js", "export const a = 1;\n");
     utimesSync(path.join(dir, "packages/core/dist/service.js"), at, at);
   };
-  const edit = (dir: string, file: string, at: Date) => {
+  const edit = (dir: string, file: string, at: number) => {
     if (!existsSync(path.join(dir, file))) write(dir, file, "export {};\n");
     utimesSync(path.join(dir, file), at, at);
   };
-  const EARLIER = new Date("2026-01-01T00:00:00Z");
-  const LATER = new Date("2026-01-02T00:00:00Z");
+  const EARLIER = 1_767_225_600;
+  const LATER = EARLIER + 86_400;
 
   it("fails with the same message when a source is newer than the build", () => {
     const dir = remoteRepo();
