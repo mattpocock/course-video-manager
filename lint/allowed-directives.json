@@ -20,11 +20,6 @@
     "reason": "A type test: it passes only while the compiler refuses a posting kind with no checkPosted."
   },
   {
-    "file": "lint/rules/clip-inserts.test.ts",
-    "directive": "oxlint-disable local/clip-inserts",
-    "reason": "The rule's own RuleTester suite: its cases are SQL inserts into the Clip tables, written as string literals, which the rule reports wherever they appear."
-  },
-  {
     "file": "packages/core/services/patient-connection-pool.test.ts",
     "directive": "oxlint-disable-next-line local/no-overloads",
     "reason": "The fake overrides pg.Client's overloaded connect, and an override must match both library signatures. One generic signature is rejected (TS2416), and the other ways out are an any return, an as never cast, or widening makeConnectionPool's Client option in production code."

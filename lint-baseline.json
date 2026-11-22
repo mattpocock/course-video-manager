@@ -5211,6 +5211,7 @@
   },
   "packages/core/services/patient-connection-pool.test.ts": {
     "eslint(no-restricted-globals)": 3,
+    "eslint(no-restricted-imports)": 1,
     "local(no-unsafe-as)": 3,
     "typescript(no-explicit-any)": 1,
     "typescript(no-non-null-assertion)": 1

@@ -1,5 +1,7 @@
-const URLS = new Set(["DATABASE_URL", "DIRECT_DATABASE_URL"]);
-const QUOTES = /^["'`]|["'`]$/g;
+import {
+  destructuredDatabaseUrls,
+  touchesDatabaseUrl,
+} from "./database-url-reads.ts";
 
 const HELPER =
   "Use scriptDatabaseUrl() from apps/local/scripts/script-database-url.ts instead: const { url, host } = scriptDatabaseUrl(); ({ direct: true } for schema work). It loads the repo-root .env as drizzle.config.ts does, lets the shell win, and prints the target host.";
@@ -24,37 +26,25 @@ export default {
     },
   },
   create(context) {
-    const text = context.sourceCode.getText.bind(context.sourceCode);
-    const reported = new Set();
     return {
       Identifier(node) {
-        if (node.name !== "loadEnvFile" || reported.has(node.start)) return;
-        reported.add(node.start);
-        context.report({ node, messageId: "loadEnvFile" });
+        const parent = node.parent;
+        const isImportAlias =
+          parent.type === "ImportSpecifier" &&
+          parent.local === node &&
+          parent.imported !== node;
+        if (node.name === "loadEnvFile" && !isImportAlias) {
+          context.report({ node, messageId: "loadEnvFile" });
+        }
       },
       MemberExpression(node) {
-        if (
-          text(node.object) === "process.env" &&
-          URLS.has(text(node.property).replace(QUOTES, ""))
-        ) {
+        if (touchesDatabaseUrl(node)) {
           context.report({ node, messageId: "url" });
         }
       },
-      VariableDeclarator(node) {
-        if (
-          node.id.type !== "ObjectPattern" ||
-          !node.init ||
-          text(node.init) !== "process.env"
-        ) {
-          return;
-        }
-        for (const property of node.id.properties) {
-          if (
-            property.type === "Property" &&
-            URLS.has(text(property.key).replace(QUOTES, ""))
-          ) {
-            context.report({ node: property, messageId: "url" });
-          }
+      ObjectPattern(node) {
+        for (const property of destructuredDatabaseUrls(node)) {
+          context.report({ node: property, messageId: "url" });
         }
       },
     };

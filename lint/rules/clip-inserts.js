@@ -1,5 +1,11 @@
-const NAMES = ["clips", "clipWebLinks", "clipTranscriptWords", "overlays"];
-const TABLES = new Set([...NAMES, ...NAMES.map((name) => `schema.${name}`)]);
+import { calleeName, memberName, unwrap } from "./names.ts";
+
+const TABLES = new Set([
+  "clips",
+  "clipWebLinks",
+  "clipTranscriptWords",
+  "overlays",
+]);
 
 const SQL_INSERT =
   /insert\s+into\s+"?(?:course-video-manager_)?(?:clip|clip_web_link|clip_transcript_word|overlay)"?[\s(]/i;
@@ -24,18 +30,22 @@ export default {
     },
   },
   create(context) {
-    const text = context.sourceCode.getText.bind(context.sourceCode);
     return {
       CallExpression(node) {
-        const callee = node.callee;
-        const method = text(callee).split(".").pop()?.trim();
+        const method = calleeName(node.callee);
         const table =
-          method === "insert" && callee.type === "MemberExpression"
+          method === "insert" && unwrap(node.callee).type === "MemberExpression"
             ? node.arguments[0]
             : method === "insertInChunks"
               ? node.arguments[1]
               : undefined;
-        if (table && TABLES.has(text(table))) {
+        if (
+          (table?.type === "Identifier" && TABLES.has(table.name)) ||
+          (table?.type === "MemberExpression" &&
+            table.object.type === "Identifier" &&
+            table.object.name === "schema" &&
+            TABLES.has(memberName(table) ?? ""))
+        ) {
           context.report({ node, messageId: "insert" });
         }
       },

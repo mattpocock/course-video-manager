@@ -1,49 +1,55 @@
-import { spawnSync } from "node:child_process";
-import {
-  copyFileSync,
-  mkdirSync,
-  mkdtempSync,
-  realpathSync,
-  rmSync,
-  symlinkSync,
-  writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { type Diagnostic, lintProbes, ROOT } from "./lint-probe.ts";
 
-const ROOT = path.resolve(import.meta.dirname, "..");
-
-const PROBE = [
+const PROBE_LINES = [
   'import { resolveDatabaseUrl } from "@cvm/core/db/database-url";',
   'import { useEffectReducer } from "use-effect-reducer";',
+  'import { Pool as P } from "pg";',
+  'import * as pgx from "drizzle-orm/node-postgres";',
+  'import type { PoolClient } from "pg"; // ts',
   "export const pool = new Pool({ connectionString: resolveDatabaseUrl() });",
+  "export const aliased = (c: PoolClient) => [new P(), pgx, c]; // ts",
+  "export const aliased = (c) => [new P(), pgx, c]; // js",
   "export const url = process.env.DATABASE_URL;",
   "export const load = () => process.loadEnvFile();",
   "export const insert = () => db.insert(clips).values([]);",
   "export const reducer = useEffectReducer;",
   "",
-].join("\n");
+];
+
+const probeFor = (file: string) => {
+  const drop = file.endsWith(".mjs") ? " // ts" : " // js";
+  return PROBE_LINES.filter((line) => !line.endsWith(drop))
+    .map((line) => line.replace(/ \/\/ (ts|js)$/, ""))
+    .join("\n");
+};
 
 type Ban =
   | "db-clients"
   | "script-db-url"
   | "clip-inserts"
-  | "import database-url"
-  | "import use-effect-reducer";
+  | "import pg"
+  | "import drizzle-orm/node-postgres"
+  | "import @cvm/core/db/database-url"
+  | "import useEffectReducer";
 
 const EVERYWHERE: readonly Ban[] = [
   "db-clients",
   "clip-inserts",
-  "import use-effect-reducer",
+  "import pg",
+  "import drizzle-orm/node-postgres",
+  "import useEffectReducer",
 ];
 const IN_SCRIPTS: readonly Ban[] = [
   ...EVERYWHERE,
   "script-db-url",
-  "import database-url",
+  "import @cvm/core/db/database-url",
 ];
-const without = (bans: readonly Ban[], lifted: Ban) =>
-  bans.filter((ban) => ban !== lifted);
+const without = (bans: readonly Ban[], ...lifted: Ban[]) =>
+  bans.filter((ban) => !lifted.includes(ban));
+const CLIENT_IMPORTS: Ban[] = ["import pg", "import drizzle-orm/node-postgres"];
 
 const FILES: Record<string, readonly Ban[]> = {
   "apps/local/app/services/probe.ts": EVERYWHERE,
@@ -56,19 +62,22 @@ const FILES: Record<string, readonly Ban[]> = {
   "packages/core/scripts/probe.mjs": IN_SCRIPTS,
   "apps/local/scripts/script-database-url.ts": [
     "clip-inserts",
-    "import use-effect-reducer",
+    "import useEffectReducer",
   ],
   "packages/core/services/drizzle-service.server.ts": without(
     EVERYWHERE,
-    "db-clients"
+    "db-clients",
+    ...CLIENT_IMPORTS
   ),
   "packages/core/test-utils/test-postgres.ts": without(
     EVERYWHERE,
-    "db-clients"
+    "db-clients",
+    ...CLIENT_IMPORTS
   ),
   "apps/remote/scripts/migrate-on-deploy.mjs": without(
     EVERYWHERE,
-    "db-clients"
+    "db-clients",
+    ...CLIENT_IMPORTS
   ),
   ".claude/skills/verify-cvm/scripts/migrate-clone.mjs": without(
     EVERYWHERE,
@@ -108,74 +117,49 @@ const FILES: Record<string, readonly Ban[]> = {
   ),
 };
 
-interface Diagnostic {
-  filename: string;
-  code: string;
-  message: string;
-  help?: string;
-}
-
-const isReport = (value: unknown): value is { diagnostics: Diagnostic[] } =>
-  typeof value === "object" &&
-  value !== null &&
-  "diagnostics" in value &&
-  Array.isArray(value.diagnostics);
-
-const banOf = (d: Diagnostic): Ban | undefined => {
-  if (d.code === "local(db-clients)") return "db-clients";
-  if (d.code === "local(script-db-url)") return "script-db-url";
-  if (d.code === "local(clip-inserts)") return "clip-inserts";
+const banOf = (d: Diagnostic): string | undefined => {
+  if (d.code.startsWith("local(")) return d.code.slice(6, -1);
   if (d.code !== "eslint(no-restricted-imports)") return undefined;
-  return `${d.message} ${d.help}`.includes("use-effect-reducer")
-    ? "import use-effect-reducer"
-    : "import database-url";
+  return `import ${/'([^']+)'/.exec(d.message)?.[1]}`;
 };
 
-let dir: string;
 let diagnostics: Diagnostic[];
+let removeProbes: () => void;
 
 beforeAll(() => {
-  dir = mkdtempSync(path.join(tmpdir(), "db-guards-"));
-  copyFileSync(
-    path.join(ROOT, ".oxlintrc.json"),
-    path.join(dir, ".oxlintrc.json")
+  const probes = lintProbes(
+    Object.fromEntries(Object.keys(FILES).map((file) => [file, probeFor(file)]))
   );
-  symlinkSync(path.join(ROOT, "lint"), path.join(dir, "lint"));
-  mkdirSync(path.join(dir, "node_modules"));
-  symlinkSync(
-    realpathSync(path.join(ROOT, "node_modules/oxlint")),
-    path.join(dir, "node_modules/oxlint")
-  );
-  for (const file of Object.keys(FILES)) {
-    mkdirSync(path.dirname(path.join(dir, file)), { recursive: true });
-    writeFileSync(path.join(dir, file), PROBE);
-  }
-  const run = spawnSync(
-    process.execPath,
-    [
-      "node_modules/oxlint/bin/oxlint",
-      "--format",
-      "json",
-      ...Object.keys(FILES),
-    ],
-    { cwd: dir, encoding: "utf8" }
-  );
-  const report: unknown = JSON.parse(run.stdout);
-  if (!isReport(report)) throw new Error(`not an Oxlint report: ${run.stdout}`);
-  diagnostics = report.diagnostics;
+  removeProbes = probes.remove;
+  diagnostics = probes.diagnostics;
 });
 
 afterAll(() => {
-  rmSync(dir, { recursive: true, force: true });
+  removeProbes();
 });
+
+const reportsIn = (file: string) =>
+  diagnostics.filter((d) => d.filename === file);
 
 describe("the database guards and their owners", () => {
   it.each(Object.entries(FILES))("%s fails exactly %j", (file, bans) => {
-    const found = diagnostics
-      .filter((d) => d.filename === file)
+    const found = reportsIn(file)
       .map(banOf)
       .filter((ban) => ban !== undefined);
     expect([...new Set(found)].sort()).toEqual([...bans].sort());
+  });
+
+  it("reports a DATABASE_URL read once: db-clients outside the DB scripts, script-db-url inside them", () => {
+    const urlReports = (file: string) =>
+      reportsIn(file).filter(
+        (d) => d.code.startsWith("local(") && d.message.includes("database URL")
+      );
+    expect(
+      urlReports("apps/local/app/services/probe.ts").map((d) => d.code)
+    ).toEqual(["local(db-clients)"]);
+    expect(
+      urlReports("apps/local/scripts/probe.ts").map((d) => d.code)
+    ).toEqual(["local(script-db-url)"]);
   });
 
   it.each([
@@ -183,14 +167,65 @@ describe("the database guards and their owners", () => {
     ["db-clients", "scriptPgClient() / scriptDrizzle()"],
     ["db-clients", "createTestDb()"],
     ["db-clients", "resolveDatabaseUrl()"],
+    ["import pg", "scriptPgClient() / scriptDrizzle()"],
+    ["import drizzle-orm/node-postgres", "DrizzleService"],
     ["script-db-url", "scriptDatabaseUrl()"],
-    ["import database-url", "scriptDatabaseUrl()"],
+    ["import @cvm/core/db/database-url", "scriptDatabaseUrl()"],
     ["clip-inserts", "copyClipsOntoVideo"],
     ["clip-inserts", "COPY_PATHS"],
   ] as const)("the %s message names %s", (ban, guidance) => {
-    const found = diagnostics.find(
-      (d) => d.filename === "apps/local/scripts/probe.ts" && banOf(d) === ban
+    const found = reportsIn("apps/local/scripts/probe.ts").find(
+      (d) => banOf(d) === ban
     );
     expect(`${found?.message} ${found?.help}`).toContain(guidance);
   });
+});
+
+interface Override {
+  files: string[];
+  rules: Record<string, unknown>;
+}
+
+const OWNED_RULES = [
+  "local/db-clients",
+  "local/script-db-url",
+  "local/clip-inserts",
+];
+
+const isConfig = (value: unknown): value is { overrides: Override[] } =>
+  typeof value === "object" &&
+  value !== null &&
+  "overrides" in value &&
+  Array.isArray(value.overrides);
+
+const ownerOverrides = () => {
+  const source = readFileSync(path.join(ROOT, ".oxlintrc.json"), "utf8");
+  const config: unknown = JSON.parse(source.replace(/^\s*\/\/.*$/gm, ""));
+  if (!isConfig(config)) throw new Error(".oxlintrc.json has no overrides");
+  return config.overrides.filter((override) =>
+    Object.keys(override.rules).some(
+      (rule) =>
+        OWNED_RULES.includes(rule) ||
+        (rule === "no-restricted-imports" &&
+          override.files.some((file) => FILES[file] !== undefined))
+    )
+  );
+};
+
+describe("the database guards' owner overrides", () => {
+  it("cover every owner this suite probes", () => {
+    const listed = new Set(ownerOverrides().flatMap((o) => o.files));
+    for (const file of Object.keys(FILES).filter((f) => !f.includes("probe"))) {
+      expect(listed).toContain(file);
+    }
+  });
+
+  it.each(ownerOverrides().flatMap((o) => o.files))(
+    "%s exists in the repo",
+    (file) => {
+      expect(existsSync(path.join(ROOT, file.split("*")[0] ?? file))).toBe(
+        true
+      );
+    }
+  );
 });

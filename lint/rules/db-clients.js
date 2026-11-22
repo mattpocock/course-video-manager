@@ -1,7 +1,13 @@
-const CLIENTS = new Set(["Pool", "Client", "pg.Pool", "pg.Client", "PGlite"]);
+import {
+  destructuredDatabaseUrls,
+  isWrite,
+  touchesDatabaseUrl,
+} from "./database-url-reads.ts";
+import { calleeName, memberName, unwrap } from "./names.ts";
+
+const CLIENTS = new Set(["Pool", "Client", "PGlite"]);
+const PG_CLIENTS = new Set(["Pool", "Client"]);
 const FACTORIES = new Set(["postgres", "neon", "drizzle"]);
-const URLS = new Set(["DATABASE_URL", "DIRECT_DATABASE_URL"]);
-const QUOTES = /^["'`]|["'`]$/g;
 
 const FACTORY_LIST =
   "app / server code: DrizzleService (@cvm/core/services/drizzle-service.server); one-off DB scripts: scriptPgClient() / scriptDrizzle() (apps/local/scripts/script-database-url.ts); tests: createTestDb() / createBlankDb() / withQueryLog() (packages/core/test-utils/test-db.ts); the URL alone: resolveDatabaseUrl() (@cvm/core/db/database-url)";
@@ -20,58 +26,47 @@ export default {
       description:
         "Disallow database clients and DATABASE_URL reads outside the guarded factories.",
     },
-    schema: [],
+    schema: [
+      {
+        type: "object",
+        properties: { reads: { type: "boolean" } },
+        additionalProperties: false,
+      },
+    ],
     messages: {
       client: `A client built by hand skips the connection guard (packages/core/db/connection-guard.ts), which stops a git worktree opening a writable connection to production. Use a factory: ${FACTORY_LIST}.`,
       url: `Reading the database URL by hand skips the connection guard (packages/core/db/connection-guard.ts), which stops a git worktree opening a writable connection to production. Use a factory: ${FACTORY_LIST}.`,
     },
   },
   create(context) {
-    const text = context.sourceCode.getText.bind(context.sourceCode);
+    const reads = context.options[0]?.reads !== false;
     return {
       NewExpression(node) {
-        if (CLIENTS.has(text(node.callee))) {
+        const callee = unwrap(node.callee);
+        if (
+          (callee.type === "Identifier" && CLIENTS.has(callee.name)) ||
+          (callee.type === "MemberExpression" &&
+            callee.object.type === "Identifier" &&
+            callee.object.name === "pg" &&
+            PG_CLIENTS.has(memberName(callee) ?? ""))
+        ) {
           context.report({ node, messageId: "client" });
         }
       },
       CallExpression(node) {
-        const name = text(node.callee).split(".").pop();
-        if (name !== undefined && FACTORIES.has(name)) {
+        if (FACTORIES.has(calleeName(node.callee) ?? "")) {
           context.report({ node, messageId: "client" });
         }
       },
       MemberExpression(node) {
-        if (text(node.object) !== "process.env") return;
-        if (!URLS.has(text(node.property).replace(QUOTES, ""))) return;
-        const parent = node.parent;
-        if (
-          parent.type === "AssignmentExpression" &&
-          parent.operator === "=" &&
-          parent.left === node
-        ) {
-          return;
+        if (reads && touchesDatabaseUrl(node) && !isWrite(node)) {
+          context.report({ node, messageId: "url" });
         }
-        if (parent.type === "UnaryExpression" && parent.operator === "delete") {
-          return;
-        }
-        context.report({ node, messageId: "url" });
       },
       ObjectPattern(node) {
-        const parent = node.parent;
-        const source =
-          parent.type === "VariableDeclarator"
-            ? parent.init
-            : parent.type === "AssignmentExpression"
-              ? parent.right
-              : null;
-        if (!source || text(source) !== "process.env") return;
-        for (const property of node.properties) {
-          if (
-            property.type === "Property" &&
-            URLS.has(text(property.key).replace(QUOTES, ""))
-          ) {
-            context.report({ node: property, messageId: "url" });
-          }
+        if (!reads) return;
+        for (const property of destructuredDatabaseUrls(node)) {
+          context.report({ node: property, messageId: "url" });
         }
       },
     };

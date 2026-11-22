@@ -29,6 +29,9 @@ new RuleTester({
     { code: "const u = process.env[`DATABASE_URL`];", errors: [url] },
     { code: "process.env.DATABASE_URL = url;", errors: [url] },
     { code: "const { DATABASE_URL } = process.env;", errors: [url] },
+    { code: "const { DIRECT_DATABASE_URL: u } = process.env;", errors: [url] },
+    { code: "let u; ({ DATABASE_URL: u } = process.env);", errors: [url] },
+    { code: "delete process.env.DATABASE_URL;", errors: [url] },
     { code: "process.loadEnvFile('.env');", errors: [loadEnvFile] },
     {
       code: "import { loadEnvFile } from 'node:process';\nloadEnvFile();",

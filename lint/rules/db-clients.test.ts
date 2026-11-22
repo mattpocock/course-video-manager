@@ -30,6 +30,14 @@ new RuleTester({
     "// new Pool({ connectionString })\nconst x = 1;",
     "/* drizzle(pool) */\nconst x = 1;",
     "const text = 'process.env.DATABASE_URL';",
+    {
+      code: "const u = process.env.DATABASE_URL;",
+      options: [{ reads: false }],
+    },
+    {
+      code: "const { DATABASE_URL } = process.env;",
+      options: [{ reads: false }],
+    },
   ],
   invalid: [
     { code: "const pool = new Pool({ connectionString });", errors: [client] },
@@ -47,6 +55,11 @@ new RuleTester({
     { code: "const db = drizzle(pool, { schema });", errors: [client] },
     { code: "const db = orm.drizzle(pool);", errors: [client] },
     { code: "const db = new PGlite();", errors: [client] },
+    { code: "const db = (0, drizzle)(pool);", errors: [client] },
+    { code: "const db = orm['drizzle'](pool);", errors: [client] },
+    { code: "const db = orm?.drizzle(pool);", errors: [client] },
+    { code: "const pool = new pg['Pool']({});", errors: [client] },
+    { code: "const pool = new (0, Pool)({});", errors: [client] },
     {
       code: "const db = drizzle(new Pool({ connectionString }));",
       errors: [client, client],
@@ -66,5 +79,11 @@ new RuleTester({
       errors: [url, url],
     },
     { code: "let u; ({ DATABASE_URL: u } = process.env);", errors: [url] },
+    { code: "const { ['DATABASE_URL']: u } = process.env;", errors: [url] },
+    {
+      code: "const pool = new Pool({});",
+      options: [{ reads: false }],
+      errors: [client],
+    },
   ],
 });
