@@ -88,13 +88,13 @@
     "eslint(no-restricted-properties)": 2
   },
   "apps/local/.dependency-cruiser.cjs": {
-    "local(no-comments)": 33
+    "local(no-comments)": 32
   },
   "apps/local/.dependency-cruiser.network.cjs": {
-    "local(no-comments)": 36
+    "local(no-comments)": 35
   },
   "apps/local/.dependency-cruiser.spawn.cjs": {
-    "local(no-comments)": 51
+    "local(no-comments)": 50
   },
   "apps/local/app/av-calibration-constants.test.ts": {
     "eslint(no-restricted-globals)": 1,
@@ -8091,7 +8091,7 @@
     "local(no-comments)": 8
   },
   "apps/remote/.dependency-cruiser.cjs": {
-    "local(no-comments)": 14
+    "local(no-comments)": 13
   },
   "apps/remote/app.ts": {
     "local(no-comments)": 11
@@ -8197,7 +8197,7 @@
   },
   "lint/rules/allowed-directives.js": {
     "local(no-comments)": 1,
-    "typescript(no-unsafe-argument)": 6,
+    "typescript(no-unsafe-argument)": 5,
     "typescript(no-unsafe-assignment)": 2,
     "typescript(no-unsafe-call)": 4,
     "typescript(no-unsafe-member-access)": 6,
@@ -8251,7 +8251,7 @@
     "local(no-comments)": 1
   },
   "packages/core/.dependency-cruiser.cjs": {
-    "local(no-comments)": 16
+    "local(no-comments)": 15
   },
   "packages/core/.effect-tsc-canary/canary.ts": {
     "local(no-comments)": 3
@@ -9456,7 +9456,7 @@
     "local(no-comments)": 4
   },
   "packages/lucide-icons/.dependency-cruiser.cjs": {
-    "local(no-comments)": 24
+    "local(no-comments)": 23
   },
   "packages/lucide-icons/generator.ts": {
     "local(no-comments)": 13,

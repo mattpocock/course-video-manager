@@ -1,14 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-
-const DIRECTIVE =
-  /^[\s/*]*((?:oxlint|eslint)-disable\S*|@ts-(?:expect-error|ignore|nocheck)|biome-ignore\S*|@effect-diagnostics\S*)(.*)$/s;
-
-export const directiveOf = (comment) => {
-  const match = DIRECTIVE.exec(comment);
-  if (!match) return undefined;
-  return `${match[1]}${match[2]}`.replace(/\s+/g, " ").replace(/[\s*]+$/, "");
-};
+import { directiveOf } from "./directives.ts";
 
 const allowlists = new Map();
 

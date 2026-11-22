@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   configOverrides,
   type Diagnostic,
+  isRecord,
   lintProbes,
   ownerPathExists,
   repoConfig,
@@ -39,13 +40,17 @@ const FILES: Record<string, [source: string, count: number]> = {
   "apps/local/app/features/probe/interface.ts": [INTERFACE_JSDOC, 2],
 };
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
 const workspacePackages = () =>
   ["apps", "packages"].flatMap((dir) =>
     readdirSync(path.join(ROOT, dir)).map((name) => `${dir}/${name}`)
   );
+
+const targetsOf = (entry: unknown): string[] => {
+  if (typeof entry === "string") return [entry];
+  if (Array.isArray(entry)) return entry.flatMap(targetsOf);
+  if (isRecord(entry)) return Object.values(entry).flatMap(targetsOf);
+  return [];
+};
 
 const exportedFiles = (pkg: string): string[] => {
   let manifest: unknown;
@@ -57,18 +62,31 @@ const exportedFiles = (pkg: string): string[] => {
     return [];
   }
   if (!isRecord(manifest)) return [];
-  const exports = manifest.exports;
-  const targets =
-    typeof exports === "string"
-      ? [exports]
-      : isRecord(exports)
-        ? Object.entries(exports)
-            .filter(([key]) => !key.includes("*"))
-            .map(([, target]) => target)
-        : [];
-  return targets
-    .filter((target): target is string => typeof target === "string")
-    .map((target) => path.posix.join(pkg, target));
+  const { exports } = manifest;
+  const isSubpathMap =
+    isRecord(exports) && Object.keys(exports).some((k) => k.startsWith("."));
+  const entries = isSubpathMap
+    ? Object.entries(exports)
+        .filter(([subpath]) => !subpath.includes("*"))
+        .map(([, target]) => target)
+    : [exports];
+  return [...new Set(entries.flatMap(targetsOf))].map((target) =>
+    path.posix.join(pkg, target)
+  );
+};
+
+const APP_PACKAGE_ROOTS = "apps/local/app/packages/*/*.{ts,tsx}";
+
+const appPackageRootFiles = () => {
+  const dir = "apps/local/app/packages";
+  return readdirSync(path.join(ROOT, dir), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .flatMap((pkg) =>
+      readdirSync(path.join(ROOT, dir, pkg.name)).map(
+        (file) => `${dir}/${pkg.name}/${file}`
+      )
+    )
+    .filter((file) => path.matchesGlob(file, APP_PACKAGE_ROOTS));
 };
 
 const entryPointOverrides = () =>
@@ -120,9 +138,11 @@ describe("local/no-comments in the repo config", () => {
     const files = entryPointOverrides().flatMap((o) => o.files);
     const concrete = workspacePackages().flatMap(exportedFiles).sort();
     expect(concrete).not.toEqual([]);
-    expect(files[0]).toBe("apps/local/app/packages/*/*.{ts,tsx}");
+    expect(files[0]).toBe(APP_PACKAGE_ROOTS);
     expect(files.slice(1).sort()).toEqual(concrete);
-    for (const file of files) {
+    const roots = appPackageRootFiles();
+    expect(roots).toContain("apps/local/app/packages/clock/index.ts");
+    for (const file of [...roots, ...files]) {
       expect(file).not.toMatch(/test/);
       expect(ownerPathExists(file), file).toBe(true);
     }
