@@ -5,6 +5,8 @@
 import allowedDirectives from "./rules/allowed-directives.js";
 import clipInserts from "./rules/clip-inserts.js";
 import dbClients from "./rules/db-clients.js";
+import durationFormat from "./rules/duration-format.js";
+import entityLinks from "./rules/entity-links.js";
 import noOverloads from "./rules/no-overloads.js";
 import noUnsafeAs from "./rules/no-unsafe-as.js";
 import scriptDbUrl from "./rules/script-db-url.js";
@@ -15,6 +17,8 @@ export default {
     "allowed-directives": allowedDirectives,
     "clip-inserts": clipInserts,
     "db-clients": dbClients,
+    "duration-format": durationFormat,
+    "entity-links": entityLinks,
     "no-overloads": noOverloads,
     "no-unsafe-as": noUnsafeAs,
     "script-db-url": scriptDbUrl,

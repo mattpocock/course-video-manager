@@ -30,6 +30,8 @@ const EXPECTED = [
   "local(db-clients)",
   "local(script-db-url)",
   "local(clip-inserts)",
+  "local(entity-links)",
+  "local(duration-format)",
 ];
 
 const SELF_DISABLE = "lint/canary/self-disable.ts";

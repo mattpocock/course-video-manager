@@ -8,10 +8,8 @@ pnpm run check:no-gitlinks
 pnpm run check:db-clients
 pnpm run check:env-example
 pnpm run check:routes-folder
-pnpm run check:entity-links
 pnpm run check:fs-writes
 pnpm run check:toast-import
-pnpm run check:duration-format
 pnpm run check:effect-guards
 pnpm run check:frontend-state
 pnpm run check:background-jobs
