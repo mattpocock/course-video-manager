@@ -5537,6 +5537,7 @@
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/services/ai-hero-upload-service.test.ts": {
+    "local(fs-writes)": 2,
     "local(glossary-terms)": 17,
     "local(no-unsafe-as)": 2,
     "typescript(no-non-null-assertion)": 1,
@@ -5553,6 +5554,7 @@
   },
   "apps/local/app/services/animatic-clip-mockup-files.test.ts": {
     "eslint(no-restricted-properties)": 4,
+    "local(fs-writes)": 3,
     "local(glossary-terms)": 13,
     "typescript(no-non-null-assertion)": 5
   },
@@ -5567,6 +5569,7 @@
     "local(glossary-terms)": 3
   },
   "apps/local/app/services/assert-under.test.ts": {
+    "local(fs-writes)": 2,
     "local(glossary-terms)": 13
   },
   "apps/local/app/services/assert-under.ts": {
@@ -5596,6 +5599,7 @@
   },
   "apps/local/app/services/b-roll-footage-layers.ffmpeg.test.ts": {
     "eslint(no-restricted-globals)": 1,
+    "local(fs-writes)": 1,
     "local(glossary-terms)": 44,
     "typescript(no-non-null-assertion)": 5
   },
@@ -5691,6 +5695,7 @@
   "apps/local/app/services/clip-layers-export.ffmpeg.test.ts": {
     "eslint(no-restricted-globals)": 1,
     "eslint(no-restricted-properties)": 1,
+    "local(fs-writes)": 1,
     "local(glossary-terms)": 92,
     "typescript(no-non-null-assertion)": 1
   },
@@ -5699,6 +5704,7 @@
   },
   "apps/local/app/services/clip-mockup-asset-response.test.ts": {
     "eslint(no-restricted-properties)": 4,
+    "local(fs-writes)": 2,
     "local(glossary-terms)": 24
   },
   "apps/local/app/services/clip-mockup-copy-forward.server.ts": {
@@ -5727,6 +5733,7 @@
   },
   "apps/local/app/services/clip-mockup-daemon/server.ts": {
     "eslint(no-restricted-globals)": 4,
+    "local(fs-writes)": 5,
     "local(glossary-terms)": 111,
     "local(no-unsafe-as)": 2
   },
@@ -5748,6 +5755,7 @@
   },
   "apps/local/app/services/clip-segment-args-short.test.ts": {
     "eslint(no-restricted-globals)": 2,
+    "local(fs-writes)": 2,
     "local(glossary-terms)": 29,
     "typescript(no-non-null-assertion)": 13,
     "typescript(no-unsafe-assignment)": 1,
@@ -5891,6 +5899,7 @@
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/services/clip-source-files.test.ts": {
+    "local(fs-writes)": 3,
     "local(glossary-terms)": 4
   },
   "apps/local/app/services/clip-timeline.ts": {
@@ -5998,6 +6007,7 @@
     "typescript(no-unsafe-return)": 6
   },
   "apps/local/app/services/course-publish-dropbox-sync.test.ts": {
+    "local(fs-writes)": 1,
     "local(glossary-terms)": 12,
     "local(no-unsafe-as)": 1,
     "typescript(no-non-null-assertion)": 15
@@ -6007,6 +6017,7 @@
     "typescript(no-non-null-assertion)": 4
   },
   "apps/local/app/services/course-publish-dropbox-upload-reuse.test.ts": {
+    "local(fs-writes)": 3,
     "local(glossary-terms)": 48,
     "typescript(no-explicit-any)": 1,
     "typescript(no-non-null-assertion)": 1,
@@ -6014,6 +6025,7 @@
   },
   "apps/local/app/services/course-publish-dropbox-upload-test-setup.ts": {
     "eslint(no-restricted-globals)": 2,
+    "local(fs-writes)": 2,
     "local(glossary-terms)": 104,
     "local(no-unsafe-as)": 2,
     "typescript(no-explicit-any)": 6,
@@ -6024,6 +6036,7 @@
     "typescript(no-unsafe-return)": 1
   },
   "apps/local/app/services/course-publish-dropbox-upload.test.ts": {
+    "local(fs-writes)": 2,
     "local(glossary-terms)": 52,
     "local(no-unsafe-as)": 3,
     "typescript(no-non-null-assertion)": 5,
@@ -6085,6 +6098,7 @@
   },
   "apps/local/app/services/course-publish-service-offline-footage.test.ts": {
     "eslint(no-restricted-globals)": 1,
+    "local(fs-writes)": 2,
     "local(glossary-terms)": 16,
     "typescript(no-non-null-assertion)": 2
   },
@@ -6094,6 +6108,7 @@
     "typescript(no-non-null-assertion)": 30
   },
   "apps/local/app/services/course-publish-service-pipeline.test.ts": {
+    "local(fs-writes)": 2,
     "local(glossary-terms)": 67,
     "local(no-unsafe-as)": 4,
     "typescript(no-explicit-any)": 2,
@@ -6106,6 +6121,7 @@
   },
   "apps/local/app/services/course-publish-service-publish.test.ts": {
     "eslint(no-unused-vars)": 1,
+    "local(fs-writes)": 1,
     "local(glossary-terms)": 98,
     "local(no-unsafe-as)": 8,
     "typescript(no-explicit-any)": 10,
@@ -6116,6 +6132,7 @@
     "typescript(no-unsafe-return)": 1
   },
   "apps/local/app/services/course-publish-service-reexport.test.ts": {
+    "local(fs-writes)": 2,
     "local(glossary-terms)": 21,
     "local(no-unsafe-as)": 5,
     "typescript(no-explicit-any)": 1,
@@ -6125,6 +6142,7 @@
     "typescript(no-unsafe-return)": 3
   },
   "apps/local/app/services/course-publish-service-reuse-fallback.test.ts": {
+    "local(fs-writes)": 1,
     "local(glossary-terms)": 18
   },
   "apps/local/app/services/course-publish-service-short-export.test.ts": {
@@ -6135,12 +6153,14 @@
     "typescript(no-unsafe-member-access)": 1
   },
   "apps/local/app/services/course-publish-service-stale-export.test.ts": {
+    "local(fs-writes)": 4,
     "local(glossary-terms)": 8,
     "typescript(no-non-null-assertion)": 4,
     "typescript(no-unsafe-assignment)": 2,
     "typescript(no-unsafe-member-access)": 2
   },
   "apps/local/app/services/course-publish-service-submit-order.test.ts": {
+    "local(fs-writes)": 1,
     "local(glossary-terms)": 55,
     "local(no-unsafe-as)": 2,
     "typescript(no-explicit-any)": 3,
@@ -6148,6 +6168,7 @@
     "typescript(no-unsafe-member-access)": 1
   },
   "apps/local/app/services/course-publish-service-syllabus-only.test.ts": {
+    "local(fs-writes)": 1,
     "local(glossary-terms)": 64,
     "local(no-unsafe-as)": 3,
     "typescript(no-explicit-any)": 6,
@@ -6159,6 +6180,7 @@
   },
   "apps/local/app/services/course-publish-service-test-setup.ts": {
     "eslint(no-restricted-globals)": 2,
+    "local(fs-writes)": 3,
     "local(glossary-terms)": 109,
     "local(no-unsafe-as)": 3,
     "typescript(no-explicit-any)": 4,
@@ -6175,6 +6197,7 @@
     "typescript(no-unsafe-return)": 3
   },
   "apps/local/app/services/course-publish-service.test.ts": {
+    "local(fs-writes)": 3,
     "local(glossary-terms)": 23
   },
   "apps/local/app/services/course-publish-service.ts": {
@@ -6259,6 +6282,7 @@
     "local(glossary-terms)": 13
   },
   "apps/local/app/services/export-hash-rename.test.ts": {
+    "local(fs-writes)": 2,
     "local(glossary-terms)": 38,
     "local(no-unsafe-as)": 3,
     "typescript(no-non-null-assertion)": 1
@@ -6290,9 +6314,11 @@
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/services/export-sha256-sidecar.test.ts": {
+    "local(fs-writes)": 2,
     "local(glossary-terms)": 39
   },
   "apps/local/app/services/export-sha256-sidecar.ts": {
+    "local(fs-writes)": 1,
     "local(glossary-terms)": 46,
     "local(no-unsafe-as)": 1
   },
@@ -6317,6 +6343,7 @@
   },
   "apps/local/app/services/ffmpeg-encode-slots.test.ts": {
     "eslint(no-restricted-properties)": 3,
+    "local(fs-writes)": 2,
     "local(glossary-terms)": 17
   },
   "apps/local/app/services/ffmpeg-error.ts": {
@@ -6328,6 +6355,7 @@
   },
   "apps/local/app/services/ffmpeg-permits.test.ts": {
     "eslint(no-restricted-properties)": 3,
+    "local(fs-writes)": 3,
     "local(glossary-terms)": 16
   },
   "apps/local/app/services/ffmpeg-permits.ts": {
@@ -6342,10 +6370,12 @@
   },
   "apps/local/app/services/ffmpeg-run-gpu-fallback.test.ts": {
     "eslint(no-restricted-properties)": 3,
+    "local(fs-writes)": 7,
     "local(glossary-terms)": 27
   },
   "apps/local/app/services/ffmpeg-run-input-cut-short.test.ts": {
     "eslint(no-restricted-properties)": 3,
+    "local(fs-writes)": 3,
     "local(glossary-terms)": 13,
     "local(no-unsafe-as)": 1,
     "typescript(no-explicit-any)": 1,
@@ -6357,6 +6387,7 @@
   },
   "apps/local/app/services/ffmpeg-stills.ffmpeg.test.ts": {
     "eslint(no-restricted-globals)": 1,
+    "local(fs-writes)": 1,
     "local(glossary-terms)": 16
   },
   "apps/local/app/services/ffmpeg-video-logger.test.ts": {
@@ -6374,6 +6405,7 @@
   },
   "apps/local/app/services/footage-cache.ts": {
     "eslint(no-restricted-globals)": 1,
+    "local(fs-writes)": 1,
     "local(glossary-terms)": 43,
     "local(no-unsafe-as)": 1
   },
@@ -6391,6 +6423,7 @@
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/services/footage-transcription.ts": {
+    "local(fs-writes)": 3,
     "local(glossary-terms)": 26
   },
   "apps/local/app/services/format-failure-cause.test.ts": {
@@ -6410,6 +6443,7 @@
   },
   "apps/local/app/services/gpu-gate.test.ts": {
     "eslint(no-restricted-properties)": 10,
+    "local(fs-writes)": 3,
     "local(glossary-terms)": 84,
     "local(no-unsafe-as)": 3
   },
@@ -6434,6 +6468,7 @@
     "local(glossary-terms)": 9
   },
   "apps/local/app/services/mkv-span.ffmpeg.test.ts": {
+    "local(fs-writes)": 2,
     "local(glossary-terms)": 6,
     "typescript(no-non-null-assertion)": 5,
     "unicorn(no-useless-spread)": 3
@@ -6448,6 +6483,7 @@
   "apps/local/app/services/new-broadcast.server.test.ts": {
     "eslint(no-restricted-globals)": 1,
     "eslint(no-restricted-properties)": 4,
+    "local(fs-writes)": 2,
     "local(glossary-terms)": 41,
     "typescript(no-non-null-assertion)": 1,
     "typescript(no-unsafe-assignment)": 4
@@ -6492,12 +6528,14 @@
     "typescript(no-non-null-assertion)": 4
   },
   "apps/local/app/services/overlay-content-renderer.ts": {
+    "local(fs-writes)": 2,
     "local(glossary-terms)": 24
   },
   "apps/local/app/services/overlay-frame.ts": {
     "local(glossary-terms)": 37
   },
   "apps/local/app/services/overlay-render-cache.server.test.ts": {
+    "local(fs-writes)": 4,
     "local(glossary-terms)": 64,
     "local(no-unsafe-as)": 4,
     "typescript(no-non-null-assertion)": 1
@@ -6541,6 +6579,7 @@
     "local(glossary-terms)": 27
   },
   "apps/local/app/services/preview-gains.test.ts": {
+    "local(fs-writes)": 5,
     "local(glossary-terms)": 28,
     "typescript(no-non-null-assertion)": 1
   },
@@ -6579,6 +6618,7 @@
   },
   "apps/local/app/services/recorder-client/go-live-test-harness.ts": {
     "eslint(no-restricted-globals)": 3,
+    "local(fs-writes)": 2,
     "local(glossary-terms)": 91,
     "local(no-unsafe-as)": 5
   },
@@ -6612,6 +6652,7 @@
   },
   "apps/local/app/services/recorder-client/ingest.test.ts": {
     "eslint(no-restricted-properties)": 3,
+    "local(fs-writes)": 2,
     "local(glossary-terms)": 173,
     "local(no-unsafe-as)": 5,
     "typescript(no-non-null-assertion)": 15,
@@ -6655,6 +6696,7 @@
     "typescript(no-non-null-assertion)": 13
   },
   "apps/local/app/services/recorder-client/recorder-client-mixed-video.test.ts": {
+    "local(fs-writes)": 1,
     "local(glossary-terms)": 22,
     "local(no-unsafe-as)": 3,
     "typescript(no-non-null-assertion)": 2
@@ -6704,6 +6746,7 @@
   },
   "apps/local/app/services/recorder-client/recorder-client-test-harness.ts": {
     "eslint(no-restricted-globals)": 1,
+    "local(fs-writes)": 1,
     "local(glossary-terms)": 57,
     "local(no-unsafe-as)": 6,
     "typescript(no-non-null-assertion)": 2
@@ -6713,6 +6756,7 @@
   },
   "apps/local/app/services/recorder-client/recorder-client.test.ts": {
     "eslint(no-restricted-globals)": 5,
+    "local(fs-writes)": 3,
     "local(glossary-terms)": 117,
     "local(no-unsafe-as)": 1,
     "typescript(no-non-null-assertion)": 8,
@@ -6761,6 +6805,7 @@
     "local(glossary-terms)": 2
   },
   "apps/local/app/services/remove-best-effort.test.ts": {
+    "local(fs-writes)": 1,
     "local(glossary-terms)": 13
   },
   "apps/local/app/services/remove-best-effort.ts": {
@@ -6768,6 +6813,7 @@
   },
   "apps/local/app/services/render-vertical-video-service.test.ts": {
     "local(clip-inserts)": 3,
+    "local(fs-writes)": 3,
     "local(glossary-terms)": 139,
     "local(no-unsafe-as)": 15,
     "typescript(no-explicit-any)": 12,
@@ -6777,6 +6823,7 @@
   },
   "apps/local/app/services/render-vertical-video-service.ts": {
     "eslint(no-restricted-globals)": 1,
+    "local(fs-writes)": 3,
     "local(glossary-terms)": 33
   },
   "apps/local/app/services/resolve-clip-mockup-speech.ts": {
@@ -6886,6 +6933,7 @@
   },
   "apps/local/app/services/storage-relocation.test.ts": {
     "local(clip-inserts)": 1,
+    "local(fs-writes)": 3,
     "local(glossary-terms)": 59,
     "local(no-unsafe-as)": 2,
     "typescript(no-non-null-assertion)": 17
@@ -6946,14 +6994,17 @@
   },
   "apps/local/app/services/video-editor-logger-service.ts": {
     "eslint(no-restricted-globals)": 1,
+    "local(fs-writes)": 1,
     "local(glossary-terms)": 46
   },
   "apps/local/app/services/video-export-composite.ffmpeg.test.ts": {
     "eslint(no-restricted-globals)": 5,
+    "local(fs-writes)": 7,
     "local(glossary-terms)": 85,
     "typescript(no-non-null-assertion)": 23
   },
   "apps/local/app/services/video-export-passes.ts": {
+    "local(fs-writes)": 2,
     "local(glossary-terms)": 18
   },
   "apps/local/app/services/video-export-service.ts": {
@@ -6961,6 +7012,7 @@
   },
   "apps/local/app/services/video-files.test.ts": {
     "eslint(no-restricted-properties)": 6,
+    "local(fs-writes)": 3,
     "local(glossary-terms)": 32,
     "local(no-unsafe-as)": 3
   },
@@ -6971,6 +7023,7 @@
   },
   "apps/local/app/services/video-posting-context.server.test.ts": {
     "eslint(no-restricted-properties)": 8,
+    "local(fs-writes)": 6,
     "local(glossary-terms)": 122,
     "local(no-unsafe-as)": 1,
     "typescript(no-explicit-any)": 1,
@@ -6997,9 +7050,11 @@
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/services/web-file-stream.test.ts": {
+    "local(fs-writes)": 2,
     "local(glossary-terms)": 10
   },
   "apps/local/app/services/whisper-transcription-service.ts": {
+    "local(fs-writes)": 1,
     "local(glossary-terms)": 35
   },
   "apps/local/app/services/writer-message-repair.test.ts": {
@@ -7047,6 +7102,7 @@
     "local(glossary-terms)": 18
   },
   "apps/local/app/services/youtube-upload-service.test.ts": {
+    "local(fs-writes)": 4,
     "local(glossary-terms)": 18,
     "typescript(no-non-null-assertion)": 1
   },
@@ -8264,6 +8320,15 @@
   },
   "lint/rules/db-clients.test.ts": {
     "local(glossary-terms)": 2
+  },
+  "lint/rules/fs-writes-calls.ts": {
+    "local(glossary-terms)": 42
+  },
+  "lint/rules/fs-writes.js": {
+    "local(glossary-terms)": 3
+  },
+  "lint/rules/fs-writes.test.ts": {
+    "local(glossary-terms)": 1
   },
   "lint/rules/glossary-terms.js": {
     "local(glossary-terms)": 11
@@ -9738,6 +9803,9 @@
   "tests/frontend-state-guard.test.ts": {
     "local(glossary-terms)": 14
   },
+  "tests/fs-writes.test.ts": {
+    "local(glossary-terms)": 3
+  },
   "tests/global-api-owners.test.ts": {
     "local(glossary-terms)": 2
   },
@@ -9750,14 +9818,14 @@
     "local(glossary-terms)": 10
   },
   "tests/lint-probe.ts": {
-    "local(glossary-terms)": 1
+    "local(glossary-terms)": 3
   },
   "tests/lint-ratchet.test.ts": {
     "eslint(no-restricted-properties)": 1,
     "local(glossary-terms)": 48
   },
   "tests/module-guards.test.ts": {
-    "local(glossary-terms)": 3
+    "local(glossary-terms)": 7
   },
   "tests/overlay-renderer-typescript.test.ts": {
     "local(glossary-terms)": 1,
