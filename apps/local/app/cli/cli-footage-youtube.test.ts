@@ -19,6 +19,7 @@ import { buildProgram } from "@/cli/main";
 import { makeTestCliOutput } from "@/cli/output";
 import { LOCAL_MACHINE_ENV_KEY } from "./env";
 import { buildWriteLayer, one, type RunResult } from "./cli-write-test-harness";
+import { readEnv } from "@/packages/env";
 
 // ===========================================================================
 // cvm footage import <youtube-url> (#2545)
@@ -77,7 +78,7 @@ let root: string;
 let stubLog: string;
 const stubDir = nodeFs.mkdtempSync(nodePath.join(os.tmpdir(), "cvm-yt-stub-"));
 const originalPath = process.env.PATH;
-const originalLocalMachine = process.env[LOCAL_MACHINE_ENV_KEY];
+const originalLocalMachine = readEnv(LOCAL_MACHINE_ENV_KEY);
 
 beforeAll(async () => {
   testDb = (await createTestDb()).testDb;

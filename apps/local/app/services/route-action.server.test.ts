@@ -4,6 +4,7 @@ import { createStaticHandler } from "react-router";
 import { SystemError } from "@effect/platform/Error";
 import { offlineRootMessage } from "@/packages/storage";
 import { makeAction, makeLoader } from "./route-action.server";
+import { readEnv } from "@/packages/env";
 
 // The app's layer refuses to load without STORAGE_ROOTS (its startup check);
 // these tests read no file, so any root will do.
@@ -485,7 +486,7 @@ describe("makeLoader", () => {
   });
 
   it("answers 503 naming the drive when a Storage Root is Offline, with no stack logged", async () => {
-    const root = process.env.STORAGE_ROOTS!.split(",")[0]!;
+    const root = readEnv("STORAGE_ROOTS")!.split(",")[0]!;
     const path = `${root}/video-files/lineage-1`;
     const dir = vi.spyOn(console, "dir").mockImplementation(() => {});
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});

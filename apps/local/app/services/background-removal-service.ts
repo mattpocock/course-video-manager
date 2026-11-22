@@ -29,6 +29,7 @@
  */
 
 import { Data, Effect } from "effect";
+import { readEnv } from "@/packages/env";
 
 export class BackgroundRemovalError extends Data.TaggedError(
   "BackgroundRemovalError"
@@ -44,7 +45,7 @@ export class BackgroundRemovalService extends Effect.Service<BackgroundRemovalSe
       const removeBackground = Effect.fn("removeBackground")(function* (
         imageBuffer: Uint8Array
       ) {
-        const apiKey = process.env.REMOVE_BG_API_KEY;
+        const apiKey = readEnv("REMOVE_BG_API_KEY");
         if (!apiKey) {
           return yield* new BackgroundRemovalError({
             cause: null,

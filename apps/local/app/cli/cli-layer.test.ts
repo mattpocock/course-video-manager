@@ -18,6 +18,7 @@ import { SearchOperationsService } from "@/services/db-search-operations.server"
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { cliLayer } from "./layer";
+import { readEnv } from "@/packages/env";
 
 // ===========================================================================
 // The CLI's own layer, on a machine that has only a token.
@@ -46,7 +47,7 @@ const realFetch = globalThis.fetch;
 let requests: Request[] = [];
 
 beforeAll(() => {
-  for (const key of ENV_KEYS) previousEnv[key] = process.env[key];
+  for (const key of ENV_KEYS) previousEnv[key] = readEnv(key);
   delete process.env.DATABASE_URL;
   process.env.CVM_API_URL = BASE_URL;
   process.env.CVM_API_TOKEN = TOKEN;

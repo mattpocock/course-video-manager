@@ -31,6 +31,7 @@ import { MOVE_PARTIAL_SUFFIX } from "@/packages/storage/move";
 import { STORAGE_MOVED_EVENT } from "@/packages/storage/client";
 import type { JobContext } from "../job-kind";
 import { storageMoveJobKind } from "./storage-move";
+import { readEnv } from "@/packages/env";
 
 /**
  * The `storage-move` Sidecar Job (#2109), run as the Sidecar runs it, against
@@ -42,7 +43,7 @@ let dbLayer: Layer.Layer<JobOperationsService | DrizzleService>;
 let base: string;
 let d: string;
 let e: string;
-const previousRoots = process.env.STORAGE_ROOTS;
+const previousRoots = readEnv("STORAGE_ROOTS");
 
 beforeAll(async () => {
   testDb = (await createTestDb()).testDb;

@@ -1,5 +1,6 @@
 import { anthropic } from "@ai-sdk/anthropic";
 import { APICallError, type LanguageModel } from "ai";
+import { readEnv } from "@/packages/env";
 
 /**
  * A scripted stand-in for Anthropic, so every way a writer turn can fail can
@@ -47,7 +48,7 @@ type StreamPart =
 
 /** The writer's model: Anthropic, or the fake when the seam is switched on. */
 export function writerLanguageModel(modelId: string): LanguageModel {
-  return process.env.CVM_FAKE_WRITER_MODEL === "1"
+  return readEnv("CVM_FAKE_WRITER_MODEL") === "1"
     ? createFakeWriterModel()
     : anthropic(modelId);
 }

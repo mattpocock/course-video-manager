@@ -5,6 +5,7 @@ import path from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 import { createTestDb } from "@/test-utils/test-db";
 import { DumpError, PG_ENV_NAMES, pgEnvFromUrl, writeDump } from "./db-dump";
+import { readEnv } from "@/packages/env";
 
 /**
  * Against the local test server only (`cvm-test-postgres`, Postgres 17). The
@@ -34,7 +35,7 @@ beforeAll(async () => {
 const tmpDir = () => fs.mkdtempSync(path.join(os.tmpdir(), "cvm-dump-"));
 const mode = (file: string) => fs.statSync(file).mode & 0o777;
 
-describe.skipIf(Boolean(process.env.CVM_TEST_DATABASE_URL))("writeDump", () => {
+describe.skipIf(Boolean(readEnv("CVM_TEST_DATABASE_URL")))("writeDump", () => {
   it("writes a 0600 custom-format dump that pg_restore can read", async () => {
     const dir = path.join(tmpDir(), "cvm");
     const { file } = await writeDump({

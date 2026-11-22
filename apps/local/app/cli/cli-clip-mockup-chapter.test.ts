@@ -14,6 +14,7 @@ import {
   type WriteSeed,
 } from "./cli-write-test-harness";
 import { fakeSpeech, makeClipMockupRun } from "./cli-clip-mockup-test-harness";
+import { readEnv } from "@/packages/env";
 
 // ===========================================================================
 // cvm clip-mockup-chapter: the noun, and its verbs.
@@ -39,7 +40,7 @@ let testDb: TestDb;
 let run: (argv: ReadonlyArray<string>) => Promise<RunResult>;
 let s: WriteSeed;
 const speech = fakeSpeech();
-const originalLocalMachine = process.env[LOCAL_MACHINE_ENV_KEY];
+const originalLocalMachine = readEnv(LOCAL_MACHINE_ENV_KEY);
 
 interface ChapterRow {
   id: string;

@@ -24,6 +24,7 @@ import {
   type WriteSeed,
 } from "./cli-write-test-harness";
 import { addArgv, updateArgv, voiceJobs } from "./cli-clip-mockup-test-harness";
+import { readEnv } from "@/packages/env";
 
 // ===========================================================================
 // cvm clip-mockup add/update, "html" entries: capture a frame from a page
@@ -82,7 +83,7 @@ let sourceDir: string;
  * this suite merges in the Job table of its own database beside the capture
  * fake. Neither Chromium nor Kokoro ever runs in this file.
  */
-const originalLocalMachine = process.env[LOCAL_MACHINE_ENV_KEY];
+const originalLocalMachine = readEnv(LOCAL_MACHINE_ENV_KEY);
 
 beforeAll(async () => {
   const result = await createTestDb();

@@ -25,6 +25,7 @@ import { makeJsonLogger } from "../json-logger";
 import { runSidecar, type SidecarTiming } from "../sidecar";
 import { clipMockupVoiceJobKind } from "./clip-mockup-voice";
 import { idleGpuGate } from "@/test-utils/idle-gpu-gate";
+import { readEnv } from "@/packages/env";
 
 // ===========================================================================
 // A `clip-mockup-voice` Job that ends for good, BY ANY ROUTE — its last
@@ -51,7 +52,7 @@ const TIMING: SidecarTiming = {
 
 let testDb: TestDb;
 let dir: string;
-const originalStore = process.env[STORAGE_ROOTS_ENV_KEY];
+const originalStore = readEnv(STORAGE_ROOTS_ENV_KEY);
 
 beforeAll(async () => {
   testDb = (await createTestDb()).testDb;

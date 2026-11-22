@@ -22,6 +22,7 @@ import {
   fakeSpeech,
   makeClipMockupRun,
 } from "./cli-clip-mockup-test-harness";
+import { readEnv } from "@/packages/env";
 
 // ===========================================================================
 // The ONE order space a Video's Chapters and Clip Mockups share, and the
@@ -48,7 +49,7 @@ let s: WriteSeed;
 let frames: ReturnType<typeof makeTempClipMockupDir>;
 let sourceDir: string;
 const speech = fakeSpeech();
-const originalLocalMachine = process.env[LOCAL_MACHINE_ENV_KEY];
+const originalLocalMachine = readEnv(LOCAL_MACHINE_ENV_KEY);
 
 interface ChapterRow {
   id: string;
