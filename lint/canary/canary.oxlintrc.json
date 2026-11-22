@@ -9,6 +9,10 @@
     {
       "files": ["routes-folder.utils.ts"],
       "rules": { "local/routes-folder": "error" }
+    },
+    {
+      "files": ["fs-writes.ts"],
+      "rules": { "local/fs-writes": "error" }
     }
   ]
 }

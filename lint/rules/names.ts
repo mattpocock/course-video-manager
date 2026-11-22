@@ -1,7 +1,7 @@
 import type { NodeOf, Visitor } from "./rule.ts";
 
-type Member = NodeOf<"MemberExpression">;
-type Expression = Member["object"];
+export type Member = NodeOf<"MemberExpression">;
+export type Expression = Member["object"];
 
 /**
  * The names the local rules match a callee or a member by, read from the

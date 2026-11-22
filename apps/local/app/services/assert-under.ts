@@ -14,8 +14,8 @@ import { Data, Effect } from "effect";
  * the same folders verify-cvm points at its run's `scratch/`. A path outside
  * that folder is refused, so a clone can only ever touch its own scratch.
  *
- * `scripts/check-fs-writes.sh` fails any fs write, unlink or rm in routes and
- * services whose path did not come out of this helper.
+ * The `local/fs-writes` lint rule fails any fs write, unlink or rm in routes
+ * and services whose path did not come out of this helper.
  */
 export class PathOutsideBaseDirError extends Data.TaggedError(
   "PathOutsideBaseDirError"
