@@ -44,13 +44,13 @@ export const runPowerShell = (command: string, timeoutMs = 30_000) =>
       let stderr = "";
       child.stdout?.on("data", (d: Buffer) => (stdout += d.toString()));
       child.stderr?.on("data", (d: Buffer) => (stderr += d.toString()));
-      const timer = after(timeoutMs, () => child.kill("SIGKILL"));
+      const cancelTimer = after(timeoutMs, () => child.kill("SIGKILL"));
       child.once("close", (code) => {
-        timer();
+        cancelTimer();
         resolve({ code, stdout, stderr });
       });
       child.once("error", (e) => {
-        timer();
+        cancelTimer();
         resolve({ code: null, stdout, stderr: e.message });
       });
     }

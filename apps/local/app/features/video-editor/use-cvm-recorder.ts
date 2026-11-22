@@ -104,10 +104,10 @@ export const useRecorderEvents = (
     createInitialRecorderAttentionState,
     {
       "wait-while-away": (_state, effect, dispatch) => {
-        const timer = after(effect.ms, () =>
+        const cancelTimer = after(effect.ms, () =>
           dispatch({ type: "away-time-elapsed" })
         );
-        return () => timer();
+        return cancelTimer;
       },
     }
   );

@@ -1,5 +1,4 @@
 import type { RecordingSession } from "./recording-session";
-import { nowMs } from "@/packages/clock";
 
 /**
  * TAKES STOPPING (#2211, ADR 0048). Stop lets a take go at the press, as OBS
@@ -19,7 +18,7 @@ export const createTakeStopping = (o: {
   return {
     /** Lets `take` go at once; it closes its files in the background. */
     stop: (take: RecordingSession) => {
-      const pressedMs = nowMs();
+      const pressedMs = Date.now();
       const writerQuit: Promise<void> = take.writerQuit.then(() => {
         if (relayHeld === writerQuit) relayHeld = undefined;
         o.rearm();
@@ -28,7 +27,7 @@ export const createTakeStopping = (o: {
       const closed = take.stop().then(
         () =>
           console.log(
-            `recorder: the take finalised ${nowMs() - pressedMs} ms after Stop (${take.id})`
+            `recorder: the take finalised ${Date.now() - pressedMs} ms after Stop (${take.id})`
           ),
         (e: unknown) =>
           console.error(`recorder: the take ${take.id} failed to stop`, e)

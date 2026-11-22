@@ -21,7 +21,7 @@ export function useGlobalSearchReducer() {
     // request, so only the last query's search reaches the server.
     search: (_state, effect, dispatch) => {
       const controller = new AbortController();
-      const timer = after(SEARCH_DEBOUNCE_MS, () => {
+      const cancelTimer = after(SEARCH_DEBOUNCE_MS, () => {
         fetch(`/api/global-search?q=${encodeURIComponent(effect.query)}`, {
           signal: controller.signal,
         })
@@ -42,7 +42,7 @@ export function useGlobalSearchReducer() {
           });
       });
       return () => {
-        timer();
+        cancelTimer();
         controller.abort();
       };
     },

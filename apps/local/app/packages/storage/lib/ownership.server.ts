@@ -16,7 +16,6 @@ import {
   type StorageOwnershipInput,
 } from "./buckets";
 import { UNUSED_FOOTAGE_MIN_AGE_MS } from "./unused-wire";
-import { now as clockNow } from "@/packages/clock";
 
 /** Loading what owns which file failed; the scan cannot start. */
 export class StorageOwnershipLoadError extends Data.TaggedError(
@@ -43,7 +42,7 @@ export class StorageOwnershipLoadError extends Data.TaggedError(
 export const loadStorageOwnership = (
   db: Database,
   roots: readonly string[],
-  now: Date = clockNow()
+  now: Date = new Date()
 ): Effect.Effect<StorageOwnership, StorageOwnershipLoadError> =>
   Effect.tryPromise({
     try: async () => {

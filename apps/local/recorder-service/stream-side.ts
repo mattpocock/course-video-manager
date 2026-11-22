@@ -19,7 +19,6 @@ import {
   readStreamHealth,
   type ProcessHealth,
 } from "./stream-health";
-import { after, nowMs } from "@/packages/clock";
 
 /**
  * THE STREAM SIDE (spec #2445, ADR 0054): the one Live Stream process, built
@@ -143,11 +142,11 @@ type Running = {
 /** Its stderr's warnings and errors, scrubbed, into the service's log: a few lines a minute. */
 const stderrLog = (redact: (text: string) => string) => {
   let logged = 0;
-  let windowStart = nowMs();
+  let windowStart = Date.now();
   return (line: string) => {
     if (!/\[(warning|error|fatal)\]/.test(line)) return;
-    if (nowMs() - windowStart > 60_000) {
-      windowStart = nowMs();
+    if (Date.now() - windowStart > 60_000) {
+      windowStart = Date.now();
       logged = 0;
     }
     logged += 1;
@@ -189,7 +188,7 @@ export const createStreamSide = (o: {
   let health: ProcessHealth = NO_HEALTH;
   /** Relaunches since a process was last healthy: how long the next waits. */
   let relaunches = 0;
-  let relaunchTimer: (() => void) | undefined;
+  let relaunchTimer: ReturnType<typeof setTimeout> | undefined;
   /** Quits under way, so the service's close waits for them. */
   const quitting = new Set<Promise<void>>();
 
@@ -250,13 +249,13 @@ export const createStreamSide = (o: {
   const relaunchLater = (wait: number) => {
     const h = held;
     if (!h) return;
-    relaunchTimer = after(wait, () => {
+    relaunchTimer = setTimeout(() => {
       relaunchTimer = undefined;
       if (held !== h || running) return;
       // Its picture starts where the feeds will be once it is up.
       const now = o.fileTime();
       launchOne(h.start, h.log, now === null ? 0 : now + RELAUNCH_LEAD_S);
-    });
+    }, wait);
   };
 
   const launchOne = (
@@ -292,21 +291,21 @@ export const createStreamSide = (o: {
     running = self;
     const current = () => running === self && !self.ending;
     const wentLive = () => {
-      self.liveAt = nowMs();
+      self.liveAt = Date.now();
       set({ kind: "live" });
     };
 
     // No new frame for too long: stalled. Stopped, then launched again.
-    let stall: (() => void) | undefined;
+    let stall: ReturnType<typeof setTimeout> | undefined;
     const watch = (ms: number) => {
-      stall?.();
-      stall = after(ms, () => {
+      clearTimeout(stall);
+      stall = setTimeout(() => {
         if (!current()) return;
         console.error(
           `recorder: the Live Stream process stalled (no new frame for ${ms} ms); launching it again, the recording carries on`
         );
         self.gone = quit(self, STALLED_QUIT_TIMEOUT_MS);
-      });
+      }, ms);
     };
     watch(stallMs * 4);
 
@@ -347,10 +346,10 @@ export const createStreamSide = (o: {
     );
 
     void p.exited.then(async (code) => {
-      stall?.();
+      clearTimeout(stall);
       if (running !== self) return;
       if (self.ending) return void (running = undefined);
-      if (self.liveAt !== undefined && nowMs() - self.liveAt >= HEALTHY_MS)
+      if (self.liveAt !== undefined && Date.now() - self.liveAt >= HEALTHY_MS)
         relaunches = 0;
       console.error(
         `recorder: the Live Stream process quit (exit ${code}); launching it again, the recording carries on`
@@ -378,14 +377,14 @@ export const createStreamSide = (o: {
   const lastGone = async (boundMs: number): Promise<void> => {
     if (held) throw new Error("A Live Stream is already running.");
     if (quitting.size === 0) return;
-    let timer: (() => void) | undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const gone = await Promise.race([
       Promise.all(quitting).then(() => true),
       new Promise<false>((resolve) => {
-        timer = after(boundMs, () => resolve(false));
+        timer = setTimeout(() => resolve(false), boundMs);
       }),
     ]);
-    timer?.();
+    clearTimeout(timer);
     if (!gone) throw new Error(LAST_STREAM_STILL_QUITTING);
   };
 
@@ -410,16 +409,16 @@ export const createStreamSide = (o: {
         resolve();
       });
     });
-    let timer: (() => void) | undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const bound = o.listenBoundMs;
     const inTime = await Promise.race([
       listening.then(() => true),
       p.exited.then(() => false),
       new Promise<false>((resolve) => {
-        timer = after(bound, () => resolve(false));
+        timer = setTimeout(() => resolve(false), bound);
       }),
     ]);
-    timer?.();
+    clearTimeout(timer);
     if (!inTime)
       console.error(
         `recorder: the Live Stream was not listening ${bound} ms after Go Live; recording anyway`
@@ -429,7 +428,7 @@ export const createStreamSide = (o: {
   /** Ends the Live Stream, saying why; nothing waits for the process to go. */
   const end = (reason: string) => {
     held = undefined;
-    relaunchTimer?.();
+    clearTimeout(relaunchTimer);
     relaunchTimer = undefined;
     if (status.kind !== "idle" && status.kind !== "ended")
       set({ kind: "ended", reason });

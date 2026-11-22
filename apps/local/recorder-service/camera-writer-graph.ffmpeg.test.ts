@@ -8,7 +8,6 @@ import {
   graphUpCommand,
   takeStartCommand,
 } from "./take-args";
-import { every } from "@/packages/clock";
 
 /**
  * THE CAMERA WRITER'S OWN GRAPH IN THE REAL FFMPEG (#2442): the very
@@ -103,16 +102,16 @@ const take = async (phaseMs: number) => {
   );
   child.stdin.on("error", () => {});
   let answered = false;
-  const asking = every(100, () => child.stdin.write(graphUpCommand));
+  const asking = setInterval(() => child.stdin.write(graphUpCommand), 100);
   child.stderr.setEncoding("utf8");
   child.stderr.on("data", (text: string) => {
     if (answered || !/Command reply for stream/.test(text)) return;
     answered = true;
-    asking();
+    clearInterval(asking);
     child.stdin.write(takeStartCommand(t0Ms));
   });
   const code = await new Promise<number | null>((r) => child.on("exit", r));
-  asking();
+  clearInterval(asking);
 
   const cam = fs.readFileSync(path.join(dir, "cam.raw"));
   const mic = fs.readFileSync(path.join(dir, "mic.raw"));

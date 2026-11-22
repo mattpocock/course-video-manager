@@ -30,15 +30,17 @@ export function useVideoFilePasteReducer(props: {
     videoFilePasteReducer.Effect
   >(videoFilePasteReducer, createInitialVideoFilePasteState(), {
     "focus-paste-area": () => {
-      const timer = after(FOCUS_DELAY_MS, () => pasteAreaRef.current?.focus());
-      return () => timer();
+      const cancelTimer = after(FOCUS_DELAY_MS, () =>
+        pasteAreaRef.current?.focus()
+      );
+      return cancelTimer;
     },
     "focus-path-input": () => {
-      const timer = after(FOCUS_DELAY_MS, () => {
+      const cancelTimer = after(FOCUS_DELAY_MS, () => {
         pathInputRef.current?.focus();
         pathInputRef.current?.select();
       });
-      return () => timer();
+      return cancelTimer;
     },
     "create-file": (_state, effect) => {
       const formData = new FormData();

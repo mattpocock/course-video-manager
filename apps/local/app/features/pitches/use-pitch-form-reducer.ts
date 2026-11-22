@@ -36,10 +36,10 @@ export function usePitchFormReducer(fields: pitchFormReducer.Fields) {
     pitchFormReducer.Effect
   >(pitchFormReducer, createInitialPitchFormState(fields), {
     "wait-for-edit-pause": (_state, effect, dispatch) => {
-      const timer = after(EDIT_PAUSE_MS, () =>
+      const cancelTimer = after(EDIT_PAUSE_MS, () =>
         dispatch({ type: "edit-pause-elapsed", editId: effect.editId })
       );
-      return () => timer();
+      return cancelTimer;
     },
     "save-pitch-field": (_state, effect, dispatch) => {
       savePitchField(effect)
@@ -54,10 +54,10 @@ export function usePitchFormReducer(fields: pitchFormReducer.Fields) {
       void revalidator.revalidate();
     },
     "wait-before-hiding-saved": (_state, effect, dispatch) => {
-      const timer = after(SAVED_SHOWN_MS, () =>
+      const cancelTimer = after(SAVED_SHOWN_MS, () =>
         dispatch({ type: "saved-shown-elapsed", editId: effect.editId })
       );
-      return () => timer();
+      return cancelTimer;
     },
     "show-error": (_state, effect) => {
       toast.error(effect.message);

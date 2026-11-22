@@ -166,7 +166,7 @@ const main = async () => {
     );
   };
   let checking = false;
-  const guard = every(5000, () => {
+  const stopGuard = every(5000, () => {
     if (checking || aborted) return;
     checking = true;
     void Promise.all([liveRecorderState(), obsRunning(), sampleMarked(marker)])
@@ -290,7 +290,7 @@ const main = async () => {
     }
   }
 
-  guard();
+  stopGuard();
   await ctx.probe?.close();
   if (!aborted) {
     log("closing");

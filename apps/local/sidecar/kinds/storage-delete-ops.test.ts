@@ -24,8 +24,8 @@ import * as schema from "@/db/schema";
 import { STORAGE_DELETED_EVENT } from "@/packages/storage/client";
 import type { JobContext } from "../job-kind";
 import { storageDeleteJobKind } from "./storage-delete";
-import { nowMs, toDate } from "@/packages/clock";
 import { readEnv } from "@/packages/env";
+import { nowMs, toDate } from "@/packages/clock";
 
 /**
  * The `storage-delete` Sidecar Job's other operations (#2157, #2423):

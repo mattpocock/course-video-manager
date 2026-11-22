@@ -172,10 +172,10 @@ export function useSuggestions(input: {
         writePickedFiles(effect.videoId, effect.paths);
       },
       "wait-for-edit-pause": (_state, effect, dispatch) => {
-        const timer = after(EDIT_PAUSE_MS, () =>
+        const cancelTimer = after(EDIT_PAUSE_MS, () =>
           dispatch({ type: "edit-pause-elapsed", editId: effect.editId })
         );
-        return () => timer();
+        return cancelTimer;
       },
     }
   );

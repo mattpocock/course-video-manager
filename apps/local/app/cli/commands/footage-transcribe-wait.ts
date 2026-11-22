@@ -6,6 +6,7 @@ import {
 import { readFootageSidecar, sidecarPathFor } from "@/services/footage-cache";
 import { FOOTAGE_TRANSCRIPTION_EVENTS } from "@/features/jobs/transcribe-footage-job";
 import { parseError } from "@/cli/helpers";
+import { nowMs } from "@/packages/clock";
 
 /**
  * `cvm footage transcribe`: follow the `transcribe-footage` Job the Sidecar
@@ -148,7 +149,7 @@ export const waitForFootageTranscription = Effect.fn(
       case "queued": {
         if (!warnedNoSidecar) {
           const lease = yield* ops.getSidecarLease();
-          if (!lease || lease.leaseUntil.getTime() < Date.now()) {
+          if (!lease || lease.leaseUntil.getTime() < nowMs()) {
             warnedNoSidecar = true;
             yield* input.onWaiting({
               event: "waiting",

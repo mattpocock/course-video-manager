@@ -69,7 +69,7 @@ const streamOf = (m: RecorderMessage) =>
 /** Switches through every scene in turn until stopped. */
 const cycleScenes = (ctx: Ctx) => {
   let k = 0;
-  const timer = every(SCENE_EVERY_MS, () => {
+  const stopTimer = every(SCENE_EVERY_MS, () => {
     k += 1;
     ctx.client.send({
       type: "switch-scene",
@@ -77,7 +77,7 @@ const cycleScenes = (ctx: Ctx) => {
     });
   });
   return {
-    stop: () => timer(),
+    stop: () => stopTimer(),
     switches: () => k,
   };
 };
@@ -113,11 +113,11 @@ const startSink = (ctx: Ctx, port: number, file: string) => {
     stderr: () => stderr,
     /** Gone by itself once the push ends, or killed after `ms`. */
     close: async (ms: number) => {
-      const timer = after(ms, () => {
+      const cancelTimer = after(ms, () => {
         if (child.exitCode === null) child.kill("SIGKILL");
       });
       await exited;
-      timer();
+      cancelTimer();
     },
   };
 };

@@ -3,7 +3,6 @@ import net from "node:net";
 import type { AddressInfo } from "node:net";
 import { flvVideoParser } from "./flv-video";
 import { PREVIEW_FEEDS, previewPath, type PreviewFeed } from "./protocol";
-import { nowMs } from "@/packages/clock";
 
 /**
  * THE PREVIEW FEEDS: each ffmpeg.exe that sees a picture connects to a
@@ -122,7 +121,7 @@ export const startPreviewFeeds = async () => {
   const parserFor = (feed: Feed) => {
     if (feed === "still")
       return mpjpegParser((jpeg) => {
-        still = { jpeg, atMs: nowMs() };
+        still = { jpeg, atMs: Date.now() };
         tell(feed);
       });
     const stream = streams[feed];

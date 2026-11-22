@@ -6,7 +6,6 @@ import { LIVE_STREAM_SETTINGS } from "./go-live";
 import { startRecorderService } from "./recorder-service";
 import { startWindowsClock } from "./windows-clock";
 import { windowsLauncher } from "./windows-launcher";
-import { now } from "@/packages/clock";
 
 /**
  * The recorder service's process (`service-process.ts`), started by the
@@ -27,7 +26,7 @@ export const RECORDER_SERVICE_LOG = path.join(
 );
 
 const log = (message: string) => {
-  const line = `${now().toISOString()} ${message}\n`;
+  const line = `${new Date().toISOString()} ${message}\n`;
   process.stdout.write(line);
   try {
     fs.mkdirSync(path.dirname(RECORDER_SERVICE_LOG), { recursive: true });

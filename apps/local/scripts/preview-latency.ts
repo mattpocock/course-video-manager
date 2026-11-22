@@ -432,9 +432,9 @@ const measure = async (scenario: Scenario) => {
     // others are asked to quit.
     source.kill();
     for (const p of ffs) if (p !== ff) p.stdin?.write("q");
-    const kill = after(5000, () => ffs.forEach((p) => p.kill("SIGKILL")));
+    const cancelKill = after(5000, () => ffs.forEach((p) => p.kill("SIGKILL")));
     await ffClosed;
-    kill();
+    cancelKill();
     server.closeAllConnections();
     server.close();
     await feeds.close();

@@ -30,8 +30,8 @@ export const useCalibrationGate = (o: {
   useEffect(() => {
     const tick = () => dispatch({ type: "clock-ticked", nowMs: nowMs() });
     tick();
-    const interval = every(TICK_MS, tick);
-    return () => interval();
+    const stopTick = every(TICK_MS, tick);
+    return stopTick;
   }, []);
   // Bridges a revalidated loader in.
   useEffect(() => {

@@ -113,11 +113,11 @@ function CreateBeatDialog({
   // focus to their trigger as they close — which lands *after* this mounts and
   // would steal focus from the input. Claim it back on the next tick.
   useEffect(() => {
-    const id = after(0, () => {
+    const cancelTimer = after(0, () => {
       inputRef.current?.focus();
       inputRef.current?.select();
     });
-    return () => id();
+    return cancelTimer;
   }, []);
 
   const confirm = () => onConfirm(title.trim(), kind);

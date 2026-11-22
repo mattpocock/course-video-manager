@@ -2,7 +2,6 @@ import net from "node:net";
 import zlib from "node:zlib";
 import { CARD_CANVAS } from "../card-server";
 import type { FakeProcess } from "./fake-windows";
-import { every } from "@/packages/clock";
 
 /**
  * The scripted launcher's stand-ins for the Chat Highlight card server and
@@ -108,7 +107,7 @@ export const readCardFeed = (
     socket.pause();
     const started = performance.now();
     let read = 0;
-    const pace = every(5, () => {
+    const pace = setInterval(() => {
       const due = Math.floor(
         ((performance.now() - started - behindMs) * 60) / 1000
       );
@@ -118,9 +117,9 @@ export const readCardFeed = (
         read++
       )
         took(d);
-    });
-    void p.exited.then(() => pace());
-    socket.on("close", () => pace());
+    }, 5);
+    void p.exited.then(() => clearInterval(pace));
+    socket.on("close", () => clearInterval(pace));
   }
   socket.on("error", () => {});
   void p.exited.then(() => socket.destroy());

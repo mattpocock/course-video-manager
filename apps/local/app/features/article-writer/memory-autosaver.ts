@@ -12,22 +12,25 @@ export function createMemoryAutosaver(opts: {
   debounceMs?: number;
 }) {
   let baseline = opts.initial;
-  let timeout: (() => void) | undefined;
+  let cancelTimer: (() => void) | undefined;
 
   const cancel = () => {
-    if (timeout) timeout();
-    timeout = undefined;
+    if (cancelTimer) cancelTimer();
+    cancelTimer = undefined;
   };
 
   return {
     update(text: string) {
       cancel();
       if (text === baseline) return;
-      timeout = after(opts.debounceMs ?? MEMORY_AUTOSAVE_DEBOUNCE_MS, () => {
-        timeout = undefined;
-        baseline = text;
-        opts.save(text);
-      });
+      cancelTimer = after(
+        opts.debounceMs ?? MEMORY_AUTOSAVE_DEBOUNCE_MS,
+        () => {
+          cancelTimer = undefined;
+          baseline = text;
+          opts.save(text);
+        }
+      );
     },
     cancel,
   };

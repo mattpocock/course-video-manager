@@ -8,7 +8,6 @@ import {
   calibrationAnalysisArgs,
   parseCalibrationAnalysis,
 } from "./calibration-run";
-import { nowMs } from "@/packages/clock";
 
 /**
  * The calibration's analysis in the real ffmpeg, over synthetic mic files
@@ -34,7 +33,10 @@ const SPEECH = [
 ];
 
 describe.skipIf(!hasFfmpeg)("the calibration's analysis in ffmpeg", () => {
-  const root = path.join(tmpdir(), `calibration-run-${process.pid}-${nowMs()}`);
+  const root = path.join(
+    tmpdir(),
+    `calibration-run-${process.pid}-${Date.now()}`
+  );
   afterAll(() => rmSync(root, { recursive: true, force: true }));
 
   const measure = (clapAmplitude: number) => {

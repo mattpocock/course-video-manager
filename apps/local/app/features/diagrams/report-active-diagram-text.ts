@@ -45,11 +45,11 @@ export function reportActiveDiagramText(
     },
     { scope: "document" }
   );
-  const interval = every(REPEAT_MS, send);
+  const stopSend = every(REPEAT_MS, send);
   window.addEventListener("pagehide", sendNone);
   return () => {
     unlisten();
-    interval();
+    stopSend();
     window.removeEventListener("pagehide", sendNone);
     sendNone();
   };

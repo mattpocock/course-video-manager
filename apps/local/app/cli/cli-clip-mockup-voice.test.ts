@@ -26,8 +26,8 @@ import {
   updateArgv,
   voiceJobs,
 } from "./cli-clip-mockup-test-harness";
-import { now } from "@/packages/clock";
 import { readEnv } from "@/packages/env";
+import { now } from "@/packages/clock";
 
 // ===========================================================================
 // cvm clip-mockup: the voice is QUEUED, never waited for

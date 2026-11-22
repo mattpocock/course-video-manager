@@ -16,6 +16,7 @@ import {
   SEGMENT_EXTENSION,
   type SegmentClip,
 } from "./clip-segment-args";
+import { nowMs } from "@/packages/clock";
 
 type RunEncodeOptions = {
   args: string[];
@@ -52,7 +53,7 @@ export const makeConcatenateClipSegments = <E, R>(deps: {
     const outputDir = path.join(tmpdir(), "video-processing");
     const id = crypto
       .createHash("sha256")
-      .update(JSON.stringify(clips) + Date.now())
+      .update(JSON.stringify(clips) + nowMs())
       .digest("hex")
       .slice(0, 12);
     const segmentDir = assertUnder(

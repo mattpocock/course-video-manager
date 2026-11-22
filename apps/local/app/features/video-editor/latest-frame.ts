@@ -66,9 +66,9 @@ export const watchLatestFrame = (
   const { signal } = controller;
   const pause = () =>
     new Promise<void>((resolve) => {
-      const timer = after(RETRY_MS, resolve);
+      const cancelTimer = after(RETRY_MS, resolve);
       signal.addEventListener("abort", () => {
-        timer();
+        cancelTimer();
         resolve();
       });
     });

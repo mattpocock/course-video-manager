@@ -48,17 +48,17 @@ export function useFocusRevalidate(options: UseFocusRevalidateOptions = {}) {
       }
     );
 
-    let interval: (() => void) | undefined;
+    let stopTimer: (() => void) | undefined;
     if (intervalMs) {
-      interval = every(intervalMs, () => {
+      stopTimer = every(intervalMs, () => {
         revalidate();
       });
     }
 
     return () => {
       abortController.abort();
-      if (interval) {
-        interval();
+      if (stopTimer) {
+        stopTimer();
       }
     };
   }, [enabled, intervalMs, revalidator]);

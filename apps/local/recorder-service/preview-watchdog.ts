@@ -1,6 +1,5 @@
 import { lineSplitter, type LaunchedProcess } from "./launcher";
 import { PREVIEW_STALL_MS } from "./protocol";
-import { nowMs, every } from "@/packages/clock";
 
 /**
  * THE PREVIEW WATCHDOG (#2192). A preview ffmpeg.exe can stall while still
@@ -36,15 +35,15 @@ export const watchPreview = (o: {
   stallMs?: number;
 }) => {
   const stallMs = o.stallMs ?? PREVIEW_STALL_MS;
-  let lastFrameMs = nowMs();
+  let lastFrameMs = Date.now();
   let seen = false;
   let logged = 0;
-  let windowStart = nowMs();
+  let windowStart = Date.now();
   o.process.onStderr(
     lineSplitter((line) => {
       if (!line.trim()) return;
-      if (nowMs() - windowStart > 60_000) {
-        windowStart = nowMs();
+      if (Date.now() - windowStart > 60_000) {
+        windowStart = Date.now();
         logged = 0;
       }
       logged += 1;
@@ -55,17 +54,20 @@ export const watchPreview = (o: {
     })
   );
   const unsubscribe = o.onFrame(() => {
-    lastFrameMs = nowMs();
+    lastFrameMs = Date.now();
     seen = true;
   });
-  const timer = every(Math.max(20, Math.min(500, stallMs / 4)), () => {
-    const limit = seen ? stallMs : stallMs * FIRST_FRAME_FACTOR;
-    if (nowMs() - lastFrameMs <= limit) return;
-    stop();
-    o.onStall();
-  });
+  const timer = setInterval(
+    () => {
+      const limit = seen ? stallMs : stallMs * FIRST_FRAME_FACTOR;
+      if (Date.now() - lastFrameMs <= limit) return;
+      stop();
+      o.onStall();
+    },
+    Math.max(20, Math.min(500, stallMs / 4))
+  );
   const stop = () => {
-    timer();
+    clearInterval(timer);
     unsubscribe();
   };
   void o.process.exited.then(stop);

@@ -71,10 +71,10 @@ export const useCompositePlayback = (o: {
         }),
       "hold-clock": (_state, effect, dispatch) => {
         o.clock.current?.pause();
-        const timer = after(effect.expiresAfterMs, () =>
+        const cancelTimer = after(effect.expiresAfterMs, () =>
           dispatch({ type: "hold-expired", holdId: effect.holdId })
         );
-        return () => timer();
+        return cancelTimer;
       },
       "play-clock": () => {
         void o.clock.current?.play().catch(() => {});

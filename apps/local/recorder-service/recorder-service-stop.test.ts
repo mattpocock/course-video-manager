@@ -8,7 +8,6 @@ import {
   T0_MS,
   tmp,
 } from "./test-utils/service-harness";
-import { delay } from "@/packages/clock";
 
 /**
  * Stop as OBS stops (#2211), through the recorder service's WebSocket on a
@@ -63,12 +62,12 @@ describe("Stop", () => {
 
     // Past the tail, still behind: not quit, so nothing queued is lost, and
     // the relay is still its own (no next writer yet).
-    await delay(400);
+    await new Promise((r) => setTimeout(r, 400));
     expect(writer.written).not.toContain("q");
     expect(windows.armedWriters()).toHaveLength(0);
 
     writer.stdout(written(4.9));
-    await delay(50);
+    await new Promise((r) => setTimeout(r, 50));
     expect(writer.written).not.toContain("q");
 
     // Caught up past the press: quit, the files close, and only then is
@@ -105,7 +104,7 @@ describe("Stop", () => {
       folder,
       ...CALIBRATED,
     });
-    await delay(400);
+    await new Promise((r) => setTimeout(r, 400));
     // Still the first take's relay: no second writer listens on it yet.
     expect(
       client.received.filter((m) => m.type === "recording-started")
@@ -141,7 +140,7 @@ describe("Stop", () => {
     client.send({ type: "stop" });
     await client.next("state", (m) => m.state.kind === "open");
     // Open again at once, but the take is still writing its files.
-    await delay(100);
+    await new Promise((r) => setTimeout(r, 100));
     expect(busy).toEqual([true]);
 
     writer.stdout(written(3.1));

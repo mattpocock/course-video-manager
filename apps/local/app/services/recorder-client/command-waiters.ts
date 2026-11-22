@@ -44,7 +44,7 @@ export const commandWaiters = (o: {
           reject(new RecorderUnavailableError(NOT_RUNNING));
           return;
         }
-        const timer = after(o.timeoutMs + extraMs, () => {
+        const cancelTimer = after(o.timeoutMs + extraMs, () => {
           remove(waiter);
           reject(
             new RecorderUnavailableError(
@@ -56,11 +56,11 @@ export const commandWaiters = (o: {
           command: sent.type,
           done,
           resolve: () => {
-            timer();
+            cancelTimer();
             resolve();
           },
           reject: (error) => {
-            timer();
+            cancelTimer();
             reject(error);
           },
         };

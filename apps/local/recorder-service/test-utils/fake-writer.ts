@@ -1,5 +1,4 @@
 import type { FakeProcess } from "./fake-windows";
-import { after } from "@/packages/clock";
 
 /**
  * A take's camera writer, as ffmpeg 8 runs one: it reads the relay at once,
@@ -19,7 +18,7 @@ export const armedWriter = (
     )
   );
   let graphUp = false;
-  after(o.writerGraphMs ?? 20, () => (graphUp = true));
+  setTimeout(() => (graphUp = true), o.writerGraphMs ?? 20);
   p.onStdin = (text) => {
     if (!text.startsWith("C") || !graphUp) return;
     if (/^C\S+ -1 /.test(text))

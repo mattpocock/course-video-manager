@@ -1,6 +1,5 @@
 import { lineSplitter, type LaunchedProcess } from "./launcher";
 import { graphUpCommand } from "./take-args";
-import { every } from "@/packages/clock";
 
 /** What the writer prints once it has the relay: its input opened. */
 const READS_RELAY = /Input #0, .*from 'tcp:/;
@@ -26,21 +25,21 @@ export const writerGraphUp = (
   why: () => string
 ): Promise<void> =>
   new Promise<void>((resolve, reject) => {
-    let asking: (() => void) | undefined;
+    let asking: ReturnType<typeof setInterval> | undefined;
     const ask = () => child.writeStdin(graphUpCommand);
     child.onStderr(
       lineSplitter((line) => {
         if (READS_RELAY.test(line) && !asking) {
           ask();
-          asking = every(ASK_EVERY_MS, ask);
+          asking = setInterval(ask, ASK_EVERY_MS);
         } else if (GRAPH_ANSWERED.test(line)) {
-          asking?.();
+          clearInterval(asking);
           resolve();
         }
       })
     );
     void child.exited.then(() => {
-      asking?.();
+      clearInterval(asking);
       reject(new Error(why()));
     });
   });

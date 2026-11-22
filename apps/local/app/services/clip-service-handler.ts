@@ -45,6 +45,7 @@ import {
 import type { Database } from "@/services/drizzle-service.server";
 import { withClipServiceWriteClosure } from "./draft-guard-clip-service.server";
 import { replaceVideoChapters } from "./autofill-chapters-write.server";
+import { toDate } from "@/packages/clock";
 
 export type { LoggerAdapter };
 
@@ -112,7 +113,7 @@ const dispatchClipServiceEvent = Effect.fn("dispatchClipServiceEvent")(
 
       case "get-footage-stats": {
         return yield* getFootageStats(db, {
-          now: new Date(event.now),
+          now: toDate(event.now),
           timeZone: event.timeZone,
         });
       }

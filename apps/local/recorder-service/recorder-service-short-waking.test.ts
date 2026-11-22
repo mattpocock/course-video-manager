@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { fakeWindows } from "./test-utils/fake-windows";
 import { connect, start, tmp, CALIBRATED } from "./test-utils/service-harness";
-import { delay } from "@/packages/clock";
 
 /**
  * A Short's screen while Spacedesk wakes, and screen-side restarts that
@@ -24,7 +23,7 @@ describe("a Short's screen", () => {
     await client.next("hello");
     client.send({ type: "open", videoId: "landscape-1" });
     await client.camera("live");
-    await delay(50);
+    await new Promise((r) => setTimeout(r, 50));
     const dellPreview = windows.screenPreviews.at(-1)!;
     dellPreview.stuck = true;
 
@@ -38,7 +37,7 @@ describe("a Short's screen", () => {
     );
     client.received.splice(0);
     dellPreview.exit(null);
-    await delay(50);
+    await new Promise((r) => setTimeout(r, 50));
     // The overtaken restart sets nothing: the Short stays ready.
     expect(client.received.filter((m) => m.type === "state")).toEqual([]);
   });

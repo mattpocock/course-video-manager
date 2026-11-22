@@ -1,6 +1,7 @@
 import { Data, Effect } from "effect";
 import { JobOperationsService } from "@cvm/core/services/db-job-operations.server";
 import { RENDER_VERTICAL_EVENTS } from "@/features/jobs/render-vertical-job";
+import { nowMs } from "@/packages/clock";
 
 /**
  * `cvm short render`: follow the `render-vertical` Job the Sidecar runs until
@@ -73,7 +74,7 @@ export const waitForShortRender = Effect.fn("waitForShortRender")(
         case "queued": {
           if (!warnedNoSidecar) {
             const lease = yield* ops.getSidecarLease();
-            if (!lease || lease.leaseUntil.getTime() < Date.now()) {
+            if (!lease || lease.leaseUntil.getTime() < nowMs()) {
               warnedNoSidecar = true;
               yield* input.onWaiting({
                 event: "waiting",

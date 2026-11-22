@@ -360,7 +360,7 @@ export function ThumbnailDiagramEditor({
 
       let disposed = false;
       let seq = 0;
-      let timer: (() => void) | undefined;
+      let cancelTimer: (() => void) | undefined;
       // A store change is not an edit: the load above reaches the listener a
       // frame later as a "user" change (see head-autosaver.ts). Only a document
       // that differs from the last one seen is, and the face in its meta is
@@ -381,8 +381,8 @@ export function ThumbnailDiagramEditor({
       void report(false);
       const unlisten = editor.store.listen(
         () => {
-          timer?.();
-          timer = after(DRAWING_SETTLE_MS, () => {
+          cancelTimer?.();
+          cancelTimer = after(DRAWING_SETTLE_MS, () => {
             const now = drawingNow();
             if (now === seen) return;
             seen = now;
@@ -397,7 +397,7 @@ export function ThumbnailDiagramEditor({
       return () => {
         setEditor(null);
         disposed = true;
-        timer?.();
+        cancelTimer?.();
         unlisten();
         faceHistory.dispose();
         if (historyRef.current === faceHistory.history)

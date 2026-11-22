@@ -84,7 +84,10 @@ export const getOrderedItems = Effect.fn("getOrderedItems")(function* (
 
 export const touchVideoUpdatedAt = (db: Database, videoId: string) =>
   dbCall(() =>
-    db.update(videos).set({ updatedAt: now() }).where(eq(videos.id, videoId))
+    db
+      .update(videos)
+      .set({ updatedAt: new Date() })
+      .where(eq(videos.id, videoId))
   );
 
 // ============================================================================
@@ -321,7 +324,7 @@ export const createEffectClipAtPositionImpl = Effect.fn(
         pauseType,
         order: order!,
         archived: false,
-        transcribedAt: new Date(),
+        transcribedAt: now(),
         transcriptionStatus: "done",
       })
       .returning()

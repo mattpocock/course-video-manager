@@ -38,14 +38,14 @@ export function useSessionPanelReducer(session: {
       ),
     {
       "tick-every-second": (_state, _effect, dispatch) => {
-        const interval = every(1000, () =>
+        const stopTimer = every(1000, () =>
           dispatch({
             type: "clock-ticked",
             at: nowMs(),
             activeDiagramOpen: activeDiagramOpen(),
           })
         );
-        return () => interval();
+        return stopTimer;
       },
     }
   );

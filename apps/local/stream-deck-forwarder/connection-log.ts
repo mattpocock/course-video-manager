@@ -1,5 +1,3 @@
-import { nowMs } from "@/packages/clock";
-
 /**
  * Decides what the hub prints when a client connects.
  *
@@ -29,7 +27,9 @@ export type ConnectionLog = {
   }) => string | null;
 };
 
-export function createConnectionLog(now: () => number = nowMs): ConnectionLog {
+export function createConnectionLog(
+  now: () => number = Date.now
+): ConnectionLog {
   // Per origin: when the window opened, how many connects it has seen, and
   // whether we have already printed a summary for the current window.
   const windows = new Map<

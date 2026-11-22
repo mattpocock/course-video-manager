@@ -62,15 +62,15 @@ export const startService = (o: {
     );
     let output = "";
     const exited = new Promise<void>((r) => child.once("exit", () => r()));
-    const timer = after(60_000, () =>
+    const cancelTimer = after(60_000, () =>
       reject(new Error(`The service did not start:\n${output}`))
     );
     const onData = (d: Buffer) => {
       output = (output + d.toString()).slice(-200_000);
       if (o.logFile) fs.appendFileSync(o.logFile, d);
       const port = output.match(/SCORECARD-SERVICE-PORT (\d+)/)?.[1];
-      if (port && timer) {
-        timer();
+      if (port && cancelTimer) {
+        cancelTimer();
         resolve({
           port: Number(port),
           child,
@@ -113,7 +113,7 @@ export const startService = (o: {
     child.stdout?.on("data", onData);
     child.stderr?.on("data", onData);
     child.once("exit", (code) => {
-      timer();
+      cancelTimer();
       reject(
         new Error(`The service exited (${code}) before it listened:\n${output}`)
       );
@@ -153,11 +153,11 @@ export const connect = async (port: number) => {
         const hit = received.slice(o.from ?? 0).find((r) => pred(r.message));
         if (!hit) return false;
         waiters.delete(look);
-        timer();
+        cancelTimer();
         resolve(hit);
         return true;
       };
-      const timer = after(o.timeoutMs ?? 30_000, () => {
+      const cancelTimer = after(o.timeoutMs ?? 30_000, () => {
         waiters.delete(look);
         reject(
           new Error(

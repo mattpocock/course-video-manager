@@ -183,20 +183,20 @@ export function usePalette(opts: {
         .catch(() => dispatch({ type: "components-list-failed" }));
     },
     "search-diagrams": (_state, { query, seq, delayMs }, dispatch) => {
-      const timer = after(delayMs, () => {
+      const cancelTimer = after(delayMs, () => {
         void fetch(`/api/diagrams/search?q=${encodeURIComponent(query)}`)
           .then((res) => res.json())
           .then((data) => data.results ?? [])
           .catch(() => [])
           .then((hits) => dispatch({ type: "diagrams-found", seq, hits }));
       });
-      return () => timer();
+      return cancelTimer;
     },
     "wait-for-spinner": (_state, { delayMs }, dispatch) => {
-      const timer = after(delayMs, () =>
+      const cancelTimer = after(delayMs, () =>
         dispatch({ type: "spinner-delay-elapsed" })
       );
-      return () => timer();
+      return cancelTimer;
     },
     "go-to-diagram": (_state, { target }, dispatch) => {
       void Promise.resolve(handlersRef.current.onGoToDiagram(target)).then(() =>

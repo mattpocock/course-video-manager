@@ -175,8 +175,8 @@ export function useJobs() {
         void send();
         return;
       }
-      const timer = after(effect.afterMs, () => void send());
-      return () => timer();
+      const cancelTimer = after(effect.afterMs, () => void send());
+      return cancelTimer;
     },
     "cancel-job": (_state, effect, dispatch) => {
       fetch(jobCancelHref(effect.id), { method: "POST" })

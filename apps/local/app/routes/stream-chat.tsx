@@ -47,9 +47,9 @@ export default function StreamChat() {
       dispatch({ type: "ticked", at: nowMs() });
     };
     ping();
-    const beat = every(PING_INTERVAL_MS, ping);
+    const stopBeat = every(PING_INTERVAL_MS, ping);
     return () => {
-      beat();
+      stopBeat();
       unsubscribe();
     };
   }, []);

@@ -5,8 +5,8 @@ import path from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 import { createTestDb } from "@/test-utils/test-db";
 import { DumpError, PG_ENV_NAMES, pgEnvFromUrl, writeDump } from "./db-dump";
-import { toDate, now } from "@/packages/clock";
 import { readEnv } from "@/packages/env";
+import { toDate, now } from "@/packages/clock";
 
 /**
  * Against the local test server only (`cvm-test-postgres`, Postgres 17). The

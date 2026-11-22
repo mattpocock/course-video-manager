@@ -1,12 +1,11 @@
 import { Clock, Duration, Effect } from "effect";
-import { nowMs } from "@/packages/clock";
 
 /**
  * A clock the test moves by hand, so pauses are measured in its time, not
  * the wall clock's. `whenAsleep` resolves once the chat waits on it.
  */
 export const handClock = () => {
-  let now = nowMs();
+  let now = Date.now();
   const sleepers: { at: number; wake: () => void }[] = [];
   let asleep: (() => void) | null = null;
   const clock: Clock.Clock = {

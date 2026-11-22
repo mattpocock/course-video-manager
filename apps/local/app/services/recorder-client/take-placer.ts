@@ -50,14 +50,14 @@ export const createTakePlacer = (o: {
         const leftAt = left.get(recordingSessionId);
         if (leftAt?.videoId === videoId) return Promise.resolve(leftAt.point);
         return new Promise((resolve) => {
-          const timer = after(o.timeoutMs, () => {
+          const cancelTimer = after(o.timeoutMs, () => {
             asking.delete(recordingSessionId);
             resolve(null);
           });
           asking.set(recordingSessionId, {
             videoId,
             answer: (point) => {
-              timer();
+              cancelTimer();
               asking.delete(recordingSessionId);
               resolve(point);
               return new Promise((placed) => (answered = placed));

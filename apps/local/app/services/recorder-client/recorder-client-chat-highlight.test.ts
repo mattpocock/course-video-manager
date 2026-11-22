@@ -34,11 +34,11 @@ setupGoLiveTests();
 
 // The recorder's Windows clock moves on in real time, so the card feed's
 // frames (one per 1/60 s of it) keep coming.
-let ticking: () => void;
+let stopTicking: () => void;
 beforeEach(() => {
-  ticking = every(5, () => (clock.ms += 5));
+  stopTicking = every(5, () => (clock.ms += 5));
 });
-afterEach(() => ticking());
+afterEach(() => stopTicking());
 
 /** Two fake viewers' messages in the picked Broadcast's chat. */
 const chat: ChatSnapshot = {
@@ -181,10 +181,10 @@ describe("Chat Highlights", () => {
     const r = await live({ cardAnswerMs: 300, streamStallMs: 200 });
     // ffmpeg's -progress, 20 times a second, as it goes on whatever its inputs do.
     let frame = 60;
-    const progress = every(50, () =>
+    const stopProgress = every(50, () =>
       r.windows.streams[0]!.stdout(`frame=${(frame += 3)}\nprogress=continue\n`)
     );
-    onTestFinished(() => progress());
+    onTestFinished(() => stopProgress());
     r.windows.cardServers[0]!.stalled = true;
     const read = r.windows.cardFeeds[0]!.bytes();
 
@@ -234,7 +234,7 @@ describe("Chat Highlights", () => {
     await vi.waitFor(() => expect(feed.opacities().at(-1)).toBeGreaterThan(0));
     // Mid-entrance, the recorder's clock stops, then jumps on 0.8 s: 48
     // slots are due at once (within the 1 s the feed may hold unread).
-    ticking();
+    stopTicking();
     await delay(50);
     const sent = feed.opacities().length;
     const atJump = feed.opacities().at(-1)!;

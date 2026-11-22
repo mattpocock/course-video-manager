@@ -180,13 +180,13 @@ describe("the stream reconnects for ever, and the recording carries on", () => {
 
     // ffmpeg keeps saying how it is doing, on its own clock, while its frame
     // count is stuck: what a camera feed that ended looked like (#2502).
-    const ticking = every(20, () => first.stdout(progress({ frame: 61 })));
+    const stopTicking = every(20, () => first.stdout(progress({ frame: 61 })));
     try {
       await vi.waitFor(() =>
         expect(r.windows.streams.length).toBeGreaterThan(1)
       );
     } finally {
-      ticking();
+      stopTicking();
     }
     expect(first.written).toContain("q");
     expect(r.kinds()).toContain("reconnecting");

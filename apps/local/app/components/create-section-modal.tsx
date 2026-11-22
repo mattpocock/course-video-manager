@@ -23,11 +23,11 @@ export function CreateSectionModal(props: {
 
   useEffect(() => {
     if (!props.open) return;
-    const timer = after(100, () => {
+    const cancelTimer = after(100, () => {
       inputRef.current?.focus();
       inputRef.current?.select();
     });
-    return () => timer();
+    return cancelTimer;
   }, [props.open]);
 
   return (

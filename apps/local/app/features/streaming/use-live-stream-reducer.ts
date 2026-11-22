@@ -111,14 +111,14 @@ export function useLiveStreamReducer() {
         );
     },
     "await-reconnect-grace": (_state, { broadcastId, reconnect }, dispatch) => {
-      const timer = after(RECONNECT_GRACE_MS, () =>
+      const cancelTimer = after(RECONNECT_GRACE_MS, () =>
         dispatch({
           type: "chat-reconnect-grace-ended",
           broadcastId,
           reconnect,
         })
       );
-      return () => timer();
+      return cancelTimer;
     },
     "end-stream": (_state, effect, dispatch) => {
       fetch(

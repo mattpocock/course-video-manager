@@ -1,7 +1,7 @@
 import { anthropic } from "@ai-sdk/anthropic";
 import { APICallError, type LanguageModel } from "ai";
-import { delay } from "@/packages/clock";
 import { readEnv } from "@/packages/env";
+import { delay } from "@/packages/clock";
 
 /**
  * A scripted stand-in for Anthropic, so every way a writer turn can fail can

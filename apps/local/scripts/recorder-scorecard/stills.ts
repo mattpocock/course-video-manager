@@ -40,7 +40,7 @@ const recordingSignal = (ctx: Ctx) => {
   };
   const listeners = new Set<(recording: boolean) => void>();
   let was = kindNow() === "recording";
-  const poll = every(50, () => {
+  const stopPoll = every(50, () => {
     const now = kindNow() === "recording";
     if (now === was) return;
     was = now;
@@ -53,7 +53,7 @@ const recordingSignal = (ctx: Ctx) => {
       return () => void listeners.delete(listener);
     },
   };
-  return { signal, close: () => poll() };
+  return { signal, close: () => stopPoll() };
 };
 
 export const stillsMidTake = async (ctx: Ctx, seconds: number) => {

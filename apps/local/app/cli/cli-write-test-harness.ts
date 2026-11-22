@@ -16,8 +16,8 @@ import {
   buildRemoteLayer,
   type RemoteHarnessOptions,
 } from "./cli-remote-test-harness";
-import { toDate } from "@/packages/clock";
 import { readEnv } from "@/packages/env";
+import { toDate } from "@/packages/clock";
 
 /**
  * Shared harness for the `cvm` WRITE-verb integration tests. Mirrors the layer

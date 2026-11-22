@@ -6,7 +6,6 @@ import {
   STILL_WHILE_RECORDING,
   type RecorderState,
 } from "./protocol";
-import { nowMs } from "@/packages/clock";
 
 /** A still older than this is not the camera now: the preview process stalled or quit. */
 const STILL_MAX_AGE_MS = 2_000;
@@ -29,7 +28,7 @@ export const serveStill = (
         ? STILL_WHILE_RECORDING
         : state.camera.kind !== "live" ||
             !still ||
-            nowMs() - still.atMs > STILL_MAX_AGE_MS
+            Date.now() - still.atMs > STILL_MAX_AGE_MS
           ? STILL_NO_PICTURE
           : undefined;
   if (refusal || !still) {

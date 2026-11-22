@@ -8,7 +8,6 @@ import { PREVIEW_STALL_MS, type ScreenStatus } from "./protocol";
 import { findByName, Refusal } from "./refusal";
 import { listScreens, type Screen } from "./windows-devices";
 import { watchPreview } from "./preview-watchdog";
-import { after } from "@/packages/clock";
 
 /**
  * THE RECORDER'S SCREEN, per Video format: which ddagrab output is recorded
@@ -123,9 +122,9 @@ export const createScreenSide = (o: {
       console.error(
         `recorder: the screen preview ${why}; starting it again (restart ${restarts})`
       );
-      after(RESTART_DELAY_MS, () => {
+      setTimeout(() => {
         if (generation === startedFor && !preview) startPreview(screen);
-      });
+      }, RESTART_DELAY_MS);
     };
     watchPreview({
       name: "screen preview",

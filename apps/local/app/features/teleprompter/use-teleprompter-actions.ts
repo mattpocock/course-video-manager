@@ -28,7 +28,7 @@ export function useTeleprompterActions(actions: TeleprompterActions) {
 
   useEffect(() => {
     let socket: WebSocket | null = null;
-    let reconnectTimer: (() => void) | null = null;
+    let cancelReconnect: (() => void) | null = null;
     let closed = false;
 
     const connect = () => {
@@ -52,7 +52,7 @@ export function useTeleprompterActions(actions: TeleprompterActions) {
       // Retry quietly rather than silently losing the Stream Deck.
       socket.addEventListener("close", () => {
         if (closed) return;
-        reconnectTimer = after(2000, connect);
+        cancelReconnect = after(2000, connect);
       });
       socket.addEventListener("error", () => socket?.close());
     };
@@ -60,7 +60,7 @@ export function useTeleprompterActions(actions: TeleprompterActions) {
 
     return () => {
       closed = true;
-      if (reconnectTimer) reconnectTimer();
+      if (cancelReconnect) cancelReconnect();
       socket?.close();
     };
   }, []);

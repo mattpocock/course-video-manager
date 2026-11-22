@@ -31,8 +31,8 @@ import { MOVE_PARTIAL_SUFFIX } from "@/packages/storage/move";
 import { STORAGE_MOVED_EVENT } from "@/packages/storage/client";
 import type { JobContext } from "../job-kind";
 import { storageMoveJobKind } from "./storage-move";
-import { toDate } from "@/packages/clock";
 import { readEnv } from "@/packages/env";
+import { toDate } from "@/packages/clock";
 
 /**
  * The `storage-move` Sidecar Job (#2109), run as the Sidecar runs it, against

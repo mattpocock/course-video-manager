@@ -36,8 +36,8 @@ import {
   POSTING_QUEUE_TICK_MS,
   postingQueueTickIn,
 } from "./posting-queue-tick";
-import { now } from "@/packages/clock";
 import { readEnv } from "@/packages/env";
+import { now } from "@/packages/clock";
 
 /**
  * The sidecar's entry point (`pnpm dev` runs it as `dev:sidecar`, `pnpm start`

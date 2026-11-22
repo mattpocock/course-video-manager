@@ -168,7 +168,7 @@ export default function ThumbnailsPage({ loaderData }: Route.ComponentProps) {
     )
       return;
 
-    const timer = after(500, () => {
+    const cancelTimer = after(500, () => {
       dispatch({
         type: "save-requested",
         videoId,
@@ -176,7 +176,7 @@ export default function ThumbnailsPage({ loaderData }: Route.ComponentProps) {
       });
     });
 
-    return () => timer();
+    return cancelTimer;
   }, [
     state.pendingAutoSave,
     state.previewDataUrl,

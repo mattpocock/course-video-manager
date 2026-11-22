@@ -681,7 +681,6 @@
     "typescript(no-unsafe-assignment)": 1
   },
   "apps/local/app/cli/commands/course-publish-wait.ts": {
-    "eslint(no-restricted-globals)": 1,
     "local(no-comments)": 11,
     "local(no-unsafe-as)": 5
   },
@@ -758,7 +757,6 @@
     "local(no-comments)": 1
   },
   "apps/local/app/cli/commands/footage-transcribe-wait.ts": {
-    "eslint(no-restricted-globals)": 1,
     "local(no-comments)": 8,
     "local(no-unsafe-as)": 2
   },
@@ -846,7 +844,6 @@
     "local(no-comments)": 6
   },
   "apps/local/app/cli/commands/short-render-wait.ts": {
-    "eslint(no-restricted-globals)": 1,
     "local(no-comments)": 5,
     "local(no-unsafe-as)": 2
   },
@@ -4329,6 +4326,7 @@
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/packages/storage/lib/ownership.server.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-comments)": 5
   },
   "apps/local/app/packages/storage/lib/purge-exports.server.ts": {
@@ -5466,7 +5464,6 @@
     "typescript(no-non-null-assertion)": 4
   },
   "apps/local/app/services/clip-service-handler.ts": {
-    "eslint(no-restricted-globals)": 1,
     "local(no-comments)": 5
   },
   "apps/local/app/services/clip-service-insertion-point.test.ts": {
@@ -5992,7 +5989,6 @@
     "local(no-comments)": 31
   },
   "apps/local/app/services/ffmpeg-encode-segments.ts": {
-    "eslint(no-restricted-globals)": 1,
     "local(no-comments)": 6
   },
   "apps/local/app/services/ffmpeg-encode-slots.test.ts": {
@@ -6735,6 +6731,7 @@
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/services/youtube-live-broadcast-writes.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-comments)": 9,
     "local(no-unsafe-as)": 3
   },
@@ -6831,6 +6828,7 @@
     "typescript(no-unsafe-argument)": 1
   },
   "apps/local/app/test-utils/hand-clock.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-comments)": 3,
     "typescript(no-non-null-assertion)": 1
   },
@@ -6890,6 +6888,7 @@
     "local(no-comments)": 1
   },
   "apps/local/recorder-service/calibration-run.ffmpeg.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-comments)": 2,
     "typescript(no-non-null-assertion)": 1
   },
@@ -6901,11 +6900,12 @@
     "typescript(no-non-null-assertion)": 2
   },
   "apps/local/recorder-service/camera-writer-graph.ffmpeg.test.ts": {
+    "eslint(no-restricted-globals)": 3,
     "local(no-comments)": 9,
     "typescript(no-non-null-assertion)": 4
   },
   "apps/local/recorder-service/camera.ts": {
-    "eslint(no-restricted-globals)": 10,
+    "eslint(no-restricted-globals)": 19,
     "eslint(no-restricted-properties)": 1,
     "local(no-comments)": 38
   },
@@ -6917,16 +6917,18 @@
     "local(no-comments)": 52
   },
   "apps/local/recorder-service/card-feed.ts": {
+    "eslint(no-restricted-globals)": 6,
     "local(no-comments)": 38,
     "local(no-unsafe-as)": 1,
     "typescript(no-non-null-assertion)": 13
   },
   "apps/local/recorder-service/card-server.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-comments)": 8,
     "typescript(no-non-null-assertion)": 3
   },
   "apps/local/recorder-service/card-server.ts": {
-    "eslint(no-restricted-globals)": 4,
+    "eslint(no-restricted-globals)": 12,
     "local(no-comments)": 15,
     "local(no-unsafe-as)": 1
   },
@@ -6969,12 +6971,12 @@
     "local(no-comments)": 1
   },
   "apps/local/recorder-service/frames-lost.ts": {
-    "eslint(no-restricted-globals)": 1,
+    "eslint(no-restricted-globals)": 6,
     "local(no-comments)": 22,
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/recorder-service/go-live.ts": {
-    "eslint(no-restricted-globals)": 4,
+    "eslint(no-restricted-globals)": 5,
     "local(no-comments)": 50
   },
   "apps/local/recorder-service/health.ts": {
@@ -6985,7 +6987,7 @@
     "local(no-comments)": 7
   },
   "apps/local/recorder-service/level-meter.ts": {
-    "eslint(no-restricted-globals)": 1,
+    "eslint(no-restricted-globals)": 5,
     "local(no-comments)": 29,
     "typescript(no-non-null-assertion)": 2
   },
@@ -6997,6 +6999,7 @@
     "local(no-comments)": 1
   },
   "apps/local/recorder-service/load-sampler.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-comments)": 7
   },
   "apps/local/recorder-service/mic-timing.ffmpeg.test.ts": {
@@ -7012,16 +7015,18 @@
     "local(no-comments)": 4
   },
   "apps/local/recorder-service/preview-feeds.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-comments)": 6,
     "local(no-unsafe-as)": 1,
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/recorder-service/preview-feeds.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-comments)": 17,
     "local(no-unsafe-as)": 2
   },
   "apps/local/recorder-service/preview-watchdog.ts": {
-    "eslint(no-restricted-globals)": 2,
+    "eslint(no-restricted-globals)": 10,
     "local(no-comments)": 6
   },
   "apps/local/recorder-service/protocol.ts": {
@@ -7054,15 +7059,18 @@
     "local(no-comments)": 4
   },
   "apps/local/recorder-service/recorder-service-short-waking.test.ts": {
+    "eslint(no-restricted-globals)": 2,
     "local(no-comments)": 5,
     "typescript(no-non-null-assertion)": 2
   },
   "apps/local/recorder-service/recorder-service-short.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-comments)": 4,
     "typescript(no-non-null-assertion)": 3,
     "typescript(no-unsafe-assignment)": 1
   },
   "apps/local/recorder-service/recorder-service-shutdown.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-comments)": 4
   },
   "apps/local/recorder-service/recorder-service-still.test.ts": {
@@ -7070,6 +7078,7 @@
     "local(no-comments)": 1
   },
   "apps/local/recorder-service/recorder-service-stop.test.ts": {
+    "eslint(no-restricted-globals)": 4,
     "local(no-comments)": 14
   },
   "apps/local/recorder-service/recorder-service-stream-deck.test.ts": {
@@ -7084,6 +7093,7 @@
     "typescript(no-non-null-assertion)": 4
   },
   "apps/local/recorder-service/recorder-service.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-comments)": 22,
     "local(no-unsafe-as)": 1,
     "typescript(no-non-null-assertion)": 7
@@ -7098,7 +7108,7 @@
     "local(no-comments)": 8
   },
   "apps/local/recorder-service/recording-session.ts": {
-    "eslint(no-restricted-globals)": 5,
+    "eslint(no-restricted-globals)": 12,
     "local(no-comments)": 77,
     "local(no-unsafe-as)": 1
   },
@@ -7109,11 +7119,12 @@
     "local(no-comments)": 2
   },
   "apps/local/recorder-service/run-recorder-service.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-comments)": 10,
     "local(no-unsafe-as)": 1
   },
   "apps/local/recorder-service/screen-side.ts": {
-    "eslint(no-restricted-globals)": 2,
+    "eslint(no-restricted-globals)": 3,
     "local(no-comments)": 23
   },
   "apps/local/recorder-service/service-process.ts": {
@@ -7128,6 +7139,7 @@
     "local(no-comments)": 9
   },
   "apps/local/recorder-service/still.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-comments)": 2
   },
   "apps/local/recorder-service/stream-args.ts": {
@@ -7142,14 +7154,14 @@
     "local(no-comments)": 11
   },
   "apps/local/recorder-service/stream-health.ts": {
-    "eslint(no-restricted-globals)": 1,
+    "eslint(no-restricted-globals)": 2,
     "local(no-comments)": 15
   },
   "apps/local/recorder-service/stream-protocol.ts": {
     "local(no-comments)": 20
   },
   "apps/local/recorder-service/stream-side.ts": {
-    "eslint(no-restricted-globals)": 6,
+    "eslint(no-restricted-globals)": 24,
     "local(no-comments)": 56,
     "unicorn(no-useless-spread)": 1
   },
@@ -7157,10 +7169,11 @@
     "local(no-comments)": 18
   },
   "apps/local/recorder-service/take-arming.ts": {
-    "eslint(no-restricted-globals)": 1,
+    "eslint(no-restricted-globals)": 5,
     "local(no-comments)": 13
   },
   "apps/local/recorder-service/take-isolation.ffmpeg.test.ts": {
+    "eslint(no-restricted-globals)": 16,
     "local(no-comments)": 24,
     "local(no-unsafe-as)": 1,
     "typescript(no-non-null-assertion)": 13
@@ -7169,21 +7182,24 @@
     "local(no-comments)": 6
   },
   "apps/local/recorder-service/take-stopping.ts": {
-    "eslint(no-restricted-globals)": 2,
+    "eslint(no-restricted-globals)": 4,
     "local(no-comments)": 8
   },
   "apps/local/recorder-service/test-utils/fake-card-server.ts": {
+    "eslint(no-restricted-globals)": 3,
     "local(no-comments)": 7,
     "local(no-unsafe-as)": 2,
     "typescript(no-non-null-assertion)": 1,
     "typescript(no-unsafe-assignment)": 1
   },
   "apps/local/recorder-service/test-utils/fake-windows.ts": {
+    "eslint(no-restricted-globals)": 6,
     "eslint(no-restricted-properties)": 1,
     "local(no-comments)": 60,
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/recorder-service/test-utils/fake-writer.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-comments)": 1
   },
   "apps/local/recorder-service/test-utils/flv.ts": {
@@ -7199,7 +7215,7 @@
     "typescript(no-non-null-assertion)": 2
   },
   "apps/local/recorder-service/windows-clock.ts": {
-    "eslint(no-restricted-globals)": 1,
+    "eslint(no-restricted-globals)": 3,
     "local(no-comments)": 7
   },
   "apps/local/recorder-service/windows-devices.ts": {
@@ -7210,6 +7226,7 @@
     "local(no-comments)": 12
   },
   "apps/local/recorder-service/writer-graph.ts": {
+    "eslint(no-restricted-globals)": 4,
     "local(no-comments)": 4
   },
   "apps/local/scripts/backfill-search-text.ts": {
@@ -7222,7 +7239,7 @@
     "typescript(no-unsafe-member-access)": 7
   },
   "apps/local/scripts/build-if-needed.ts": {
-    "eslint(no-restricted-globals)": 3,
+    "eslint(no-restricted-globals)": 5,
     "local(no-comments)": 4
   },
   "apps/local/scripts/db-dump.test.ts": {
@@ -7704,7 +7721,7 @@
     "local(no-unsafe-as)": 1
   },
   "apps/local/sidecar/lease-renewal.ts": {
-    "eslint(no-restricted-globals)": 2,
+    "eslint(no-restricted-globals)": 3,
     "local(no-comments)": 1
   },
   "apps/local/sidecar/load-repo-env.ts": {
@@ -7882,10 +7899,11 @@
     "local(no-comments)": 2
   },
   "apps/local/stream-deck-forwarder/connection-log.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-comments)": 6
   },
   "apps/local/stream-deck-forwarder/run-stream-deck-forwarder.test.ts": {
-    "eslint(no-restricted-globals)": 1,
+    "eslint(no-restricted-globals)": 2,
     "local(no-comments)": 4,
     "local(no-unsafe-as)": 3
   },

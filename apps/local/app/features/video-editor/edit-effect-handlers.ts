@@ -250,16 +250,14 @@ export function createEditEffectHandlers(
         });
     },
     "start-session-timeout": (_state, effect, dispatch) => {
-      const timeout = after(10_000, () => {
+      const cancelTimer = after(10_000, () => {
         dispatch({
           type: "session-polling-complete",
           sessionId: effect.sessionId,
         });
       });
 
-      return () => {
-        timeout();
-      };
+      return cancelTimer;
     },
     "save-takes": (_state, { type: _, ...session }, dispatch) => {
       // The Diagram Playground actually creates auto-pin snapshots — it has

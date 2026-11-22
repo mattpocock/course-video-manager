@@ -173,19 +173,19 @@ export const wakeSpacedesk = (
     // Started once we're upgraded: if the server accepts us but never streams a
     // frame, we still succeed — the identification (which wakes the display) is
     // already sent.
-    let activationTimer: (() => void) | undefined;
+    let cancelActivation: (() => void) | undefined;
 
     const finish = (error?: SpacedeskWakeError) => {
       if (settled) return;
       settled = true;
-      connectTimer();
-      activationTimer?.();
+      cancelConnect();
+      cancelActivation?.();
       socket.destroy();
       if (error) reject(error);
       else resolve();
     };
 
-    const connectTimer = after(CONNECT_TIMEOUT_MS, () => {
+    const cancelConnect = after(CONNECT_TIMEOUT_MS, () => {
       finish(
         new SpacedeskWakeError(
           `Timed out connecting to the spacedesk server at ${host}:${port}. Is spacedesk running on the PC?`,
@@ -228,11 +228,11 @@ export const wakeSpacedesk = (
         }
         upgraded = true;
         buffer = buffer.slice(headerEnd + 4);
-        connectTimer();
+        cancelConnect();
         socket.write(maskFrame(buildIdentificationPacket()));
         // Give the server a moment to start streaming as activation proof, but
         // don't fail if it doesn't — the packet is already sent.
-        activationTimer = after(ACTIVATION_TIMEOUT_MS, () => finish());
+        cancelActivation = after(ACTIVATION_TIMEOUT_MS, () => finish());
       }
 
       // Any server frame after the handshake means the display is streaming.

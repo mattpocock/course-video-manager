@@ -27,7 +27,6 @@ import {
   type MotionPoint,
 } from "../app/packages/clap-detection/live";
 import { createLiveClaps, type LiveClaps } from "./live-claps";
-import { toDate, after } from "@/packages/clock";
 
 /**
  * THE LEVEL METER (#2078): the AV Calibration page's live loudness of the
@@ -237,7 +236,7 @@ export const createMeterSide = <Owner>(o: {
       const t0Ms = o.now();
       let live = false;
       const failToStart = (message: string) => {
-        timer();
+        clearTimeout(timer);
         current = undefined;
         o.giveBackCamera();
         discard(run);
@@ -261,7 +260,7 @@ export const createMeterSide = <Owner>(o: {
           onReading: (reading) => {
             if (!live) {
               live = true;
-              timer();
+              clearTimeout(timer);
               // The files' clock started at T0, before the camera opened:
               // their seconds now, a little after the first reading's.
               resolve(Math.max(reading.seconds, (o.now() - t0Ms) / 1000));
@@ -292,12 +291,12 @@ export const createMeterSide = <Owner>(o: {
         }),
       };
       current = started;
-      const timer = after(o.startTimeoutMs, () => {
+      const timer = setTimeout(() => {
         if (live || current !== started) return;
         void started.meter
           .stop()
           .finally(() => failToStart(CAM_LINK_NOT_STARTING));
-      });
+      }, o.startTimeoutMs);
     });
 
   /** Ends a run's process; the caller brings the plain meter back. */
@@ -347,7 +346,7 @@ export const createMeterSide = <Owner>(o: {
       const mic = current?.mic ?? (await findMic());
       const camera = await o.findCamera();
       const id = randomUUID();
-      const stamp = toDate(o.now())
+      const stamp = new Date(o.now())
         .toISOString()
         .slice(0, 19)
         .replace(/:/g, "-");

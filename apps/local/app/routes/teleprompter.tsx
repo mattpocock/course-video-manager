@@ -95,13 +95,13 @@ export default function Teleprompter() {
     };
 
     knock();
-    const beat = every(PING_INTERVAL_MS, () => {
+    const stopBeat = every(PING_INTERVAL_MS, () => {
       knock();
       dispatch({ type: "liveness-checked", at: nowMs() });
     });
 
     return () => {
-      beat();
+      stopBeat();
       unsub();
     };
   }, []);
@@ -136,10 +136,10 @@ export default function Teleprompter() {
 
     refetch.current = load;
     load();
-    const id = every(POLL_INTERVAL_MS, load);
+    const stopLoad = every(POLL_INTERVAL_MS, load);
     return () => {
       cancelled = true;
-      id();
+      stopLoad();
     };
   }, [videoId]);
 

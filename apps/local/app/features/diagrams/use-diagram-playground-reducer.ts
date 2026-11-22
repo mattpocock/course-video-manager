@@ -365,10 +365,10 @@ export function useDiagramPlaygroundReducer() {
         });
       },
       "time-out-error": (_state, effect, dispatch) => {
-        const timer = after(effect.ms, () =>
+        const cancelTimer = after(effect.ms, () =>
           dispatch({ type: "error-timed-out", id: effect.id })
         );
-        return () => timer();
+        return cancelTimer;
       },
       // The store listener on the route reports the flip back as
       // `focus-mode-changed`.

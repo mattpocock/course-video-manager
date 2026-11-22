@@ -21,8 +21,8 @@ import {
   one,
   type RunResult,
 } from "./cli-write-test-harness";
-import { toDate, now } from "@/packages/clock";
 import { readEnv } from "@/packages/env";
+import { toDate, now } from "@/packages/clock";
 
 // ===========================================================================
 // cvm short post / cvm short queue (#2613): adding Shorts to the Posting

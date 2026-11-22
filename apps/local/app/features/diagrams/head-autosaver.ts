@@ -67,13 +67,13 @@ export function createHeadAutosaver(opts: {
     hash: string | null;
     refused: boolean;
   } | null = null;
-  let timer: (() => void) | null = null;
+  let cancelTimer: (() => void) | null = null;
   /** The save in progress, if any; the next one starts after it. */
   let queue: Promise<unknown> = Promise.resolve();
 
   const cancel = () => {
-    if (timer) timer();
-    timer = null;
+    if (cancelTimer) cancelTimer();
+    cancelTimer = null;
   };
 
   const saveOnce = async (overwrite: boolean): Promise<FlushOutcome> => {
@@ -114,8 +114,8 @@ export function createHeadAutosaver(opts: {
     () => {
       if (!head) return;
       cancel();
-      timer = after(opts.debounceMs, () => {
-        timer = null;
+      cancelTimer = after(opts.debounceMs, () => {
+        cancelTimer = null;
         // Nothing awaits a debounced save; `save` reports failure, never throws.
         void flush();
       });

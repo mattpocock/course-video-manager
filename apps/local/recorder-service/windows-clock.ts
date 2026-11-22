@@ -1,5 +1,4 @@
 import { spawn } from "node:child_process";
-import { after } from "@/packages/clock";
 
 /**
  * The Windows wall clock, readable from WSL at any moment. ffmpeg.exe stamps
@@ -73,7 +72,7 @@ export const startWindowsClock = async (o: WindowsClockOptions = {}) => {
   let lastAt = 0;
   let stopped = false;
   let ticker: ClockTicker | undefined;
-  let respawnTimer: (() => void) | undefined;
+  let respawnTimer: NodeJS.Timeout | undefined;
   /** Set until the first tick: start-up fails loudly instead of respawning. */
   let startUp: { resolve: () => void; reject: (e: Error) => void } | undefined;
 
@@ -103,7 +102,7 @@ export const startWindowsClock = async (o: WindowsClockOptions = {}) => {
       console.error(
         `recorder: the Windows clock (PowerShell) ${reason}; respawning it`
       );
-      respawnTimer = after(respawnAfterMs, run);
+      respawnTimer = setTimeout(run, respawnAfterMs);
     });
   };
 
@@ -124,7 +123,7 @@ export const startWindowsClock = async (o: WindowsClockOptions = {}) => {
     },
     stop: () => {
       stopped = true;
-      respawnTimer?.();
+      clearTimeout(respawnTimer);
       ticker?.kill();
     },
   };

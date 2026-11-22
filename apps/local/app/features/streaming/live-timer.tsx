@@ -20,22 +20,22 @@ export const liveTimer = (
 const TICK_MS = 1000;
 let nowMs = clockNowMs();
 const ticked = new Set<() => void>();
-let ticker: (() => void) | undefined;
+let stopTicker: (() => void) | undefined;
 
 const subscribeToTick = (onTick: () => void) => {
   ticked.add(onTick);
-  if (ticker === undefined) {
+  if (stopTicker === undefined) {
     nowMs = clockNowMs();
-    ticker = every(TICK_MS, () => {
+    stopTicker = every(TICK_MS, () => {
       nowMs = clockNowMs();
       for (const listener of ticked) listener();
     });
   }
   return () => {
     ticked.delete(onTick);
-    if (ticked.size > 0 || ticker === undefined) return;
-    ticker();
-    ticker = undefined;
+    if (ticked.size > 0 || stopTicker === undefined) return;
+    stopTicker();
+    stopTicker = undefined;
   };
 };
 

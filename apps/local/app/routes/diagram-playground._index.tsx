@@ -12,7 +12,7 @@ import { newestSnapshotHashByDiagram } from "@/lib/filtered-newest-snapshot";
 import { data } from "react-router";
 import { NO_TOASTS } from "@/lib/route-toasts";
 import type { Route } from "./+types/diagram-playground._index";
-import { every, after, now as clockNow, toDate } from "@/packages/clock";
+import { toDate, every, after, now as clockNow } from "@/packages/clock";
 
 export const handle = NO_TOASTS;
 
@@ -114,7 +114,7 @@ export default function DiagramPlaygroundHome({
   useEffect(() => {
     const beat = () => diagramChannel.sendToParent({ type: "ping" });
     beat();
-    const interval = every(2000, beat);
+    const stopBeat = every(2000, beat);
     const unsub = diagramChannel.subscribeChild((msg) => {
       if (msg.type === "loadDiagram") {
         navigate(playgroundUrl(msg.diagramId, msg.snapshotId), {
@@ -123,7 +123,7 @@ export default function DiagramPlaygroundHome({
       }
     });
     return () => {
-      interval();
+      stopBeat();
       unsub();
     };
   }, [navigate]);

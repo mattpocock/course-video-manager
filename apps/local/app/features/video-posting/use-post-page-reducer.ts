@@ -74,7 +74,7 @@ export function usePostPageReducer({
           });
       },
       "save-youtube-draft": (_state, effect, dispatch) => {
-        const timer = after(effect.delayMs, () => {
+        const cancelTimer = after(effect.delayMs, () => {
           saveYoutubeDraft(effect)
             .then(() =>
               dispatch({
@@ -91,7 +91,7 @@ export function usePostPageReducer({
               })
             );
         });
-        return () => timer();
+        return cancelTimer;
       },
       "read-stored-youtube-video-id": (_state, effect, dispatch) => {
         dispatch({

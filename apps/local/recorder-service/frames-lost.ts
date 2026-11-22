@@ -1,5 +1,4 @@
 import type { FramesLost, LostFrameSpan } from "./protocol";
-import { after, nowMs } from "@/packages/clock";
 
 /**
  * FRAMES LOST in one Recording Session (#2214): the Cam Link's dshow buffer
@@ -62,7 +61,7 @@ export const countFramesLost = (o: {
   let screenGapFrames = 0;
   let stopped = false;
   let lastToldMs = -Infinity;
-  let tellLater: (() => void) | undefined;
+  let tellLater: ReturnType<typeof setTimeout> | undefined;
   const spans: LostFrameSpan[] = [];
   /** Each picture's gap start, logged on the line before its gap. */
   const gapFrom: Record<LostFrameSpan["picture"], number | null> = {
@@ -96,12 +95,12 @@ export const countFramesLost = (o: {
     const tell = () => {
       tellLater = undefined;
       if (stopped) return;
-      lastToldMs = nowMs();
+      lastToldMs = Date.now();
       o.tell(totals(), spansSoFar());
     };
-    const wait = lastToldMs + FRAMES_LOST_PERIOD_MS - nowMs();
+    const wait = lastToldMs + FRAMES_LOST_PERIOD_MS - Date.now();
     if (wait <= 0) tell();
-    else tellLater = after(wait, tell);
+    else tellLater = setTimeout(tell, wait);
   };
 
   /**
@@ -174,7 +173,7 @@ export const countFramesLost = (o: {
     /** Stops telling; `recording-stopped` reports the final totals. */
     stop: () => {
       stopped = true;
-      tellLater?.();
+      clearTimeout(tellLater);
     },
     totals,
     /** Every span lost, told or not: `recording-stopped`'s. */

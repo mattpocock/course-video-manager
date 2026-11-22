@@ -163,10 +163,10 @@ export default function DiagramPlaygroundActive({
         dispatch({ type: "video-editor-went-quiet" });
       }
     }
-    const interval = every(2000, beat);
+    const stopBeat = every(2000, beat);
     beat();
     return () => {
-      interval();
+      stopBeat();
       unsub();
     };
   }, [diagramId, dispatch]);

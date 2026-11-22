@@ -88,8 +88,8 @@ export function GlobalUploadProgress() {
   useEffect(() => {
     if (!isActive) return;
     setNow(clock());
-    const interval = every(1000, () => setNow(clock()));
-    return () => interval();
+    const stopTimer = every(1000, () => setNow(clock()));
+    return stopTimer;
   }, [isActive, clock]);
   // Each row's timings come from its Job Events, by the database's clock:
   // "now" is moved onto that clock too (`clockOffsetOf`).
@@ -125,9 +125,9 @@ export function GlobalUploadProgress() {
   useEffect(() => {
     if (!hasUploads || isActive) return;
 
-    const timer = after(5000, () => dismissFinishedJobs());
+    const cancelTimer = after(5000, () => dismissFinishedJobs());
 
-    return () => timer();
+    return cancelTimer;
   }, [hasUploads, isActive, allEntries, dismissFinishedJobs]);
 
   const handleDismiss = useCallback(

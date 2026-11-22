@@ -1,7 +1,6 @@
 import { lineSplitter, type LaunchedProcess, type Launcher } from "./launcher";
 import type { CardStill } from "./card-feed";
 import { decodePngRgba } from "./png-rgba";
-import { after } from "@/packages/clock";
 
 /**
  * THE CARD SERVER, as the recorder service runs it (spec #2445): the overlay
@@ -121,16 +120,16 @@ export const createCardServer = (o: {
     const self = { process: child, ready, answers };
     running = self;
     void ready.catch(() => {});
-    const hung = after(o.startMs, () => {
+    const hung = setTimeout(() => {
       if (running !== self) return;
       console.error(`recorder: ${cardServerHung(o.startMs)}`);
       failed?.(cardServerHung(o.startMs));
       running = undefined;
       child.kill();
-    });
+    }, o.startMs);
     void ready.then(
-      () => hung(),
-      () => hung()
+      () => clearTimeout(hung),
+      () => clearTimeout(hung)
     );
     void child.exited.then((code) => {
       const why = `The card server quit (exit ${code}): ${tail.join(" ").slice(-400)}`;
@@ -156,13 +155,13 @@ export const createCardServer = (o: {
       await self.ready;
       asked += 1;
       const id = String(asked);
-      let overdue: (() => void) | undefined;
+      let overdue: ReturnType<typeof setTimeout> | undefined;
       const reply = await new Promise<Reply | undefined>((resolve) => {
         self.answers.set(id, resolve);
-        overdue = after(o.answerMs, () => resolve(undefined));
+        overdue = setTimeout(() => resolve(undefined), o.answerMs);
         self.process.writeStdin(`${JSON.stringify({ id, ...card })}\n`);
       });
-      overdue?.();
+      clearTimeout(overdue);
       self.answers.delete(id);
       if (!reply) {
         console.error(
@@ -188,9 +187,9 @@ export const createCardServer = (o: {
       running = undefined;
       if (!self) return;
       self.process.writeStdin("quit\n");
-      const timer = after(QUIT_MS, () => self.process.kill());
+      const timer = setTimeout(() => self.process.kill(), QUIT_MS);
       await self.process.exited;
-      timer();
+      clearTimeout(timer);
     },
   };
 };
