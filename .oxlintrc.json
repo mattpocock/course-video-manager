@@ -70,6 +70,10 @@
     // A file reaches a Response through webFileStream, whose owner override
     // is at the bottom. No read stream elsewhere, and no cast in a Response.
     "local/response-body": "error",
+    // CODING STANDARD: "Comments". The code is the documentation. Only tool
+    // directives pass, plus interface JSDoc on an entry point, which the
+    // entry-point override at the bottom allows. No exemption for tests.
+    "local/no-comments": "error",
     // CODING STANDARD: "Functions stay simple". `modified` counts a whole
     // `switch` as one branch, so an exhaustive switch over a union (another
     // standard) is not punished for naming every member. A ratchet: files
@@ -1396,6 +1400,30 @@
       // The definition of removeBestEffort: its callers are what gets checked.
       "files": ["apps/local/app/services/remove-best-effort.ts"],
       "rules": { "local/fs-writes": "off" }
+    },
+    {
+      // Entry points: a deep module's interface may carry JSDoc, one block
+      // explaining the module and one on each export or exported member.
+      // They are the root files of each app package, and the concrete files
+      // a workspace package's exports map names. The ./* wildcard exports of
+      // @cvm/core and @cvm/remote would make every file an entry point, so
+      // they do not count. tests/no-comments.test.ts keeps this list in step
+      // with the exports maps.
+      "files": [
+        "apps/local/app/packages/*/*.{ts,tsx}",
+        "packages/lucide-icons/index.ts",
+        "packages/lucide-icons/generator.ts",
+        "packages/lucide-icons/tldraw.ts",
+        "packages/overlay-renderer/src/render.ts",
+        "packages/overlay-renderer/src/preview.tsx",
+        "packages/overlay-renderer/src/props.ts",
+        "packages/overlay-renderer/src/definition-card-tokens.ts",
+        "packages/overlay-renderer/src/chat-highlight-card.ts",
+        "packages/overlay-renderer/src/card-server-protocol.ts"
+      ],
+      "rules": {
+        "local/no-comments": ["error", { "allowInterfaceJsDoc": true }]
+      }
     }
   ]
 }

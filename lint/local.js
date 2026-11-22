@@ -7,6 +7,7 @@ import clipInserts from "./rules/clip-inserts.js";
 import dbClients from "./rules/db-clients.js";
 import fsWrites from "./rules/fs-writes.js";
 import noCjsPaths from "./rules/no-cjs-paths.js";
+import noComments from "./rules/no-comments.ts";
 import noOverloads from "./rules/no-overloads.js";
 import noUnsafeAs from "./rules/no-unsafe-as.js";
 import responseBody from "./rules/response-body.js";
@@ -21,6 +22,7 @@ export default {
     "db-clients": dbClients,
     "fs-writes": fsWrites,
     "no-cjs-paths": noCjsPaths,
+    "no-comments": noComments,
     "no-overloads": noOverloads,
     "no-unsafe-as": noUnsafeAs,
     "response-body": responseBody,

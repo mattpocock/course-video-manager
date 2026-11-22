@@ -92,11 +92,10 @@ Enforced by type-aware oxlint (`typescript/only-throw-error`).
 A promise nobody awaits loses its rejection: the failure turns into an
 unhandled rejection rather than an error the caller sees, and the work it
 started may still be running after the caller has moved on. Await it, or
-`.catch` it where it is made. When fire-and-forget really is the intent (a
-signal handler, a best-effort log line), write `void promise` with a comment
-saying why nothing waits on it. Do not hand an async function to a slot that
-expects a `void` callback either (an event listener, `forEach`), because
-nothing there awaits or catches what it returns.
+`.catch` it where it is made. When fire-and-forget is the intent (a
+signal handler, a best-effort log line), write `void promise`. Do not hand an
+async function to a slot that expects a `void` callback either (an event
+listener, `forEach`), because nothing there awaits or catches what it returns.
 
 Enforced by type-aware oxlint (`typescript/no-floating-promises` and
 `typescript/no-misused-promises`). Older hits are counted in
@@ -401,6 +400,10 @@ Can I simplify the parameters? Can I hide more complexity inside?
 1. **Accept dependencies, don't create them** — pass external dependencies in rather than constructing them internally.
 2. **Return results, don't produce side effects** — a function that returns a value is easier to test than one that mutates state.
 3. **Small surface area** — fewer methods = fewer tests needed, fewer params = simpler test setup.
+
+## Comments
+
+Only entry-point interface JSDoc (`local/no-comments`). ADRs hold decisions.
 
 ## Testing
 
