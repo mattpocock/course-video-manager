@@ -92,6 +92,7 @@
   },
   "apps/local/app/cli/cli-agent-sessions.test.ts": {
     "eslint(no-restricted-globals)": 3,
+    "local(clip-inserts)": 2,
     "local(no-unsafe-as)": 2,
     "typescript(no-non-null-assertion)": 5,
     "typescript(no-unsafe-return)": 1
@@ -118,11 +119,13 @@
   },
   "apps/local/app/cli/cli-clip-frame-repo-env.test.ts": {
     "eslint(no-restricted-properties)": 6,
+    "local(clip-inserts)": 1,
     "local(no-unsafe-as)": 1,
     "typescript(no-non-null-assertion)": 2
   },
   "apps/local/app/cli/cli-clip-layer.test.ts": {
     "eslint(no-restricted-properties)": 5,
+    "local(clip-inserts)": 2,
     "local(no-unsafe-as)": 5,
     "typescript(no-non-null-assertion)": 13,
     "typescript(no-unsafe-assignment)": 1
@@ -192,6 +195,7 @@
     "local(no-unsafe-as)": 6
   },
   "apps/local/app/cli/cli-clip-scene.test.ts": {
+    "local(clip-inserts)": 1,
     "local(no-unsafe-as)": 1,
     "typescript(no-non-null-assertion)": 4
   },
@@ -220,6 +224,7 @@
   },
   "apps/local/app/cli/cli-course-readiness.test.ts": {
     "eslint(no-restricted-properties)": 8,
+    "local(clip-inserts)": 2,
     "typescript(no-non-null-assertion)": 5,
     "typescript(no-unsafe-assignment)": 19,
     "typescript(no-unsafe-member-access)": 56
@@ -236,6 +241,7 @@
   "apps/local/app/cli/cli-diagram-get.test.ts": {
     "eslint(no-restricted-globals)": 1,
     "eslint(no-restricted-properties)": 1,
+    "local(clip-inserts)": 1,
     "local(no-unsafe-as)": 5,
     "typescript(no-non-null-assertion)": 17,
     "typescript(no-unsafe-assignment)": 2
@@ -243,12 +249,14 @@
   "apps/local/app/cli/cli-diagram-list.test.ts": {
     "eslint(no-restricted-globals)": 1,
     "eslint(no-restricted-properties)": 2,
+    "local(clip-inserts)": 1,
     "local(no-unsafe-as)": 6,
     "typescript(no-non-null-assertion)": 13,
     "typescript(no-unsafe-assignment)": 1
   },
   "apps/local/app/cli/cli-diagram-snapshot.test.ts": {
     "eslint(no-restricted-properties)": 2,
+    "local(clip-inserts)": 1,
     "local(no-unsafe-as)": 19,
     "typescript(no-non-null-assertion)": 48
   },
@@ -263,6 +271,7 @@
     "typescript(no-unsafe-member-access)": 5
   },
   "apps/local/app/cli/cli-error-round-trip.test.ts": {
+    "local(clip-inserts)": 2,
     "local(no-unsafe-as)": 5,
     "typescript(no-non-null-assertion)": 10
   },
@@ -282,16 +291,19 @@
     "typescript(no-unsafe-member-access)": 2
   },
   "apps/local/app/cli/cli-frame-landscape.test.ts": {
+    "local(clip-inserts)": 2,
     "local(no-unsafe-as)": 4,
     "typescript(no-non-null-assertion)": 3
   },
   "apps/local/app/cli/cli-frame.test.ts": {
+    "local(clip-inserts)": 2,
     "local(no-unsafe-as)": 2,
     "typescript(no-non-null-assertion)": 3,
     "typescript(no-unsafe-member-access)": 2
   },
   "apps/local/app/cli/cli-integration-test-harness.ts": {
     "eslint(no-restricted-globals)": 3,
+    "local(clip-inserts)": 3,
     "typescript(no-non-null-assertion)": 33
   },
   "apps/local/app/cli/cli-integration.test.ts": {
@@ -362,6 +374,7 @@
   },
   "apps/local/app/cli/cli-read-test-harness.ts": {
     "eslint(no-restricted-globals)": 3,
+    "local(clip-inserts)": 3,
     "typescript(no-non-null-assertion)": 33,
     "typescript(no-unsafe-return)": 1
   },
@@ -377,6 +390,7 @@
     "local(no-unsafe-as)": 3
   },
   "apps/local/app/cli/cli-search.test.ts": {
+    "local(clip-inserts)": 3,
     "local(no-unsafe-as)": 19,
     "typescript(no-explicit-any)": 19,
     "typescript(no-non-null-assertion)": 1,
@@ -398,6 +412,7 @@
   },
   "apps/local/app/cli/cli-short-create.test.ts": {
     "eslint(no-restricted-globals)": 2,
+    "local(clip-inserts)": 5,
     "local(no-unsafe-as)": 3,
     "typescript(no-non-null-assertion)": 28
   },
@@ -422,6 +437,7 @@
     "typescript(no-unsafe-member-access)": 6
   },
   "apps/local/app/cli/cli-tree-slim.test.ts": {
+    "local(clip-inserts)": 1,
     "typescript(no-unsafe-assignment)": 5,
     "typescript(no-unsafe-call)": 1,
     "typescript(no-unsafe-member-access)": 2
@@ -437,6 +453,7 @@
     "typescript(no-non-null-assertion)": 7
   },
   "apps/local/app/cli/cli-video-chapters.test.ts": {
+    "local(clip-inserts)": 1,
     "typescript(no-non-null-assertion)": 5,
     "typescript(no-unsafe-assignment)": 1,
     "typescript(no-unsafe-member-access)": 3
@@ -2174,14 +2191,17 @@
     "eslint(no-restricted-globals)": 1
   },
   "apps/local/app/packages/storage/tests/bucket-files.test.ts": {
+    "local(clip-inserts)": 1,
     "local(no-unsafe-as)": 2,
     "typescript(no-non-null-assertion)": 10
   },
   "apps/local/app/packages/storage/tests/delete-other.test.ts": {
+    "local(clip-inserts)": 1,
     "local(no-unsafe-as)": 3,
     "typescript(no-non-null-assertion)": 19
   },
   "apps/local/app/packages/storage/tests/move-busy.test.ts": {
+    "local(clip-inserts)": 1,
     "local(no-unsafe-as)": 3,
     "typescript(no-non-null-assertion)": 7
   },
@@ -2191,6 +2211,7 @@
     "typescript(no-non-null-assertion)": 3
   },
   "apps/local/app/packages/storage/tests/move.test.ts": {
+    "local(clip-inserts)": 1,
     "local(no-unsafe-as)": 3,
     "typescript(no-non-null-assertion)": 9,
     "typescript(no-unsafe-assignment)": 2
@@ -2200,6 +2221,7 @@
     "typescript(no-non-null-assertion)": 2
   },
   "apps/local/app/packages/storage/tests/originals-test-harness.ts": {
+    "local(clip-inserts)": 1,
     "local(no-unsafe-as)": 4,
     "typescript(no-non-null-assertion)": 8
   },
@@ -2211,6 +2233,7 @@
     "local(no-unsafe-as)": 2
   },
   "apps/local/app/packages/storage/tests/purge-exports.test.ts": {
+    "local(clip-inserts)": 2,
     "local(no-unsafe-as)": 4,
     "typescript(no-non-null-assertion)": 15
   },
@@ -2222,11 +2245,13 @@
     "local(no-unsafe-as)": 2
   },
   "apps/local/app/packages/storage/tests/scan.test.ts": {
+    "local(clip-inserts)": 3,
     "local(no-unsafe-as)": 2,
     "typescript(no-non-null-assertion)": 12
   },
   "apps/local/app/packages/storage/tests/unused-delete.test.ts": {
     "eslint(no-restricted-globals)": 5,
+    "local(clip-inserts)": 1,
     "local(no-unsafe-as)": 2,
     "typescript(no-non-null-assertion)": 3
   },
@@ -2867,6 +2892,7 @@
     "typescript(no-non-null-assertion)": 3
   },
   "apps/local/app/services/clip-service-clip-text.test.ts": {
+    "local(clip-inserts)": 2,
     "typescript(no-non-null-assertion)": 5
   },
   "apps/local/app/services/clip-service-clips.server.ts": {
@@ -2883,6 +2909,7 @@
   },
   "apps/local/app/services/clip-service-footage-stats.test.ts": {
     "eslint(no-restricted-globals)": 5,
+    "local(clip-inserts)": 1,
     "typescript(no-non-null-assertion)": 7
   },
   "apps/local/app/services/clip-service-handler.failures.test.ts": {
@@ -2901,6 +2928,7 @@
     "typescript(no-unsafe-assignment)": 3
   },
   "apps/local/app/services/clip-service-mic-offset-shared-session.test.ts": {
+    "local(clip-inserts)": 1,
     "local(no-unsafe-as)": 2,
     "typescript(no-explicit-any)": 6,
     "typescript(no-non-null-assertion)": 6,
@@ -2912,6 +2940,7 @@
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/services/clip-service-mic-settings.test.ts": {
+    "local(clip-inserts)": 1,
     "local(no-unsafe-as)": 3,
     "typescript(no-non-null-assertion)": 6
   },
@@ -2922,6 +2951,7 @@
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/services/clip-service-scene-override.test.ts": {
+    "local(clip-inserts)": 1,
     "local(no-unsafe-as)": 2,
     "typescript(no-non-null-assertion)": 8
   },
@@ -3490,6 +3520,7 @@
     "eslint(no-restricted-globals)": 2
   },
   "apps/local/app/services/render-vertical-video-service.test.ts": {
+    "local(clip-inserts)": 3,
     "local(no-unsafe-as)": 15,
     "typescript(no-explicit-any)": 12,
     "typescript(no-non-null-assertion)": 23,
@@ -3559,6 +3590,7 @@
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/services/storage-relocation.test.ts": {
+    "local(clip-inserts)": 1,
     "local(no-unsafe-as)": 2,
     "typescript(no-non-null-assertion)": 17
   },
@@ -4215,12 +4247,14 @@
   "apps/local/sidecar/kinds/storage-delete-ops.test.ts": {
     "eslint(no-restricted-globals)": 2,
     "eslint(no-restricted-properties)": 4,
+    "local(clip-inserts)": 1,
     "local(no-unsafe-as)": 6,
     "typescript(no-explicit-any)": 1,
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/sidecar/kinds/storage-delete.test.ts": {
     "eslint(no-restricted-properties)": 4,
+    "local(clip-inserts)": 1,
     "local(no-unsafe-as)": 6,
     "typescript(no-explicit-any)": 1,
     "typescript(no-non-null-assertion)": 7
@@ -4228,6 +4262,7 @@
   "apps/local/sidecar/kinds/storage-move.test.ts": {
     "eslint(no-restricted-globals)": 1,
     "eslint(no-restricted-properties)": 4,
+    "local(clip-inserts)": 1,
     "local(no-unsafe-as)": 8,
     "typescript(no-explicit-any)": 1,
     "typescript(no-non-null-assertion)": 9,
@@ -4236,12 +4271,14 @@
   "apps/local/sidecar/kinds/transcribe-clips-requeue.test.ts": {
     "eslint(no-restricted-globals)": 1,
     "eslint(no-restricted-properties)": 1,
+    "local(clip-inserts)": 1,
     "local(no-unsafe-as)": 3,
     "typescript(no-non-null-assertion)": 16
   },
   "apps/local/sidecar/kinds/transcribe-clips.test.ts": {
     "eslint(no-restricted-globals)": 1,
     "eslint(no-restricted-properties)": 1,
+    "local(clip-inserts)": 1,
     "local(no-unsafe-as)": 3,
     "typescript(no-non-null-assertion)": 8
   },
@@ -4297,6 +4334,7 @@
   "apps/local/sidecar/posting-queue-test-harness.ts": {
     "eslint(no-restricted-globals)": 6,
     "eslint(no-restricted-properties)": 5,
+    "local(clip-inserts)": 1,
     "local(no-unsafe-as)": 3,
     "typescript(no-non-null-assertion)": 4
   },
@@ -4371,6 +4409,7 @@
     "local(no-unsafe-as)": 1
   },
   "apps/local/sidecar/stuck-clip-sweep.test.ts": {
+    "local(clip-inserts)": 1,
     "local(no-unsafe-as)": 1,
     "typescript(no-non-null-assertion)": 21
   },
@@ -4438,6 +4477,7 @@
     "local(no-unsafe-as)": 3
   },
   "packages/core/db/migrations.test.ts": {
+    "local(clip-inserts)": 3,
     "local(no-unsafe-as)": 1,
     "typescript(no-explicit-any)": 1,
     "typescript(no-non-null-assertion)": 5,
@@ -4591,6 +4631,7 @@
     "typescript(no-non-null-assertion)": 1
   },
   "packages/core/services/copy-paths-table-guard.test.ts": {
+    "local(clip-inserts)": 4,
     "local(no-unsafe-as)": 4,
     "typescript(no-explicit-any)": 1,
     "typescript(no-non-null-assertion)": 17,
@@ -4614,6 +4655,7 @@
   },
   "packages/core/services/db-agent-session-operations.test.ts": {
     "eslint(no-restricted-globals)": 1,
+    "local(clip-inserts)": 1,
     "local(no-unsafe-as)": 2,
     "typescript(no-explicit-any)": 1,
     "typescript(no-non-null-assertion)": 2,
@@ -4791,6 +4833,7 @@
   },
   "packages/core/services/db-duplicate-course-drift.test.ts": {
     "eslint(no-restricted-globals)": 4,
+    "local(clip-inserts)": 1,
     "local(no-unsafe-as)": 3,
     "typescript(no-explicit-any)": 4,
     "typescript(no-non-null-assertion)": 42,
@@ -4800,6 +4843,7 @@
   },
   "packages/core/services/db-duplicate-course.test.ts": {
     "eslint(no-restricted-globals)": 1,
+    "local(clip-inserts)": 1,
     "local(no-unsafe-as)": 1,
     "typescript(no-explicit-any)": 1,
     "typescript(no-non-null-assertion)": 68,
@@ -4925,6 +4969,7 @@
     "typescript(no-non-null-assertion)": 3
   },
   "packages/core/services/db-recording-session.test.ts": {
+    "local(clip-inserts)": 4,
     "typescript(no-non-null-assertion)": 13
   },
   "packages/core/services/db-search-operations.server.ts": {
@@ -4939,6 +4984,7 @@
     "typescript(no-unsafe-member-access)": 4
   },
   "packages/core/services/db-service-clip-move-to-video.test.ts": {
+    "local(clip-inserts)": 2,
     "local(no-unsafe-as)": 1,
     "typescript(no-explicit-any)": 1,
     "typescript(no-non-null-assertion)": 1,
@@ -4955,6 +5001,7 @@
   },
   "packages/core/services/db-service-course-structure.test.ts": {
     "eslint(no-restricted-globals)": 1,
+    "local(clip-inserts)": 1,
     "local(no-unsafe-as)": 2,
     "typescript(no-explicit-any)": 2,
     "typescript(no-non-null-assertion)": 45,
@@ -4963,6 +5010,7 @@
   },
   "packages/core/services/db-service-next-video-needing-body.test.ts": {
     "eslint(no-restricted-globals)": 1,
+    "local(clip-inserts)": 1,
     "local(no-unsafe-as)": 1,
     "typescript(no-explicit-any)": 1,
     "typescript(no-non-null-assertion)": 10,
@@ -5016,12 +5064,14 @@
   },
   "packages/core/services/db-version-copy.children.test.ts": {
     "eslint(no-restricted-globals)": 2,
+    "local(clip-inserts)": 4,
     "local(no-unsafe-as)": 1,
     "typescript(no-explicit-any)": 1,
     "typescript(no-non-null-assertion)": 36,
     "typescript(no-unsafe-argument)": 1
   },
   "packages/core/services/db-version-copy.incomplete.test.ts": {
+    "local(clip-inserts)": 2,
     "local(no-unsafe-as)": 1,
     "typescript(no-explicit-any)": 1,
     "typescript(no-non-null-assertion)": 9,
@@ -5038,6 +5088,7 @@
   },
   "packages/core/services/db-version-copy.test.ts": {
     "eslint(no-restricted-globals)": 2,
+    "local(clip-inserts)": 4,
     "local(no-unsafe-as)": 1,
     "typescript(no-explicit-any)": 1,
     "typescript(no-non-null-assertion)": 38,
@@ -5054,6 +5105,7 @@
   },
   "packages/core/services/db-version-slim.test.ts": {
     "eslint(no-restricted-globals)": 1,
+    "local(clip-inserts)": 2,
     "local(no-unsafe-as)": 1,
     "typescript(no-explicit-any)": 1,
     "typescript(no-non-null-assertion)": 16,
@@ -5077,6 +5129,7 @@
     "typescript(no-non-null-assertion)": 11
   },
   "packages/core/services/db-video-format.test.ts": {
+    "local(clip-inserts)": 1,
     "local(no-unsafe-as)": 1,
     "typescript(no-explicit-any)": 1,
     "typescript(no-non-null-assertion)": 13,
@@ -5127,6 +5180,7 @@
     "local(no-unsafe-as)": 1
   },
   "packages/core/services/draft-guard.server.test.ts": {
+    "local(clip-inserts)": 2,
     "local(no-unsafe-as)": 26,
     "typescript(no-explicit-any)": 26,
     "typescript(no-non-null-assertion)": 18,
@@ -5157,6 +5211,7 @@
   },
   "packages/core/services/patient-connection-pool.test.ts": {
     "eslint(no-restricted-globals)": 3,
+    "eslint(no-restricted-imports)": 1,
     "local(no-unsafe-as)": 3,
     "typescript(no-explicit-any)": 1,
     "typescript(no-non-null-assertion)": 1
@@ -5168,6 +5223,7 @@
     "typescript(no-non-null-assertion)": 1
   },
   "packages/core/services/storage-path-migration.test.ts": {
+    "local(clip-inserts)": 1,
     "local(no-unsafe-as)": 2,
     "typescript(no-non-null-assertion)": 11
   },
@@ -5193,6 +5249,7 @@
     "typescript(no-non-null-assertion)": 9
   },
   "packages/core/test-utils/cvm-recorder-clip.ts": {
+    "local(clip-inserts)": 1,
     "typescript(no-non-null-assertion)": 5
   },
   "packages/core/test-utils/global-setup.ts": {

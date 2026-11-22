@@ -1,1 +1,10 @@
-{ "extends": ["../../.oxlintrc.json"], "ignorePatterns": [] }
+{
+  "extends": ["../../.oxlintrc.json"],
+  "ignorePatterns": [],
+  "overrides": [
+    {
+      "files": ["script-db-url.ts"],
+      "rules": { "local/script-db-url": "error" }
+    }
+  ]
+}

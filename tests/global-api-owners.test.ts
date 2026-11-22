@@ -1,18 +1,5 @@
-import { spawnSync } from "node:child_process";
-import {
-  copyFileSync,
-  mkdirSync,
-  mkdtempSync,
-  realpathSync,
-  rmSync,
-  symlinkSync,
-  writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-
-const ROOT = path.resolve(import.meta.dirname, "..");
+import { type Diagnostic, lintProbes } from "./lint-probe.ts";
 
 const APIS = [
   { api: "fetch", owner: "@/packages/http" },
@@ -78,58 +65,21 @@ const FILES: Record<string, readonly Api[]> = {
   "apps/local/app/hooks/use-local-storage.ts": ["localStorage"],
 };
 
-interface Diagnostic {
-  filename: string;
-  code: string;
-  message: string;
-  help?: string;
-  labels: { span: { line: number } }[];
-}
-
-const isReport = (value: unknown): value is { diagnostics: Diagnostic[] } =>
-  typeof value === "object" &&
-  value !== null &&
-  "diagnostics" in value &&
-  Array.isArray(value.diagnostics);
-
-let dir: string;
 let diagnostics: Diagnostic[];
+let removeProbes: () => void;
 
 beforeAll(() => {
-  dir = mkdtempSync(path.join(tmpdir(), "global-api-owners-"));
-  copyFileSync(
-    path.join(ROOT, ".oxlintrc.json"),
-    path.join(dir, ".oxlintrc.json")
+  const probes = lintProbes(
+    Object.fromEntries(Object.keys(FILES).map((file) => [file, PROBE]))
   );
-  symlinkSync(path.join(ROOT, "lint"), path.join(dir, "lint"));
-  mkdirSync(path.join(dir, "node_modules"));
-  symlinkSync(
-    realpathSync(path.join(ROOT, "node_modules/oxlint")),
-    path.join(dir, "node_modules/oxlint")
-  );
-  for (const file of Object.keys(FILES)) {
-    mkdirSync(path.dirname(path.join(dir, file)), { recursive: true });
-    writeFileSync(path.join(dir, file), PROBE);
-  }
-  const run = spawnSync(
-    process.execPath,
-    [
-      "node_modules/oxlint/bin/oxlint",
-      "--format",
-      "json",
-      ...Object.keys(FILES),
-    ],
-    { cwd: dir, encoding: "utf8" }
-  );
-  const report: unknown = JSON.parse(run.stdout);
-  if (!isReport(report)) throw new Error(`not an Oxlint report: ${run.stdout}`);
-  diagnostics = report.diagnostics.filter((d) =>
+  removeProbes = probes.remove;
+  diagnostics = probes.diagnostics.filter((d) =>
     d.code.startsWith("eslint(no-restricted-")
   );
 });
 
 afterAll(() => {
-  rmSync(dir, { recursive: true, force: true });
+  removeProbes();
 });
 
 const nameOf = (d: Diagnostic) => /'([^']+)'/.exec(d.message)?.[1];
