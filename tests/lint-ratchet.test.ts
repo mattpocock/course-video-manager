@@ -1,12 +1,14 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import {
   chmodSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
   realpathSync,
   rmSync,
   symlinkSync,
+  utimesSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -475,5 +477,101 @@ describe("failing loudly", () => {
     const result = ratchet(dir);
     expect(result.status).toBe(1);
     expect(result.output).toContain("did not produce a JSON report");
+  });
+});
+
+describe("@cvm/core's build, which apps/remote's types read", () => {
+  const BUILD_FIRST = "Build it first: pnpm --filter @cvm/core build";
+
+  const remoteRepo = () =>
+    makeRepo({
+      files: {
+        "apps/remote/route.ts": "",
+        "packages/core/service.ts": "export const a = 1;\n",
+        "packages/core/meta/journal.json": "{}\n",
+        "packages/core/tsconfig.build.json": [
+          "// The build.",
+          JSON.stringify({
+            include: ["**/*"],
+            exclude: ["node_modules", "dist", "**/*.test.ts", "test-utils/**"],
+          }),
+        ].join("\n"),
+      },
+    });
+
+  it("fails with one message when it is missing", () => {
+    const dir = remoteRepo();
+    write(dir, "apps/remote/route.ts", debuggers(1));
+    const result = ratchet(dir, ["apps/remote/route.ts"]);
+    expect(result.status).toBe(1);
+    expect(result.output).toContain(BUILD_FIRST);
+    expect(result.output).not.toContain("baseline 0");
+    expect(ratchet(dir).output).toContain(BUILD_FIRST);
+  });
+
+  const build = (dir: string, at: number) => {
+    write(dir, "packages/core/dist/service.js", "export const a = 1;\n");
+    utimesSync(path.join(dir, "packages/core/dist/service.js"), at, at);
+  };
+  const edit = (dir: string, file: string, at: number) => {
+    if (!existsSync(path.join(dir, file))) write(dir, file, "export {};\n");
+    utimesSync(path.join(dir, file), at, at);
+  };
+  const EARLIER = 1_767_225_600;
+  const LATER = EARLIER + 86_400;
+
+  it("fails with the same message when a source is newer than the build", () => {
+    const dir = remoteRepo();
+    build(dir, EARLIER);
+    edit(dir, "packages/core/service.ts", LATER);
+    const result = ratchet(dir, ["apps/remote/route.ts"]);
+    expect(result.status).toBe(1);
+    expect(result.output).toContain(BUILD_FIRST);
+  });
+
+  it("lints once the build is newer than every source", () => {
+    const dir = remoteRepo();
+    edit(dir, "packages/core/service.ts", EARLIER);
+    edit(dir, "packages/core/meta/journal.json", EARLIER);
+    edit(dir, "packages/core/tsconfig.build.json", EARLIER);
+    edit(dir, "packages/core/service.test.ts", LATER);
+    build(dir, EARLIER);
+    expect(ratchet(dir, ["apps/remote/route.ts"])).toMatchObject({
+      status: 0,
+    });
+    expect(ratchet(dir)).toMatchObject({ status: 0 });
+  });
+
+  it("ignores a file the build excludes", () => {
+    const dir = remoteRepo();
+    edit(dir, "packages/core/service.ts", EARLIER);
+    edit(dir, "packages/core/meta/journal.json", EARLIER);
+    edit(dir, "packages/core/tsconfig.build.json", EARLIER);
+    edit(dir, "packages/core/test-utils/fixtures.ts", LATER);
+    build(dir, EARLIER);
+    expect(ratchet(dir, ["apps/remote/route.ts"])).toMatchObject({
+      status: 0,
+    });
+  });
+
+  it("counts a JSON source the build imports", () => {
+    const dir = remoteRepo();
+    build(dir, EARLIER);
+    edit(dir, "packages/core/service.ts", EARLIER);
+    edit(dir, "packages/core/tsconfig.build.json", EARLIER);
+    edit(dir, "packages/core/meta/journal.json", LATER);
+    const result = ratchet(dir, ["apps/remote/route.ts"]);
+    expect(result.status).toBe(1);
+    expect(result.output).toContain(BUILD_FIRST);
+  });
+
+  it("is not needed to lint files outside apps/remote", () => {
+    const dir = remoteRepo();
+    write(dir, "packages/core/service.ts", debuggers(1));
+    const result = ratchet(dir, ["packages/core/service.ts"]);
+    expect(result.output).not.toContain(BUILD_FIRST);
+    expect(result.output).toContain(
+      `packages/core/service.ts  ${DEBUGGER}: 1, baseline 0`
+    );
   });
 });
