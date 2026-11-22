@@ -22,6 +22,7 @@ import {
   videoFileRowPath,
   writeVideoFile,
 } from "./video-files";
+import { readEnv } from "@/packages/env";
 
 describe("isUrl", () => {
   it("returns true for https URLs", () => {
@@ -46,8 +47,8 @@ let rootE: string;
 let legacyDir: string;
 let baseDir: string;
 const previous = {
-  STORAGE_ROOTS: process.env.STORAGE_ROOTS,
-  VIDEO_FILES_DIR: process.env.VIDEO_FILES_DIR,
+  STORAGE_ROOTS: readEnv("STORAGE_ROOTS"),
+  VIDEO_FILES_DIR: readEnv("VIDEO_FILES_DIR"),
 };
 
 beforeEach(() => {

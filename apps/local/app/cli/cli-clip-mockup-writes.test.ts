@@ -23,6 +23,7 @@ import {
   fakeSpeech,
   makeClipMockupRun,
 } from "./cli-clip-mockup-test-harness";
+import { readEnv } from "@/packages/env";
 
 // ===========================================================================
 // cvm clip-mockup: add / list / get / delete
@@ -52,7 +53,7 @@ let s: WriteSeed;
 let frames: ReturnType<typeof makeTempClipMockupDir>;
 const speech = fakeSpeech();
 let sourceDir: string;
-const originalLocalMachine = process.env[LOCAL_MACHINE_ENV_KEY];
+const originalLocalMachine = readEnv(LOCAL_MACHINE_ENV_KEY);
 
 beforeAll(async () => {
   const result = await createTestDb();

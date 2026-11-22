@@ -28,6 +28,7 @@ import {
   loadWriterContext,
 } from "@/services/video-posting-context.server";
 import { clipFrame, clipSource } from "@/packages/clip-source";
+import { readEnv } from "@/packages/env";
 
 let testDb: TestDb;
 type TestServices =
@@ -48,8 +49,8 @@ let testLayer: Layer.Layer<TestServices>;
 
 // Video Files go in video-files/ on a temp Storage Root, never the checkout.
 let storageRoot: string;
-const previousRoots = process.env.STORAGE_ROOTS;
-const previousLegacy = process.env.VIDEO_FILES_DIR;
+const previousRoots = readEnv("STORAGE_ROOTS");
+const previousLegacy = readEnv("VIDEO_FILES_DIR");
 
 afterAll(() => {
   if (previousRoots === undefined) delete process.env.STORAGE_ROOTS;

@@ -24,6 +24,7 @@ import type { JobContext } from "../job-kind";
 import { CLIP_MOCKUP_VOICE_POLICY } from "../retry-policy";
 import { clipMockupVoiceJobKind } from "./clip-mockup-voice";
 import { idleGpuGate } from "@/test-utils/idle-gpu-gate";
+import { readEnv } from "@/packages/env";
 
 // ===========================================================================
 // The `clip-mockup-voice` Job: what `cvm clip-mockup add` no longer waits
@@ -77,7 +78,7 @@ let dbLayer: Layer.Layer<
   ClipMockupOperationsService | ClipMockupVoiceOperationsService
 >;
 let store: string;
-const originalStore = process.env[STORAGE_ROOTS_ENV_KEY];
+const originalStore = readEnv(STORAGE_ROOTS_ENV_KEY);
 
 beforeAll(async () => {
   testDb = (await createTestDb()).testDb;

@@ -29,6 +29,7 @@ import {
   seedWrite,
   type RunResult,
 } from "./cli-write-test-harness";
+import { readEnv } from "@/packages/env";
 
 // ===========================================================================
 // cvm footage: list / transcribe / transcript
@@ -90,7 +91,7 @@ const fakeProbe = Layer.succeed(FootageProbe, {
       ? Effect.succeed(probed[nodePath.basename(file)]!)
       : Effect.fail(new FootageUnreadableError({ message: "moov not found" })),
 });
-const originalLocalMachine = process.env[LOCAL_MACHINE_ENV_KEY];
+const originalLocalMachine = readEnv(LOCAL_MACHINE_ENV_KEY);
 const originalObsDir = process.env.OBS_RECORDING_DIR;
 
 beforeAll(async () => {

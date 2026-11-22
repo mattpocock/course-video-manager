@@ -17,7 +17,7 @@ import {
   requireEveryRootOnline,
 } from "@/packages/storage/server";
 import { removeUnderBestEffort } from "./remove-best-effort";
-import { installLocationRepoRoot } from "@/packages/env";
+import { installLocationRepoRoot, readEnv } from "@/packages/env";
 import { readStorageRootsSync } from "./storage-roots";
 
 /**
@@ -100,7 +100,7 @@ export function getVideoFilesBaseDir(): string {
  * from arbitrary directories.
  */
 export function legacyVideoFilesStores(): string[] {
-  const fromEnv = process.env.VIDEO_FILES_DIR;
+  const fromEnv = readEnv("VIDEO_FILES_DIR");
   if (fromEnv != null && fromEnv !== "") return [fromEnv];
   const appRoot = findPackageRoot(path.dirname(fileURLToPath(import.meta.url)));
   if (appRoot === undefined) return [];

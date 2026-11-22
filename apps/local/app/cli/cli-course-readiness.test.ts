@@ -21,6 +21,7 @@ import {
   type ReadSeed,
   type RunResult,
 } from "./cli-read-test-harness";
+import { readEnv } from "@/packages/env";
 
 // ===========================================================================
 // cvm course readiness — publish blockers + authoring progress.
@@ -38,7 +39,7 @@ import {
 let testDb: TestDb;
 let run: (argv: ReadonlyArray<string>) => Promise<RunResult>;
 let finishedDir: string;
-const originalRoots = process.env.STORAGE_ROOTS;
+const originalRoots = readEnv("STORAGE_ROOTS");
 
 /** A fresh temp Storage Root; its `finished-videos/` is returned. */
 const freshFinishedDir = () => {
@@ -47,7 +48,7 @@ const freshFinishedDir = () => {
   mkdirSync(path.join(root, "finished-videos"));
   return path.join(root, "finished-videos");
 };
-const originalLocalMachine = process.env[LOCAL_MACHINE_ENV_KEY];
+const originalLocalMachine = readEnv(LOCAL_MACHINE_ENV_KEY);
 
 beforeAll(async () => {
   const result = await createTestDb();

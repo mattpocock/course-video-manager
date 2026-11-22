@@ -24,6 +24,7 @@ import * as schema from "@/db/schema";
 import { STORAGE_DELETED_EVENT } from "@/packages/storage/client";
 import type { JobContext } from "../job-kind";
 import { storageDeleteJobKind } from "./storage-delete";
+import { readEnv } from "@/packages/env";
 
 /**
  * The `storage-delete` Sidecar Job's other operations (#2157, #2423):
@@ -37,7 +38,7 @@ let dbLayer: Layer.Layer<JobOperationsService | DrizzleService>;
 let base: string;
 let d: string;
 let e: string;
-const previousRoots = process.env.STORAGE_ROOTS;
+const previousRoots = readEnv("STORAGE_ROOTS");
 
 beforeAll(async () => {
   testDb = (await createTestDb()).testDb;

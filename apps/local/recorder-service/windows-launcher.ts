@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { Launch, LaunchedProcess, Launcher } from "./launcher";
 import { FFMPEG_BUILD, FFMPEG_INSTALL } from "./windows-devices";
+import { readEnv } from "@/packages/env";
 
 /**
  * The production launcher: ffmpeg.exe, nvidia-smi.exe and PowerShell on
@@ -24,7 +25,7 @@ export const cvmFfmpegPath = (userDir: string) =>
  * colour. `FFMPEG_EXE` (a WSL path) overrides the search.
  */
 export const findFfmpegExe = (): string | undefined => {
-  if (process.env.FFMPEG_EXE) return process.env.FFMPEG_EXE;
+  if (readEnv("FFMPEG_EXE")) return readEnv("FFMPEG_EXE");
   const users = "/mnt/c/Users";
   if (!fs.existsSync(users)) return undefined;
   return fs

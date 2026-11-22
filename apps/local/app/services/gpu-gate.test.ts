@@ -18,6 +18,7 @@ import { SidecarContextTest } from "./sidecar-context";
 import { STORAGE_ROOTS_ENV_KEY } from "./storage-roots";
 import type { RecordingSignal } from "./still-gate";
 import { WhisperTranscriptionService } from "./whisper-transcription-service";
+import { readEnv } from "@/packages/env";
 
 /** A recorder the test starts and stops. */
 const fakeRecorder = (recording = false) => {
@@ -192,7 +193,7 @@ describe("the GPU gate holds every GPU user, not only Whisper (#2644)", () => {
 
   it("holds Kokoro: a Clip Mockup voice batch voices no line while recording, and yields between lines when Record is pressed", () =>
     withTempDir("gpu-gate-kokoro-", async (store) => {
-      const original = process.env[STORAGE_ROOTS_ENV_KEY];
+      const original = readEnv(STORAGE_ROOTS_ENV_KEY);
       process.env[STORAGE_ROOTS_ENV_KEY] = store;
       const recorder = fakeRecorder(false);
       const spoken: string[] = [];
