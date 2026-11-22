@@ -1,4 +1,4 @@
-import type { NodeOf } from "./rule.ts";
+import type { NodeOf, Visitor } from "./rule.ts";
 
 type Member = NodeOf<"MemberExpression">;
 type Expression = Member["object"];
@@ -8,8 +8,9 @@ type Expression = Member["object"];
  * syntax tree rather than the source text, so a computed key (`orm["drizzle"]`)
  * or an indirect call (`(0, drizzle)(x)`) names the same thing as the plain
  * form. `keyName` is a member or property key, `memberName` a member's key,
- * and `calleeName` what a call or `new` invokes: a bare name, or the key of a
- * member.
+ * `calleeName` what a call or `new` invokes: a bare name, or the key of a
+ * member, and `nameReferences` a visitor that reports each place one of
+ * `names` is named, as an identifier or a computed key, once.
  */
 export const keyName = (
   key: Member["property"],
@@ -41,4 +42,34 @@ export const calleeName = (callee: Expression): string | undefined => {
   if (node.type === "Identifier") return node.name;
   if (node.type === "MemberExpression") return memberName(node);
   return undefined;
+};
+
+type Named =
+  NodeOf<"Identifier"> | Member["property"] | NodeOf<"Property">["key"];
+
+export const nameReferences = (
+  names: ReadonlySet<string>,
+  report: (node: Named) => void
+): Visitor => {
+  const reported = new Set<number>();
+  const once = (node: Named) => {
+    if (reported.has(node.range[0])) return;
+    reported.add(node.range[0]);
+    report(node);
+  };
+  return {
+    Identifier(node) {
+      if (names.has(node.name)) once(node);
+    },
+    MemberExpression(node) {
+      if (node.computed && names.has(memberName(node) ?? "")) {
+        once(node.property);
+      }
+    },
+    Property(node) {
+      if (node.computed && names.has(keyName(node.key, true) ?? "")) {
+        once(node.key);
+      }
+    },
+  };
 };

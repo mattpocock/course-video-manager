@@ -7,8 +7,11 @@ import clipInserts from "./rules/clip-inserts.js";
 import dbClients from "./rules/db-clients.js";
 import durationFormat from "./rules/duration-format.js";
 import entityLinks from "./rules/entity-links.js";
+import noCjsPaths from "./rules/no-cjs-paths.js";
 import noOverloads from "./rules/no-overloads.js";
 import noUnsafeAs from "./rules/no-unsafe-as.js";
+import responseBody from "./rules/response-body.js";
+import routesFolder from "./rules/routes-folder.js";
 import scriptDbUrl from "./rules/script-db-url.js";
 
 export default {
@@ -19,8 +22,11 @@ export default {
     "db-clients": dbClients,
     "duration-format": durationFormat,
     "entity-links": entityLinks,
+    "no-cjs-paths": noCjsPaths,
     "no-overloads": noOverloads,
     "no-unsafe-as": noUnsafeAs,
+    "response-body": responseBody,
+    "routes-folder": routesFolder,
     "script-db-url": scriptDbUrl,
   },
 };

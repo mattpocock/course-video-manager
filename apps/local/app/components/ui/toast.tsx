@@ -15,8 +15,8 @@ import { cn } from "@/lib/utils";
  * `<Toaster>` (./sonner.tsx) adds the floor beneath this: long unbroken
  * strings wrap, and no title or description outgrows half the viewport.
  *
- * Import `toast` from here, never from "sonner" — `check:toast-import` holds
- * that line.
+ * Import `toast` from here, never from "sonner" — the `sonner` entry of
+ * `no-restricted-imports` in `.oxlintrc.json` holds that line.
  */
 
 type Title = Parameters<typeof sonnerToast>[0];
