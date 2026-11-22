@@ -30,6 +30,10 @@ const EXPECTED = [
   "local(db-clients)",
   "local(script-db-url)",
   "local(clip-inserts)",
+  "local(no-cjs-paths)",
+  "local(response-body)",
+  "local(routes-folder)",
+  "eslint(no-restricted-imports)",
 ];
 
 const SELF_DISABLE = "lint/canary/self-disable.ts";

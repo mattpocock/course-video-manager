@@ -5,6 +5,10 @@
     {
       "files": ["script-db-url.ts"],
       "rules": { "local/script-db-url": "error" }
+    },
+    {
+      "files": ["routes-folder.utils.ts"],
+      "rules": { "local/routes-folder": "error" }
     }
   ]
 }
