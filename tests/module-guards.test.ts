@@ -1,7 +1,11 @@
-import { existsSync, readFileSync } from "node:fs";
-import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { type Diagnostic, lintProbes, ROOT } from "./lint-probe.ts";
+import {
+  banOf,
+  type Diagnostic,
+  lintProbes,
+  ownerPathExists,
+  repoConfig,
+} from "./lint-probe.ts";
 
 const PROBE = [
   'import { toast } from "sonner";',
@@ -67,15 +71,6 @@ const FILES: Record<string, readonly Ban[]> = {
   "apps/local/app/features/probe-utils.ts": EVERYWHERE,
 };
 
-const banOf = (d: Diagnostic): string | undefined => {
-  if (d.code.startsWith("local(")) return d.code.slice(6, -1);
-  if (d.code !== "eslint(no-restricted-imports)") return undefined;
-  const name = /'([^']+)'/.exec(d.message)?.[1];
-  return name === "use-effect-reducer"
-    ? "import useEffectReducer"
-    : `import ${name}`;
-};
-
 const GUARDED: ReadonlySet<string> = new Set(
   EVERYWHERE.concat("routes-folder")
 );
@@ -136,34 +131,10 @@ describe("the module and file guards and their owners", () => {
   });
 });
 
-interface Override {
-  files: string[];
-  rules: Record<string, unknown>;
-}
-
 const OWNED_RULES = ["local/response-body", "local/routes-folder"];
 
-interface Config {
-  rules: Record<string, unknown>;
-  overrides: Override[];
-}
-
-const isConfig = (value: unknown): value is Config =>
-  typeof value === "object" &&
-  value !== null &&
-  "rules" in value &&
-  "overrides" in value &&
-  Array.isArray(value.overrides);
-
-const readConfig = () => {
-  const source = readFileSync(path.join(ROOT, ".oxlintrc.json"), "utf8");
-  const config: unknown = JSON.parse(source.replace(/^\s*\/\/.*$/gm, ""));
-  if (!isConfig(config)) throw new Error(".oxlintrc.json has no overrides");
-  return config;
-};
-
 const ownerOverrides = () =>
-  readConfig().overrides.filter((override) =>
+  repoConfig().overrides.filter((override) =>
     Object.keys(override.rules).some(
       (rule) =>
         OWNED_RULES.includes(rule) ||
@@ -189,9 +160,7 @@ describe("the module and file guards' owner overrides", () => {
   it.each(ownerOverrides().flatMap((o) => o.files))(
     "%s exists in the repo",
     (file) => {
-      expect(existsSync(path.join(ROOT, file.split("*")[0] ?? file))).toBe(
-        true
-      );
+      expect(ownerPathExists(file)).toBe(true);
     }
   );
 });
@@ -256,7 +225,7 @@ const RELISTS: Record<string, Relist> = {
 };
 
 const importOverrides = () =>
-  readConfig().overrides.filter(
+  repoConfig().overrides.filter(
     (override) => override.rules["no-restricted-imports"] !== undefined
   );
 
@@ -282,7 +251,7 @@ describe("every override that sets no-restricted-imports", () => {
       };
       const own = restrictedPaths(override.rules["no-restricted-imports"]);
       const kept = restrictedPaths(
-        readConfig().rules["no-restricted-imports"]
+        repoConfig().rules["no-restricted-imports"]
       ).filter((entry) => !lifts.includes(entry.name));
       for (const entry of kept) {
         const copy = own.find((o) => o.name === entry.name);

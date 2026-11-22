@@ -1,7 +1,11 @@
-import { existsSync, readFileSync } from "node:fs";
-import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { type Diagnostic, lintProbes, ROOT } from "./lint-probe.ts";
+import {
+  banOf,
+  configOverrides,
+  type Diagnostic,
+  lintProbes,
+  ownerPathExists,
+} from "./lint-probe.ts";
 
 const PROBE_LINES = [
   'import { resolveDatabaseUrl } from "@cvm/core/db/database-url";',
@@ -117,12 +121,6 @@ const FILES: Record<string, readonly Ban[]> = {
   ),
 };
 
-const banOf = (d: Diagnostic): string | undefined => {
-  if (d.code.startsWith("local(")) return d.code.slice(6, -1);
-  if (d.code !== "eslint(no-restricted-imports)") return undefined;
-  return `import ${/'([^']+)'/.exec(d.message)?.[1]}`;
-};
-
 let diagnostics: Diagnostic[];
 let removeProbes: () => void;
 
@@ -181,28 +179,14 @@ describe("the database guards and their owners", () => {
   });
 });
 
-interface Override {
-  files: string[];
-  rules: Record<string, unknown>;
-}
-
 const OWNED_RULES = [
   "local/db-clients",
   "local/script-db-url",
   "local/clip-inserts",
 ];
 
-const isConfig = (value: unknown): value is { overrides: Override[] } =>
-  typeof value === "object" &&
-  value !== null &&
-  "overrides" in value &&
-  Array.isArray(value.overrides);
-
-const ownerOverrides = () => {
-  const source = readFileSync(path.join(ROOT, ".oxlintrc.json"), "utf8");
-  const config: unknown = JSON.parse(source.replace(/^\s*\/\/.*$/gm, ""));
-  if (!isConfig(config)) throw new Error(".oxlintrc.json has no overrides");
-  return config.overrides.filter((override) =>
+const ownerOverrides = () =>
+  configOverrides().filter((override) =>
     Object.keys(override.rules).some(
       (rule) =>
         OWNED_RULES.includes(rule) ||
@@ -210,7 +194,6 @@ const ownerOverrides = () => {
           override.files.some((file) => FILES[file] !== undefined))
     )
   );
-};
 
 describe("the database guards' owner overrides", () => {
   it("cover every owner this suite probes", () => {
@@ -223,9 +206,7 @@ describe("the database guards' owner overrides", () => {
   it.each(ownerOverrides().flatMap((o) => o.files))(
     "%s exists in the repo",
     (file) => {
-      expect(existsSync(path.join(ROOT, file.split("*")[0] ?? file))).toBe(
-        true
-      );
+      expect(ownerPathExists(file)).toBe(true);
     }
   );
 });

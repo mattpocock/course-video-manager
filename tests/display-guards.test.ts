@@ -1,7 +1,11 @@
-import { existsSync, readFileSync } from "node:fs";
-import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { type Diagnostic, lintProbes, ROOT } from "./lint-probe.ts";
+import {
+  banOf,
+  configOverrides,
+  type Diagnostic,
+  lintProbes,
+  ownerPathExists,
+} from "./lint-probe.ts";
 
 const PROBE = [
   "export const copy = (video: { id: string }) =>",
@@ -28,9 +32,6 @@ const FILES: Record<string, readonly Ban[]> = {
   "apps/local/app/features/entity-links/probe.test.ts": ["duration-format"],
   "apps/local/app/lib/format-duration.ts": ["entity-links"],
 };
-
-const banOf = (d: Diagnostic): string | undefined =>
-  d.code.startsWith("local(") ? d.code.slice(6, -1) : undefined;
 
 let diagnostics: Diagnostic[];
 let removeProbes: () => void;
@@ -70,29 +71,14 @@ describe("the display guards and their owners", () => {
   });
 });
 
-interface Override {
-  files: string[];
-  rules: Record<string, unknown>;
-}
-
 const OWNED_RULES = ["local/entity-links", "local/duration-format"];
 
-const isConfig = (value: unknown): value is { overrides: Override[] } =>
-  typeof value === "object" &&
-  value !== null &&
-  "overrides" in value &&
-  Array.isArray(value.overrides);
-
-const ownerPaths = () => {
-  const source = readFileSync(path.join(ROOT, ".oxlintrc.json"), "utf8");
-  const config: unknown = JSON.parse(source.replace(/^\s*\/\/.*$/gm, ""));
-  if (!isConfig(config)) throw new Error(".oxlintrc.json has no overrides");
-  return config.overrides
+const ownerPaths = () =>
+  configOverrides()
     .filter((override) =>
       Object.keys(override.rules).some((rule) => OWNED_RULES.includes(rule))
     )
     .flatMap((override) => override.files);
-};
 
 describe("the display guards' owner overrides", () => {
   it("list an owner for each rule", () => {
@@ -103,6 +89,6 @@ describe("the display guards' owner overrides", () => {
   });
 
   it.each(ownerPaths())("%s exists in the repo", (file) => {
-    expect(existsSync(path.join(ROOT, file.split("*")[0] ?? file))).toBe(true);
+    expect(ownerPathExists(file)).toBe(true);
   });
 });

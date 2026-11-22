@@ -1,8 +1,10 @@
 import { spawnSync } from "node:child_process";
 import {
   copyFileSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   realpathSync,
   rmSync,
   symlinkSync,
@@ -64,4 +66,69 @@ export const lintProbes = (files: Record<string, string>) => {
     diagnostics: report.diagnostics,
     remove: () => rmSync(dir, { recursive: true, force: true }),
   };
+};
+
+export interface Override {
+  files: string[];
+  rules: Record<string, unknown>;
+}
+
+const isOverride = (value: unknown): value is Override =>
+  typeof value === "object" &&
+  value !== null &&
+  "files" in value &&
+  Array.isArray(value.files) &&
+  value.files.every((file) => typeof file === "string") &&
+  "rules" in value &&
+  typeof value.rules === "object" &&
+  value.rules !== null;
+
+export interface Config {
+  rules: Record<string, unknown>;
+  overrides: Override[];
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+/**
+ * The repo's `.oxlintrc.json`, read with its comments stripped: its root
+ * `rules` and its `overrides`. `configOverrides` is the overrides alone.
+ * `ownerPathExists` is true when an override's file entry names something in
+ * the repo: a path, or the folder a glob starts in.
+ */
+export const repoConfig = (): Config => {
+  const source = readFileSync(path.join(ROOT, ".oxlintrc.json"), "utf8");
+  const config: unknown = JSON.parse(
+    source.replace(
+      /("(?:\\.|[^"\\])*")|\/\/[^\n]*|\/\*[\s\S]*?\*\//g,
+      (_, string: string | undefined) => string ?? ""
+    )
+  );
+  if (!isRecord(config)) throw new Error(".oxlintrc.json is not an object");
+  const { rules, overrides } = config;
+  if (!isRecord(rules)) throw new Error(".oxlintrc.json has no rules");
+  if (!Array.isArray(overrides) || !overrides.every(isOverride)) {
+    throw new Error(".oxlintrc.json has no readable overrides");
+  }
+  return { rules, overrides };
+};
+
+export const configOverrides = (): Override[] => repoConfig().overrides;
+
+export const ownerPathExists = (file: string) =>
+  existsSync(path.join(ROOT, file.split("*")[0] ?? file));
+
+/**
+ * What a probe diagnostic bans: a local rule's name (`db-clients`), or
+ * `import <module>` for a `no-restricted-imports` entry, with the
+ * `use-effect-reducer` entry named by its banned import.
+ */
+export const banOf = (d: Diagnostic): string | undefined => {
+  if (d.code.startsWith("local(")) return d.code.slice(6, -1);
+  if (d.code !== "eslint(no-restricted-imports)") return undefined;
+  const name = /'([^']+)'/.exec(d.message)?.[1];
+  return name === "use-effect-reducer"
+    ? "import useEffectReducer"
+    : `import ${name}`;
 };

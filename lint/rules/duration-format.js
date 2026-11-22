@@ -1,7 +1,7 @@
 import { calleeName, unwrap } from "./names.ts";
 
 /**
- * @param {import("./rule.ts").NodeOf<"MemberExpression">["object"]} node
+ * @param {import("./names.ts").Expression} node
  * @param {number} value
  */
 const isNumericLiteral = (node, value) => {
@@ -30,7 +30,7 @@ export default {
     },
   },
   create(context) {
-    /** @type {import("./rule.ts").NodeOf<"MemberExpression">["object"][]} */
+    /** @type {import("./names.ts").Expression[]} */
     const modulos = [];
     let pads = false;
     return {

@@ -12,17 +12,17 @@ const ID_NAME = /(?:^id|[a-z]Id)$/;
 const GUIDANCE =
   "Render the entity's menu with EntityMenuContent, whose Copy Link builds the URL with entityDeepLink (features/entity-links/). It names the whole hierarchy, and cvm takes it wherever it takes an id.";
 
-/** @param {import("./rule.ts").NodeOf<"MemberExpression">["object"]} node */
+/** @param {import("./names.ts").Expression} node */
 const nameOf = (node) => calleeName(unwrapCasts(node));
 
 /**
- * @param {import("./rule.ts").NodeOf<"MemberExpression">["object"] | null | undefined} node
+ * @param {import("./names.ts").Expression | null | undefined} node
  * @returns {boolean}
  */
 const isLocation = (node) => !!node && nameOf(node) === "location";
 
 /**
- * @param {import("./rule.ts").NodeOf<"MemberExpression">["object"]} node
+ * @param {import("./names.ts").Expression} node
  * @returns {boolean}
  */
 const startsWithAppPath = (node) => {
@@ -47,7 +47,7 @@ const startsWithAppPath = (node) => {
 };
 
 /**
- * @param {import("./rule.ts").NodeOf<"MemberExpression">["object"] | undefined} arg
+ * @param {import("./names.ts").Expression | undefined} arg
  * @returns {boolean}
  */
 const isHandBuiltLink = (arg) => {
