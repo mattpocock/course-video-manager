@@ -90,7 +90,7 @@ test files.
 | missingEffectServiceDependency                                                                           | effect-tsgo | `DrizzleService` missing from `dependencies`                          | 24                          | n/a                           | Noise: provided at composition by design          |
 | strictBooleanExpressions (both tools)                                                                    | both        | non-boolean conditions                                                | 3580 / 709                  | huge                          | Not doing                                         |
 | asyncFunction, strictEffectProvide, effect-native globals (Date/Console/fetch/process.env/node builtins) | effect-tsgo | style choices toward Effect-native code                               | 1888, 531, ~800             | huge, mostly tests            | Not doing                                         |
-| no-unsafe-* family, no-unnecessary-type-assertion/condition                                              | oxlint TA   | `any` flow                                                            | 1502 (~70% tests), 227, 176 | large                         | Not doing now. Revisit once the `any` count falls |
+| no-unsafe-* family, no-unnecessary-type-assertion/condition                                              | oxlint TA   | `any` flow                                                            | 1502 (~70% tests), 227, 176 | large                         | Superseded (#2769): errors, ratcheted in baseline |
 
 `yield` without `*` and `Effect.orDie` turned out not to be problems: the
 missing-star rule has 0 hits, and `Effect.orDie` appears once.
@@ -382,7 +382,8 @@ style of the existing guards.
 - No Effect-native rules (globalDate, globalConsole, processEnv, asyncFunction,
   nodeBuiltinImport) and no `strictBooleanExpressions` or `strictEffectProvide`.
   That is about 7000 hits of style.
-- No `no-unsafe-*` family until the `any` count falls.
+- ~~No `no-unsafe-*` family until the `any` count falls.~~ Superseded by
+  #2769: the family is on as errors, with older hits in `lint-baseline.json`.
 - No custom oxlint JS plugin for Effect. It is alpha and syntax-only, and the
   grep guards are enough.
 - No change to `missingEffectServiceDependency`: providing `DrizzleService` at

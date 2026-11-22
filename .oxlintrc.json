@@ -28,6 +28,22 @@
   "rules": {
     // Overload signatures are never checked against the implementation.
     "local/no-overloads": "error",
+    // CODING STANDARD: "Every `any` is a leak". Narrow a type instead of
+    // asserting it. `as const` and `satisfies` pass, and so does an assertion
+    // inside a function that declares type parameters, so a helper that needs
+    // a cast is written as a generic function. No exemption for tests.
+    "local/no-unsafe-as": "error",
+    "typescript/no-non-null-assertion": "error",
+    "typescript/no-explicit-any": "error",
+    // Bans `@ts-ignore` and `@ts-nocheck`; `@ts-expect-error` needs a
+    // description.
+    "typescript/ban-ts-comment": "error",
+    // Type-aware: an `any` flowing in unchecked.
+    "typescript/no-unsafe-argument": "error",
+    "typescript/no-unsafe-assignment": "error",
+    "typescript/no-unsafe-call": "error",
+    "typescript/no-unsafe-member-access": "error",
+    "typescript/no-unsafe-return": "error",
     // CODING STANDARD: "Functions stay simple". `modified` counts a whole
     // `switch` as one branch, so an exhaustive switch over a union (another
     // standard) is not punished for naming every member. A ratchet: files
