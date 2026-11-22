@@ -17,11 +17,12 @@ import { readStorageRootsSync } from "@/services/storage-roots";
 import { scriptDrizzle } from "./script-database-url";
 import { CVM_APP_PORT, refuseApplyWhileCvmRuns } from "./running-cvm";
 import { sidecarSocketPath } from "@/services/sidecar-socket.server";
+import { log } from "@/packages/log";
 
 const apply = process.argv.includes("--apply");
 const roots = readStorageRootsSync();
-console.log(`Storage Roots: ${roots.join(", ")}`);
-console.log(apply ? "Mode: APPLY" : "Mode: dry run (pass --apply to write)");
+log.info(`Storage Roots: ${roots.join(", ")}`);
+log.info(apply ? "Mode: APPLY" : "Mode: dry run (pass --apply to write)");
 
 if (apply) {
   await refuseApplyWhileCvmRuns({
@@ -35,17 +36,17 @@ const report = await migrateStoragePaths(db as Database, { roots, apply });
 
 const print = (c: (typeof report.columns)[number]) => {
   const under = c.underRoot.map((r) => `${r.root}: ${r.rows}`).join(", ");
-  console.log(
+  log.info(
     `  ${c.column}: under a root ${under}; already relative ${c.alreadyRelative}; not under any root ${c.unmappable}; not normalized (left as stored) ${c.notNormalized}`
   );
-  for (const sample of c.unmappableSamples) console.log(`      e.g. ${sample}`);
+  for (const sample of c.unmappableSamples) log.info(`      e.g. ${sample}`);
 };
 
-console.log(apply ? "\nRewritten:" : "\nWould rewrite:");
+log.info(apply ? "\nRewritten:" : "\nWould rewrite:");
 report.columns.forEach(print);
-console.log("\nReported only (moved by #2105, never rewritten here):");
+log.info("\nReported only (moved by #2105, never rewritten here):");
 report.reportedOnly.forEach(print);
-console.log(
+log.info(
   "\nPaths not under any root are left exactly as they are and keep working."
 );
 process.exit(0);

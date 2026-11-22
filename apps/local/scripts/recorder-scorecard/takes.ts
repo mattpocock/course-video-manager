@@ -44,7 +44,7 @@ export type Ctx = {
   cpus: number;
   measured: Measured;
   details: Record<string, unknown>;
-  log: (line: string) => void;
+  logLine: (line: string) => void;
   /** Throws once the run must stop (Matt's own recorder started recording). */
   checkAbort: () => void;
 };

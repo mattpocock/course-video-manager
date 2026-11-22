@@ -23,6 +23,7 @@ import {
 import { ImageIcon, Loader2Icon, SparklesIcon, Trash2Icon } from "lucide-react";
 import type { CourseStructure } from "@/components/video-context-panel";
 import type { SectionWithWordCount } from "@/features/article-writer/types";
+import { log } from "@/packages/log";
 
 export function ImageUploadDropdown({
   videoId,
@@ -182,7 +183,7 @@ export function SeoDescriptionField({
         .then((text) => {
           if (text) onDescriptionChange(text);
         })
-        .catch(console.error);
+        .catch(log.error);
     }
   }, []);
 

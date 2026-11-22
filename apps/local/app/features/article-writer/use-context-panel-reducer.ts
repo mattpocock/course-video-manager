@@ -14,6 +14,7 @@ import {
   MEMORY_ENABLED_STORAGE_KEY,
   SCRIPT_ENABLED_STORAGE_KEY,
 } from "./write-utils";
+import { log } from "@/packages/log";
 
 /** Where each remembered toggle is stored. */
 export const REMEMBERED_TOGGLE_STORAGE_KEYS: Record<
@@ -65,7 +66,7 @@ export function useContextPanelReducer(
           });
         })
         .catch((error) => {
-          console.error("Failed to read file:", error);
+          log.error("Failed to read file:", error);
           dispatch({ type: "video-file-read-failed", path: effect.path });
         });
     },

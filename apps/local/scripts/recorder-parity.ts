@@ -49,6 +49,7 @@ import {
   type SideMetrics,
 } from "./recorder-parity-metrics";
 import { scriptDrizzle } from "./script-database-url";
+import { log } from "@/packages/log";
 import { now } from "@/packages/clock";
 
 const USAGE =
@@ -72,7 +73,7 @@ const outDir = path.resolve(
     )
 );
 if ((!videoId && args.length !== 2) || !(seconds > 0)) {
-  console.error(USAGE);
+  log.error(USAGE);
   process.exit(2);
 }
 
@@ -241,7 +242,7 @@ const startTime = (file: string) =>
     ).format.start_time
   );
 
-console.log(`Rendering ${seconds}s of each Clip (${format}) into ${outDir}`);
+log.info(`Rendering ${seconds}s of each Clip (${format}) into ${outDir}`);
 const obs = renderSegment(obsClip, "obs");
 const cvm = renderSegment(cvmClip, "cvm");
 const obsMetrics = measure(obs.file);
@@ -316,6 +317,6 @@ const report = renderReport({
 });
 const reportFile = path.join(outDir, "report.md");
 fs.writeFileSync(reportFile, report);
-console.log(report);
-console.log(`\nReport: ${reportFile}`);
+log.info(report);
+log.info(`\nReport: ${reportFile}`);
 process.exit(checks.every((c) => c.pass) ? 0 : 1);

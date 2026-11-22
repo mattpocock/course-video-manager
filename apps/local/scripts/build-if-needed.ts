@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { log } from "@/packages/log";
 
 const ROOT = join(import.meta.dirname, "..");
 const HASH_FILE = join(ROOT, "build", ".build-hash");
@@ -45,12 +46,12 @@ const currentHash = computeHash(files);
 if (existsSync(HASH_FILE) && existsSync(SERVER_ENTRY)) {
   const stored = readFileSync(HASH_FILE, "utf8").trim();
   if (stored === currentHash) {
-    console.log("✓ build is up to date, skipping react-router build");
+    log.info("✓ build is up to date, skipping react-router build");
     process.exit(0);
   }
 }
 
-console.log("→ repo changed, running react-router build...");
+log.info("→ repo changed, running react-router build...");
 const startedAt = Date.now();
 execFileSync("npx", ["react-router", "build"], {
   cwd: ROOT,
@@ -64,4 +65,4 @@ writeFileSync(HASH_FILE, currentHash + "\n");
 // below `warn`, because the same `info` level carries the 400-line asset table.
 // The duration is the one number from that table worth keeping, so it is
 // printed here instead, where the log has room for it.
-console.log(`✓ react-router build finished in ${elapsedSeconds}s`);
+log.info(`✓ react-router build finished in ${elapsedSeconds}s`);

@@ -7,6 +7,7 @@ import type {
   RecorderServiceLauncher,
   RunningRecorderService,
 } from "./service-on-demand";
+import { log } from "@/packages/log";
 
 /**
  * Matt's recorder service as the app server's child (ADR 0053): started on
@@ -39,14 +40,14 @@ const startProcess = (): RunningRecorderService => {
       env: process.env,
     }
   );
-  console.log(`recorder service: started on demand (pid ${child.pid}).`);
+  log.info(`recorder service: started on demand (pid ${child.pid}).`);
   const exited = new Promise<void>((resolve) => {
     child.on("error", (error) => {
-      console.error("recorder service: would not start", error);
+      log.error("recorder service: would not start", error);
       resolve();
     });
     child.on("exit", (code, signal) => {
-      console.log(
+      log.info(
         `recorder service: exited (${signal ?? `code ${code}`}). An editor opening starts it again.`
       );
       resolve();
@@ -64,7 +65,7 @@ export const recorderServiceProcess: RecorderServiceLauncher = {
   start: async () => {
     const health = await recorderHealth(RECORDER_SERVICE_PORT);
     if (health === "nothing") return startProcess();
-    console.log(
+    log.info(
       health === "something-else"
         ? `recorder service: not started, something else answers on port ${RECORDER_SERVICE_PORT}.`
         : `recorder service: one is already running (pid ${health.pid}); using it.`

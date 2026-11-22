@@ -38,6 +38,7 @@ import {
   parsePostVisibility,
   POST_VISIBILITY_STORAGE_KEY,
 } from "./post-visibility";
+import { log } from "@/packages/log";
 
 const AI_HERO_TITLE_STORAGE_KEY = (videoId: string) =>
   `ai-hero-title-${videoId}`;
@@ -239,7 +240,7 @@ export function AiHeroPage({
         .then((text) => {
           if (text) setSeoDescription(text);
         })
-        .catch(console.error);
+        .catch(log.error);
     }
   }, []);
 

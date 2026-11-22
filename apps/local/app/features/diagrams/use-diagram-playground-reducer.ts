@@ -25,6 +25,7 @@ import { renderThumbnailPngBase64 } from "./render-thumbnail";
 import type { PlaygroundStatus } from "./playground-status";
 import { fetchSnapshotList, type Snapshot } from "./snapshot-list";
 import { LINKED_SNAPSHOT_NOT_FOUND } from "./diagram-playground-status-messages";
+import { log } from "@/packages/log";
 import { after } from "@/packages/clock";
 
 /**
@@ -397,7 +398,7 @@ export function useDiagramPlaygroundReducer() {
       // never shown: the status line is on the recorded screen.
       "enter-full-screen": () => {
         document.documentElement.requestFullscreen().catch((error) => {
-          console.warn(FULL_SCREEN_REFUSED_HINT, error);
+          log.warn(FULL_SCREEN_REFUSED_HINT, error);
         });
       },
     }

@@ -9,6 +9,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { log } from "@/packages/log";
 
 /**
  * THE WINDOWS GUARD (#2214). Every script, harness or test that starts a
@@ -293,7 +294,7 @@ export type WindowsGuard = {
 export const guardWindows = (): WindowsGuard => {
   const reasons = checkWindows();
   if (reasons.length > 0) {
-    console.error(
+    log.error(
       [
         "windows-guard: refusing to start Windows processes while something is recording.",
         ...reasons.map((r) => `  - ${r}`),
@@ -330,8 +331,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   if (argv[0] === "--") argv.shift();
   if (argv[0] === "--check" || argv.length === 0) {
     const reasons = checkWindows();
-    for (const r of reasons) console.error(r);
-    console.error(
+    for (const r of reasons) log.error(r);
+    log.error(
       reasons.length > 0 ? "windows-guard: refuse" : "windows-guard: clear"
     );
     process.exit(reasons.length > 0 ? REFUSED_EXIT_CODE : 0);

@@ -25,6 +25,7 @@ import { FootageLayersPreview } from "./footage-layers-preview";
 import { footagePlaybackFrame } from "./footage-playback-frame";
 import { useStillsWaitForVideo } from "./components/queued-still";
 import { usePreloadableClipReducer } from "./hooks/use-preloadable-clip-reducer";
+import { log } from "@/packages/log";
 import { after } from "@/packages/clock";
 
 /**
@@ -35,7 +36,7 @@ import { after } from "@/packages/clock";
 const playVideo = (video: HTMLVideoElement) => {
   video.play().catch((error: unknown) => {
     if (error instanceof DOMException && error.name === "AbortError") return;
-    console.error("A Clip would not play", error);
+    log.error("A Clip would not play", error);
   });
 };
 

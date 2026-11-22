@@ -57,7 +57,7 @@ const recordingSignal = (ctx: Ctx) => {
 };
 
 export const stillsMidTake = async (ctx: Ctx, seconds: number) => {
-  ctx.log(
+  ctx.logLine(
     `stills mid-take: ${seconds} s take, a placed Take's stills every ${PLACEMENT_GAP_MS / 1000} s`
   );
   await sleep(2000);

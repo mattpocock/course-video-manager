@@ -14,6 +14,7 @@ import {
   StorageRootOfflineError,
   storageRootOfflineErrorOf,
 } from "./offline";
+import { log } from "@/packages/log";
 
 /**
  * A root-relative file is on no Storage Root. `offlineRoots` are the roots
@@ -137,7 +138,7 @@ const locate = (stored: string, roots: StorageRoots) =>
   });
 
 const warnRefused = (message: string) =>
-  console.warn(`[storage] refused: ${message}`);
+  log.warn(`[storage] refused: ${message}`);
 
 /**
  * Where a stored path is on disk, as an Option: the first root that has it,

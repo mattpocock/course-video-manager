@@ -1,4 +1,5 @@
 import { createBroadcastChat, type BroadcastChat } from "./broadcast-chat";
+import { log } from "@/packages/log";
 import { now } from "@/packages/clock";
 
 /**
@@ -37,7 +38,7 @@ export const broadcastChat = (): BroadcastChat => {
     // One line per change, into the dev log, so a run can tell polling from
     // flapping (#2558).
     log: (entry) =>
-      console.log(
+      log.info(
         `[broadcast-chat] ${JSON.stringify({ at: now().toISOString(), ...entry })}`
       ),
   });

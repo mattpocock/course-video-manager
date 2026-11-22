@@ -9,6 +9,7 @@ import type { CalibrationTimeline } from "./calibration-timeline";
 import type { SavedAVCalibration } from "./calibration-wire";
 import { listenToMeter } from "./use-level-meter";
 import type { ClapStepData } from "@/packages/clap-step";
+import { log } from "@/packages/log";
 
 const json = (body: unknown = {}): RequestInit => ({
   method: "POST",
@@ -55,7 +56,7 @@ export const useAVCalibration = () => {
         fetch("/api/av-calibration/cancel", json())
           .then(answer)
           .catch((error: unknown) =>
-            console.error("Could not cancel the AV Calibration", error)
+            log.error("Could not cancel the AV Calibration", error)
           );
       },
       "finish-calibration": (_state, effect, dispatch) => {

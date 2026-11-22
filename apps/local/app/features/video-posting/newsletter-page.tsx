@@ -16,6 +16,7 @@ import {
 import { marked } from "marked";
 import type { SectionWithWordCount } from "@/features/article-writer/types";
 import type { CourseStructure } from "@/components/video-context-panel";
+import { log } from "@/packages/log";
 
 const NEWSLETTER_STORAGE_KEY = (videoId: string) =>
   `newsletter-content-${videoId}`;
@@ -128,7 +129,7 @@ export const NewsletterPagePanel = (props: NewsletterPagePanelProps) => {
         setNewsletterContent(assistantText);
       }
     } catch (error) {
-      console.error("Failed to generate newsletter:", error);
+      log.error("Failed to generate newsletter:", error);
       toast.error("Failed to generate newsletter");
     } finally {
       setIsGenerating(false);
@@ -151,7 +152,7 @@ export const NewsletterPagePanel = (props: NewsletterPagePanelProps) => {
       toast("Newsletter copied as rich text");
       window.open(kitSequenceUrl, "_blank");
     } catch (error) {
-      console.error("Failed to copy as rich text:", error);
+      log.error("Failed to copy as rich text:", error);
       toast.error("Failed to copy newsletter");
     }
   };

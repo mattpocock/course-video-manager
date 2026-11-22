@@ -46,6 +46,7 @@ import { readTldrawLicenseKey } from "@/features/diagrams/tldraw-license-key.ser
 import type { RootLoaderData } from "@/features/diagrams/use-tldraw-license-key";
 import { Effect } from "effect";
 import "./app.css";
+import { log } from "@/packages/log";
 import { after } from "@/packages/clock";
 
 // Every request, page or resource route, is timed here, once.
@@ -197,7 +198,7 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
         after(2000, () => setIsCopied(false));
       },
       (err: unknown) => {
-        console.error("Failed to copy error to clipboard:", err);
+        log.error("Failed to copy error to clipboard:", err);
       }
     );
   };

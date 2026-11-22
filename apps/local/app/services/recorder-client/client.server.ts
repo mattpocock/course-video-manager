@@ -28,6 +28,7 @@ import { liveStreamCommands } from "./live-stream-commands";
 import { streamDeckPreparation } from "./stream-deck-prepare";
 import { watchRecorder } from "./recorder-watch";
 import type { RecorderClientOptions } from "./client-options";
+import { log } from "@/packages/log";
 import { after } from "@/packages/clock";
 
 /**
@@ -227,7 +228,7 @@ export const createRecorderClient = (o: RecorderClientOptions) => {
 
   const saveFailed = (event: SequencedEvent, error: unknown) => {
     const id = event.recordingSessionId;
-    console.error(`recorder client: could not save ${event.type}`, error);
+    log.error(`recorder client: could not save ${event.type}`, error);
     const message = `Could not save the recorder's ${event.type}: ${error instanceof Error ? error.message : String(error)}`;
     for (const videoId of listeners.keys())
       publish(videoId, { type: "recorder-failed", message });
@@ -290,7 +291,7 @@ export const createRecorderClient = (o: RecorderClientOptions) => {
     void o
       .unfinishedRecordingSessions(recent)
       .catch((error: unknown) => {
-        console.error(
+        log.error(
           "recorder client: could not read unfinished Recording Sessions",
           error
         );

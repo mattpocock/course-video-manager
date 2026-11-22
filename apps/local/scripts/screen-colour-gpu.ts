@@ -4,6 +4,7 @@ import { nvenc } from "../recorder-service/capture-args";
 import { SCREEN_FRAME_GAP_SECONDS } from "../recorder-service/take-args";
 import { findFfmpegExe } from "../recorder-service/windows-launcher";
 import { guardWindows } from "./windows-guard";
+import { log } from "@/packages/log";
 
 /**
  * The screen's colour and cost on the real GPU, with synthetic frames only
@@ -219,16 +220,16 @@ const main = async () => {
   const version = /ffmpeg version (\S+)/.exec(
     (await run(["-version"])).stdout.toString()
   )?.[1];
-  console.log(`ffmpeg.exe ${version} (${exe})`);
+  log.info(`ffmpeg.exe ${version} (${exe})`);
   const gpus = execFileSync("nvidia-smi", [
     "--query-gpu=name,driver_version",
     "--format=csv,noheader",
   ])
     .toString()
     .trim();
-  console.log(`GPU: ${gpus}\n`);
+  log.info(`GPU: ${gpus}\n`);
 
-  console.log("== Colour: one frame of ten patches, BGRA uploaded to D3D11");
+  log.info("== Colour: one frame of ten patches, BGRA uploaded to D3D11");
   const ref = await strip(PR_2225);
   const gpu = await strip(SCREEN_TO_NV12);
   let diff = 0;
@@ -238,39 +239,37 @@ const main = async () => {
     if (d) diff++;
     maxDelta = Math.max(maxDelta, d);
   }
-  console.log(
+  log.info(
     `bytes differing: ${diff} of ${ref.length} (max delta ${maxDelta})${diff === 0 ? ": BYTE-IDENTICAL" : ""}`
   );
-  console.log("colour   | #2225 Y/U/V -> RGB      | GPU Y/U/V -> RGB");
+  log.info("colour   | #2225 Y/U/V -> RGB      | GPU Y/U/V -> RGB");
   let wrong = 0;
   COLOURS.forEach((c, i) => {
     const a = sample(ref, i);
     const b = sample(gpu, i);
     const ok = [b.Y, b.U, b.V].join("/") === EXPECTED[c]!.join("/");
     if (!ok) wrong++;
-    console.log(
+    log.info(
       `#${c}  | ${[a.Y, a.U, a.V].join("/").padEnd(11)} -> #${hex(a.rgb)} | ${[b.Y, b.U, b.V].join("/").padEnd(11)} -> #${hex(b.rgb)}${ok ? "" : `  WRONG, expected ${EXPECTED[c]!.join("/")}`}`
     );
   });
-  console.log(wrong === 0 ? "colour: PASS" : `colour: FAIL (${wrong} patches)`);
+  log.info(wrong === 0 ? "colour: PASS" : `colour: FAIL (${wrong} patches)`);
   if (wrong) process.exitCode = 1;
 
   for (const size of ["2560x1440", "3840x2160"]) {
-    console.log(
-      `\n== ${size}: start-up gaps, first 5 s paced at 60 fps (3 runs)`
-    );
+    log.info(`\n== ${size}: start-up gaps, first 5 s paced at 60 fps (3 runs)`);
     for (const [name, chain] of [
       ["#2225", PR_2225],
       ["GPU  ", SCREEN_TO_NV12],
     ] as const) {
       const runs = [];
       for (let k = 0; k < 3; k++) runs.push(await startup(size, chain));
-      console.log(
+      log.info(
         `${name}: ${runs.map((x) => `${x.gaps} gaps / ${x.missing} frames missed`).join(", ")}`
       );
     }
     for (const paced of [false, true]) {
-      console.log(
+      log.info(
         `\n== ${size}, ${FRAMES} frames, ${paced ? "paced at 60 fps (-re)" : "as fast as it goes"}`
       );
       for (const [name, chain] of [
@@ -278,7 +277,7 @@ const main = async () => {
         ["GPU  ", SCREEN_TO_NV12],
       ] as const) {
         const b = await bench(size, chain, paced);
-        console.log(
+        log.info(
           `${name}: ${b.fps.toFixed(1)} fps, ${b.cpuMsPerFrame.toFixed(2)} ms CPU/frame, ${(b.cores * 100).toFixed(0)}% of a core`
         );
       }

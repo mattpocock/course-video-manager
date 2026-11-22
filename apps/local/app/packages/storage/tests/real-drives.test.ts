@@ -12,6 +12,7 @@ import {
   realDrivesForbidden,
   resolveStoragePath,
 } from "../server";
+import { log } from "@/packages/log";
 
 /**
  * An agent's server never reads Matt's real drives (/mnt). A verify-cvm run
@@ -124,7 +125,7 @@ describe("Storage resolution in an agent's process", () => {
     scratch = path.join(base, "scratch");
     fs.mkdirSync(path.join(scratch, "raw-footage"), { recursive: true });
     roots = [scratch];
-    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(log, "warn").mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -148,7 +149,7 @@ describe("Storage resolution in an agent's process", () => {
     }
     expect(findStoragePathSync(stored, roots)).toBeNull();
     expect((await find(stored))._tag).toBe("None");
-    expect(console.warn).toHaveBeenCalledWith(
+    expect(log.warn).toHaveBeenCalledWith(
       expect.stringContaining("is on a real drive (/mnt/d/raw-footage")
     );
   });

@@ -7,6 +7,7 @@ import {
 } from "@/services/video-chapters";
 import { isClip, isChapter } from "../clip-utils";
 import type { TimelineItem } from "../clip-state-reducer";
+import { log } from "@/packages/log";
 import { after } from "@/packages/clock";
 
 /**
@@ -54,7 +55,7 @@ export const useClipboardOperations = (items: TimelineItem[]) => {
       setIsCopied(true);
       after(2000, () => setIsCopied(false));
     } catch (error) {
-      console.error("Failed to copy transcript to clipboard:", error);
+      log.error("Failed to copy transcript to clipboard:", error);
     }
   };
 
@@ -88,7 +89,7 @@ export const useClipboardOperations = (items: TimelineItem[]) => {
       setIsChaptersCopied(true);
       after(2000, () => setIsChaptersCopied(false));
     } catch (error) {
-      console.error("Failed to copy YouTube chapters to clipboard:", error);
+      log.error("Failed to copy YouTube chapters to clipboard:", error);
     }
   };
 

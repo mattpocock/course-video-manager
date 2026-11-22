@@ -39,6 +39,7 @@ import { useMessageTextMutation } from "./message-text-mutation";
 import { RegenerateReply, RejectedToolCall, TurnFailure } from "./turn-failure";
 import type { WriterFailure } from "./writer-errors";
 import type { ClipFrame, ScreenCrop } from "@/packages/clip-source";
+import { log } from "@/packages/log";
 
 export interface WriteChatProps {
   messages: DocumentAgentMessage[];
@@ -158,7 +159,7 @@ export const WriteChat = memo(function WriteChat(props: WriteChatProps) {
         );
         return true;
       } catch (err) {
-        console.error("Screenshot capture failed:", err);
+        log.error("Screenshot capture failed:", err);
         toastError(err, "Screenshot capture failed");
         return false;
       } finally {

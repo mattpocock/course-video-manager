@@ -3,6 +3,7 @@ import {
   removeStoredByPrefix,
   writeStored,
 } from "@/hooks/use-local-storage";
+import { log } from "@/packages/log";
 
 /**
  * Local storage keys whose data moved to the database, removed once per
@@ -31,7 +32,7 @@ export const removeRetiredStorage = (): void => {
       removeStoredByPrefix(prefixes);
     } catch (error) {
       // Storage blocked: the next load tries again.
-      console.error("Failed to remove retired local storage keys:", error);
+      log.error("Failed to remove retired local storage keys:", error);
       continue;
     }
     writeStored(doneKey, "1");

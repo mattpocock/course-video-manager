@@ -1,4 +1,5 @@
 import net from "node:net";
+import { log } from "@/packages/log";
 
 /**
  * What of this checkout's CVM is running right now: its app server (the dev
@@ -50,7 +51,7 @@ export const refuseApplyWhileCvmRuns = async (targets: {
 }): Promise<void> => {
   const running = await findRunningCvm(targets);
   if (running.length === 0) return;
-  console.error(
+  log.error(
     `\nREFUSED: --apply while CVM is running (${running.join("; ")}).\n` +
       "Stop `pnpm dev` (it runs the app and the Sidecar) and run this again. Nothing was changed."
   );
