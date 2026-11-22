@@ -8212,6 +8212,12 @@
   "lint/rules/db-clients.js": {
     "local(no-comments)": 1
   },
+  "lint/rules/duration-format.js": {
+    "local(no-comments)": 3
+  },
+  "lint/rules/entity-links.js": {
+    "local(no-comments)": 5
+  },
   "lint/rules/fs-writes.js": {
     "local(no-comments)": 1
   },
@@ -9662,7 +9668,7 @@
     "local(no-comments)": 5
   },
   "tests/lint-probe.ts": {
-    "local(no-comments)": 2
+    "local(no-comments)": 3
   },
   "tests/lint-ratchet.test.ts": {
     "eslint(no-restricted-properties)": 1
