@@ -10,7 +10,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { parseSync } from "oxc-parser";
-import { directiveOf } from "../lint/rules/allowed-directives.js";
+import { directiveOf } from "../lint/rules/directives.ts";
 
 const ALLOWLIST = "lint/allowed-directives.json";
 const CODE = /\.(?:[cm]?[jt]s|[jt]sx)$/;

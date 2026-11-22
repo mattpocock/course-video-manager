@@ -37,6 +37,7 @@ const EXPECTED = [
   "local(routes-folder)",
   "eslint(no-restricted-imports)",
   "local(fs-writes)",
+  "local(no-comments)",
 ];
 
 const SELF_DISABLE = "lint/canary/self-disable.ts";
