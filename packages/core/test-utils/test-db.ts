@@ -98,7 +98,7 @@ export const releaseTestDatabases = async () => {
  * tests that apply the migrations (or push the schema) themselves.
  *
  * This file and `test-postgres.ts` are where every test database is built:
- * scripts/check-db-clients.sh flags `new Pool(` / `drizzle(` anywhere else.
+ * the lint rule local/db-clients flags `new Pool(` / `drizzle(` anywhere else.
  */
 export const createBlankDb = async () => {
   // One connection: these tests set session state (`session_replication_role`)

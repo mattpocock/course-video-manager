@@ -3,6 +3,10 @@
   "ignorePatterns": [],
   "overrides": [
     {
+      "files": ["script-db-url.ts"],
+      "rules": { "local/script-db-url": "error" }
+    },
+    {
       "files": ["fs-writes.ts"],
       "rules": { "local/fs-writes": "error" }
     }

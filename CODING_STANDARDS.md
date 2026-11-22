@@ -151,7 +151,7 @@ stranded writes that taught this: [`docs/DRAFT_GUARD.md`](./docs/DRAFT_GUARD.md)
 
 ### Every database client comes from a guarded factory
 
-Build a client through `DrizzleService`, `scriptPgClient()`/`scriptDrizzle()` (one-off scripts) or `test-utils/test-db.ts` (tests) — never `new Pool`/`new Client`/`drizzle(`/`postgres(` or a read of `process.env.DATABASE_URL` yourself, which skips the connection guard that stops a worktree writing to production; `scripts/check-db-clients.sh` fails anything else, and its allowlist does not grow.
+Build a client through `DrizzleService`, `scriptPgClient()`/`scriptDrizzle()` (one-off scripts) or `test-utils/test-db.ts` (tests), never by hand (`new Pool`, `drizzle(`, a read of `process.env.DATABASE_URL`): that skips the connection guard that stops a worktree writing to production. `local/db-clients` fails it in code, `scripts/check-db-clients.sh` in shell; neither allowlist grows.
 
 ## Background work
 

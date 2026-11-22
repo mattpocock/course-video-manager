@@ -56,6 +56,14 @@
     "typescript/no-unsafe-call": "error",
     "typescript/no-unsafe-member-access": "error",
     "typescript/no-unsafe-return": "error",
+    // Every database client is built by a guarded factory, which runs the
+    // connection guard (packages/core/db/connection-guard.ts) before it
+    // connects. The factories and the clients that cannot use one are in the
+    // override at the bottom, each with its reason.
+    "local/db-clients": "error",
+    // A copy of a Clip must carry its children, so only the allowed writers
+    // in the override at the bottom insert Clip rows.
+    "local/clip-inserts": "error",
     // CODING STANDARD: "Functions stay simple". `modified` counts a whole
     // `switch` as one branch, so an exhaustive switch over a union (another
     // standard) is not punished for naming every member. A ratchet: files
@@ -66,6 +74,7 @@
     // CODING STANDARD: "One reducer per surface", run by the repo's
     // useEffectReducer (docs/FRONTEND_STATE.md). The package's own hook loses
     // effects under StrictMode, so only its types may be imported.
+    // Every override that sets this rule re-lists these entries.
     "no-restricted-imports": [
       "error",
       {
@@ -74,6 +83,53 @@
             "name": "use-effect-reducer",
             "importNames": ["useEffectReducer"],
             "message": "Import useEffectReducer from @/hooks/use-effect-reducer. The package's own version loses effects under StrictMode (#2386); its types are fine to import."
+          },
+          // Database client packages: their owners are the override for
+          // local/db-clients at the bottom.
+          {
+            "name": "pg",
+            "allowTypeImports": true,
+            "message": "A database client built by hand skips the connection guard (packages/core/db/connection-guard.ts), which stops a git worktree opening a writable connection to production. Use a factory: DrizzleService (app / server code); scriptPgClient() / scriptDrizzle() from apps/local/scripts/script-database-url.ts (one-off DB scripts); createTestDb() / createBlankDb() / withQueryLog() from packages/core/test-utils/test-db.ts (tests); resolveDatabaseUrl() from @cvm/core/db/database-url (the URL alone). Type-only imports are fine."
+          },
+          {
+            "name": "postgres",
+            "allowTypeImports": true,
+            "message": "A database client built by hand skips the connection guard (packages/core/db/connection-guard.ts), which stops a git worktree opening a writable connection to production. Use a factory: DrizzleService (app / server code); scriptPgClient() / scriptDrizzle() from apps/local/scripts/script-database-url.ts (one-off DB scripts); createTestDb() / createBlankDb() / withQueryLog() from packages/core/test-utils/test-db.ts (tests); resolveDatabaseUrl() from @cvm/core/db/database-url (the URL alone). Type-only imports are fine."
+          },
+          {
+            "name": "@neondatabase/serverless",
+            "allowTypeImports": true,
+            "message": "A database client built by hand skips the connection guard (packages/core/db/connection-guard.ts), which stops a git worktree opening a writable connection to production. Use a factory: DrizzleService (app / server code); scriptPgClient() / scriptDrizzle() from apps/local/scripts/script-database-url.ts (one-off DB scripts); createTestDb() / createBlankDb() / withQueryLog() from packages/core/test-utils/test-db.ts (tests); resolveDatabaseUrl() from @cvm/core/db/database-url (the URL alone). Type-only imports are fine."
+          },
+          {
+            "name": "@electric-sql/pglite",
+            "allowTypeImports": true,
+            "message": "A database client built by hand skips the connection guard (packages/core/db/connection-guard.ts), which stops a git worktree opening a writable connection to production. Use a factory: DrizzleService (app / server code); scriptPgClient() / scriptDrizzle() from apps/local/scripts/script-database-url.ts (one-off DB scripts); createTestDb() / createBlankDb() / withQueryLog() from packages/core/test-utils/test-db.ts (tests); resolveDatabaseUrl() from @cvm/core/db/database-url (the URL alone). Type-only imports are fine."
+          },
+          {
+            "name": "drizzle-orm/node-postgres",
+            "allowTypeImports": true,
+            "message": "A database client built by hand skips the connection guard (packages/core/db/connection-guard.ts), which stops a git worktree opening a writable connection to production. Use a factory: DrizzleService (app / server code); scriptPgClient() / scriptDrizzle() from apps/local/scripts/script-database-url.ts (one-off DB scripts); createTestDb() / createBlankDb() / withQueryLog() from packages/core/test-utils/test-db.ts (tests); resolveDatabaseUrl() from @cvm/core/db/database-url (the URL alone). Type-only imports are fine."
+          },
+          {
+            "name": "drizzle-orm/postgres-js",
+            "allowTypeImports": true,
+            "message": "A database client built by hand skips the connection guard (packages/core/db/connection-guard.ts), which stops a git worktree opening a writable connection to production. Use a factory: DrizzleService (app / server code); scriptPgClient() / scriptDrizzle() from apps/local/scripts/script-database-url.ts (one-off DB scripts); createTestDb() / createBlankDb() / withQueryLog() from packages/core/test-utils/test-db.ts (tests); resolveDatabaseUrl() from @cvm/core/db/database-url (the URL alone). Type-only imports are fine."
+          },
+          {
+            "name": "drizzle-orm/neon-http",
+            "allowTypeImports": true,
+            "message": "A database client built by hand skips the connection guard (packages/core/db/connection-guard.ts), which stops a git worktree opening a writable connection to production. Use a factory: DrizzleService (app / server code); scriptPgClient() / scriptDrizzle() from apps/local/scripts/script-database-url.ts (one-off DB scripts); createTestDb() / createBlankDb() / withQueryLog() from packages/core/test-utils/test-db.ts (tests); resolveDatabaseUrl() from @cvm/core/db/database-url (the URL alone). Type-only imports are fine."
+          },
+          {
+            "name": "drizzle-orm/neon-serverless",
+            "allowTypeImports": true,
+            "message": "A database client built by hand skips the connection guard (packages/core/db/connection-guard.ts), which stops a git worktree opening a writable connection to production. Use a factory: DrizzleService (app / server code); scriptPgClient() / scriptDrizzle() from apps/local/scripts/script-database-url.ts (one-off DB scripts); createTestDb() / createBlankDb() / withQueryLog() from packages/core/test-utils/test-db.ts (tests); resolveDatabaseUrl() from @cvm/core/db/database-url (the URL alone). Type-only imports are fine."
+          },
+          {
+            "name": "drizzle-orm/pglite",
+            "allowTypeImports": true,
+            "message": "A database client built by hand skips the connection guard (packages/core/db/connection-guard.ts), which stops a git worktree opening a writable connection to production. Use a factory: DrizzleService (app / server code); scriptPgClient() / scriptDrizzle() from apps/local/scripts/script-database-url.ts (one-off DB scripts); createTestDb() / createBlankDb() / withQueryLog() from packages/core/test-utils/test-db.ts (tests); resolveDatabaseUrl() from @cvm/core/db/database-url (the URL alone). Type-only imports are fine."
           }
         ]
       }
@@ -368,6 +424,51 @@
                 "name": "use-effect-reducer",
                 "importNames": ["useEffectReducer"],
                 "message": "Import useEffectReducer from @/hooks/use-effect-reducer. The package's own version loses effects under StrictMode (#2386); its types are fine to import."
+              },
+              {
+                "name": "pg",
+                "allowTypeImports": true,
+                "message": "A database client built by hand skips the connection guard (packages/core/db/connection-guard.ts), which stops a git worktree opening a writable connection to production. Use a factory: DrizzleService (app / server code); scriptPgClient() / scriptDrizzle() from apps/local/scripts/script-database-url.ts (one-off DB scripts); createTestDb() / createBlankDb() / withQueryLog() from packages/core/test-utils/test-db.ts (tests); resolveDatabaseUrl() from @cvm/core/db/database-url (the URL alone). Type-only imports are fine."
+              },
+              {
+                "name": "postgres",
+                "allowTypeImports": true,
+                "message": "A database client built by hand skips the connection guard (packages/core/db/connection-guard.ts), which stops a git worktree opening a writable connection to production. Use a factory: DrizzleService (app / server code); scriptPgClient() / scriptDrizzle() from apps/local/scripts/script-database-url.ts (one-off DB scripts); createTestDb() / createBlankDb() / withQueryLog() from packages/core/test-utils/test-db.ts (tests); resolveDatabaseUrl() from @cvm/core/db/database-url (the URL alone). Type-only imports are fine."
+              },
+              {
+                "name": "@neondatabase/serverless",
+                "allowTypeImports": true,
+                "message": "A database client built by hand skips the connection guard (packages/core/db/connection-guard.ts), which stops a git worktree opening a writable connection to production. Use a factory: DrizzleService (app / server code); scriptPgClient() / scriptDrizzle() from apps/local/scripts/script-database-url.ts (one-off DB scripts); createTestDb() / createBlankDb() / withQueryLog() from packages/core/test-utils/test-db.ts (tests); resolveDatabaseUrl() from @cvm/core/db/database-url (the URL alone). Type-only imports are fine."
+              },
+              {
+                "name": "@electric-sql/pglite",
+                "allowTypeImports": true,
+                "message": "A database client built by hand skips the connection guard (packages/core/db/connection-guard.ts), which stops a git worktree opening a writable connection to production. Use a factory: DrizzleService (app / server code); scriptPgClient() / scriptDrizzle() from apps/local/scripts/script-database-url.ts (one-off DB scripts); createTestDb() / createBlankDb() / withQueryLog() from packages/core/test-utils/test-db.ts (tests); resolveDatabaseUrl() from @cvm/core/db/database-url (the URL alone). Type-only imports are fine."
+              },
+              {
+                "name": "drizzle-orm/node-postgres",
+                "allowTypeImports": true,
+                "message": "A database client built by hand skips the connection guard (packages/core/db/connection-guard.ts), which stops a git worktree opening a writable connection to production. Use a factory: DrizzleService (app / server code); scriptPgClient() / scriptDrizzle() from apps/local/scripts/script-database-url.ts (one-off DB scripts); createTestDb() / createBlankDb() / withQueryLog() from packages/core/test-utils/test-db.ts (tests); resolveDatabaseUrl() from @cvm/core/db/database-url (the URL alone). Type-only imports are fine."
+              },
+              {
+                "name": "drizzle-orm/postgres-js",
+                "allowTypeImports": true,
+                "message": "A database client built by hand skips the connection guard (packages/core/db/connection-guard.ts), which stops a git worktree opening a writable connection to production. Use a factory: DrizzleService (app / server code); scriptPgClient() / scriptDrizzle() from apps/local/scripts/script-database-url.ts (one-off DB scripts); createTestDb() / createBlankDb() / withQueryLog() from packages/core/test-utils/test-db.ts (tests); resolveDatabaseUrl() from @cvm/core/db/database-url (the URL alone). Type-only imports are fine."
+              },
+              {
+                "name": "drizzle-orm/neon-http",
+                "allowTypeImports": true,
+                "message": "A database client built by hand skips the connection guard (packages/core/db/connection-guard.ts), which stops a git worktree opening a writable connection to production. Use a factory: DrizzleService (app / server code); scriptPgClient() / scriptDrizzle() from apps/local/scripts/script-database-url.ts (one-off DB scripts); createTestDb() / createBlankDb() / withQueryLog() from packages/core/test-utils/test-db.ts (tests); resolveDatabaseUrl() from @cvm/core/db/database-url (the URL alone). Type-only imports are fine."
+              },
+              {
+                "name": "drizzle-orm/neon-serverless",
+                "allowTypeImports": true,
+                "message": "A database client built by hand skips the connection guard (packages/core/db/connection-guard.ts), which stops a git worktree opening a writable connection to production. Use a factory: DrizzleService (app / server code); scriptPgClient() / scriptDrizzle() from apps/local/scripts/script-database-url.ts (one-off DB scripts); createTestDb() / createBlankDb() / withQueryLog() from packages/core/test-utils/test-db.ts (tests); resolveDatabaseUrl() from @cvm/core/db/database-url (the URL alone). Type-only imports are fine."
+              },
+              {
+                "name": "drizzle-orm/pglite",
+                "allowTypeImports": true,
+                "message": "A database client built by hand skips the connection guard (packages/core/db/connection-guard.ts), which stops a git worktree opening a writable connection to production. Use a factory: DrizzleService (app / server code); scriptPgClient() / scriptDrizzle() from apps/local/scripts/script-database-url.ts (one-off DB scripts); createTestDb() / createBlankDb() / withQueryLog() from packages/core/test-utils/test-db.ts (tests); resolveDatabaseUrl() from @cvm/core/db/database-url (the URL alone). Type-only imports are fine."
               },
               {
                 "name": "@/components/ui/toast",
@@ -1022,6 +1123,160 @@
           }
         ]
       }
+    },
+    {
+      // One-off DB scripts resolve their connection string through
+      // scriptDatabaseUrl() (apps/local/scripts/script-database-url.ts), which
+      // loads the repo-root .env as drizzle.config.ts does, lets the shell
+      // win, and prints the target host. local/script-db-url reports every
+      // DATABASE_URL access here, so local/db-clients leaves reads to it.
+      "files": ["apps/local/scripts/**", "packages/*/scripts/**"],
+      "rules": {
+        "local/script-db-url": "error",
+        "local/db-clients": ["error", { "reads": false }],
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              // Repeated from the top-level rule, which this override replaces.
+              {
+                "name": "use-effect-reducer",
+                "importNames": ["useEffectReducer"],
+                "message": "Import useEffectReducer from @/hooks/use-effect-reducer. The package's own version loses effects under StrictMode (#2386); its types are fine to import."
+              },
+              {
+                "name": "pg",
+                "allowTypeImports": true,
+                "message": "A database client built by hand skips the connection guard (packages/core/db/connection-guard.ts), which stops a git worktree opening a writable connection to production. Use a factory: DrizzleService (app / server code); scriptPgClient() / scriptDrizzle() from apps/local/scripts/script-database-url.ts (one-off DB scripts); createTestDb() / createBlankDb() / withQueryLog() from packages/core/test-utils/test-db.ts (tests); resolveDatabaseUrl() from @cvm/core/db/database-url (the URL alone). Type-only imports are fine."
+              },
+              {
+                "name": "postgres",
+                "allowTypeImports": true,
+                "message": "A database client built by hand skips the connection guard (packages/core/db/connection-guard.ts), which stops a git worktree opening a writable connection to production. Use a factory: DrizzleService (app / server code); scriptPgClient() / scriptDrizzle() from apps/local/scripts/script-database-url.ts (one-off DB scripts); createTestDb() / createBlankDb() / withQueryLog() from packages/core/test-utils/test-db.ts (tests); resolveDatabaseUrl() from @cvm/core/db/database-url (the URL alone). Type-only imports are fine."
+              },
+              {
+                "name": "@neondatabase/serverless",
+                "allowTypeImports": true,
+                "message": "A database client built by hand skips the connection guard (packages/core/db/connection-guard.ts), which stops a git worktree opening a writable connection to production. Use a factory: DrizzleService (app / server code); scriptPgClient() / scriptDrizzle() from apps/local/scripts/script-database-url.ts (one-off DB scripts); createTestDb() / createBlankDb() / withQueryLog() from packages/core/test-utils/test-db.ts (tests); resolveDatabaseUrl() from @cvm/core/db/database-url (the URL alone). Type-only imports are fine."
+              },
+              {
+                "name": "@electric-sql/pglite",
+                "allowTypeImports": true,
+                "message": "A database client built by hand skips the connection guard (packages/core/db/connection-guard.ts), which stops a git worktree opening a writable connection to production. Use a factory: DrizzleService (app / server code); scriptPgClient() / scriptDrizzle() from apps/local/scripts/script-database-url.ts (one-off DB scripts); createTestDb() / createBlankDb() / withQueryLog() from packages/core/test-utils/test-db.ts (tests); resolveDatabaseUrl() from @cvm/core/db/database-url (the URL alone). Type-only imports are fine."
+              },
+              {
+                "name": "drizzle-orm/node-postgres",
+                "allowTypeImports": true,
+                "message": "A database client built by hand skips the connection guard (packages/core/db/connection-guard.ts), which stops a git worktree opening a writable connection to production. Use a factory: DrizzleService (app / server code); scriptPgClient() / scriptDrizzle() from apps/local/scripts/script-database-url.ts (one-off DB scripts); createTestDb() / createBlankDb() / withQueryLog() from packages/core/test-utils/test-db.ts (tests); resolveDatabaseUrl() from @cvm/core/db/database-url (the URL alone). Type-only imports are fine."
+              },
+              {
+                "name": "drizzle-orm/postgres-js",
+                "allowTypeImports": true,
+                "message": "A database client built by hand skips the connection guard (packages/core/db/connection-guard.ts), which stops a git worktree opening a writable connection to production. Use a factory: DrizzleService (app / server code); scriptPgClient() / scriptDrizzle() from apps/local/scripts/script-database-url.ts (one-off DB scripts); createTestDb() / createBlankDb() / withQueryLog() from packages/core/test-utils/test-db.ts (tests); resolveDatabaseUrl() from @cvm/core/db/database-url (the URL alone). Type-only imports are fine."
+              },
+              {
+                "name": "drizzle-orm/neon-http",
+                "allowTypeImports": true,
+                "message": "A database client built by hand skips the connection guard (packages/core/db/connection-guard.ts), which stops a git worktree opening a writable connection to production. Use a factory: DrizzleService (app / server code); scriptPgClient() / scriptDrizzle() from apps/local/scripts/script-database-url.ts (one-off DB scripts); createTestDb() / createBlankDb() / withQueryLog() from packages/core/test-utils/test-db.ts (tests); resolveDatabaseUrl() from @cvm/core/db/database-url (the URL alone). Type-only imports are fine."
+              },
+              {
+                "name": "drizzle-orm/neon-serverless",
+                "allowTypeImports": true,
+                "message": "A database client built by hand skips the connection guard (packages/core/db/connection-guard.ts), which stops a git worktree opening a writable connection to production. Use a factory: DrizzleService (app / server code); scriptPgClient() / scriptDrizzle() from apps/local/scripts/script-database-url.ts (one-off DB scripts); createTestDb() / createBlankDb() / withQueryLog() from packages/core/test-utils/test-db.ts (tests); resolveDatabaseUrl() from @cvm/core/db/database-url (the URL alone). Type-only imports are fine."
+              },
+              {
+                "name": "drizzle-orm/pglite",
+                "allowTypeImports": true,
+                "message": "A database client built by hand skips the connection guard (packages/core/db/connection-guard.ts), which stops a git worktree opening a writable connection to production. Use a factory: DrizzleService (app / server code); scriptPgClient() / scriptDrizzle() from apps/local/scripts/script-database-url.ts (one-off DB scripts); createTestDb() / createBlankDb() / withQueryLog() from packages/core/test-utils/test-db.ts (tests); resolveDatabaseUrl() from @cvm/core/db/database-url (the URL alone). Type-only imports are fine."
+              },
+              {
+                "name": "@cvm/core/db/database-url",
+                "message": "Use scriptDatabaseUrl() from apps/local/scripts/script-database-url.ts instead: const { url, host } = scriptDatabaseUrl(); ({ direct: true } for schema work)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      // These files build a database client themselves. THIS LIST MUST NOT
+      // GROW: a new client goes through a factory.
+      "files": [
+        // The guarded factories: DrizzleService, and scriptPgClient() /
+        // scriptDrizzle() for one-off DB scripts.
+        "packages/core/services/drizzle-service.server.ts",
+        "apps/local/scripts/script-database-url.ts",
+        // Vercel build step (#2655): plain .mjs, no TypeScript step. Its only
+        // gates are VERCEL_ENV=production and assert-production-source.mjs
+        // (GitHub's main, cloned); the worktree guard has nothing to say
+        // about a Vercel clone.
+        "apps/remote/scripts/migrate-on-deploy.mjs",
+        // The test Postgres (ADR 0046): builds every test client, and refuses
+        // any server but a local one before it connects.
+        "packages/core/test-utils/test-postgres.ts",
+        // verify-cvm: migrates the run's clone; refuses anything but
+        // localhost:5433/cvm_verify_<id> before it connects (stricter than
+        // the guard). It loads pg through createRequire, so it needs no
+        // import lifted below.
+        ".claude/skills/verify-cvm/scripts/migrate-clone.mjs"
+      ],
+      "rules": { "local/db-clients": "off" }
+    },
+    {
+      // The client owners above that import a database client package, so
+      // the ban on those packages is lifted here and only here. In the
+      // script-URL helper this also lifts the @cvm/core/db/database-url ban,
+      // which it owns.
+      "files": [
+        "packages/core/services/drizzle-service.server.ts",
+        "apps/local/scripts/script-database-url.ts",
+        "apps/remote/scripts/migrate-on-deploy.mjs",
+        "packages/core/test-utils/test-postgres.ts"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              // Repeated from the top-level rule, which this override replaces.
+              {
+                "name": "use-effect-reducer",
+                "importNames": ["useEffectReducer"],
+                "message": "Import useEffectReducer from @/hooks/use-effect-reducer. The package's own version loses effects under StrictMode (#2386); its types are fine to import."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      // Owns resolving a DB script's database URL.
+      "files": ["apps/local/scripts/script-database-url.ts"],
+      "rules": { "local/script-db-url": "off" }
+    },
+    {
+      // The files that may insert Clip rows, and why. Keep this short: a new
+      // entry is a genuinely new way to CREATE a Clip, never a copy.
+      "files": [
+        // The shared copy helper: copyClipsOntoVideo / copyClipChildren.
+        "packages/core/services/copy-child-rows.ts",
+        // Submit (COPY_PATHS.submit) and duplicateCourse
+        // (COPY_PATHS.duplicateCourse): Version-level copies, children via
+        // copyClipChildren.
+        "packages/core/services/db-version-copy.server.ts",
+        "packages/core/services/db-course-duplicate.server.ts",
+        // Fresh Clips: createClip / appendClips / createClipWebLinks.
+        "packages/core/services/db-clip-operations.server.ts",
+        // Fresh Clips cut by `cvm short create` (its copies go through
+        // copyClipsOntoVideo, COPY_PATHS.shortCreate).
+        "packages/core/services/db-short-create.server.ts",
+        // Fresh Clips from recording: appendClips / insert-at-position.
+        "apps/local/app/services/clip-service-handler.helpers.ts",
+        // Fresh child rows on one existing Clip.
+        "packages/core/services/db-overlay-operations.server.ts",
+        "packages/core/services/db-transcript-word-operations.server.ts"
+      ],
+      "rules": { "local/clip-inserts": "off" }
     },
     {
       // A path the app did not build itself (an absolute filePath read from

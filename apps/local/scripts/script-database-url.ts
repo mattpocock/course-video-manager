@@ -20,7 +20,7 @@
  *    `@cvm/core/db/connection-guard`.
  *
  * Build the client here too — `scriptPgClient()` or `scriptDrizzle()` — never
- * with `new Client`/`new Pool` in the script: scripts/check-db-clients.sh
+ * with `new Client`/`new Pool` in the script: the lint rule local/db-clients
  * allows client construction only in the guarded factories.
  */
 import { fileURLToPath } from "node:url";

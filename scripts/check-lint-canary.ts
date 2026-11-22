@@ -27,6 +27,9 @@ const EXPECTED = [
   "unicorn(no-abusive-eslint-disable)",
   "eslint(no-restricted-globals)",
   "eslint(no-restricted-properties)",
+  "local(db-clients)",
+  "local(script-db-url)",
+  "local(clip-inserts)",
   "local(fs-writes)",
 ];
 

@@ -3,16 +3,22 @@
  * with a RuleTester suite beside it and a planted violation in `canary/`.
  */
 import allowedDirectives from "./rules/allowed-directives.js";
+import clipInserts from "./rules/clip-inserts.js";
+import dbClients from "./rules/db-clients.js";
 import fsWrites from "./rules/fs-writes.js";
 import noOverloads from "./rules/no-overloads.js";
 import noUnsafeAs from "./rules/no-unsafe-as.js";
+import scriptDbUrl from "./rules/script-db-url.js";
 
 export default {
   meta: { name: "local" },
   rules: {
     "allowed-directives": allowedDirectives,
+    "clip-inserts": clipInserts,
+    "db-clients": dbClients,
     "fs-writes": fsWrites,
     "no-overloads": noOverloads,
     "no-unsafe-as": noUnsafeAs,
+    "script-db-url": scriptDbUrl,
   },
 };

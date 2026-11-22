@@ -1,20 +1,8 @@
-import { spawnSync } from "node:child_process";
-import {
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  realpathSync,
-  rmSync,
-  symlinkSync,
-  writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { type Diagnostic, lintProbes, ROOT } from "./lint-probe.ts";
 
-const ROOT = path.resolve(import.meta.dirname, "..");
 const RULE = "local(fs-writes)";
 
 const PROBE = [
@@ -39,18 +27,6 @@ const FILES: Record<string, number> = {
   "apps/local/app/features/probe/probe.ts": 0,
   "packages/core/services/probe.ts": 0,
 };
-
-interface Diagnostic {
-  filename: string;
-  code: string;
-  message: string;
-}
-
-const isReport = (value: unknown): value is { diagnostics: Diagnostic[] } =>
-  typeof value === "object" &&
-  value !== null &&
-  "diagnostics" in value &&
-  Array.isArray(value.diagnostics);
 
 const isOverride = (
   value: unknown
@@ -88,43 +64,17 @@ const ownerPaths = () => {
     .flatMap((o) => o.files);
 };
 
-let dir: string;
+let probes: ReturnType<typeof lintProbes>;
 let diagnostics: Diagnostic[];
 
 beforeAll(() => {
-  dir = mkdtempSync(path.join(tmpdir(), "fs-writes-"));
-  copyFileSync(
-    path.join(ROOT, ".oxlintrc.json"),
-    path.join(dir, ".oxlintrc.json")
+  probes = lintProbes(
+    Object.fromEntries(Object.keys(FILES).map((file) => [file, PROBE]))
   );
-  symlinkSync(path.join(ROOT, "lint"), path.join(dir, "lint"));
-  mkdirSync(path.join(dir, "node_modules"));
-  symlinkSync(
-    realpathSync(path.join(ROOT, "node_modules/oxlint")),
-    path.join(dir, "node_modules/oxlint")
-  );
-  for (const file of Object.keys(FILES)) {
-    mkdirSync(path.dirname(path.join(dir, file)), { recursive: true });
-    writeFileSync(path.join(dir, file), PROBE);
-  }
-  const run = spawnSync(
-    process.execPath,
-    [
-      "node_modules/oxlint/bin/oxlint",
-      "--format",
-      "json",
-      ...Object.keys(FILES),
-    ],
-    { cwd: dir, encoding: "utf8" }
-  );
-  const report: unknown = JSON.parse(run.stdout);
-  if (!isReport(report)) throw new Error(`not an Oxlint report: ${run.stdout}`);
-  diagnostics = report.diagnostics.filter((d) => d.code === RULE);
+  diagnostics = probes.diagnostics.filter((d) => d.code === RULE);
 });
 
-afterAll(() => {
-  rmSync(dir, { recursive: true, force: true });
-});
+afterAll(() => probes.remove());
 
 describe("local/fs-writes in the repo config", () => {
   it.each(Object.entries(FILES))(

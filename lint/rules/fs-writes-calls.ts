@@ -1,3 +1,4 @@
+import { memberName, unwrap } from "./names.ts";
 import type { NodeOf, Rule } from "./rule.ts";
 
 type Context = Parameters<NonNullable<Rule["create"]>>[0];
@@ -46,22 +47,6 @@ const FS_MODULES = new Set([
   "fs/promises",
   "node:fs/promises",
 ]);
-
-const unwrap = (node: Expression): Expression => {
-  if (node.type === "ChainExpression") return unwrap(node.expression);
-  if (node.type === "ParenthesizedExpression") return unwrap(node.expression);
-  return node;
-};
-
-const keyName = (member: Member): string | undefined => {
-  const key = member.property;
-  if (!member.computed && key.type === "Identifier") return key.name;
-  if (key.type === "Literal" && typeof key.value === "string") return key.value;
-  if (key.type === "TemplateLiteral" && key.expressions.length === 0) {
-    return key.quasis[0]?.value.cooked ?? undefined;
-  }
-  return undefined;
-};
 
 const findVariable = (
   context: Context,
@@ -129,7 +114,7 @@ const isFs = (context: Context, node: Expression): boolean => {
     return FS_NAME.test(object.name);
   }
   if (object.type === "MemberExpression") {
-    const name = keyName(object);
+    const name = memberName(object);
     if (name === "promises" && isFs(context, object.object)) return true;
     return name !== undefined && FS_NAME.test(name);
   }
@@ -143,7 +128,7 @@ const isGuardCall = (context: Context, node: Expression): boolean => {
   }
   if (call.type !== "CallExpression") return false;
   const callee = unwrap(call.callee);
-  if (callee.type === "MemberExpression" && keyName(callee) === "pipe") {
+  if (callee.type === "MemberExpression" && memberName(callee) === "pipe") {
     return isGuardCall(context, callee.object);
   }
   if (callee.type === "Identifier") return GUARDS.has(nameOf(context, callee));
@@ -152,7 +137,7 @@ const isGuardCall = (context: Context, node: Expression): boolean => {
   return (
     object.type === "Identifier" &&
     importOf(context, object)?.imported === "*" &&
-    GUARDS.has(keyName(callee) ?? "")
+    GUARDS.has(memberName(callee) ?? "")
   );
 };
 
@@ -191,7 +176,7 @@ const writeOf = (context: Context, callee: Expression): string | undefined => {
     return imported && OPS.has(imported) ? imported : undefined;
   }
   if (callee.type !== "MemberExpression") return undefined;
-  const op = keyName(callee);
+  const op = memberName(callee);
   return op && OPS.has(op) && isFs(context, callee.object) ? op : undefined;
 };
 
