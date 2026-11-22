@@ -2,6 +2,10 @@
 const rule = {
   meta: {
     type: "problem",
+    docs: {
+      description:
+        "Disallow `as` and angle-bracket assertions outside a generic function, except `as const`.",
+    },
     schema: [],
     messages: {
       assertion:
