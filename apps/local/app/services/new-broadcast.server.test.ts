@@ -11,6 +11,7 @@ import {
   setThumbnailOnBroadcast,
 } from "@/services/new-broadcast.server";
 import { useFakeYouTube, youtube } from "@/test-utils/fake-youtube-live";
+import { readEnv } from "@/packages/env";
 
 /**
  * **New Broadcast** on the app server, as its route runs it: YouTube faked
@@ -69,7 +70,7 @@ const create = (
 
 /** A throwaway Storage Root, where the thumbnail creator saves images. */
 const storageRoot = fs.mkdtempSync(path.join(os.tmpdir(), "storage-root-"));
-const previousRoots = process.env.STORAGE_ROOTS;
+const previousRoots = readEnv("STORAGE_ROOTS");
 beforeAll(() => {
   process.env.STORAGE_ROOTS = storageRoot;
 });

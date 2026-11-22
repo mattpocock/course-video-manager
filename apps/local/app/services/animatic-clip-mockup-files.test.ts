@@ -6,6 +6,7 @@ import os from "node:os";
 import nodePath from "node:path";
 import { readAnimaticClipMockupFiles } from "./animatic-clip-mockup-files.server";
 import { pcmToWav } from "./clip-mockup-speech-service";
+import { readEnv } from "@/packages/env";
 
 // ===========================================================================
 // The Animatic page's file check, against TWO Storage Roots.
@@ -47,7 +48,7 @@ beforeEach(() => {
   base = nodeFs.mkdtempSync(nodePath.join(os.tmpdir(), "cvm-animatic-files-"));
   roots = [nodePath.join(base, "d"), nodePath.join(base, "e")];
   for (const root of roots) nodeFs.mkdirSync(root);
-  previousRoots = process.env.STORAGE_ROOTS;
+  previousRoots = readEnv("STORAGE_ROOTS");
   process.env.STORAGE_ROOTS = roots.join(",");
 });
 

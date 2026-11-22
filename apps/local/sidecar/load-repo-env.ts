@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { readEnv } from "@/packages/env";
 
 /**
  * Loads the repo-root `.env` into `process.env` — as a SIDE EFFECT OF BEING
@@ -18,7 +19,7 @@ import path from "node:path";
  * to start a Sidecar against a `.env` of its own.
  */
 const envFile =
-  process.env.CVM_SIDECAR_ENV_FILE ||
+  readEnv("CVM_SIDECAR_ENV_FILE") ||
   path.join(path.resolve(import.meta.dirname, "../../.."), ".env");
 
 if (fs.existsSync(envFile)) process.loadEnvFile(envFile);

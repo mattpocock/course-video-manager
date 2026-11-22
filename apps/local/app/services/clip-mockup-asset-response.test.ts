@@ -9,6 +9,7 @@ import {
 } from "./clip-mockup-asset-response.server";
 import { resolveClipMockupPath } from "./clip-mockup-files";
 import { STORAGE_ROOTS_ENV_KEY } from "./storage-roots";
+import { readEnv } from "@/packages/env";
 
 /**
  * The Animatic route itself is view code over a loader and has no test seam of
@@ -135,7 +136,7 @@ describe("path containment", () => {
   let previous: string | undefined;
 
   beforeAll(() => {
-    previous = process.env[STORAGE_ROOTS_ENV_KEY];
+    previous = readEnv(STORAGE_ROOTS_ENV_KEY);
     const root = path.join(dir, "store");
     mkdirSync(path.join(root, "clip-mockups"), { recursive: true });
     process.env[STORAGE_ROOTS_ENV_KEY] = root;

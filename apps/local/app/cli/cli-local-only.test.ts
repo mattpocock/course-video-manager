@@ -15,6 +15,7 @@ import {
   type RunResult,
   type WriteSeed,
 } from "./cli-write-test-harness";
+import { readEnv } from "@/packages/env";
 
 // ===========================================================================
 // The local-only commands, refusing.
@@ -32,7 +33,7 @@ let run: (argv: ReadonlyArray<string>) => Promise<RunResult>;
 let videoFiles: ReturnType<typeof makeTempVideoFilesDir>;
 let s: WriteSeed;
 
-const previousMarker = process.env[LOCAL_MACHINE_ENV_KEY];
+const previousMarker = readEnv(LOCAL_MACHINE_ENV_KEY);
 
 beforeAll(async () => {
   const result = await createTestDb();

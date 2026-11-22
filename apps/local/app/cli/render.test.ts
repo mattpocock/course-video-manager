@@ -4,10 +4,11 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { offlineRootMessage } from "@/packages/storage";
 import { makeTestCliOutput } from "./output";
 import { renderToExitCode } from "./render";
+import { readEnv } from "@/packages/env";
 
 // Two made-up roots: nothing here touches the disk.
 const ROOTS = "/tmp/cvm-render-test-d,/tmp/cvm-render-test-e";
-const previous = process.env.STORAGE_ROOTS;
+const previous = readEnv("STORAGE_ROOTS");
 
 beforeEach(() => {
   process.env.STORAGE_ROOTS = ROOTS;

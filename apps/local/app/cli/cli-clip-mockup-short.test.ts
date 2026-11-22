@@ -21,6 +21,7 @@ import {
   type RunResult,
 } from "./cli-write-test-harness";
 import { addArgv, updateArgv } from "./cli-clip-mockup-test-harness";
+import { readEnv } from "@/packages/env";
 
 // ===========================================================================
 // cvm clip-mockup on a SHORT: the composed 1080x1920 frame, and the order
@@ -60,7 +61,7 @@ let frames: ReturnType<typeof makeTempClipMockupDir>;
 let sourceDir: string;
 let short: { id: string; lineageId: string };
 let landscape: { id: string; lineageId: string };
-const originalLocalMachine = process.env[LOCAL_MACHINE_ENV_KEY];
+const originalLocalMachine = readEnv(LOCAL_MACHINE_ENV_KEY);
 
 beforeAll(async () => {
   testDb = (await createTestDb()).testDb;

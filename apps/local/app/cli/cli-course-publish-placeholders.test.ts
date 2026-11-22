@@ -24,6 +24,7 @@ import {
   type ReadSeed,
   type RunResult,
 } from "./cli-read-test-harness";
+import { readEnv } from "@/packages/env";
 
 // ===========================================================================
 // `cvm course publish --placeholders <band>` AT THE COMMAND, not at the seam.
@@ -39,8 +40,8 @@ import {
 let testDb: TestDb;
 let run: (argv: ReadonlyArray<string>) => Promise<RunResult>;
 let finishedDir: string;
-const originalRoots = process.env.STORAGE_ROOTS;
-const originalLocalMachine = process.env[LOCAL_MACHINE_ENV_KEY];
+const originalRoots = readEnv("STORAGE_ROOTS");
+const originalLocalMachine = readEnv(LOCAL_MACHINE_ENV_KEY);
 
 beforeAll(async () => {
   const result = await createTestDb();

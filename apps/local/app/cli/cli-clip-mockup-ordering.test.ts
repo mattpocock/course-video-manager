@@ -22,6 +22,7 @@ import {
   makeClipMockupRun,
   updateArgv,
 } from "./cli-clip-mockup-test-harness";
+import { readEnv } from "@/packages/env";
 
 // ===========================================================================
 // cvm clip-mockup: move / update / --at position addressing
@@ -48,7 +49,7 @@ let s: WriteSeed;
 let frames: ReturnType<typeof makeTempClipMockupDir>;
 const speech = fakeSpeech();
 let sourceDir: string;
-const originalLocalMachine = process.env[LOCAL_MACHINE_ENV_KEY];
+const originalLocalMachine = readEnv(LOCAL_MACHINE_ENV_KEY);
 
 beforeAll(async () => {
   const result = await createTestDb();

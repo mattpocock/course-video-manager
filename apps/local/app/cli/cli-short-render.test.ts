@@ -21,6 +21,7 @@ import {
   one,
   type RunResult,
 } from "./cli-write-test-harness";
+import { readEnv } from "@/packages/env";
 
 // ===========================================================================
 // cvm short render
@@ -57,7 +58,7 @@ let run: (argv: ReadonlyArray<string>) => Promise<RunResult>;
 let jobsLayer: Layer.Layer<JobOperationsService>;
 let stopSidecar: Deferred.Deferred<string>;
 let sidecarFiber: Fiber.RuntimeFiber<unknown, unknown>;
-const originalLocalMachine = process.env[LOCAL_MACHINE_ENV_KEY];
+const originalLocalMachine = readEnv(LOCAL_MACHINE_ENV_KEY);
 
 beforeAll(async () => {
   testDb = (await createTestDb()).testDb;
