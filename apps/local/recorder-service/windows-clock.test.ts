@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { log } from "@/packages/log";
 import { type ClockTicker, startWindowsClock } from "./windows-clock";
 
 /**
@@ -48,7 +47,7 @@ describe("startWindowsClock", () => {
   });
 
   it("refuses to tell the time once its tick source has gone quiet, and recovers when a respawned one ticks", async () => {
-    vi.spyOn(log, "error").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
     vi.useFakeTimers({ toFake: ["performance", "setTimeout"] });
     const { clock, tickers } = await startFakeClock();
     expect(clock.now()).toBe(1_000);

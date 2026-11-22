@@ -16,7 +16,6 @@ import type { PreviewEncoders } from "./preview-encoders";
 import type { CameraStatus } from "./protocol";
 import { watchPreview } from "./preview-watchdog";
 import { formatLoad, parseLoadLine, wslCpu } from "./load-sampler";
-import { log } from "@/packages/log";
 
 /**
  * OPENING THE CAM LINK (#1993 Q11, Q12; #2207). The service opens the Cam
@@ -75,7 +74,7 @@ export const stopTagged = async (launch: Launcher, tags: string[]) => {
     })
   );
   if (stopped.code !== 0)
-    log.error(`recorder: stop-recorders.ps1 failed: ${stopped.stderr}`);
+    console.error(`recorder: stop-recorders.ps1 failed: ${stopped.stderr}`);
 };
 
 /**
@@ -105,11 +104,11 @@ export const tuneProcess = (
     const first = (text: string) => text.trim().split(/\r?\n/)[0] ?? "";
     if (code === 0) {
       const line = `${o.name} tuned: ${first(stdout)}`;
-      log.info(`recorder: ${line}`);
+      console.log(`recorder: ${line}`);
       return line;
     }
     const line = `${o.name} NOT tuned (Normal priority, 15.6 ms timer): ${first(stderr || stdout)}`;
-    log.error(`recorder: ${line}`);
+    console.error(`recorder: ${line}`);
     return line;
   });
 
@@ -256,7 +255,7 @@ export const openCamera = (o: CameraOptions): Camera => {
     );
     void runToEnd(live.sampler).then(({ code, stderr }) => {
       if (code !== 0 && !live.exited && !released)
-        log.error(
+        console.error(
           `recorder: load-sampler.ps1 failed, no load samples: ${stderr.trim().split(/\r?\n/)[0] ?? ""}`
         );
     });
@@ -314,14 +313,14 @@ export const openCamera = (o: CameraOptions): Camera => {
         // No frames and no take: the Cam Link itself may have stopped, so
         // both open again. A take's capture is never stopped for the preview.
         if (!o.recording()) {
-          log.error(
+          console.error(
             `recorder: the camera preview stalled; opening the Cam Link again (restart ${restarts})`
           );
           void quitCapture(live.capture);
           return;
         }
         stalled = true;
-        log.error(
+        console.error(
           `recorder: the camera preview stalled during a take; starting the preview again, the take carries on (restart ${restarts})`
         );
         void quitPreview(p);
@@ -332,7 +331,7 @@ export const openCamera = (o: CameraOptions): Camera => {
         return;
       const nvencFailed = o.encoders.quit("camera", stderr());
       if (!stalled)
-        log.error(
+        console.error(
           `recorder: the camera preview quit (exit ${code}); starting it again${o.recording() ? ", the take carries on" : ""}`
         );
       setTimeout(
@@ -405,9 +404,9 @@ export const openCamera = (o: CameraOptions): Camera => {
           }
           logged += 1;
           if (logged <= CAPTURE_LINES_PER_MINUTE)
-            log.error(`recorder: camera capture: ${line}`);
+            console.error(`recorder: camera capture: ${line}`);
           else if (logged === CAPTURE_LINES_PER_MINUTE + 1)
-            log.error(
+            console.error(
               "recorder: camera capture: (more lines this minute left out)"
             );
         })
@@ -447,7 +446,7 @@ export const openCamera = (o: CameraOptions): Camera => {
       : !found.mic
         ? " (the mic is not among the DirectShow devices)"
         : "";
-    log.error(
+    console.error(
       `recorder: the Cam Link did not start in ${CAMERA_ATTEMPTS} tries${missing}${tail ? `: ${tail}` : ""}`
     );
     set({ kind: "not-starting", message: CAM_LINK_NOT_STARTING });

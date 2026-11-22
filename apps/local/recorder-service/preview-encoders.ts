@@ -1,5 +1,4 @@
 import type { PreviewEncoder } from "./capture-args";
-import { log } from "@/packages/log";
 
 /**
  * WHAT ENCODES EACH PREVIEW PROCESS (#2194). Both start on NVENC. A take
@@ -46,7 +45,7 @@ export const createPreviewEncoders = (): PreviewEncoders => {
       if (encoders[feed] !== "nvenc" || !saysNvencFailed(stderr)) return false;
       encoders[feed] = "x264";
       const line = stderr.split(/\r?\n/).find((l) => NVENC_FAILED.test(l));
-      log.error(
+      console.error(
         `recorder: the ${feed} preview could not open NVENC (${line?.trim()}); encoding it with libx264 on the CPU until the service restarts`
       );
       return true;

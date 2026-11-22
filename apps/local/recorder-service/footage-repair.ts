@@ -2,7 +2,6 @@ import fs from "node:fs";
 import path from "node:path";
 import { runToEnd, type Launcher } from "./launcher";
 import type { FileRepair, RecordingSessionFiles } from "./protocol";
-import { log } from "@/packages/log";
 
 /**
  * MAKING A RECORDING SESSION'S FILES READABLE. An MKV that ffmpeg never
@@ -43,7 +42,7 @@ export const repairFile = async (
   try {
     return await repair(launch, file);
   } catch (e) {
-    log.error(`recorder: could not repair ${file}`, e);
+    console.error(`recorder: could not repair ${file}`, e);
     return { repair: "failed", duration: null };
   }
 };

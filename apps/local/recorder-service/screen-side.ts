@@ -8,7 +8,6 @@ import { PREVIEW_STALL_MS, type ScreenStatus } from "./protocol";
 import { findByName, Refusal } from "./refusal";
 import { listScreens, type Screen } from "./windows-devices";
 import { watchPreview } from "./preview-watchdog";
-import { log } from "@/packages/log";
 
 /**
  * THE RECORDER'S SCREEN, per Video format: which ddagrab output is recorded
@@ -120,7 +119,7 @@ export const createScreenSide = (o: {
     /** Starts it again for the same screen, unless the screen side moved on. */
     const again = (why: string) => {
       restarts += 1;
-      log.error(
+      console.error(
         `recorder: the screen preview ${why}; starting it again (restart ${restarts})`
       );
       setTimeout(() => {
@@ -227,7 +226,7 @@ export const createScreenSide = (o: {
       o.setStatus({ kind: "ready" });
       startPreview(found.screen);
     } catch (e) {
-      log.error("recorder: could not start the screen side", e);
+      console.error("recorder: could not start the screen side", e);
       if (current())
         o.setStatus({
           kind: "unavailable",

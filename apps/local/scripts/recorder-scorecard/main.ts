@@ -231,7 +231,7 @@ const main = async () => {
     cpus,
     measured,
     details,
-    log: logLine,
+    logLine,
     checkAbort: () => {
       if (aborted) throw new Aborted("The guard stopped the run");
     },

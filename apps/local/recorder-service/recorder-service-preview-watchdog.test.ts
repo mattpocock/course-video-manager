@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from "vitest";
-import { log } from "@/packages/log";
 import { fakeWindows } from "./test-utils/fake-windows";
 import { CALIBRATED, connect, start, tmp } from "./test-utils/service-harness";
 
@@ -71,7 +70,7 @@ describe("the preview watchdog", () => {
 describe("a preview whose NVENC will not open", () => {
   it("moves that feed to libx264, without spending a Cam Link try; a take still asks NVENC only for camera.mkv", async () => {
     const windows = fakeWindows({ nvencBusy: true, cameraTries: ["frames"] });
-    const errors = vi.spyOn(log, "error").mockImplementation(() => {});
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
     const { port } = await start(windows, tmp());
     const client = await connect(port);
     await client.next("hello");

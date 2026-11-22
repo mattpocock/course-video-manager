@@ -27,7 +27,6 @@ import {
   type MotionPoint,
 } from "../app/packages/clap-detection/live";
 import { createLiveClaps, type LiveClaps } from "./live-claps";
-import { log } from "@/packages/log";
 
 /**
  * THE LEVEL METER (#2078): the AV Calibration page's live loudness of the
@@ -198,7 +197,7 @@ export const createMeterSide = <Owner>(o: {
     try {
       fs.rmSync(run.dir, { recursive: true, force: true });
     } catch (e) {
-      log.error(`recorder: could not delete ${run.dir}`, e);
+      console.error(`recorder: could not delete ${run.dir}`, e);
     }
   };
 

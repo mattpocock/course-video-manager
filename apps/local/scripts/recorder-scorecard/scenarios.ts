@@ -66,7 +66,7 @@ const latencyWindows = async (ctx: Ctx, offset: number, n: number) => {
 
 /** The recorder open and idle: preview latency, CPU, memory, GPU. */
 export const idle = async (ctx: Ctx, gpuBefore: GpuReading | null) => {
-  ctx.log("idle: preview latency and resources, recorder open, no take");
+  ctx.logLine("idle: preview latency and resources, recorder open, no take");
   const offset = await windowsClockOffset();
   await hold(ctx, IDLE_WARMUP_MS);
   const gpu = sampleGpu(IDLE_WINDOWS * LATENCY_WINDOW_MS);
@@ -101,7 +101,7 @@ export const longTake = async (
   seconds: number,
   gpuBefore: GpuReading | null
 ) => {
-  ctx.log(`long take: ${seconds} s`);
+  ctx.logLine(`long take: ${seconds} s`);
   await sleep(2000);
   const gpu = sampleGpu(seconds * 1000);
   let cpu: ReturnType<typeof cpuBetween> | undefined;
@@ -159,7 +159,7 @@ export const longTake = async (
   m.service_frames_lost = take.stopped.framesLost.camera;
   m.service_screen_frames_lost = take.stopped.framesLost.screen;
 
-  ctx.log("long take: reading the files back");
+  ctx.logLine("long take: reading the files back");
   const camera = analysePicture(await decodeStamps(take.files.camera), {
     fps: CAMERA_FPS,
     t0Ms: take.t0Ms,
@@ -265,7 +265,7 @@ const previewKillTrial = async (ctx: Ctx, seconds: number) => {
  * the same every run).
  */
 export const previewKill = async (ctx: Ctx, seconds: number, n: number) => {
-  ctx.log(
+  ctx.logLine(
     `preview kill: ${n} takes, camera and screen previews killed mid-take`
   );
   const trials: Awaited<ReturnType<typeof previewKillTrial>>[] = [];
@@ -298,7 +298,7 @@ export const previewKill = async (ctx: Ctx, seconds: number, n: number) => {
 
 /** The event log stops being writable mid-take (a disk fault the scorecard can make safely). */
 export const eventLogFailure = async (ctx: Ctx) => {
-  ctx.log("event log failure: events.jsonl made read-only mid-take");
+  ctx.logLine("event log failure: events.jsonl made read-only mid-take");
   await sleep(2000);
   let eventLog = "";
   const take = await recordTake(

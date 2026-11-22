@@ -7,7 +7,6 @@ import type {
 import { Refusal } from "./refusal";
 import { refuseWakingScene } from "./screen-side";
 import { STREAM_DECK_WHILE_LIVE } from "./stream-protocol";
-import { log } from "@/packages/log";
 
 /**
  * The Record toggle as the plain press it stands for: Stop while recording,
@@ -77,7 +76,7 @@ export const pressStreamDeck = (
     .then(() => run(command()))
     .catch((e: unknown) => {
       if (!(e instanceof Refusal))
-        log.error("recorder: a Stream Deck press failed", e);
+        console.error("recorder: a Stream Deck press failed", e);
       const message = e instanceof Error ? e.message : String(e);
       broadcast({ type: "stream-deck-ignored", press, message });
     });

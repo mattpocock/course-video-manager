@@ -100,7 +100,7 @@ export const streamFaults = async (
 
   // YouTube gone, then back: the push retries inside the one process.
   await until(0.3);
-  ctx.log("streamed: the sink drops (YouTube gone)");
+  ctx.logLine("streamed: the sink drops (YouTube gone)");
   const dropLogged = o.logs.fault();
   const dropFrom = ctx.client.received.length;
   const dropAt = performance.now();
@@ -112,7 +112,7 @@ export const streamFaults = async (
     15_000
   );
   await hold(ctx, SINK_DOWN_MS);
-  ctx.log("streamed: the sink is back");
+  ctx.logLine("streamed: the sink is back");
   const restoreFrom = ctx.client.received.length;
   const restoreAt = performance.now();
   o.sinks.restore();
@@ -128,7 +128,7 @@ export const streamFaults = async (
   // The stream process killed: launched again, onto a sink started again.
   await until(0.6);
   const sinkFramesBeforeKill = restoredSink.frames();
-  ctx.log("streamed: the stream ffmpeg.exe is killed");
+  ctx.logLine("streamed: the stream ffmpeg.exe is killed");
   const killLogged = o.logs.fault();
   const killFrom = ctx.client.received.length;
   const killAt = performance.now();
@@ -149,7 +149,7 @@ export const streamFaults = async (
   // The feeds lost: the stream frozen past its stall.
   await until(FEED_CUT_AT);
   const sinkFramesBeforeCut = relaunchedSink.frames();
-  ctx.log(
+  ctx.logLine(
     `streamed: the stream ffmpeg.exe is frozen ${FREEZE_MS} ms (its feeds lost)`
   );
   const cutLogged = o.logs.fault();

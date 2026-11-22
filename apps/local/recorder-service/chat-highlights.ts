@@ -8,7 +8,6 @@ import { cardFrameSize, createCardFeed, type CardStamp } from "./card-feed";
 import { CARD_CANVAS, createCardServer } from "./card-server";
 import { Refusal } from "./refusal";
 import type { StreamCard } from "./stream-args";
-import { log } from "@/packages/log";
 
 /**
  * ONE LIVE STREAM'S CHAT HIGHLIGHTS (spec #2445, stories 69–82): the card
@@ -90,7 +89,7 @@ export const startChatHighlights = async (o: {
       ...at,
       receivedAtMs,
     });
-    log.info(
+    console.log(
       `recorder: Chat Highlight on the picture ${Math.round(at.atMs - receivedAtMs)} ms after its click reached the service`
     );
   };

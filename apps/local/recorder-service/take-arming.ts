@@ -3,7 +3,6 @@ import { hearingFeedOverflows } from "./stream-feeds";
 import { Refusal } from "./refusal";
 import { armTake, type ArmedTake } from "./recording-session";
 import { sameTake, type TakeSettings } from "./take-settings";
-import { log } from "@/packages/log";
 
 /** How long Record waits for a writer it had to arm on the spot. */
 const ARM_TIMEOUT_MS = 10_000;
@@ -39,7 +38,7 @@ export const createTakeArming = (o: {
       onQuit: (errors) => {
         if (armed !== take) return;
         armed = undefined;
-        log.error(
+        console.error(
           `recorder: the armed camera writer quit before Record${errors.length ? `: ${errors.join(" ")}` : ""}; arming another`
         );
         setTimeout(rearm, REARM_DELAY_MS);

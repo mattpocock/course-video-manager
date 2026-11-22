@@ -1,5 +1,4 @@
 import type { FramesLost, LostFrameSpan } from "./protocol";
-import { log } from "@/packages/log";
 
 /**
  * FRAMES LOST in one Recording Session (#2214): the Cam Link's dshow buffer
@@ -130,7 +129,7 @@ export const countFramesLost = (o: {
     // To the microsecond ffmpeg prints, not a float's tail.
     const to = Math.round((start + seconds) * 1e6) / 1e6;
     addSpan({ picture, from: start, to, frames: missing });
-    log.error(
+    console.error(
       `recorder: ${picture}.mkv is missing about ${missing} frame(s) at ${start.toFixed(2)} s: a ${gap[1]} s gap in ${where}`
     );
     return missing;

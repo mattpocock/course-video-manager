@@ -31,7 +31,6 @@ import {
 } from "./stream-side";
 import { CARD_ANSWER_MS, CARD_START_MS } from "./card-server";
 import { openStreamHealthLog } from "./stream-health";
-import { log } from "@/packages/log";
 
 /**
  * GO LIVE AND END STREAM in the recorder service (ADR 0054): a streamed
@@ -290,7 +289,7 @@ export const createGoLive = (
           highlights.begin(streamed);
           healthLog = openStreamHealthLog(path.dirname(streamed.eventLog));
         }
-        log.info(
+        console.log(
           `recorder: Go Live: streamed Recording Session ${streamed?.id} for Broadcast ${command.broadcastId}`
         );
       } catch (e) {
@@ -298,7 +297,7 @@ export const createGoLive = (
         side.end(`Go Live failed: ${message}`);
         endHighlights();
         if (!(e instanceof Refusal))
-          log.error(`recorder: Go Live failed: ${message}`);
+          console.error(`recorder: Go Live failed: ${message}`);
         throw new Refusal(message);
       } finally {
         goingLive = undefined;
@@ -330,7 +329,7 @@ export const createGoLive = (
         try {
           if (r.session() === thisEnd.session) r.stop(ENDED_BY_END_STREAM);
         } catch (e) {
-          log.error(
+          console.error(
             `recorder: End Stream: the streamed Recording Session would not stop: ${e instanceof Error ? e.message : String(e)}`
           );
         }
@@ -351,7 +350,7 @@ export const createGoLive = (
       const refuse = (e: unknown) => {
         const message = e instanceof Error ? e.message : String(e);
         if (!(e instanceof Refusal))
-          log.error(`recorder: ${command.type} failed: ${message}`);
+          console.error(`recorder: ${command.type} failed: ${message}`);
         reply({ type: "refused", command: command.type, message });
       };
       if (!highlights)

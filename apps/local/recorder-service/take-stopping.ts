@@ -1,5 +1,4 @@
 import type { RecordingSession } from "./recording-session";
-import { log } from "@/packages/log";
 
 /**
  * TAKES STOPPING (#2211, ADR 0048). Stop lets a take go at the press, as OBS
@@ -27,11 +26,11 @@ export const createTakeStopping = (o: {
       relayHeld = writerQuit;
       const closed = take.stop().then(
         () =>
-          log.info(
+          console.log(
             `recorder: the take finalised ${Date.now() - pressedMs} ms after Stop (${take.id})`
           ),
         (e: unknown) =>
-          log.error(`recorder: the take ${take.id} failed to stop`, e)
+          console.error(`recorder: the take ${take.id} failed to stop`, e)
       );
       finishing.add(closed);
       void closed.finally(() => {
