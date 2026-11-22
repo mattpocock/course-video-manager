@@ -4,6 +4,12 @@ import path from "node:path";
 const DIRECTIVE =
   /^[\s/*]*((?:oxlint|eslint)-disable\S*|@ts-(?:expect-error|ignore|nocheck)|biome-ignore\S*|@effect-diagnostics\S*)(.*)$/s;
 
+export const directiveOf = (comment) => {
+  const match = DIRECTIVE.exec(comment);
+  if (!match) return undefined;
+  return `${match[1]}${match[2]}`.replace(/\s+/g, " ").replace(/[\s*]+$/, "");
+};
+
 const allowlists = new Map();
 
 const allowlist = (file) => {
@@ -30,7 +36,7 @@ const toRepoPath = (cwd, file) =>
  *
  * @type {import("./rule.ts").Rule}
  */
-const rule = {
+export default {
   meta: {
     type: "problem",
     docs: {
@@ -58,11 +64,8 @@ const rule = {
     return {
       Program() {
         for (const comment of context.sourceCode.getAllComments()) {
-          const match = DIRECTIVE.exec(comment.value);
-          if (!match) continue;
-          const directive = `${match[1]}${match[2]}`
-            .replace(/\s+/g, " ")
-            .replace(/[\s*]+$/, "");
+          const directive = directiveOf(comment.value);
+          if (directive === undefined) continue;
           if (!allowed.has(`${file}\0${directive}`)) {
             context.report({
               loc: comment.loc,
@@ -75,5 +78,3 @@ const rule = {
     };
   },
 };
-
-export default rule;

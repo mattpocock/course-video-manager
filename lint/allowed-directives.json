@@ -1,18 +1,8 @@
 [
   {
-    "file": "apps/local/app/features/imported-footage/youtube-footage.ts",
-    "directive": "eslint-disable-next-line no-control-regex",
-    "reason": "The pattern strips characters no file name may hold, and control codes are among them: matching them is its job."
-  },
-  {
-    "file": "apps/local/app/services/clip-mockup-daemon/server.ts",
-    "directive": "@effect-diagnostics-next-line globalErrorInEffectFailure:off",
-    "reason": "The throw is in a plain async request handler, not an Effect; its .then turns the rejection into a 400, so it never reaches an Effect's failure channel."
-  },
-  {
     "file": "apps/local/app/services/route-action.server.test.ts",
     "directive": "@effect-diagnostics-next-line globalErrorInEffectFailure:off",
-    "reason": "The test fails with a deliberately untagged Error to pin the action's fallback to a 500 for an error with no _tag."
+    "reason": "The test fails with a deliberately untagged Error to pin the action's fallback to a 500 for an error with no _tag at all, which product code no longer produces."
   },
   {
     "file": "apps/local/sidecar/posting-kinds.test.ts",

@@ -294,8 +294,6 @@ describe("makeAction", () => {
 
       const action = makeAction(
         {
-          // Deliberately untagged: this pins the fallback for an error with
-          // no `_tag` at all, which product code no longer produces.
           // @effect-diagnostics-next-line globalErrorInEffectFailure:off
           effect: () => Effect.fail(new Error("something broke")),
         },

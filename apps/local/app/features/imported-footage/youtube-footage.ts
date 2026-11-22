@@ -69,8 +69,7 @@ export const youtubeWatchUrl = (videoId: string): string =>
   `https://www.youtube.com/watch?v=${videoId}`;
 
 /** Characters no Windows or Linux file name may hold, and control codes. */
-// eslint-disable-next-line no-control-regex
-const UNSAFE = /[<>:"/\\|?*\u0000-\u001f]/g;
+const UNSAFE = /[<>:"/\\|?*\p{Cc}]/gu;
 const MAX_TITLE_CHARS = 120;
 
 /**
