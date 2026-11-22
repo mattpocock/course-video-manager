@@ -83,12 +83,21 @@ const isOverride = (value: unknown): value is Override =>
   typeof value.rules === "object" &&
   value.rules !== null;
 
+export interface Config {
+  rules: Record<string, unknown>;
+  overrides: Override[];
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
 /**
- * The `overrides` of the repo's `.oxlintrc.json`, read with its comments
- * stripped. `ownerPathExists` is true when an override's file entry names
- * something in the repo: a path, or the folder a glob starts in.
+ * The repo's `.oxlintrc.json`, read with its comments stripped: its root
+ * `rules` and its `overrides`. `configOverrides` is the overrides alone.
+ * `ownerPathExists` is true when an override's file entry names something in
+ * the repo: a path, or the folder a glob starts in.
  */
-export const configOverrides = (): Override[] => {
+export const repoConfig = (): Config => {
   const source = readFileSync(path.join(ROOT, ".oxlintrc.json"), "utf8");
   const config: unknown = JSON.parse(
     source.replace(
@@ -96,15 +105,16 @@ export const configOverrides = (): Override[] => {
       (_, string: string | undefined) => string ?? ""
     )
   );
-  const overrides: unknown =
-    typeof config === "object" && config !== null && "overrides" in config
-      ? config.overrides
-      : undefined;
+  if (!isRecord(config)) throw new Error(".oxlintrc.json is not an object");
+  const { rules, overrides } = config;
+  if (!isRecord(rules)) throw new Error(".oxlintrc.json has no rules");
   if (!Array.isArray(overrides) || !overrides.every(isOverride)) {
     throw new Error(".oxlintrc.json has no readable overrides");
   }
-  return overrides;
+  return { rules, overrides };
 };
+
+export const configOverrides = (): Override[] => repoConfig().overrides;
 
 export const ownerPathExists = (file: string) =>
   existsSync(path.join(ROOT, file.split("*")[0] ?? file));
