@@ -2,8 +2,14 @@
   // `.sandcastle/` is deliberately absent: a dot directory never matched the
   // `**/*` glob this program used before the monorepo split, so its harness has
   // never been part of a typecheck. Adding it is a separate job.
-  "include": ["tests/**/*", "scripts/**/*.ts", "vitest.config.ts"],
-  "exclude": ["node_modules"],
+  "include": [
+    "tests/**/*",
+    "scripts/**/*.ts",
+    "lint/**/*.ts",
+    "vitest.config.ts"
+  ],
+  // The canary is planted to fail lint, not to be typechecked.
+  "exclude": ["node_modules", "lint/canary"],
   "compilerOptions": {
     "lib": ["ESNext"],
     "types": ["node"],
@@ -17,6 +23,9 @@
     // `node scripts/x.ts` strips types and resolves imports as written.
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
+    // The lint plugin is plain JavaScript (Oxlint loads it as-is); its rule
+    // tests import it, typed by inference.
+    "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
     "noUnusedLocals": true,
