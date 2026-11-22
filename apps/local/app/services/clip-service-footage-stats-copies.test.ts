@@ -14,13 +14,14 @@ import {
   testDb,
   start,
 } from "./clip-service-test-setup";
+import { toDate } from "@/packages/clock";
 
 setupClipServiceTests();
 
 const NOW = "2026-10-12T09:00:00Z";
 
 const stats = () =>
-  clipService.getFootageStats({ now: new Date(NOW), timeZone: "UTC" });
+  clipService.getFootageStats({ now: toDate(NOW), timeZone: "UTC" });
 
 const run = <A, E>(effect: Effect.Effect<A, E, any>) =>
   Effect.runPromise(
@@ -78,7 +79,7 @@ describe("ClipService.getFootageStats — Clip Origin `copy`", () => {
     });
     await testDb
       .update(clips)
-      .set({ createdAt: new Date("2026-10-12T08:00:00Z") })
+      .set({ createdAt: toDate("2026-10-12T08:00:00Z") })
       .where(eq(clips.id, take!.id));
 
     const filmed = await stats();

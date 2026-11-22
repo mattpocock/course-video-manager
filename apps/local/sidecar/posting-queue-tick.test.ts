@@ -24,6 +24,7 @@ import {
   uk,
   youtubeInits,
 } from "./posting-queue-test-harness";
+import { toDate } from "@/packages/clock";
 
 // ===========================================================================
 // The Posting Queue tick (#2614): at a Posting Slot the Sidecar posts the
@@ -150,7 +151,7 @@ describe("the Posting Queue tick", () => {
       videoId,
       platform: "youtube-shorts",
       remoteId: "yt-old",
-      postedAt: new Date(uk("13:00", "2026-10-01")),
+      postedAt: toDate(uk("13:00", "2026-10-01")),
     });
     await queue(videoId, uk("08:00", "2026-10-13"));
 

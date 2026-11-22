@@ -13,6 +13,7 @@ import {
   getSessionPanels,
   DELETED_CLIPS_SESSION_ID,
 } from "./video-editor-selectors";
+import { nowMs, now } from "@/packages/clock";
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -27,7 +28,7 @@ const makeClipOnDatabase = (
   sourceStartTime: 0,
   sourceEndTime: 5,
   text: "hello world",
-  transcribedAt: new Date(),
+  transcribedAt: now(),
   transcriptionStatus: "done",
   scene: null,
   profile: null,
@@ -70,7 +71,7 @@ const makeSession = (
   displayNumber: 1,
   status: "recording",
   outputPath: "/tmp/test.mkv",
-  startedAt: Date.now(),
+  startedAt: nowMs(),
   silenceLength: "short",
   ...overrides,
 });

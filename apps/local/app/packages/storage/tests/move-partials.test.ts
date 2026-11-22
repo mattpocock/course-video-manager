@@ -21,6 +21,7 @@ import {
   sweepEndedMovePartials,
   type StorageMoveDisk,
 } from "../move";
+import { delay } from "@/packages/clock";
 
 /**
  * A storage move's partial copies (#2169): no `.cvm-move-partial` may outlive
@@ -188,7 +189,7 @@ describe("a storage move's partials, run by run", () => {
     await started;
     await Effect.runPromise(Fiber.interrupt(fiber));
     release();
-    await new Promise((r) => setTimeout(r, 100));
+    await delay(100);
     expect(exists(partialOn(e, "raw-footage/a.mkv"))).toBe(true);
     expect(exists(path.join(e, "raw-footage/a.mkv"))).toBe(false);
   });

@@ -13,6 +13,7 @@ import {
 } from "../clip-service-test-setup";
 import { ingestRecorderEvent } from "./ingest.server";
 import { createRecorderEventSequencer } from "./sequencer";
+import { nowMs, toDate } from "@/packages/clock";
 
 /**
  * A new Recording Session starts with the Mic Offset of its camera + mic
@@ -75,7 +76,7 @@ const calibrated = (
 ) =>
   testDb.insert(avCalibrations).values({
     id,
-    createdAt: new Date(Date.now() - o.minutesAgo * 60_000),
+    createdAt: toDate(nowMs() - o.minutesAgo * 60_000),
     outcome: o.outcome ?? "passed",
     noiseFloorDb: -80,
     speechLufs: -27,

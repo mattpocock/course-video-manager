@@ -1,6 +1,7 @@
 import { Deferred, Effect } from "effect";
 import type { JobOperationsService } from "@cvm/core/services/db-job-operations.server";
 import type { SidecarTiming } from "./sidecar-timing";
+import { nowMs } from "@/packages/clock";
 
 /**
  * One renewal of the Sidecar's lease, run every `leaseRenewMs` (#2621).
@@ -23,7 +24,7 @@ export const makeLeaseRenewal = (opts: {
   readonly stop: Deferred.Deferred<string>;
 }): Effect.Effect<void> => {
   const { ops, holder, timing, stop } = opts;
-  let lastRenewed = Date.now();
+  let lastRenewed = nowMs();
   return ops.renewSidecarLease({ holder, leaseMs: timing.leaseMs }).pipe(
     Effect.timeoutFail({
       duration: timing.leaseMs,

@@ -25,6 +25,7 @@ import { renderThumbnailPngBase64 } from "./render-thumbnail";
 import type { PlaygroundStatus } from "./playground-status";
 import { fetchSnapshotList, type Snapshot } from "./snapshot-list";
 import { LINKED_SNAPSHOT_NOT_FOUND } from "./diagram-playground-status-messages";
+import { after } from "@/packages/clock";
 
 /**
  * Straight to the store: the canvas is read-only until a head loads, and the
@@ -364,11 +365,10 @@ export function useDiagramPlaygroundReducer() {
         });
       },
       "time-out-error": (_state, effect, dispatch) => {
-        const timer = setTimeout(
-          () => dispatch({ type: "error-timed-out", id: effect.id }),
-          effect.ms
+        const timer = after(effect.ms, () =>
+          dispatch({ type: "error-timed-out", id: effect.id })
         );
-        return () => clearTimeout(timer);
+        return () => timer();
       },
       // The store listener on the route reports the flip back as
       // `focus-mode-changed`.

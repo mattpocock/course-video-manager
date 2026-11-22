@@ -17,6 +17,7 @@ import {
 import type { PreviewProbe } from "./preview-probe";
 import { windowsClockOffset } from "./windows";
 import type { Measured } from "./metrics";
+import { nowMs, delay } from "@/packages/clock";
 
 /**
  * A RUN'S CONTEXT AND ONE TAKE: opening the recorder as the editor does,
@@ -48,7 +49,7 @@ export type Ctx = {
   checkAbort: () => void;
 };
 
-export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+export const sleep = (ms: number) => delay(ms);
 
 /** Waits `ms`, checking for an abort every second. */
 export const hold = async (ctx: Ctx, ms: number) => {
@@ -185,7 +186,7 @@ export const recordTake = async (
   let stop = {
     from: ctx.client.received.length,
     at: performance.now(),
-    wall: Date.now(),
+    wall: nowMs(),
   };
   if (o.expectStop !== true) {
     stop = ctx.client.send({ type: "stop" });

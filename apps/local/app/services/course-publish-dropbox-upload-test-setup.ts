@@ -47,6 +47,7 @@ import {
 } from "@/packages/course-json";
 import { eq } from "drizzle-orm";
 import { EXPORT_HASH_RENAME_MARKER } from "./export-hash-rename";
+import { nowMs, toDate } from "@/packages/clock";
 
 export let testDb: TestDb;
 let finishedVideosDir: string;
@@ -109,7 +110,7 @@ export const setupUploads = async (opts?: {
   await testDb.insert(dropboxAuth).values({
     accessToken: FAKE_ACCESS_TOKEN,
     refreshToken: "fake-refresh-token",
-    expiresAt: new Date(Date.now() + 3600 * 1000),
+    expiresAt: toDate(nowMs() + 3600 * 1000),
   });
 
   const drizzleLayer = Layer.succeed(DrizzleService, testDb as any);

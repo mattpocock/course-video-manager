@@ -7,6 +7,7 @@ import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { clipFrame, clipSource } from "@/packages/clip-source";
 import { FFmpegCommandsService } from "./ffmpeg-commands";
+import { nowMs } from "@/packages/clock";
 
 /**
  * A screenshot of a CVM-recorder Clip — two inputs, both decoded on the GPU —
@@ -24,7 +25,7 @@ const hasFfmpeg = (() => {
 })();
 
 describe.skipIf(!hasFfmpeg)("a screenshot, decoded on the GPU", () => {
-  const dir = path.join(tmpdir(), `ffmpeg-stills-${process.pid}-${Date.now()}`);
+  const dir = path.join(tmpdir(), `ffmpeg-stills-${process.pid}-${nowMs()}`);
   afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
   const screen = path.join(dir, "screen.mkv");

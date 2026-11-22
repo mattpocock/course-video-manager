@@ -18,6 +18,7 @@ import {
   type RunResult,
   type WriteSeed,
 } from "./cli-write-test-harness";
+import { toDate } from "@/packages/clock";
 
 // ===========================================================================
 // cvm video agent-sessions set | get | clear. Every session file here is a
@@ -38,7 +39,7 @@ let dir: string;
 let clips: Record<"c1" | "c2" | "c3", string>;
 
 const at = (seconds: number) =>
-  new Date(Date.UTC(2026, 0, 15, 10, 0, 0) + seconds * 1000).toISOString();
+  toDate(Date.UTC(2026, 0, 15, 10, 0, 0) + seconds * 1000).toISOString();
 
 const CWD = "/home/dev/proj";
 
@@ -145,7 +146,7 @@ beforeEach(async () => {
       cameraFilePath: "c.mkv",
       screenFilePath: "s.mkv",
       micFilePath: "m.mkv",
-      startedAt: new Date(at(30)),
+      startedAt: toDate(at(30)),
     })
     .returning();
   const obs = "raw-footage/2026-01-15_10-00-00.mkv";

@@ -12,6 +12,7 @@ import {
   setupPublishableCourse as setup,
   testDb,
 } from "./course-publish-service-test-setup";
+import { nowMs } from "@/packages/clock";
 
 setupPublishServiceTests();
 
@@ -73,7 +74,7 @@ describe("CoursePublishService — an export whose Footage is offline", () => {
   const withUnpluggedE = () => {
     const unplugged = path.join(
       os.tmpdir(),
-      `unplugged-e-${process.pid}-${Date.now()}`
+      `unplugged-e-${process.pid}-${nowMs()}`
     );
     return {
       unplugged,

@@ -42,6 +42,7 @@ import {
   selectCompositeLayers,
   selectDiagramKind,
 } from "@/features/thumbnail-editor/thumbnail-state-reducer";
+import { after } from "@/packages/clock";
 
 export const loader = makeLoader({
   effect: ({ params }) =>
@@ -167,15 +168,15 @@ export default function ThumbnailsPage({ loaderData }: Route.ComponentProps) {
     )
       return;
 
-    const timer = setTimeout(() => {
+    const timer = after(500, () => {
       dispatch({
         type: "save-requested",
         videoId,
         compositeDataUrl: canvas.toDataURL("image/png"),
       });
-    }, 500);
+    });
 
-    return () => clearTimeout(timer);
+    return () => timer();
   }, [
     state.pendingAutoSave,
     state.previewDataUrl,

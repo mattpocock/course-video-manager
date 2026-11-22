@@ -12,6 +12,7 @@ import { newestSnapshotHashByDiagram } from "@/lib/filtered-newest-snapshot";
 import { data } from "react-router";
 import { NO_TOASTS } from "@/lib/route-toasts";
 import type { Route } from "./+types/diagram-playground._index";
+import { every, after, now as clockNow, toDate } from "@/packages/clock";
 
 export const handle = NO_TOASTS;
 
@@ -54,7 +55,7 @@ export const loader = makeLoader({
 });
 
 function formatTimeAgo(date: Date): string {
-  const now = new Date();
+  const now = clockNow();
   const diffMs = now.getTime() - date.getTime();
   const diffMins = Math.floor(diffMs / 60_000);
   const diffHours = Math.floor(diffMs / 3_600_000);
@@ -76,7 +77,7 @@ export default function DiagramPlaygroundHome({
 
   const currentQuery = searchParams.get("q") ?? "";
   const [inputValue, setInputValue] = useState(currentQuery);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debounceRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     setInputValue(currentQuery);
@@ -84,19 +85,19 @@ export default function DiagramPlaygroundHome({
 
   const handleSearchChange = (value: string) => {
     setInputValue(value);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
+    if (debounceRef.current) debounceRef.current();
+    debounceRef.current = after(200, () => {
       if (value.trim()) {
         setSearchParams({ q: value.trim() }, { replace: true });
       } else {
         setSearchParams({}, { replace: true });
       }
-    }, 200);
+    });
   };
 
   useEffect(() => {
     return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (debounceRef.current) debounceRef.current();
     };
   }, []);
 
@@ -113,7 +114,7 @@ export default function DiagramPlaygroundHome({
   useEffect(() => {
     const beat = () => diagramChannel.sendToParent({ type: "ping" });
     beat();
-    const interval = setInterval(beat, 2000);
+    const interval = every(2000, beat);
     const unsub = diagramChannel.subscribeChild((msg) => {
       if (msg.type === "loadDiagram") {
         navigate(playgroundUrl(msg.diagramId, msg.snapshotId), {
@@ -122,7 +123,7 @@ export default function DiagramPlaygroundHome({
       }
     });
     return () => {
-      clearInterval(interval);
+      interval();
       unsub();
     };
   }, [navigate]);
@@ -233,7 +234,7 @@ export default function DiagramPlaygroundHome({
                       onRenameError={(message) => console.error(message)}
                     />
                     <span className="text-xs text-zinc-400">
-                      {formatTimeAgo(new Date(tile.updatedAt))}
+                      {formatTimeAgo(toDate(tile.updatedAt))}
                     </span>
                   </div>
                 </div>

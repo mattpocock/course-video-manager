@@ -7,6 +7,7 @@ import {
   UploadProvider,
   useUploadActions,
 } from "./upload-context";
+import { delay } from "@/packages/clock";
 
 /** Stands in for the tab's one `/api/jobs/events` stream. */
 class FakeEventSource {
@@ -73,7 +74,7 @@ describe("UploadProvider", () => {
           : JOB_STREAM_EVENTS.sidecarAvailable,
         { message: "down" }
       );
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      await delay(0);
     }
 
     // The Jobs state did change, and its watchers heard it...

@@ -7,6 +7,7 @@ import { STREAM_TAG } from "../stream-args";
 import { fakeCardServers, readCardFeed } from "./fake-card-server";
 import type { Launch, LaunchedProcess, Launcher } from "../launcher";
 import { flvHeader, flvVideoTag } from "./flv";
+import { every, delay, after } from "@/packages/clock";
 
 /**
  * A fake Footage file: `fakeFootage(12.5)` is a file ffmpeg reads as 12.5 s
@@ -133,7 +134,7 @@ const answer = (
     if (o.stderr) p.stderr(o.stderr);
     p.exit(o.code ?? 0);
   };
-  if (o.afterMs) setTimeout(reply, o.afterMs);
+  if (o.afterMs) after(o.afterMs, reply);
   else setImmediate(reply);
   return p;
 };
@@ -217,7 +218,7 @@ const sendFrames = (
     return { flv: m[1] === "flv", socket };
   });
   let n = 0;
-  const timer = setInterval(() => {
+  const timer = every(20, () => {
     if (p.frozen || !source()) return;
     for (const { flv, socket } of outputs) {
       if (flv) {
@@ -233,9 +234,9 @@ const sendFrames = (
       socket.write("\r\n");
     }
     n += 1;
-  }, 20);
+  });
   void p.exited.then(() => {
-    clearInterval(timer);
+    timer();
     outputs.forEach(({ socket }) => socket.destroy());
   });
 };
@@ -351,7 +352,7 @@ export const fakeWindows = (
   /** The injected wake: never the real Spacedesk. */
   const wakeSpacedesk = async () => {
     wakes += 1;
-    await new Promise((r) => setTimeout(r, 5));
+    await delay(5);
     if (spacedesk.wakeFails) throw new Error(spacedesk.wakeFails);
     spacedesk.awake = true;
   };
@@ -527,14 +528,14 @@ export const fakeWindows = (
       const loudness = o.micLoudness;
       if (loudness) {
         let t = 0;
-        const timer = setInterval(() => {
+        const timer = every(100, () => {
           t += 0.1;
           const s = loudness(t).toFixed(1);
           p.stderr(
             `${ebur128Line(t, Number(s) + (Math.random() - 0.5) * 3, Number(s))}\r\n`
           );
-        }, 100);
-        void p.exited.then(() => clearInterval(timer));
+        });
+        void p.exited.then(() => timer());
       }
       return p;
     }

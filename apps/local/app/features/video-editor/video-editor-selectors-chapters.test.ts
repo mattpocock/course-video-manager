@@ -9,6 +9,7 @@ import {
   getChapterForClip,
   getChapterPercentComplete,
 } from "./video-editor-selectors";
+import { now } from "@/packages/clock";
 
 const makeClip = (
   overrides: Partial<ClipOnDatabase> & { frontendId: FrontendId }
@@ -19,7 +20,7 @@ const makeClip = (
   sourceStartTime: 0,
   sourceEndTime: 5,
   text: "hello",
-  transcribedAt: new Date(),
+  transcribedAt: now(),
   transcriptionStatus: "done",
   scene: null,
   profile: null,

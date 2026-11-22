@@ -47,6 +47,7 @@ import {
   shortExportHashOf,
 } from "@/services/short-export-hash";
 import { storageRootsConfig } from "@/services/storage-roots";
+import { toDate, delay, nowMs, now } from "@/packages/clock";
 
 // ===========================================================================
 // The harness of the Posting Queue tick's tests (#2614, #2615): at a Posting Slot the Sidecar posts the
@@ -62,7 +63,7 @@ import { storageRootsConfig } from "@/services/storage-roots";
 
 /** Wednesday 14 October 2026, UK summer time (BST, UTC+1). */
 export const uk = (hhmm: string, day = "2026-10-14") =>
-  new Date(`${day}T${hhmm}:00+01:00`).getTime();
+  toDate(`${day}T${hhmm}:00+01:00`).getTime();
 
 type Seen = { method: string; path: string; query: string; body: string };
 export let seen: Seen[] = [];
@@ -144,7 +145,7 @@ const answer = (
       items: fakes.youtubeUploads.map((u) => ({
         snippet: {
           title: u.title,
-          publishedAt: new Date().toISOString(),
+          publishedAt: now().toISOString(),
           resourceId: { videoId: u.videoId },
         },
       })),
@@ -303,7 +304,7 @@ beforeEach(async () => {
   await testDb.insert(schema.youtubeAuth).values({
     accessToken: "stale-token",
     refreshToken: "refresh-token",
-    expiresAt: new Date(Date.now() - 60_000),
+    expiresAt: toDate(nowMs() - 60_000),
   });
 });
 
@@ -376,7 +377,7 @@ export const runSidecarUntilSettled = async () => {
     if (live.every((j) => j.status !== "queued" && j.status !== "running")) {
       break;
     }
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await delay(20);
   }
   await Effect.runPromise(
     Deferred.succeed(stop, "test over").pipe(Effect.zipRight(Fiber.join(fiber)))
@@ -490,7 +491,7 @@ export const stateOf = async (videoId: string) => {
   if (row) {
     return {
       state: row.state,
-      slot: row.slot === null ? null : new Date(row.slot).getTime(),
+      slot: row.slot === null ? null : toDate(row.slot).getTime(),
       lastFailureReason: row.lastFailureReason,
     };
   }

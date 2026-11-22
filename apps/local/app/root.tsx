@@ -46,6 +46,7 @@ import { readTldrawLicenseKey } from "@/features/diagrams/tldraw-license-key.ser
 import type { RootLoaderData } from "@/features/diagrams/use-tldraw-license-key";
 import { Effect } from "effect";
 import "./app.css";
+import { after } from "@/packages/clock";
 
 // Every request, page or resource route, is timed here, once.
 export const middleware: Route.MiddlewareFunction[] = [slowRequestMiddleware];
@@ -193,7 +194,7 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
     navigator.clipboard.writeText(errorDetails.join("\n")).then(
       () => {
         setIsCopied(true);
-        setTimeout(() => setIsCopied(false), 2000);
+        after(2000, () => setIsCopied(false));
       },
       (err: unknown) => {
         console.error("Failed to copy error to clipboard:", err);

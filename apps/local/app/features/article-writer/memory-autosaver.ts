@@ -1,3 +1,5 @@
+import { after } from "@/packages/clock";
+
 export const MEMORY_AUTOSAVE_DEBOUNCE_MS = 750;
 
 /**
@@ -10,10 +12,10 @@ export function createMemoryAutosaver(opts: {
   debounceMs?: number;
 }) {
   let baseline = opts.initial;
-  let timeout: ReturnType<typeof setTimeout> | undefined;
+  let timeout: (() => void) | undefined;
 
   const cancel = () => {
-    if (timeout) clearTimeout(timeout);
+    if (timeout) timeout();
     timeout = undefined;
   };
 
@@ -21,11 +23,11 @@ export function createMemoryAutosaver(opts: {
     update(text: string) {
       cancel();
       if (text === baseline) return;
-      timeout = setTimeout(() => {
+      timeout = after(opts.debounceMs ?? MEMORY_AUTOSAVE_DEBOUNCE_MS, () => {
         timeout = undefined;
         baseline = text;
         opts.save(text);
-      }, opts.debounceMs ?? MEMORY_AUTOSAVE_DEBOUNCE_MS);
+      });
     },
     cancel,
   };

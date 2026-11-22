@@ -7,6 +7,7 @@ import {
 } from "@cvm/core/lib/simple-diagram/index";
 import { LOCAL_MACHINE_ENV_KEY } from "./env";
 import { ndjson, useDiagramCli } from "./cli-write-test-harness";
+import { toDate } from "@/packages/clock";
 
 // ===========================================================================
 // cvm diagram list / cvm diagram component list: READ-ONLY views of Matt's
@@ -272,7 +273,7 @@ describe("cvm diagram component list", () => {
     const recent = await seed("Recent", [box("a")]);
     await db()
       .update(schema.diagramComponents)
-      .set({ lastUsedAt: new Date("2020-01-01") })
+      .set({ lastUsedAt: toDate("2020-01-01") })
       .where(eq(schema.diagramComponents.id, old.id));
     delete process.env[LOCAL_MACHINE_ENV_KEY];
 

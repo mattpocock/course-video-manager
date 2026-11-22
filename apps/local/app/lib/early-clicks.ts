@@ -1,3 +1,5 @@
+import { after } from "@/packages/clock";
+
 /**
  * Clicks that land before React hydrates.
  *
@@ -90,7 +92,7 @@ export function replayEarlyClicks(): void {
   // dispatched from inside the commit would be rendered on top of it. A task
   // later it lands where a real click would, once the thread is free.
   const [first] = buffer.clicks;
-  if (first) setTimeout(() => dispatchClick(first), 0);
+  if (first) after(0, () => dispatchClick(first));
 }
 
 function dispatchClick(click: EarlyClick): void {

@@ -26,6 +26,7 @@ import {
   CALIBRATED,
   CALIBRATION,
 } from "./test-utils/service-harness";
+import { delay } from "@/packages/clock";
 
 /** The recorder service through its WebSocket (test-utils/service-harness.ts). */
 
@@ -329,10 +330,7 @@ describe("a Recording Session", () => {
       );
     // Room for a stop told too early to arrive while the log cannot be
     // written; a stop that waits for its log arrives only after the release.
-    await Promise.race([
-      logWhenStopped,
-      new Promise((r) => setTimeout(r, 100)),
-    ]);
+    await Promise.race([logWhenStopped, delay(100)]);
     await pool.release();
     expect(await logWhenStopped).toContain("the camera's last line");
   });

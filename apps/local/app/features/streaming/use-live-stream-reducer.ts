@@ -9,6 +9,7 @@ import {
 } from "./live-stream-reducer";
 import { messageOf, reasonOf, unlistOfEndStreamAnswer } from "./route-answer";
 import { unlistPreferenceKey } from "./unlist-when-ended";
+import { after } from "@/packages/clock";
 
 /** Where the Broadcast picker lists from (`routes/api.streaming.broadcasts.ts`). */
 export const BROADCASTS_HREF = "/api/streaming/broadcasts";
@@ -110,16 +111,14 @@ export function useLiveStreamReducer() {
         );
     },
     "await-reconnect-grace": (_state, { broadcastId, reconnect }, dispatch) => {
-      const timer = setTimeout(
-        () =>
-          dispatch({
-            type: "chat-reconnect-grace-ended",
-            broadcastId,
-            reconnect,
-          }),
-        RECONNECT_GRACE_MS
+      const timer = after(RECONNECT_GRACE_MS, () =>
+        dispatch({
+          type: "chat-reconnect-grace-ended",
+          broadcastId,
+          reconnect,
+        })
       );
-      return () => clearTimeout(timer);
+      return () => timer();
     },
     "end-stream": (_state, effect, dispatch) => {
       fetch(

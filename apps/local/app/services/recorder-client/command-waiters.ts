@@ -7,6 +7,7 @@ import {
   RecorderUnavailableError,
   NOT_RUNNING,
 } from "./recorder-command";
+import { after } from "@/packages/clock";
 
 type Waiter = {
   command: RecorderCommand["type"];
@@ -43,23 +44,23 @@ export const commandWaiters = (o: {
           reject(new RecorderUnavailableError(NOT_RUNNING));
           return;
         }
-        const timer = setTimeout(() => {
+        const timer = after(o.timeoutMs + extraMs, () => {
           remove(waiter);
           reject(
             new RecorderUnavailableError(
               `The recorder service did not answer ${sent.type}.`
             )
           );
-        }, o.timeoutMs + extraMs);
+        });
         const waiter: Waiter = {
           command: sent.type,
           done,
           resolve: () => {
-            clearTimeout(timer);
+            timer();
             resolve();
           },
           reject: (error) => {
-            clearTimeout(timer);
+            timer();
             reject(error);
           },
         };

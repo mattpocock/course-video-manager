@@ -7,6 +7,7 @@ import {
   exitingPose,
   type ChatHighlightPose,
 } from "@cvm/core/features/videos/chat-highlight-motion";
+import { after } from "@/packages/clock";
 
 /**
  * THE CARD FEED (spec #2445, option (b)): the Chat Highlight card's still,
@@ -212,7 +213,7 @@ export const createCardFeed = (o: {
   /** Where the next launch's picture starts, in file time (s). */
   let nextStartSeconds = 0;
   let gone = false;
-  let timer: ReturnType<typeof setTimeout> | undefined;
+  let timer: (() => void) | undefined;
   let phase: Phase = { kind: "hidden" };
   /** Changes asked for, applied from the first frame at or after their time. */
   let pending: { notBeforeMs: number; apply: (at: CardStamp) => void }[] = [];
@@ -276,14 +277,14 @@ export const createCardFeed = (o: {
   };
 
   const tick = () => {
-    clearTimeout(timer);
+    timer?.();
     const r = reader;
     if (gone || !r || t0Ms === undefined) return;
     let now: number;
     try {
       now = o.now();
     } catch {
-      timer = setTimeout(tick, FRAME_MS);
+      timer = after(FRAME_MS, tick);
       return;
     }
     while (stampOf(r, r.frame).atMs <= now) {
@@ -311,14 +312,14 @@ export const createCardFeed = (o: {
       r.socket.write(lastSent);
       r.frame += 1;
     }
-    timer = setTimeout(tick, Math.max(1, stampOf(r, r.frame).atMs - now));
+    timer = after(Math.max(1, stampOf(r, r.frame).atMs - now), tick);
   };
 
   /** Its reader went (the stream process quit): the next launch connects again. */
   const readerGone = (r: NonNullable<typeof reader>) => {
     if (reader !== r) return;
     reader = undefined;
-    clearTimeout(timer);
+    timer?.();
   };
 
   const server = net.createServer((s) => {
@@ -434,7 +435,7 @@ export const createCardFeed = (o: {
       if (gone) return;
       gone = true;
       failStamps(new Error("The card feed closed."));
-      clearTimeout(timer);
+      timer?.();
       reader?.socket.destroy();
       server.close();
     },

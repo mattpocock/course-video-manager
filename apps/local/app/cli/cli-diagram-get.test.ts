@@ -4,6 +4,7 @@ import * as schema from "@/db/schema";
 import type { Scene } from "@cvm/core/lib/simple-diagram/index";
 import { LOCAL_MACHINE_ENV_KEY } from "./env";
 import { failureOf, ndjson, useDiagramCli } from "./cli-write-test-harness";
+import { toDate } from "@/packages/clock";
 
 // ===========================================================================
 // cvm diagram get: READ the head and the snapshot list in the simple format.
@@ -113,7 +114,9 @@ describe("cvm diagram get", () => {
         diagramText: expect.stringContaining("call"),
       },
     ]);
-    expect(Number.isNaN(Date.parse(got!.snapshots[0]!.createdAt))).toBe(false);
+    expect(Number.isNaN(toDate(got!.snapshots[0]!.createdAt).getTime())).toBe(
+      false
+    );
 
     const second = await run([
       "diagram",

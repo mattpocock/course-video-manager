@@ -38,6 +38,7 @@ import {
   ImageUploadDropdown,
   SeoDescriptionField,
 } from "./skills-changelog-helpers";
+import { after } from "@/packages/clock";
 
 export function SkillsChangelogPage({
   videoId,
@@ -181,7 +182,7 @@ export function SkillsChangelogPage({
     try {
       await navigator.clipboard.writeText(text);
       setJustCopied(true);
-      setTimeout(() => setJustCopied(false), 1500);
+      after(1500, () => setJustCopied(false));
     } catch {
       toast.error("Failed to copy to clipboard");
     }
@@ -201,7 +202,7 @@ export function SkillsChangelogPage({
     try {
       await navigator.clipboard.writeText(text);
       setJustCopiedAll(true);
-      setTimeout(() => setJustCopiedAll(false), 1500);
+      after(1500, () => setJustCopiedAll(false));
     } catch {
       toast.error("Failed to copy to clipboard");
     }

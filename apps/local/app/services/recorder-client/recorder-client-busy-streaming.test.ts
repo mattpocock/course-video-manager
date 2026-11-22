@@ -11,6 +11,7 @@ import { connect } from "recorder-service/test-utils/service-harness";
 import type { CvmRecorderMessage } from "@/features/video-editor/cvm-recorder-wire";
 import { clipService } from "../clip-service-test-setup";
 import { ready, setupGoLiveTests } from "./go-live-test-harness";
+import { delay } from "@/packages/clock";
 
 /**
  * Busy streaming (ADR 0055), end to end (`go-live-test-harness.ts`): while
@@ -101,7 +102,7 @@ describe("a streamed Recording Session is busy streaming", () => {
 
     expect(r.busy()).toBe(true);
     ipc.emit("message", IDLE_STOP);
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await delay(20);
     expect(stopped).toBe(false);
     expect(lines.join("\n")).toContain("refused");
 

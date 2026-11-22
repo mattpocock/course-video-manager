@@ -16,6 +16,7 @@ import {
   bucketPageReducer,
   createInitialBucketPageState,
 } from "./bucket-page-reducer";
+import { nowMs } from "@/packages/clock";
 
 /**
  * The `listen-to-listing` effect: listens to the bucket's listing while the
@@ -35,7 +36,7 @@ const listenToListing = (
       const message = JSON.parse(event.data) as StorageBucketFilesMessage;
       dispatch(
         message.type === "scan-completed"
-          ? { type: "scan-completed", at: Date.now() }
+          ? { type: "scan-completed", at: nowMs() }
           : message
       );
     });
@@ -111,7 +112,7 @@ export const useBucketPage = (bucketId: string) => {
   useEffect(() => {
     dispatch({
       type: "page-opened",
-      now: Date.now(),
+      now: nowMs(),
       cached: storageCache.listing(bucketId),
     });
   }, [dispatch, bucketId]);

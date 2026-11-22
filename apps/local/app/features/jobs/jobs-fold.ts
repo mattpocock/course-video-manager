@@ -1,5 +1,6 @@
 import { PUBLISH_INTERRUPTED_MESSAGE, type WireJob } from "./job-wire";
 import type { jobsReducer } from "./jobs-reducer";
+import { toDate } from "@/packages/clock";
 
 /**
  * How one Job Event changes what a tab knows of its Job: the state machine
@@ -9,7 +10,7 @@ import type { jobsReducer } from "./jobs-reducer";
 
 /** A wire Job's enqueue time, in epoch ms; `null` if it does not parse. */
 const createdAtOf = (job: WireJob): number | null => {
-  const at = Date.parse(job.createdAt);
+  const at = toDate(job.createdAt).getTime();
   return Number.isFinite(at) ? at : null;
 };
 

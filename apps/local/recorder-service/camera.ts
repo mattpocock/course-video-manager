@@ -16,6 +16,7 @@ import type { PreviewEncoders } from "./preview-encoders";
 import type { CameraStatus } from "./protocol";
 import { watchPreview } from "./preview-watchdog";
 import { formatLoad, parseLoadLine, wslCpu } from "./load-sampler";
+import { nowMs, after } from "@/packages/clock";
 
 /**
  * OPENING THE CAM LINK (#1993 Q11, Q12; #2207). The service opens the Cam
@@ -124,12 +125,12 @@ export const quitProcess = (
 ) => {
   p.writeStdin("q");
   let killed = false;
-  const timer = setTimeout(() => {
+  const timer = after(o.timeoutMs ?? QUIT_TIMEOUT_MS, () => {
     killed = true;
     p.kill();
-  }, o.timeoutMs ?? QUIT_TIMEOUT_MS);
+  });
   return p.exited.then(async () => {
-    clearTimeout(timer);
+    timer();
     if (killed) await stopTagged(o.launch, [o.tag]);
   });
 };
@@ -249,7 +250,7 @@ export const openCamera = (o: CameraOptions): Camera => {
       lineSplitter((line) => {
         const sample = parseLoadLine(line);
         if (!sample) return;
-        const text = formatLoad(Date.now(), { ...sample, wslPct: wsl() });
+        const text = formatLoad(nowMs(), { ...sample, wslPct: wsl() });
         for (const listener of live.loads) listener(text);
       })
     );
@@ -287,11 +288,11 @@ export const openCamera = (o: CameraOptions): Camera => {
     new Promise<"frame" | "exited" | "timeout">((resolve) => {
       const done = (outcome: "frame" | "exited" | "timeout") => {
         unsubscribe();
-        clearTimeout(timer);
+        timer();
         resolve(outcome);
       };
       const unsubscribe = o.feeds.onFrame("camera", () => done("frame"));
-      const timer = setTimeout(() => done("timeout"), o.startTimeoutMs);
+      const timer = after(o.startTimeoutMs, () => done("timeout"));
       for (const p of ps) void p.exited.then(() => done("exited"));
     });
 
@@ -334,15 +335,12 @@ export const openCamera = (o: CameraOptions): Camera => {
         console.error(
           `recorder: the camera preview quit (exit ${code}); starting it again${o.recording() ? ", the take carries on" : ""}`
         );
-      setTimeout(
-        () => {
-          if (released || current !== live || live.exited) return;
-          const next = launchPreview(live.relays.preview);
-          live.preview = next.p;
-          keepPreview(live, next.stderr);
-        },
-        nvencFailed ? 0 : PREVIEW_RESTART_DELAY_MS
-      );
+      after(nvencFailed ? 0 : PREVIEW_RESTART_DELAY_MS, () => {
+        if (released || current !== live || live.exited) return;
+        const next = launchPreview(live.relays.preview);
+        live.preview = next.p;
+        keepPreview(live, next.stderr);
+      });
     });
   };
 
@@ -389,7 +387,7 @@ export const openCamera = (o: CameraOptions): Camera => {
       current = live;
       sampleLoad(live);
       let logged = 0;
-      let windowStart = Date.now();
+      let windowStart = nowMs();
       capture.onStderr((chunk) => {
         live.captureLog = (live.captureLog + chunk).slice(-8192);
         captureLog = live.captureLog;
@@ -398,8 +396,8 @@ export const openCamera = (o: CameraOptions): Camera => {
         lineSplitter((line) => {
           for (const listener of live.lines) listener(line);
           if (!worthLogging(line)) return;
-          if (Date.now() - windowStart > 60_000) {
-            windowStart = Date.now();
+          if (nowMs() - windowStart > 60_000) {
+            windowStart = nowMs();
             logged = 0;
           }
           logged += 1;

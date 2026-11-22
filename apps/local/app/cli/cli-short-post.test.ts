@@ -21,6 +21,7 @@ import {
   one,
   type RunResult,
 } from "./cli-write-test-harness";
+import { toDate, now } from "@/packages/clock";
 
 // ===========================================================================
 // cvm short post / cvm short queue (#2613): adding Shorts to the Posting
@@ -29,7 +30,7 @@ import {
 // projected slots are known instants. Nothing is posted anywhere.
 // ===========================================================================
 
-const NOW = new Date("2026-11-03T08:00:00Z").getTime();
+const NOW = toDate("2026-11-03T08:00:00Z").getTime();
 
 const fixedClock: Clock.Clock = {
   ...Clock.make(),
@@ -105,7 +106,7 @@ const queuedYesterday = async (title: string) => {
   await testDb.insert(schema.postingQueueEntries).values({
     videoId: id,
     order: "a0",
-    queuedAt: new Date("2026-11-02T14:00:00Z"),
+    queuedAt: toDate("2026-11-02T14:00:00Z"),
   });
   return id;
 };
@@ -184,8 +185,8 @@ describe("cvm short post", () => {
     const alreadyQueued = await queuedYesterday("Head");
     const posted = await short("Old news");
     await testDb.insert(schema.videoPosts).values([
-      { videoId: posted, platform: "youtube-shorts", postedAt: new Date() },
-      { videoId: posted, platform: "buffer", postedAt: new Date() },
+      { videoId: posted, platform: "youtube-shorts", postedAt: now() },
+      { videoId: posted, platform: "buffer", postedAt: now() },
     ]);
 
     const result = await run([
@@ -223,7 +224,7 @@ describe("cvm short post", () => {
     const half = await short("Half");
     await testDb
       .insert(schema.videoPosts)
-      .values({ videoId: half, platform: "buffer", postedAt: new Date() });
+      .values({ videoId: half, platform: "buffer", postedAt: now() });
     const result = await run(["short", "post", half]);
     expect(result.exitCode).toBe(0);
   });
@@ -299,7 +300,7 @@ const queueOfThree = async () => {
     await testDb.insert(schema.postingQueueEntries).values({
       videoId: id,
       order,
-      queuedAt: new Date("2026-11-02T14:00:00Z"),
+      queuedAt: toDate("2026-11-02T14:00:00Z"),
     });
     ids.push(id);
   }
@@ -312,10 +313,10 @@ const inFlight = async (title: string, state: "posting" | "held") => {
   await testDb.insert(schema.postingQueueEntries).values({
     videoId: id,
     order: "Zz",
-    queuedAt: new Date("2026-11-01T14:00:00Z"),
+    queuedAt: toDate("2026-11-01T14:00:00Z"),
     state,
-    claimedSlot: new Date("2026-11-03T09:00:00Z"),
-    claimedAt: new Date("2026-11-03T09:00:00Z"),
+    claimedSlot: toDate("2026-11-03T09:00:00Z"),
+    claimedAt: toDate("2026-11-03T09:00:00Z"),
   });
   return id;
 };
@@ -515,10 +516,10 @@ describe("cvm short unqueue", () => {
     await testDb.insert(schema.postingQueueEntries).values({
       videoId: failed,
       order: "Zy",
-      queuedAt: new Date("2026-10-31T14:00:00Z"),
+      queuedAt: toDate("2026-10-31T14:00:00Z"),
       state: "failed",
-      claimedSlot: new Date("2026-11-02T13:00:00Z"),
-      endedAt: new Date("2026-11-02T13:30:00Z"),
+      claimedSlot: toDate("2026-11-02T13:00:00Z"),
+      endedAt: toDate("2026-11-02T13:30:00Z"),
       lastFailureReason: "TikTok refused it",
     });
 
@@ -624,10 +625,10 @@ describe("the Shorts page", () => {
     await testDb.insert(schema.postingQueueEntries).values({
       videoId: await short("Broken"),
       order: "Zy",
-      queuedAt: new Date("2026-10-01T14:00:00Z"),
+      queuedAt: toDate("2026-10-01T14:00:00Z"),
       state: "failed",
-      claimedSlot: new Date("2026-10-02T12:00:00Z"),
-      endedAt: new Date("2026-10-02T12:30:00Z"),
+      claimedSlot: toDate("2026-10-02T12:00:00Z"),
+      endedAt: toDate("2026-10-02T12:30:00Z"),
       youtubeFailures: 3,
       lastFailureReason: "YouTube: backend error",
     });

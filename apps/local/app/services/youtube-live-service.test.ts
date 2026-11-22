@@ -9,6 +9,7 @@ import {
   youtube,
   type Answer,
 } from "@/test-utils/fake-youtube-live";
+import { toDate, delay } from "@/packages/clock";
 
 /**
  * The Broadcast list through the app server: the stored Google grant in the
@@ -26,8 +27,7 @@ const runList = () => runWithFakeYouTube(listBroadcasts);
  * went, still reaches the fake YouTube a moment later: let it land here,
  * never in the next test.
  */
-const otherListSettled = () =>
-  new Promise((resolve) => setTimeout(resolve, 100));
+const otherListSettled = () => delay(100);
 
 const broadcastItem = (o: {
   id: string;
@@ -214,7 +214,7 @@ describe("createBroadcast", () => {
     privacyStatus: "unlisted" as const,
     latencyPreference: "ultraLow" as const,
   };
-  const submittedAt = new Date("2026-11-04T10:00:00Z");
+  const submittedAt = toDate("2026-11-04T10:00:00Z");
 
   it("inserts a Broadcast not made for kids, with auto-start, auto-stop, the latency and a start 5 minutes after submit, and answers it as YouTube does", async () => {
     await storeGrant();

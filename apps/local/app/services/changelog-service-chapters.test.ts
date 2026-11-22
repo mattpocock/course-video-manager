@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { generateChangelog } from "./changelog-service";
+import { now } from "@/packages/clock";
 
 type VersionWithStructure = Parameters<typeof generateChangelog>[0][number];
 type Video =
@@ -15,7 +16,7 @@ function makeVersion(
     name,
     description: "",
     commitState: name === "" ? "draft" : "published",
-    createdAt: new Date(),
+    createdAt: now(),
     sections,
   };
 }

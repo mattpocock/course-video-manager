@@ -16,6 +16,7 @@ import {
   measurePreviewLoudnessJobKind,
   PreviewLoudnessFailedError,
 } from "./measure-preview-loudness";
+import { nowMs } from "@/packages/clock";
 
 /**
  * The `measure-preview-loudness` Job with the real ffmpeg, over tiny lavfi
@@ -41,7 +42,7 @@ const sineAt = (lufs: number) =>
 describe.skipIf(!hasFfmpeg)("the measure-preview-loudness Job", () => {
   const root = path.join(
     os.tmpdir(),
-    `preview-loudness-${process.pid}-${Date.now()}`
+    `preview-loudness-${process.pid}-${nowMs()}`
   );
   const at = (relative: string) => path.join(root, relative);
   const ffmpeg = (out: string, ...args: string[]) => {

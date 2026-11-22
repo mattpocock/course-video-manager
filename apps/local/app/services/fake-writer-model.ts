@@ -1,5 +1,6 @@
 import { anthropic } from "@ai-sdk/anthropic";
 import { APICallError, type LanguageModel } from "ai";
+import { delay } from "@/packages/clock";
 
 /**
  * A scripted stand-in for Anthropic, so every way a writer turn can fail can
@@ -298,7 +299,7 @@ function streamOf(
     async start(controller) {
       for (const part of parts) {
         // A beat between chunks, so the browser sees a reply stream in.
-        await new Promise((resolve) => setTimeout(resolve, beatMs));
+        await delay(beatMs);
         controller.enqueue(part);
       }
       controller.close();

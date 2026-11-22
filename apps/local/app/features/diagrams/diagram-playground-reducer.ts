@@ -30,6 +30,7 @@ import type {
   StatusError,
   StoredHead,
 } from "./diagram-playground-reducer.types";
+import { toDate } from "@/packages/clock";
 
 export * from "./diagram-playground-reducer.types";
 export * from "./diagram-playground-selectors";
@@ -386,7 +387,10 @@ export const diagramPlaygroundReducer: EffectReducer<State, Action, Effect> = (
       const { stored } = action;
       if (stored.hash === head.seen.hash) return state;
       // Fetched before our last save landed: old news.
-      if (Date.parse(stored.updatedAt) <= Date.parse(head.seen.updatedAt)) {
+      if (
+        toDate(stored.updatedAt).getTime() <=
+        toDate(head.seen.updatedAt).getTime()
+      ) {
         return state;
       }
       if (action.canvasHasUnsavedEdits) {

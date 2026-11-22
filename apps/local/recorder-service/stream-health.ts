@@ -3,6 +3,7 @@ import path from "node:path";
 import { lineSplitter } from "./launcher";
 import { STREAM_PACKET_LINE } from "./stream-args";
 import type { StreamHealth } from "./stream-protocol";
+import { nowMs } from "@/packages/clock";
 
 /**
  * THE LIVE STREAM'S HEALTH (spec #2445, stories 46–47): one stream
@@ -60,7 +61,7 @@ export const readStreamHealth = (o: {
     const since = at === null || lastAt === undefined ? null : at - lastAt;
     if (since !== null && since < HEALTH_PERIOD_S) return;
     // No stream time to go by (`N/A`): a second of wall time, then.
-    const wall = Date.now();
+    const wall = nowMs();
     if (at === null && wall - lastWall < HEALTH_PERIOD_S * 1000) return;
     lastWall = wall;
     const kbps =

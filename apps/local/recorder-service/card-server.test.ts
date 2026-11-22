@@ -9,6 +9,7 @@ import { CARD_CANVAS, createCardServer } from "./card-server";
 import { decodePngRgba } from "./png-rgba";
 import { fakeWindows } from "./test-utils/fake-windows";
 import { cardPng } from "./test-utils/fake-card-server";
+import { delay } from "@/packages/clock";
 
 /**
  * THE CARD SERVER'S EDGES (spec #2445): the overlay renderer's line protocol
@@ -129,7 +130,7 @@ const serve = (
 describe("the card server's line protocol", () => {
   it("says it is ready first, then answers each request in the order it came, however long each takes", async () => {
     const s = serve(async (card) => {
-      await new Promise((r) => setTimeout(r, card.author === "@slow" ? 30 : 1));
+      await delay(card.author === "@slow" ? 30 : 1);
       return Buffer.from(card.author);
     });
 

@@ -2,6 +2,7 @@ import fs from "node:fs";
 import { describe, expect, it } from "vitest";
 import { fakeFootage, fakeWindows } from "./test-utils/fake-windows";
 import { connect, start, tmp, CALIBRATED } from "./test-utils/service-harness";
+import { delay } from "@/packages/clock";
 
 /**
  * A Short, through the recorder service's WebSocket on a scripted Windows:
@@ -197,7 +198,7 @@ describe("a Short", () => {
         m.state.format === "landscape" &&
         m.state.screen === null
     );
-    await new Promise((r) => setTimeout(r, 50));
+    await delay(50);
     const running = windows.screenPreviews.filter((p) => p.running);
     expect(running.map((p) => argsOf(p.launch))).toEqual([
       expect.stringMatching(

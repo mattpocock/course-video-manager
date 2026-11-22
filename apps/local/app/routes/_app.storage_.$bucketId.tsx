@@ -44,6 +44,7 @@ import type {
   StorageFileRole,
 } from "@/packages/storage/client";
 import type { Route } from "./+types/_app.storage_.$bucketId";
+import { toDate } from "@/packages/clock";
 
 export const meta: Route.MetaFunction = () => [
   { title: "CVM - Storage Bucket" },
@@ -476,7 +477,7 @@ function ListingStatus({
       {fileCount} {fileCount === 1 ? "file" : "files"}, listed at{" "}
       {state.fetchedAt === null
         ? "—"
-        : new Date(state.fetchedAt).toLocaleTimeString()}
+        : toDate(state.fetchedAt).toLocaleTimeString()}
       .
     </p>
   );

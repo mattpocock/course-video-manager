@@ -1,4 +1,5 @@
 import type { TLStore, TLStoreSnapshot } from "tldraw";
+import { after } from "@/packages/clock";
 
 export const HEAD_AUTOSAVE_DEBOUNCE_MS = 500;
 
@@ -66,12 +67,12 @@ export function createHeadAutosaver(opts: {
     hash: string | null;
     refused: boolean;
   } | null = null;
-  let timer: ReturnType<typeof setTimeout> | null = null;
+  let timer: (() => void) | null = null;
   /** The save in progress, if any; the next one starts after it. */
   let queue: Promise<unknown> = Promise.resolve();
 
   const cancel = () => {
-    if (timer) clearTimeout(timer);
+    if (timer) timer();
     timer = null;
   };
 
@@ -113,11 +114,11 @@ export function createHeadAutosaver(opts: {
     () => {
       if (!head) return;
       cancel();
-      timer = setTimeout(() => {
+      timer = after(opts.debounceMs, () => {
         timer = null;
         // Nothing awaits a debounced save; `save` reports failure, never throws.
         void flush();
-      }, opts.debounceMs);
+      });
     },
     { source: "user", scope: "document" }
   );

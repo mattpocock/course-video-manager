@@ -22,6 +22,7 @@ import { relaunchedBetween, streamFaults, type Sinks } from "./stream-faults";
 import { streamedLogs, type StreamedLogs } from "./stream-logs";
 import { hold, sleep, type Ctx } from "./takes";
 import { killMarked, sampleGpu, windowsGuard } from "./windows";
+import { after, every } from "@/packages/clock";
 
 /**
  * THE STREAMED RECORDING SESSION (#2455): Go Live on the real service and
@@ -68,15 +69,15 @@ const streamOf = (m: RecorderMessage) =>
 /** Switches through every scene in turn until stopped. */
 const cycleScenes = (ctx: Ctx) => {
   let k = 0;
-  const timer = setInterval(() => {
+  const timer = every(SCENE_EVERY_MS, () => {
     k += 1;
     ctx.client.send({
       type: "switch-scene",
       scene: SCENES[k % SCENES.length]!,
     });
-  }, SCENE_EVERY_MS);
+  });
   return {
-    stop: () => clearInterval(timer),
+    stop: () => timer(),
     switches: () => k,
   };
 };
@@ -112,11 +113,11 @@ const startSink = (ctx: Ctx, port: number, file: string) => {
     stderr: () => stderr,
     /** Gone by itself once the push ends, or killed after `ms`. */
     close: async (ms: number) => {
-      const timer = setTimeout(() => {
+      const timer = after(ms, () => {
         if (child.exitCode === null) child.kill("SIGKILL");
-      }, ms);
+      });
       await exited;
-      clearTimeout(timer);
+      timer();
     },
   };
 };

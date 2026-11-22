@@ -1,3 +1,5 @@
+import { now } from "@/packages/clock";
+
 /**
  * Creating a **Short**: one standalone Short, made by `POST /api/videos/create`
  * and opened in its editor. The sidebar, `/shorts` and the Video editor's
@@ -26,7 +28,7 @@ export const newShortFormData = (
   opts: { returnToVideoId?: string } = {}
 ): FormData => {
   const formData = new FormData();
-  formData.set("title", `Short ${new Date().toLocaleDateString()}`);
+  formData.set("title", `Short ${now().toLocaleDateString()}`);
   formData.set("format", "short");
   formData.set(
     "redirectTo",

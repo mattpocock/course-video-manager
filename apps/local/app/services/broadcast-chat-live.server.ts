@@ -1,4 +1,5 @@
 import { createBroadcastChat, type BroadcastChat } from "./broadcast-chat";
+import { now } from "@/packages/clock";
 
 /**
  * Where the app server keeps its one Broadcast chat, across dev-server module
@@ -37,7 +38,7 @@ export const broadcastChat = (): BroadcastChat => {
     // flapping (#2558).
     log: (entry) =>
       console.log(
-        `[broadcast-chat] ${JSON.stringify({ at: new Date().toISOString(), ...entry })}`
+        `[broadcast-chat] ${JSON.stringify({ at: now().toISOString(), ...entry })}`
       ),
   });
   store[KEY] = chat;

@@ -10,6 +10,7 @@ import {
   type PreviewFeeds,
 } from "./preview-feeds";
 import { flvHeader, flvVideoTag, previewChunks } from "./test-utils/flv";
+import { delay } from "@/packages/clock";
 
 /**
  * A preview is relayed to the browser as H.264 the moment each frame is in
@@ -103,7 +104,7 @@ describe("a streamed preview", () => {
     await vi.waitFor(() => expect(browser.chunks()).toHaveLength(1));
     const tag = flvVideoTag({ key: true, data: Buffer.from("a whole frame") });
     ffmpeg.socket.write(tag.subarray(0, 15));
-    await new Promise((r) => setTimeout(r, 30));
+    await delay(30);
     expect(browser.chunks()).toHaveLength(1);
     ffmpeg.socket.write(tag.subarray(15));
     await vi.waitFor(() =>

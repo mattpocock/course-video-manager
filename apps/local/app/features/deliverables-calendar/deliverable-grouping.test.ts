@@ -3,6 +3,7 @@ import {
   groupDeliverables,
   type DeliverableForGrouping,
 } from "./deliverable-grouping";
+import { toDate } from "@/packages/clock";
 
 const today = new Date(2026, 4, 18); // 2026-05-18, Monday, ISO week 21
 
@@ -18,7 +19,7 @@ function makeDeliverable(
     date,
     status: "planned",
     archived: false,
-    createdAt: new Date("2026-05-01T00:00:00Z"),
+    createdAt: toDate("2026-05-01T00:00:00Z"),
     ...rest,
   };
 }
@@ -54,17 +55,17 @@ describe("groupDeliverables", () => {
       makeDeliverable({
         date: "2026-05-21",
         title: "Later date",
-        createdAt: new Date("2026-05-01T00:00:00Z"),
+        createdAt: toDate("2026-05-01T00:00:00Z"),
       }),
       makeDeliverable({
         date: "2026-05-19",
         title: "Earlier date",
-        createdAt: new Date("2026-05-02T00:00:00Z"),
+        createdAt: toDate("2026-05-02T00:00:00Z"),
       }),
       makeDeliverable({
         date: "2026-05-19",
         title: "Same date, earlier created",
-        createdAt: new Date("2026-05-01T00:00:00Z"),
+        createdAt: toDate("2026-05-01T00:00:00Z"),
       }),
     ];
     const result = groupDeliverables(items, today);
@@ -237,21 +238,21 @@ describe("groupDeliverables", () => {
         date: "2026-05-10",
         title: "Created first",
         status: "done",
-        createdAt: new Date("2026-05-01T08:00:00Z"),
+        createdAt: toDate("2026-05-01T08:00:00Z"),
       }),
       makeDeliverable({
         id: "second-created",
         date: "2026-05-10",
         title: "Created second",
         status: "done",
-        createdAt: new Date("2026-05-01T16:00:00Z"),
+        createdAt: toDate("2026-05-01T16:00:00Z"),
       }),
       makeDeliverable({
         id: "third-created",
         date: "2026-05-10",
         title: "Created third",
         status: "cancelled",
-        createdAt: new Date("2026-05-01T12:00:00Z"),
+        createdAt: toDate("2026-05-01T12:00:00Z"),
       }),
     ];
     const result = groupDeliverables(items, today);

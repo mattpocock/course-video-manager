@@ -11,6 +11,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { cameraCaptureArgs } from "./capture-args";
 import { cameraWriterArgs, takeStartCommand } from "./take-args";
+import { nowMs, delay, after as clockAfter } from "@/packages/clock";
 
 /**
  * THE LONG-LIVED CAPTURE IN THE REAL FFMPEG (#2207), Linux and synthetic:
@@ -113,15 +114,15 @@ const previewConsumer = async (
   const sockets: net.Socket[] = [];
   const server = net.createServer((socket) => {
     sockets.push(socket);
-    socket.on("data", () => arrivals.push(Date.now()));
+    socket.on("data", () => arrivals.push(nowMs()));
     socket.on("error", () => {});
     if (o.after)
-      setTimeout(() => {
+      clockAfter(o.readMs ?? 1_000, () => {
         if (o.after === "dies") {
           socket.destroy();
           server.close();
         } else socket.pause();
-      }, o.readMs ?? 1_000);
+      });
   });
   await new Promise<void>((r) => server.listen(port, "127.0.0.1", r));
   return {
@@ -134,10 +135,10 @@ const previewConsumer = async (
 };
 
 const waitFor = async (check: () => boolean, ms = 10_000) => {
-  const until = Date.now() + ms;
+  const until = nowMs() + ms;
   while (!check()) {
-    if (Date.now() > until) throw new Error("timed out");
-    await new Promise((r) => setTimeout(r, 20));
+    if (nowMs() > until) throw new Error("timed out");
+    await delay(20);
   }
 };
 
@@ -199,13 +200,13 @@ const take = async (o: {
     /Input #0, matroska,webm, from 'tcp:/.test(writer.stderr())
   );
   // Armed: everything it reads is dropped until Record.
-  await new Promise((r) => setTimeout(r, 1_000));
-  const t0Ms = Date.now();
+  await delay(1_000);
+  const t0Ms = nowMs();
   writer.child.stdin!.write(takeStartCommand(t0Ms));
   await o.during?.(writer);
-  await new Promise((r) => setTimeout(r, TAKE_MS));
-  const stopMs = Date.now();
-  await new Promise((r) => setTimeout(r, 250));
+  await delay(TAKE_MS);
+  const stopMs = nowMs();
+  await delay(250);
   writer.child.stdin!.write("q");
   const code = await writer.exited;
   return { code, t0Ms, stopMs, writer };
@@ -362,7 +363,7 @@ describe.skipIf(!hasFfmpeg)(
           dir,
           writerPort: ports.writer,
           during: async () => {
-            await new Promise((r) => setTimeout(r, 1_500));
+            await delay(1_500);
             again = await previewConsumer(ports.preview);
           },
         });
@@ -392,12 +393,12 @@ describe.skipIf(!hasFfmpeg)(
           dir,
           writerPort: ports.writer,
           during: async (w) => {
-            void w.exited.then(() => (exitedAt = Date.now()));
+            void w.exited.then(() => (exitedAt = nowMs()));
             // Longer than the relay's buffers and the 2 s socket timeout
             // the relay had, which closed it and so ended the take (#2344).
-            await new Promise((r) => setTimeout(r, 300));
+            await delay(300);
             w.child.kill("SIGSTOP");
-            await new Promise((r) => setTimeout(r, 4_000));
+            await delay(4_000);
             w.child.kill("SIGCONT");
           },
         });
@@ -425,8 +426,8 @@ describe.skipIf(!hasFfmpeg)(
           dir,
           writerPort: ports.writer,
           during: async (writer) => {
-            await new Promise((r) => setTimeout(r, 1_000));
-            killedAt = Date.now();
+            await delay(1_000);
+            killedAt = nowMs();
             writer.child.kill("SIGKILL");
           },
         });

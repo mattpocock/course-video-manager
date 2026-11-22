@@ -6,6 +6,7 @@ import {
   type FrontendId,
 } from "./clip-state-reducer";
 import { ReducerTester } from "@/test-utils/reducer-tester";
+import { now } from "@/packages/clock";
 
 const createInitialState = (
   overrides: Partial<clipStateReducer.State> = {}
@@ -32,7 +33,7 @@ const createClipOnDatabase = (
   sourceStartTime: 0,
   sourceEndTime: 10,
   text: "Hello world",
-  transcribedAt: new Date(),
+  transcribedAt: now(),
   transcriptionStatus: "done",
   scene: "main",
   profile: "main-camera",

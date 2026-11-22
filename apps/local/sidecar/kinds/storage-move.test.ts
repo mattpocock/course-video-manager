@@ -31,6 +31,7 @@ import { MOVE_PARTIAL_SUFFIX } from "@/packages/storage/move";
 import { STORAGE_MOVED_EVENT } from "@/packages/storage/client";
 import type { JobContext } from "../job-kind";
 import { storageMoveJobKind } from "./storage-move";
+import { toDate } from "@/packages/clock";
 
 /**
  * The `storage-move` Sidecar Job (#2109), run as the Sidecar runs it, against
@@ -348,7 +349,7 @@ describe("a storage-move Job", () => {
     const bytes = fs.readFileSync(changed);
     bytes[0] = bytes[0]! ^ 1;
     fs.writeFileSync(changed, bytes);
-    fs.utimesSync(changed, atime, new Date(mtime.getTime() + 5000));
+    fs.utimesSync(changed, atime, toDate(mtime.getTime() + 5000));
 
     const exit = await runJob();
     expect(Exit.isFailure(exit)).toBe(true);

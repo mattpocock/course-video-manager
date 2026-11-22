@@ -69,6 +69,7 @@ import {
   Settings2Icon,
   AlertTriangleIcon,
 } from "lucide-react";
+import { after } from "@/packages/clock";
 
 export interface WriterEngineProps {
   videoId: string;
@@ -433,7 +434,7 @@ export function WriterEngine({
           : lastAssistantMessageText;
         copyToClipboard(text, () => {
           setIsCopied(true);
-          setTimeout(() => setIsCopied(false), 2000);
+          after(2000, () => setIsCopied(false));
         });
       },
       onCopyAsRichText: () => {},

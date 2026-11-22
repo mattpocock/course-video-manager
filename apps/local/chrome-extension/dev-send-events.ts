@@ -23,6 +23,7 @@ import {
   type BrowserEventMessage,
 } from "../stream-deck-forwarder/stream-deck-forwarder-types";
 import { isMainCheckout } from "../live-desk/live-desk";
+import { nowMs } from "@/packages/clock";
 
 const HUB_URL = "ws://localhost:5172";
 
@@ -55,12 +56,12 @@ async function main() {
     console.log("→", JSON.stringify(message));
   };
 
-  emit({ type: "browser-focus", focused: true, ts: Date.now() });
+  emit({ type: "browser-focus", focused: true, ts: nowMs() });
   for (const url of urls) {
-    emit({ type: "browser-url", url, ts: Date.now() });
+    emit({ type: "browser-url", url, ts: nowMs() });
     await sleep(3000);
   }
-  emit({ type: "browser-focus", focused: false, ts: Date.now() });
+  emit({ type: "browser-focus", focused: false, ts: nowMs() });
 
   await sleep(200);
   ws.close();

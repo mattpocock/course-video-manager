@@ -13,14 +13,15 @@
  */
 import { useSyncExternalStore } from "react";
 import type { PopupChannel } from "@/lib/popup-channel";
+import { every } from "@/packages/clock";
 
 type Liveness = Pick<PopupChannel<unknown, { type: string }>, "isOpen">;
 
 const POLL_INTERVAL_MS = 1000;
 
 function subscribeToTick(onTick: () => void): () => void {
-  const id = setInterval(onTick, POLL_INTERVAL_MS);
-  return () => clearInterval(id);
+  const id = every(POLL_INTERVAL_MS, onTick);
+  return () => id();
 }
 
 export function usePopupOpen(channel: Liveness): boolean {

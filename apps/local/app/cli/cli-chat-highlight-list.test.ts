@@ -15,6 +15,7 @@ import {
   ndjson,
   type RunResult,
 } from "./cli-write-test-harness";
+import { toDate } from "@/packages/clock";
 
 // ===========================================================================
 // cvm chat-highlight list (#2664): a Streamed Recording Session's Chat
@@ -57,7 +58,7 @@ beforeEach(async () => {
       cameraFilePath: "c.mkv",
       screenFilePath: "s.mkv",
       micFilePath: "m.mkv",
-      startedAt: new Date(T0),
+      startedAt: toDate(T0),
     })
     .returning();
   // A Short cut from the stream: its Clip is of the stream's Recording Session.

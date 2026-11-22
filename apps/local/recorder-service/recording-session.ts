@@ -26,6 +26,7 @@ import { createSpeechDetector } from "./speech-detector";
 import { writerGraphUp } from "./writer-graph";
 import { CAMERA_FPS, countFramesLost } from "./frames-lost";
 import type { StopReason, TakeSettings } from "./take-settings";
+import { delay, after, toDate } from "@/packages/clock";
 
 /**
  * ONE RECORDING SESSION (#2207). Its camera + mic writer is armed before
@@ -165,7 +166,7 @@ export const armTake = (o: {
   onQuit: (errors: string[]) => void;
 }): ArmedTake => {
   const id = randomUUID();
-  const stamp = new Date(o.now()).toISOString().slice(0, 19).replace(/:/g, "-");
+  const stamp = toDate(o.now()).toISOString().slice(0, 19).replace(/:/g, "-");
   const dir = path.join(o.settings.folder, `${stamp} ${id.slice(0, 8)}`);
   fs.mkdirSync(dir, { recursive: true });
   const tag = recorderTag(id);
@@ -416,7 +417,7 @@ const beginTake = (
       }
       const frame = line.match(/^frame=(\d+)/);
       if (frame) cameraFrames = Math.max(cameraFrames, Number(frame[1]));
-      if (cameraFrames > 0) clearTimeout(cameraStart);
+      if (cameraFrames > 0) cameraStart();
       if (!line.startsWith("progress=")) return;
       onProgress?.();
       stalledBlocks =
@@ -434,9 +435,8 @@ const beginTake = (
 
   // A writer that never gets a frame prints no frame count at all, so its
   // first frame is waited for on the wall clock.
-  const cameraStart = setTimeout(
-    () => cameraLost(["The Cam Link sent nothing after Record."]),
-    o.cameraStartTimeoutMs
+  const cameraStart = after(o.cameraStartTimeoutMs, () =>
+    cameraLost(["The Cam Link sent nothing after Record."])
   );
 
   log({
@@ -488,10 +488,10 @@ const beginTake = (
     new Promise<void>((resolve) => {
       const done = () => {
         onProgress = undefined;
-        clearTimeout(timer);
+        timer();
         resolve();
       };
-      const timer = setTimeout(done, STOP_CATCH_UP_MS);
+      const timer = after(STOP_CATCH_UP_MS, done);
       onProgress = () => {
         if (writtenTo() >= fileTime) done();
       };
@@ -515,7 +515,7 @@ const beginTake = (
     // for the whole first one, not just the processes' exits.
     if (stopped) return stopped;
     stopping = true;
-    clearTimeout(cameraStart);
+    cameraStart();
     speech.stopRequested();
     /**
      * The press, in file time: the take keeps everything up to it. A clock
@@ -526,10 +526,7 @@ const beginTake = (
     // waited for; a failure stops at once.
     const tail =
       reason === "requested"
-        ? Promise.all([
-            new Promise((r) => setTimeout(r, STOP_TAIL_MS)),
-            writtenPast(pressedAt),
-          ])
+        ? Promise.all([delay(STOP_TAIL_MS), writtenPast(pressedAt)])
         : Promise.resolve();
     const quitting = tail.then(() =>
       Promise.all([screen && quit(screen.child), quit(camera.child)])

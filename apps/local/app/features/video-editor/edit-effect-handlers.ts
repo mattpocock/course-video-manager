@@ -13,6 +13,7 @@ import type { ClipService } from "@/services/clip-service";
 import type { EffectsMap } from "use-effect-reducer";
 import { diagramChannel } from "@/lib/diagram-protocol";
 import { takesSavedInto, type TakeSaver } from "./take-saver";
+import { after } from "@/packages/clock";
 
 export interface EditEffectHandlersDeps {
   videoId: string;
@@ -249,15 +250,15 @@ export function createEditEffectHandlers(
         });
     },
     "start-session-timeout": (_state, effect, dispatch) => {
-      const timeout = setTimeout(() => {
+      const timeout = after(10_000, () => {
         dispatch({
           type: "session-polling-complete",
           sessionId: effect.sessionId,
         });
-      }, 10_000);
+      });
 
       return () => {
-        clearTimeout(timeout);
+        timeout();
       };
     },
     "save-takes": (_state, { type: _, ...session }, dispatch) => {

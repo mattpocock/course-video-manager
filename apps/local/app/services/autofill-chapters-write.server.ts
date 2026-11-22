@@ -3,6 +3,7 @@ import type { Database } from "@/services/drizzle-service.server";
 import type { AutofillChapterProposal } from "@/services/text-generation-service";
 import { eq } from "drizzle-orm";
 import { generateNKeysBetween } from "fractional-indexing";
+import { now } from "@/packages/clock";
 
 export type WrittenChapter = typeof chapters.$inferSelect & {
   beforeClipId: string;
@@ -76,7 +77,7 @@ export const replaceVideoChapters = async (
 
   await db
     .update(videos)
-    .set({ updatedAt: new Date() })
+    .set({ updatedAt: now() })
     .where(eq(videos.id, videoId));
 
   return written;

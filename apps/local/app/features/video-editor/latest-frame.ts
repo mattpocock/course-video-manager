@@ -1,3 +1,5 @@
+import { after } from "@/packages/clock";
+
 /**
  * A recorder preview feed in the browser (#2192): one long `GET
  * /preview/<feed>` of H.264 the service relays from ffmpeg.exe
@@ -64,9 +66,9 @@ export const watchLatestFrame = (
   const { signal } = controller;
   const pause = () =>
     new Promise<void>((resolve) => {
-      const timer = setTimeout(resolve, RETRY_MS);
+      const timer = after(RETRY_MS, resolve);
       signal.addEventListener("abort", () => {
-        clearTimeout(timer);
+        timer();
         resolve();
       });
     });

@@ -3,6 +3,7 @@ import {
   filteredNewestSnapshot,
   newestSnapshotHashByDiagram,
 } from "./filtered-newest-snapshot";
+import { toDate } from "@/packages/clock";
 
 interface TestSnapshot {
   id: string;
@@ -22,7 +23,7 @@ function snap(
   return {
     id,
     preserved: opts.preserved ?? false,
-    createdAt: opts.createdAt ?? new Date("2024-01-01"),
+    createdAt: opts.createdAt ?? toDate("2024-01-01"),
     clips: opts.clips ?? [],
   };
 }
@@ -50,11 +51,11 @@ describe("filteredNewestSnapshot", () => {
   it("returns the newer of two qualifying snapshots", () => {
     const older = snap("s1", {
       preserved: true,
-      createdAt: new Date("2024-01-01"),
+      createdAt: toDate("2024-01-01"),
     });
     const newer = snap("s2", {
       preserved: true,
-      createdAt: new Date("2024-02-01"),
+      createdAt: toDate("2024-02-01"),
     });
     expect(filteredNewestSnapshot([older, newer])).toBe("s2");
   });
@@ -62,11 +63,11 @@ describe("filteredNewestSnapshot", () => {
   it("returns the older qualifying snapshot when the newer one does not qualify", () => {
     const older = snap("s1", {
       preserved: true,
-      createdAt: new Date("2024-01-01"),
+      createdAt: toDate("2024-01-01"),
     });
     const newer = snap("s2", {
       preserved: false,
-      createdAt: new Date("2024-02-01"),
+      createdAt: toDate("2024-02-01"),
       clips: [{ archived: true }],
     });
     expect(filteredNewestSnapshot([older, newer])).toBe("s1");
@@ -90,12 +91,12 @@ describe("filteredNewestSnapshot", () => {
   it("returns null when all snapshots fail the filter", () => {
     const s1 = snap("s1", {
       preserved: false,
-      createdAt: new Date("2024-01-01"),
+      createdAt: toDate("2024-01-01"),
       clips: [{ archived: true }],
     });
     const s2 = snap("s2", {
       preserved: false,
-      createdAt: new Date("2024-02-01"),
+      createdAt: toDate("2024-02-01"),
       clips: [],
     });
     expect(filteredNewestSnapshot([s1, s2])).toBeNull();
@@ -116,11 +117,11 @@ describe("newestSnapshotHashByDiagram", () => {
     const hashes = newestSnapshotHashByDiagram([
       row("a1", "d1", "old", {
         preserved: true,
-        createdAt: new Date("2024-01-01"),
+        createdAt: toDate("2024-01-01"),
       }),
       row("a2", "d1", "new", {
         preserved: true,
-        createdAt: new Date("2024-03-01"),
+        createdAt: toDate("2024-03-01"),
       }),
       row("b1", "d2", "other", { preserved: true }),
     ]);
@@ -134,11 +135,11 @@ describe("newestSnapshotHashByDiagram", () => {
     const hashes = newestSnapshotHashByDiagram([
       row("a1", "d1", "visible", {
         preserved: true,
-        createdAt: new Date("2024-01-01"),
+        createdAt: toDate("2024-01-01"),
       }),
       row("a2", "d1", "invisible", {
         preserved: false,
-        createdAt: new Date("2024-03-01"),
+        createdAt: toDate("2024-03-01"),
       }),
     ]);
     expect(hashes.get("d1")).toBe("visible");

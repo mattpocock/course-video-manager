@@ -1,6 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { useEffect, useState } from "react";
 import { FileIcon, ClipboardIcon, CheckIcon } from "lucide-react";
+import { after } from "@/packages/clock";
 
 type FilePreviewModalProps = {
   isOpen: boolean;
@@ -156,7 +157,7 @@ export function FilePreviewModal({
                   try {
                     await navigator.clipboard.writeText(fileContent.content);
                     setCopied(true);
-                    setTimeout(() => setCopied(false), 2000);
+                    after(2000, () => setCopied(false));
                   } catch {
                     // Clipboard access denied
                   }

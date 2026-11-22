@@ -35,6 +35,7 @@ import {
 } from "@/features/diagrams/diagram-playground-selectors";
 import { readFullScreen } from "@/features/diagrams/full-screen";
 import { reportActiveDiagramText } from "@/features/diagrams/report-active-diagram-text";
+import { every, nowMs } from "@/packages/clock";
 
 export const handle = NO_TOASTS;
 
@@ -138,7 +139,7 @@ export default function DiagramPlaygroundActive({
     let lastPong = 0;
     const unsub = diagramChannel.subscribeChild((msg: ParentToChildMessage) => {
       if (msg.type === "pong" || msg.type === "editorConnected") {
-        lastPong = Date.now();
+        lastPong = nowMs();
         dispatch({ type: "video-editor-replied" });
       } else if (msg.type === "editorDisconnected") {
         lastPong = 0;
@@ -158,14 +159,14 @@ export default function DiagramPlaygroundActive({
         type: "activeDiagramChanged",
         diagramId: diagramId ?? null,
       });
-      if (Date.now() - lastPong > 5000) {
+      if (nowMs() - lastPong > 5000) {
         dispatch({ type: "video-editor-went-quiet" });
       }
     }
-    const interval = setInterval(beat, 2000);
+    const interval = every(2000, beat);
     beat();
     return () => {
-      clearInterval(interval);
+      interval();
       unsub();
     };
   }, [diagramId, dispatch]);

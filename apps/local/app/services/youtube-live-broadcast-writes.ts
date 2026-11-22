@@ -15,6 +15,7 @@ import {
   YouTubeLiveError,
   type LiveBroadcastItem,
 } from "@/services/youtube-live-service";
+import { toDate } from "@/packages/clock";
 
 /**
  * The YouTube Live service's writes to a **Broadcast** beyond binding and
@@ -49,7 +50,7 @@ export const createBroadcast = (
       snippet: {
         title: settings.title,
         description: settings.description,
-        scheduledStartTime: new Date(
+        scheduledStartTime: toDate(
           submittedAt.getTime() + NEW_BROADCAST_START_DELAY_MS
         ).toISOString(),
       },

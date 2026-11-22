@@ -12,6 +12,7 @@ import {
   one,
   type RunResult,
 } from "./cli-write-test-harness";
+import { toDate } from "@/packages/clock";
 
 // ===========================================================================
 // cvm WRITE verbs — lesson update (rename) + move (reorder / re-home)
@@ -94,7 +95,7 @@ const seedMove = async (db: TestDb): Promise<MoveSeed> => {
       repoId: course!.id,
       name: "v1",
       commitState: "published",
-      createdAt: new Date("2024-01-01T00:00:00Z"),
+      createdAt: toDate("2024-01-01T00:00:00Z"),
     })
     .returning();
   const [draftVersion] = await db
@@ -102,7 +103,7 @@ const seedMove = async (db: TestDb): Promise<MoveSeed> => {
     .values({
       repoId: course!.id,
       name: "",
-      createdAt: new Date("2024-06-01T00:00:00Z"),
+      createdAt: toDate("2024-06-01T00:00:00Z"),
     })
     .returning();
 
@@ -126,7 +127,7 @@ const seedMove = async (db: TestDb): Promise<MoveSeed> => {
       repoVersionId: draftVersion!.id,
       title: "03-gone",
       order: 3,
-      archivedAt: new Date("2024-05-01T00:00:00Z"),
+      archivedAt: toDate("2024-05-01T00:00:00Z"),
     })
     .returning();
 

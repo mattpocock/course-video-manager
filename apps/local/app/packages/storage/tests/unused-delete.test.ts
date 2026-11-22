@@ -16,6 +16,7 @@ import { loadStorageOwnership } from "../scan";
 import { unusedDeletedFiles } from "../client";
 import { deleteUnusedFootage } from "../unused";
 import { deleteOtherStorageBucket } from "../delete";
+import { toDate } from "@/packages/clock";
 
 /**
  * Deleting Unused Footage for good (#2157, #2423). Storage Roots are real temp
@@ -32,8 +33,8 @@ let roots: StorageRoots;
 
 const db = () => testDb as unknown as Database;
 const DAY = 24 * 60 * 60 * 1000;
-const NOW = new Date("2026-10-13T12:00:00Z");
-const OLD = new Date(NOW.getTime() - 30 * DAY);
+const NOW = toDate("2026-10-13T12:00:00Z");
+const OLD = toDate(NOW.getTime() - 30 * DAY);
 
 const put = (dir: string, relative: string, opts: { age?: Date } = {}) => {
   const full = path.join(dir, relative);
@@ -219,7 +220,7 @@ describe("which Footage is Unused", () => {
   });
 
   it("keeps Footage changed in the last 7 days", async () => {
-    put(d, "raw-footage/today.mkv", { age: new Date(NOW.getTime() - DAY) });
+    put(d, "raw-footage/today.mkv", { age: toDate(NOW.getTime() - DAY) });
     put(d, "raw-footage/old.mkv");
 
     const result = await del();
@@ -237,7 +238,7 @@ describe("which Footage is Unused", () => {
   it("never offers a Recording Session under 7 days old, or anything in its folder", async () => {
     await seedSession({
       folder: "raw-footage/rec-young",
-      startedAt: new Date(NOW.getTime() - 2 * DAY),
+      startedAt: toDate(NOW.getTime() - 2 * DAY),
     });
     put(d, "raw-footage/rec-young/recorder.log");
     await seedSession({ folder: "raw-footage/rec-old", startedAt: OLD });
@@ -308,7 +309,7 @@ describe("which Footage is Unused", () => {
     await seedSession({ folder: "raw-footage/rec-old", startedAt: OLD });
     await seedSession({
       folder: "raw-footage/rec-new",
-      startedAt: new Date(NOW.getTime() - DAY),
+      startedAt: toDate(NOW.getTime() - DAY),
     });
     await seedSession({
       folder: "raw-footage/rec-live",

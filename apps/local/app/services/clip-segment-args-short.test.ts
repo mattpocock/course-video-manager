@@ -7,6 +7,7 @@ import { VIDEO_FORMAT_DIMENSIONS } from "@cvm/core/features/videos/video-format"
 import { clipComposite, clipLayers, clipSource } from "@/packages/clip-source";
 import type { Scene } from "@/packages/scene-layout";
 import { clipSegmentArgs } from "./clip-segment-args";
+import { nowMs } from "@/packages/clock";
 
 /**
  * A CVM-recorder Short Clip as one export segment (what render-vertical joins):
@@ -192,7 +193,7 @@ describe.skipIf(!hasFfmpeg).each(SPACEDESK_SCREENS)(
   ({ width, sessionFormat }) => {
     const dir = path.join(
       os.tmpdir(),
-      `short-segment-${width}-${sessionFormat}-${process.pid}-${Date.now()}`
+      `short-segment-${width}-${sessionFormat}-${process.pid}-${nowMs()}`
     );
     const out = path.join(dir, "segment.mov");
 
@@ -284,10 +285,7 @@ describe.skipIf(!hasFfmpeg).each(SPACEDESK_SCREENS)(
  * centre; stretched, it would be 56 px wide.
  */
 describe.skipIf(!hasFfmpeg)("rendering a 16:9 Footage Clip on a Short", () => {
-  const dir = path.join(
-    os.tmpdir(),
-    `short-footage-${process.pid}-${Date.now()}`
-  );
+  const dir = path.join(os.tmpdir(), `short-footage-${process.pid}-${nowMs()}`);
   const out = path.join(dir, "segment.mov");
 
   beforeAll(() => {

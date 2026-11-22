@@ -4,6 +4,7 @@ import {
   getValidOAuthAccessToken,
   type StoredOAuthTokens,
 } from "@/services/oauth-token-refresh";
+import { nowMs, toDate } from "@/packages/clock";
 
 class NotAuthenticated extends Data.TaggedError("NotAuthenticated")<{}> {}
 class RefreshFailed extends Data.TaggedError("RefreshFailed")<{
@@ -53,7 +54,7 @@ describe("getValidOAuthAccessToken", () => {
     const { provider } = makeProvider({
       accessToken: "stored",
       refreshToken: "refresh",
-      expiresAt: new Date(Date.now() + 60 * MINUTE),
+      expiresAt: toDate(nowMs() + 60 * MINUTE),
     });
 
     expect(await run(provider)).toEqual(Either.right("stored"));
@@ -64,7 +65,7 @@ describe("getValidOAuthAccessToken", () => {
     const { provider, store } = makeProvider({
       accessToken: "stale",
       refreshToken: "refresh",
-      expiresAt: new Date(Date.now() + 4 * MINUTE),
+      expiresAt: toDate(nowMs() + 4 * MINUTE),
     });
     fetchMock.mockResolvedValue(
       new Response(
@@ -88,7 +89,7 @@ describe("getValidOAuthAccessToken", () => {
     });
     expect(store.tokens?.accessToken).toBe("fresh");
     expect(store.tokens!.expiresAt.getTime()).toBeGreaterThan(
-      Date.now() + 59 * MINUTE
+      nowMs() + 59 * MINUTE
     );
   });
 
@@ -102,7 +103,7 @@ describe("getValidOAuthAccessToken", () => {
     const { provider, store } = makeProvider({
       accessToken: "stale",
       refreshToken: "revoked",
-      expiresAt: new Date(Date.now() - MINUTE),
+      expiresAt: toDate(nowMs() - MINUTE),
     });
     fetchMock.mockResolvedValue(new Response("invalid_grant", { status: 400 }));
 

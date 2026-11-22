@@ -4,8 +4,9 @@ import { createInitialJobsState, jobsReducer } from "./jobs-reducer";
 import { visibleJobRows } from "./jobs-selectors";
 import { rowsInPickupOrder } from "./jobs-pickup-order";
 import type { WireJob, WireJobEvent } from "./job-wire";
+import { toDate } from "@/packages/clock";
 
-const T0 = Date.parse("2026-10-20T12:00:00.000Z");
+const T0 = toDate("2026-10-20T12:00:00.000Z").getTime();
 
 const exportJob = (title: string, createdAtMs: number): WireJob => ({
   id: `job-${title}`,
@@ -15,7 +16,7 @@ const exportJob = (title: string, createdAtMs: number): WireJob => ({
   maxAttempts: 3,
   subjectType: "video",
   subjectId: `video-${title}`,
-  createdAt: new Date(T0 + createdAtMs).toISOString(),
+  createdAt: toDate(T0 + createdAtMs).toISOString(),
 });
 
 let nextEventId = 1;
@@ -24,7 +25,7 @@ const event = (job: WireJob, atMs: number, type: string): WireJobEvent => ({
   jobId: job.id,
   type,
   data: type === "started" ? { attempt: 1 } : {},
-  at: new Date(T0 + atMs).toISOString(),
+  at: toDate(T0 + atMs).toISOString(),
 });
 
 describe("rowsInPickupOrder", () => {

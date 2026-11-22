@@ -12,6 +12,7 @@ import {
   one,
   type RunResult,
 } from "./cli-write-test-harness";
+import { toDate } from "@/packages/clock";
 
 // ===========================================================================
 // cvm WRITE verbs — section create / rename / move / archive
@@ -69,7 +70,7 @@ const seedSections = async (db: TestDb): Promise<SectionSeed> => {
       repoId: course!.id,
       name: "v1",
       commitState: "published",
-      createdAt: new Date("2024-01-01T00:00:00Z"),
+      createdAt: toDate("2024-01-01T00:00:00Z"),
     })
     .returning();
   const [draftVersion] = await db
@@ -77,7 +78,7 @@ const seedSections = async (db: TestDb): Promise<SectionSeed> => {
     .values({
       repoId: course!.id,
       name: "",
-      createdAt: new Date("2024-06-01T00:00:00Z"),
+      createdAt: toDate("2024-06-01T00:00:00Z"),
     })
     .returning();
 
@@ -100,7 +101,7 @@ const seedSections = async (db: TestDb): Promise<SectionSeed> => {
       repoVersionId: draftVersion!.id,
       title: "04-gone",
       order: 4,
-      archivedAt: new Date("2024-05-01T00:00:00Z"),
+      archivedAt: toDate("2024-05-01T00:00:00Z"),
     })
     .returning();
 

@@ -1,5 +1,6 @@
 import type { JobEventMessage } from "./job-wire";
 import type { jobsReducer } from "./jobs-reducer";
+import { toDate } from "@/packages/clock";
 
 /**
  * Job Events off the wire as jobs-reducer actions: the one place that reads
@@ -60,7 +61,12 @@ export const toJobsAction = (
   receivedAt: number | null = null
 ): jobsReducer.JobStreamAction | null => {
   const { job, event } = message;
-  const base = { job, eventId: event.id, at: Date.parse(event.at), receivedAt };
+  const base = {
+    job,
+    eventId: event.id,
+    at: toDate(event.at).getTime(),
+    receivedAt,
+  };
   const data = event.data;
   switch (event.type) {
     case "queued":

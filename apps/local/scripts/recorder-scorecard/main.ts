@@ -53,6 +53,7 @@ import {
   guardWindows,
   REFUSED_EXIT_CODE,
 } from "../windows-guard";
+import { nowMs, every, now } from "@/packages/clock";
 
 const args = process.argv.slice(2);
 const flag = (name: string) => {
@@ -88,7 +89,7 @@ if (unknownScenarios.length) {
   process.exit(2);
 }
 
-const runId = `${new Date().toISOString().replace(/[:.]/g, "-")}-${randomBytes(3).toString("hex")}`;
+const runId = `${now().toISOString().replace(/[:.]/g, "-")}-${randomBytes(3).toString("hex")}`;
 const marker = `cvm-scorecard-${runId}`;
 const repoRoot = path.resolve(import.meta.dirname, "../../../..");
 const outDir = path.resolve(
@@ -99,7 +100,7 @@ const workDir = path.join(os.tmpdir(), `cvm-recorder-scorecard-${runId}`);
 const sinkPort = 19350 + (randomBytes(2).readUInt16BE(0) % 600);
 
 const log = (line: string) =>
-  console.log(`[scorecard ${new Date().toISOString().slice(11, 19)}] ${line}`);
+  console.log(`[scorecard ${now().toISOString().slice(11, 19)}] ${line}`);
 
 /** Nothing the scorecard writes may land on a Windows drive. */
 const refuseMnt = (dir: string) => {
@@ -119,7 +120,7 @@ let aborted = false;
 
 const main = async () => {
   const started = performance.now();
-  const startedAt = new Date().toISOString();
+  const startedAt = now().toISOString();
   const commit = execFileSync("git", ["rev-parse", "--short", "HEAD"], {
     cwd: repoRoot,
     encoding: "utf8",
@@ -159,13 +160,13 @@ const main = async () => {
     if (aborted) return;
     aborted = true;
     log(`STOPPING NOW: ${why}`);
-    notes.push(`ABORTED at ${new Date().toISOString()}: ${why}.`);
+    notes.push(`ABORTED at ${now().toISOString()}: ${why}.`);
     void stopEverything().then(() =>
       log("every Windows process of the run is stopped")
     );
   };
   let checking = false;
-  const guard = setInterval(() => {
+  const guard = every(5000, () => {
     if (checking || aborted) return;
     checking = true;
     void Promise.all([liveRecorderState(), obsRunning(), sampleMarked(marker)])
@@ -181,7 +182,7 @@ const main = async () => {
         }
       })
       .finally(() => (checking = false));
-  }, 5000);
+  });
 
   const gpuBefore = await sampleGpu(3000);
   if (gpuBefore)
@@ -216,7 +217,7 @@ const main = async () => {
     videoId: `scorecard-${runId}`,
     calibration: {
       id: `scorecard-${runId}`,
-      createdAtMs: Date.now(),
+      createdAtMs: nowMs(),
       thresholdDb: SYNTHETIC_THRESHOLD_DB,
       recorderMic: MIC_NAME,
       cameraDevice: RECORDER_CAMERA_NAME,
@@ -289,7 +290,7 @@ const main = async () => {
     }
   }
 
-  clearInterval(guard);
+  guard();
   await ctx.probe?.close();
   if (!aborted) {
     log("closing");

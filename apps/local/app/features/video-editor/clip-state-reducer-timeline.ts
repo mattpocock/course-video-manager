@@ -8,6 +8,7 @@ import type {
 import { canZoomClip, type ClipZoomType } from "@/features/videos/clip-zoom";
 import { isTranscriptionPending } from "@/features/videos/transcription-status";
 import { effectiveClipScene } from "@cvm/core/features/videos/effective-scene";
+import { now } from "@/packages/clock";
 
 type State = clipStateReducer.State;
 type Action = clipStateReducer.Action;
@@ -252,7 +253,7 @@ export const handleEffectClipCreated = (
       sourceStartTime: item.sourceStartTime,
       sourceEndTime: item.sourceEndTime,
       text: item.text,
-      transcribedAt: new Date(),
+      transcribedAt: now(),
       transcriptionStatus: "done",
       scene: item.scene,
       profile: item.profile,

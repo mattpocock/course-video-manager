@@ -9,6 +9,7 @@ import {
   type RecorderCommand,
   type RecorderMessage,
 } from "../../recorder-service/protocol";
+import { nowMs, after } from "@/packages/clock";
 
 /**
  * Starting, talking to and killing the recorder service under test
@@ -61,16 +62,15 @@ export const startService = (o: {
     );
     let output = "";
     const exited = new Promise<void>((r) => child.once("exit", () => r()));
-    const timer = setTimeout(
-      () => reject(new Error(`The service did not start:\n${output}`)),
-      60_000
+    const timer = after(60_000, () =>
+      reject(new Error(`The service did not start:\n${output}`))
     );
     const onData = (d: Buffer) => {
       output = (output + d.toString()).slice(-200_000);
       if (o.logFile) fs.appendFileSync(o.logFile, d);
       const port = output.match(/SCORECARD-SERVICE-PORT (\d+)/)?.[1];
       if (port && timer) {
-        clearTimeout(timer);
+        timer();
         resolve({
           port: Number(port),
           child,
@@ -113,7 +113,7 @@ export const startService = (o: {
     child.stdout?.on("data", onData);
     child.stderr?.on("data", onData);
     child.once("exit", (code) => {
-      clearTimeout(timer);
+      timer();
       reject(
         new Error(`The service exited (${code}) before it listened:\n${output}`)
       );
@@ -131,7 +131,7 @@ export const connect = async (port: number) => {
   ws.on("message", (data) => {
     received.push({
       at: performance.now(),
-      wall: Date.now(),
+      wall: nowMs(),
       message: JSON.parse(data.toString()) as RecorderMessage,
     });
     for (const w of waiters) w();
@@ -153,18 +153,18 @@ export const connect = async (port: number) => {
         const hit = received.slice(o.from ?? 0).find((r) => pred(r.message));
         if (!hit) return false;
         waiters.delete(look);
-        clearTimeout(timer);
+        timer();
         resolve(hit);
         return true;
       };
-      const timer = setTimeout(() => {
+      const timer = after(o.timeoutMs ?? 30_000, () => {
         waiters.delete(look);
         reject(
           new Error(
             `Timed out waiting for ${o.what ?? "a message"}; last: ${JSON.stringify(received.slice(-3).map((r) => r.message)).slice(0, 1500)}`
           )
         );
-      }, o.timeoutMs ?? 30_000);
+      });
       if (!look()) waiters.add(look);
     });
 
@@ -174,7 +174,7 @@ export const connect = async (port: number) => {
     send: (command: RecorderCommand) => {
       const from = received.length;
       ws.send(JSON.stringify(command));
-      return { from, at: performance.now(), wall: Date.now() };
+      return { from, at: performance.now(), wall: nowMs() };
     },
     waitFor,
     close: () => ws.terminate(),

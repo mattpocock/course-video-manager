@@ -16,6 +16,7 @@ import {
   FolderOpenIcon,
 } from "lucide-react";
 import { memo, useState } from "react";
+import { after } from "@/packages/clock";
 
 export type FileMetadata = {
   path: string;
@@ -225,7 +226,7 @@ export const VideoContextPanel = memo(function VideoContextPanel({
                     e.preventDefault();
                     onCopyTranscript();
                     setTranscriptCopied(true);
-                    setTimeout(() => setTranscriptCopied(false), 2000);
+                    after(2000, () => setTranscriptCopied(false));
                   }}
                 >
                   {transcriptCopied ? (

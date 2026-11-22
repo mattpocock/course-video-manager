@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { Cause, HashMap, Inspectable, Logger } from "effect";
 import { assertUnder } from "@/services/assert-under";
+import { now } from "@/packages/clock";
 
 /**
  * The sidecar's one logger: a JSON object per line.
@@ -62,7 +63,7 @@ export const makeJsonLogger = (opts: {
     } catch (error) {
       opts.write(
         `${Inspectable.stringifyCircular({
-          at: new Date().toISOString(),
+          at: now().toISOString(),
           level: "WARN",
           message: `could not append to the job log for ${jobId}`,
           cause: String(error),

@@ -22,6 +22,7 @@ import { DrizzleService } from "@/services/drizzle-service.server";
 import { JobOperationsService } from "@cvm/core/services/db-job-operations.server";
 import { discardStrandedPendingVersion } from "@/services/pending-recovery.server";
 import { dropboxAuth } from "@/db/schema";
+import { nowMs, toDate } from "@/packages/clock";
 
 let testDb: TestDb;
 let fakeDropbox: ReturnType<typeof createFakeDropbox>;
@@ -44,7 +45,7 @@ const setup = async () => {
   await testDb.insert(dropboxAuth).values({
     accessToken: FAKE_ACCESS_TOKEN,
     refreshToken: "fake-refresh-token",
-    expiresAt: new Date(Date.now() + 3600 * 1000),
+    expiresAt: toDate(nowMs() + 3600 * 1000),
   });
 
   const dbLayer = Layer.mergeAll(

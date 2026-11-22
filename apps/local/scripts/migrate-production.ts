@@ -32,6 +32,7 @@ import {
 } from "@cvm/core/db/planetscale-backup";
 import { scriptDatabaseUrl } from "./script-database-url";
 import { readServiceToken } from "./service-token-file";
+import { now } from "@/packages/clock";
 
 const REPO_ROOT = path.resolve(
   fileURLToPath(new URL("../../..", import.meta.url))
@@ -89,7 +90,7 @@ const migrate = async (): Promise<void> => {
 };
 
 preflight();
-const stamp = new Date().toISOString().replace(/[-:]/g, "").slice(0, 15);
+const stamp = now().toISOString().replace(/[-:]/g, "").slice(0, 15);
 try {
   const { backupId } = await backupThenMigrate({
     apiBase: PLANETSCALE_API,

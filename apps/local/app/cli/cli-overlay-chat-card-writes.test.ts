@@ -17,6 +17,7 @@ import {
   type RunResult,
   type WriteSeed,
 } from "./cli-write-test-harness";
+import { toDate } from "@/packages/clock";
 
 // ===========================================================================
 // cvm overlay: the Chat Card (#2556)
@@ -72,7 +73,7 @@ beforeEach(async () => {
       cameraFilePath: "c.mkv",
       screenFilePath: "s.mkv",
       micFilePath: "m.mkv",
-      startedAt: new Date(T0),
+      startedAt: toDate(T0),
     })
     .returning();
   const clip = await seedClip(video!.id);

@@ -5,6 +5,7 @@ import {
   createInitialVideoFilePasteState,
   videoFilePasteReducer,
 } from "./video-file-paste-reducer";
+import { after } from "@/packages/clock";
 
 /** Long enough for the dialog's content to be rendered before focusing it. */
 const FOCUS_DELAY_MS = 100;
@@ -29,18 +30,15 @@ export function useVideoFilePasteReducer(props: {
     videoFilePasteReducer.Effect
   >(videoFilePasteReducer, createInitialVideoFilePasteState(), {
     "focus-paste-area": () => {
-      const timer = setTimeout(
-        () => pasteAreaRef.current?.focus(),
-        FOCUS_DELAY_MS
-      );
-      return () => clearTimeout(timer);
+      const timer = after(FOCUS_DELAY_MS, () => pasteAreaRef.current?.focus());
+      return () => timer();
     },
     "focus-path-input": () => {
-      const timer = setTimeout(() => {
+      const timer = after(FOCUS_DELAY_MS, () => {
         pathInputRef.current?.focus();
         pathInputRef.current?.select();
-      }, FOCUS_DELAY_MS);
-      return () => clearTimeout(timer);
+      });
+      return () => timer();
     },
     "create-file": (_state, effect) => {
       const formData = new FormData();

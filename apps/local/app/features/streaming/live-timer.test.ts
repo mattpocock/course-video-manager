@@ -7,9 +7,10 @@ import {
   liveStreamReducer,
 } from "./live-stream-reducer";
 import { liveTimer } from "./live-timer";
+import { toDate } from "@/packages/clock";
 
 const LIVE_SINCE = "2026-11-04T18:00:00.000Z";
-const at = (offset: string) => Date.parse(LIVE_SINCE) + ms(offset);
+const at = (offset: string) => toDate(LIVE_SINCE).getTime() + ms(offset);
 const ms = (hms: string) => {
   const [h, m, s] = hms.split(":").map(Number);
   return ((h! * 60 + m!) * 60 + s!) * 1000;

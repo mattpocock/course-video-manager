@@ -3,6 +3,7 @@ import { hearingFeedOverflows } from "./stream-feeds";
 import { Refusal } from "./refusal";
 import { armTake, type ArmedTake } from "./recording-session";
 import { sameTake, type TakeSettings } from "./take-settings";
+import { after } from "@/packages/clock";
 
 /** How long Record waits for a writer it had to arm on the spot. */
 const ARM_TIMEOUT_MS = 10_000;
@@ -41,7 +42,7 @@ export const createTakeArming = (o: {
         console.error(
           `recorder: the armed camera writer quit before Record${errors.length ? `: ${errors.join(" ")}` : ""}; arming another`
         );
-        setTimeout(rearm, REARM_DELAY_MS);
+        after(REARM_DELAY_MS, rearm);
       },
     });
     armed = take;
@@ -88,14 +89,13 @@ export const createTakeArming = (o: {
     takeFor: async (settings: TakeSettings): Promise<ArmedTake> => {
       if (armed && !sameTake(armed.settings, settings)) await disarm();
       const take = armed ?? arm(settings);
-      let timer: ReturnType<typeof setTimeout> | undefined;
+      let timer: (() => void) | undefined;
       try {
         await Promise.race([
           take.ready,
           new Promise((_, reject) => {
-            timer = setTimeout(
-              () => reject(new Error("it did not connect in time")),
-              ARM_TIMEOUT_MS
+            timer = after(ARM_TIMEOUT_MS, () =>
+              reject(new Error("it did not connect in time"))
             );
           }),
         ]);
@@ -105,7 +105,7 @@ export const createTakeArming = (o: {
           `The camera writer did not start: ${e instanceof Error ? e.message : String(e)}`
         );
       } finally {
-        clearTimeout(timer);
+        timer?.();
       }
       if (armed === take) armed = undefined;
       return take;

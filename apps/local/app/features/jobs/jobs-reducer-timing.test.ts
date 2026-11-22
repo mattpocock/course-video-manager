@@ -10,13 +10,14 @@ import { clockOffsetOf } from "./jobs-timing";
 import type { WireJob, WireJobEvent } from "./job-wire";
 import { historyLookupOf, type HistoryData } from "./job-stage-history";
 import { estimateUploads } from "@/features/upload-manager/upload-eta-schedule";
+import { toDate } from "@/packages/clock";
 
 /**
  * A Job row's timings come from its Job Events, stamped with each event's
  * `at` (the database's clock), live or replayed from a snapshot.
  */
 
-const T0 = Date.parse("2026-10-09T12:00:00.000Z");
+const T0 = toDate("2026-10-09T12:00:00.000Z").getTime();
 
 const exportJob: WireJob = {
   id: "6b0c1f5e-0000-4000-8000-0000000000e1",
@@ -51,13 +52,16 @@ const event = (
   jobId: job.id,
   type,
   data,
-  at: new Date(T0 + atMs).toISOString(),
+  at: toDate(T0 + atMs).toISOString(),
 });
 
 /** Events as the live stream delivers them, heard `skewMs` after their `at`. */
 const live = (events: WireJobEvent[], job: WireJob, skewMs = 0) =>
   events.map((e) => {
-    const action = toJobsAction({ job, event: e }, Date.parse(e.at) + skewMs);
+    const action = toJobsAction(
+      { job, event: e },
+      toDate(e.at).getTime() + skewMs
+    );
     if (!action) throw new Error(`no action for ${e.type}`);
     return action;
   });

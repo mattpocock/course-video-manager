@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { formatRunningClock } from "@/lib/format-duration";
+import { nowMs as clockNowMs, every, toDate } from "@/packages/clock";
 
 /**
  * THE LIVE TIMER: how long the Live Stream has been live, as `HH:MM:SS`,
@@ -14,26 +15,26 @@ export const liveTimer = (
 ): string | null =>
   liveSince === null
     ? null
-    : formatRunningClock((nowMs - Date.parse(liveSince)) / 1000);
+    : formatRunningClock((nowMs - toDate(liveSince).getTime()) / 1000);
 
 const TICK_MS = 1000;
-let nowMs = Date.now();
+let nowMs = clockNowMs();
 const ticked = new Set<() => void>();
-let ticker: ReturnType<typeof setInterval> | undefined;
+let ticker: (() => void) | undefined;
 
 const subscribeToTick = (onTick: () => void) => {
   ticked.add(onTick);
   if (ticker === undefined) {
-    nowMs = Date.now();
-    ticker = setInterval(() => {
-      nowMs = Date.now();
+    nowMs = clockNowMs();
+    ticker = every(TICK_MS, () => {
+      nowMs = clockNowMs();
       for (const listener of ticked) listener();
-    }, TICK_MS);
+    });
   }
   return () => {
     ticked.delete(onTick);
     if (ticked.size > 0 || ticker === undefined) return;
-    clearInterval(ticker);
+    ticker();
     ticker = undefined;
   };
 };

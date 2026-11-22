@@ -19,6 +19,7 @@ import {
   SYNTHETIC_SCREENS,
 } from "./synthetic-sources";
 import { killMarked, windowsGuard } from "./windows";
+import { after } from "@/packages/clock";
 
 /**
  * THE SCORECARD'S LAUNCHER: the real recorder service's one seam
@@ -258,9 +259,9 @@ export const stallCardServer = (ms: number) => {
     (c) => c.exitCode === null && c.signalCode === null
   );
   if (!child?.kill("SIGSTOP")) return false;
-  setTimeout(() => {
+  after(ms, () => {
     if (child.exitCode === null) child.kill("SIGCONT");
-  }, ms);
+  });
   return true;
 };
 

@@ -24,6 +24,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useState } from "react";
+import { after, every } from "@/packages/clock";
 
 const CIRCLE_RADIUS = 16;
 const CIRCLE_CIRCUMFERENCE = 2 * Math.PI * CIRCLE_RADIUS;
@@ -87,8 +88,8 @@ export function GlobalUploadProgress() {
   useEffect(() => {
     if (!isActive) return;
     setNow(clock());
-    const interval = setInterval(() => setNow(clock()), 1000);
-    return () => clearInterval(interval);
+    const interval = every(1000, () => setNow(clock()));
+    return () => interval();
   }, [isActive, clock]);
   // Each row's timings come from its Job Events, by the database's clock:
   // "now" is moved onto that clock too (`clockOffsetOf`).
@@ -124,9 +125,9 @@ export function GlobalUploadProgress() {
   useEffect(() => {
     if (!hasUploads || isActive) return;
 
-    const timer = setTimeout(() => dismissFinishedJobs(), 5000);
+    const timer = after(5000, () => dismissFinishedJobs());
 
-    return () => clearTimeout(timer);
+    return () => timer();
   }, [hasUploads, isActive, allEntries, dismissFinishedJobs]);
 
   const handleDismiss = useCallback(

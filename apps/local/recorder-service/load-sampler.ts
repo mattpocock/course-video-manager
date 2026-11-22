@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { toDate } from "@/packages/clock";
 
 /**
  * LOAD SAMPLES (the capture stalls of 2026-10-15). While the camera capture
@@ -51,7 +52,7 @@ const pct = (n: number | null) => (n === null ? "?" : `${Math.round(n)}%`);
 
 /** The sample as one line of the capture's log. */
 export const formatLoad = (atMs: number, s: LoadSample) =>
-  `[load] ${new Date(atMs).toISOString()} cpu ${pct(s.cpuPct)} capture ${s.capturePct.toFixed(1)}% (${s.captureCores.toFixed(2)} cores) wsl ${pct(s.wslPct)} gpu ${pct(s.gpuPct)} enc ${pct(s.encoderPct)} dec ${pct(s.decoderPct)}`;
+  `[load] ${toDate(atMs).toISOString()} cpu ${pct(s.cpuPct)} capture ${s.capturePct.toFixed(1)}% (${s.captureCores.toFixed(2)} cores) wsl ${pct(s.wslPct)} gpu ${pct(s.gpuPct)} enc ${pct(s.encoderPct)} dec ${pct(s.decoderPct)}`;
 
 /**
  * WSL's CPU since the last call, from /proc/stat's `cpu` line: % of all its

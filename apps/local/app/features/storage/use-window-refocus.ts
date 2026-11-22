@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { nowMs } from "@/packages/clock";
 
 /**
  * The bridge from the window coming back to a Storage page (#2423): focus,
@@ -11,7 +12,7 @@ export const useWindowRefocus = (
   useEffect(() => {
     const refocused = () => {
       if (document.visibilityState === "visible") {
-        dispatch({ type: "window-refocused", now: Date.now() });
+        dispatch({ type: "window-refocused", now: nowMs() });
       }
     };
     window.addEventListener("focus", refocused);

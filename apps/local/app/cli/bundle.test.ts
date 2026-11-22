@@ -3,6 +3,7 @@ import nodeFs from "node:fs";
 import nodeOs from "node:os";
 import nodePath from "node:path";
 import { buildBundle, isBundleFresh, loadCli } from "./bundle.mjs";
+import { toDate } from "@/packages/clock";
 
 // ===========================================================================
 // `cvm` runs from an esbuild bundle of main.ts on plain Node. The bundle must
@@ -32,7 +33,7 @@ describe("the cvm bundle", () => {
     const source = nodePath.join(import.meta.dirname, "index.ts");
     const { atime, mtime } = nodeFs.statSync(source);
     try {
-      nodeFs.utimesSync(source, atime, new Date(mtime.getTime() + 1000));
+      nodeFs.utimesSync(source, atime, toDate(mtime.getTime() + 1000));
       expect(await isBundleFresh(cacheDir)).toBe(false);
     } finally {
       nodeFs.utimesSync(source, atime, mtime);

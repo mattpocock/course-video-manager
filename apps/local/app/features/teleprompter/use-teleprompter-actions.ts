@@ -11,6 +11,7 @@
 import { STREAM_DECK_HUB_URL } from "@/lib/live-channels";
 import { useEffect, useRef } from "react";
 import { streamDeckForwarderMessageSchema } from "stream-deck-forwarder/stream-deck-forwarder-types";
+import { after } from "@/packages/clock";
 
 export type TeleprompterActions = {
   advance: () => void;
@@ -27,7 +28,7 @@ export function useTeleprompterActions(actions: TeleprompterActions) {
 
   useEffect(() => {
     let socket: WebSocket | null = null;
-    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let reconnectTimer: (() => void) | null = null;
     let closed = false;
 
     const connect = () => {
@@ -51,7 +52,7 @@ export function useTeleprompterActions(actions: TeleprompterActions) {
       // Retry quietly rather than silently losing the Stream Deck.
       socket.addEventListener("close", () => {
         if (closed) return;
-        reconnectTimer = setTimeout(connect, 2000);
+        reconnectTimer = after(2000, connect);
       });
       socket.addEventListener("error", () => socket?.close());
     };
@@ -59,7 +60,7 @@ export function useTeleprompterActions(actions: TeleprompterActions) {
 
     return () => {
       closed = true;
-      if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (reconnectTimer) reconnectTimer();
       socket?.close();
     };
   }, []);

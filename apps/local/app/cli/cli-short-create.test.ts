@@ -22,6 +22,7 @@ import {
   type RunResult,
   type WriteSeed,
 } from "./cli-write-test-harness";
+import { toDate, now } from "@/packages/clock";
 
 // ===========================================================================
 // cvm short create (#2577): a Standalone Short from ranges of a Video, a
@@ -82,7 +83,7 @@ const seedFootage = (name: string, seconds = 60): string => {
       version: 1,
       sourcePath: source,
       sourceHash: createHash("sha256").update(content).digest("hex"),
-      transcribedAt: new Date().toISOString(),
+      transcribedAt: now().toISOString(),
       words,
       segments: [
         { start: 0, end: seconds, text: words.map((w) => w.text).join(" ") },
@@ -111,7 +112,7 @@ const seedStream = async () => {
       screenFilePath: "screen.mkv",
       micFilePath: "mic.mkv",
       status: "stopped",
-      startedAt: new Date(T0),
+      startedAt: toDate(T0),
     })
     .returning();
   await testDb.insert(schema.recordingSessionSceneEvents).values([

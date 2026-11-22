@@ -24,6 +24,7 @@ import {
   ingestRecorderEvent,
   unfinishedRecordingSessions,
 } from "./ingest.server";
+import { toDate } from "@/packages/clock";
 
 /**
  * The recorder client end to end, without hardware: the real recorder
@@ -83,7 +84,7 @@ export const freshCalibration: LastPassed = async () => {
     .insert(avCalibrations)
     .values({
       id: CALIBRATION.id,
-      createdAt: new Date(CALIBRATION.createdAtMs),
+      createdAt: toDate(CALIBRATION.createdAtMs),
       outcome: "passed",
       noiseFloorDb: -80,
       speechLufs: -27,

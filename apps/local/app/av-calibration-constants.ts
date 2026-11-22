@@ -1,3 +1,5 @@
+import { toDate } from "@/packages/clock";
+
 /**
  * THE NUMBERS of an AV Calibration (#2077, "The numbers"), beside the one
  * definition of silence (`silence-detection-constants.ts`) whose threshold an
@@ -434,7 +436,7 @@ export const CALIBRATION_REFUSAL_PREFIX =
 
 /** A moment as Matt reads it, the same on every machine (UTC). */
 export const formatCalibrationTime = (ms: number): string =>
-  `${new Date(ms).toISOString().slice(0, 16).replace("T", " ")} UTC`;
+  `${toDate(ms).toISOString().slice(0, 16).replace("T", " ")} UTC`;
 
 const DEVICE_NAMES = {
   "recorder-mic": "The recorder's mic",

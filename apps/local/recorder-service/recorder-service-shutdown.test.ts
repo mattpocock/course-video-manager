@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { IDLE_STOP } from "./protocol";
 import { stopCleanlyOn } from "./run-recorder-service";
 import { readLog, recordOnce } from "./test-utils/service-harness";
+import { delay } from "@/packages/clock";
 
 /**
  * Stopping `pnpm dev` mid-take (ADR 0035): the service gets SIGINT/SIGTERM
@@ -60,7 +61,7 @@ describe("stopping the recorder service mid-take", () => {
     });
 
     ipc.emit("message", IDLE_STOP);
-    await new Promise((r) => setTimeout(r, 50));
+    await delay(50);
     expect(exited).toBe(false);
     expect(lines).toEqual([
       "idle-stop: refused, a take is recording or closing",

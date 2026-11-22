@@ -20,6 +20,7 @@ import {
   type StorageMoveKind,
 } from "./move-wire";
 import type { StorageRoots } from "./storage-roots";
+import { delay as clockDelay, nowMs } from "@/packages/clock";
 
 /**
  * A STORAGE MOVE'S PARTIAL COPIES, AND WHO MAY DELETE THEM (#2169).
@@ -111,7 +112,7 @@ export const removeOwnPartials = async (opts: {
 export const partialRecorder =
   (db: Database, jobId: string, windowMs = 30_000) =>
   async (partial: string): Promise<void> => {
-    const deadline = Date.now() + windowMs;
+    const deadline = nowMs() + windowMs;
     for (let delay = 250; ; delay = Math.min(delay * 2, 5_000)) {
       try {
         await db.insert(jobEvents).values({
@@ -121,8 +122,8 @@ export const partialRecorder =
         });
         return;
       } catch (error) {
-        if (Date.now() + delay > deadline) throw error;
-        await new Promise((r) => setTimeout(r, delay));
+        if (nowMs() + delay > deadline) throw error;
+        await clockDelay(delay);
       }
     }
   };

@@ -8,6 +8,7 @@ import {
   createInitialCalibrationGateState,
   cvmRecorderGate,
 } from "./calibration-gate-reducer";
+import { every, nowMs } from "@/packages/clock";
 
 /** How often the gate looks at the clock again. */
 const TICK_MS = 30_000;
@@ -27,10 +28,10 @@ export const useCalibrationGate = (o: {
   );
   // Bridges the clock in.
   useEffect(() => {
-    const tick = () => dispatch({ type: "clock-ticked", nowMs: Date.now() });
+    const tick = () => dispatch({ type: "clock-ticked", nowMs: nowMs() });
     tick();
-    const interval = setInterval(tick, TICK_MS);
-    return () => clearInterval(interval);
+    const interval = every(TICK_MS, tick);
+    return () => interval();
   }, []);
   // Bridges a revalidated loader in.
   useEffect(() => {

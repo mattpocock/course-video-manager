@@ -15,6 +15,7 @@ import {
   makeRun,
   type RunResult,
 } from "./cli-write-test-harness";
+import { nowMs, toDate } from "@/packages/clock";
 
 // ===========================================================================
 // Bearer authentication, seen from where it matters: the CLI.
@@ -78,7 +79,7 @@ describe("a token the API will not accept", () => {
     // expired and revoked have to be indistinguishable from the outside.
     const expired = await mint({
       name: "stale",
-      expiresAt: new Date(Date.now() - 60_000),
+      expiresAt: toDate(nowMs() - 60_000),
     });
     const revoked = await mint({ name: "compromised" });
     await Effect.runPromise(tokens.revoke(revoked.id));

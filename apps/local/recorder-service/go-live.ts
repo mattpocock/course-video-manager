@@ -31,6 +31,7 @@ import {
 } from "./stream-side";
 import { CARD_ANSWER_MS, CARD_START_MS } from "./card-server";
 import { openStreamHealthLog } from "./stream-health";
+import { delay } from "@/packages/clock";
 
 /**
  * GO LIVE AND END STREAM in the recorder service (ADR 0054): a streamed
@@ -125,8 +126,7 @@ export const LIVE_STREAM_SETTINGS = {
   lastStreamQuitBoundMs: LAST_STREAM_QUIT_BOUND_MS,
   cardAnswerMs: CARD_ANSWER_MS,
   cardStartMs: CARD_START_MS,
-  sleep: (ms: number) =>
-    new Promise<void>((resolve) => setTimeout(resolve, ms)),
+  sleep: (ms: number) => delay(ms),
 } satisfies Partial<LiveStreamOptions>;
 
 export const createGoLive = (

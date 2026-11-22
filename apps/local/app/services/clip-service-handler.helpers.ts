@@ -17,6 +17,7 @@ import { requireDraftVersionForVideo } from "@/services/draft-guard.server";
 import { withDbTransaction } from "@/services/with-db-transaction.server";
 import { createVideoFromSelectionImpl } from "@/services/db-video-from-selection.server";
 import type { LogEvent } from "./video-editor-logger-service";
+import { now } from "@/packages/clock";
 
 // ============================================================================
 // Errors and the Drizzle bridge
@@ -83,10 +84,7 @@ export const getOrderedItems = Effect.fn("getOrderedItems")(function* (
 
 export const touchVideoUpdatedAt = (db: Database, videoId: string) =>
   dbCall(() =>
-    db
-      .update(videos)
-      .set({ updatedAt: new Date() })
-      .where(eq(videos.id, videoId))
+    db.update(videos).set({ updatedAt: now() }).where(eq(videos.id, videoId))
   );
 
 // ============================================================================

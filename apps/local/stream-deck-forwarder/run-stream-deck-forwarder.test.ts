@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach, vi } from "vitest";
 import type { AddressInfo } from "node:net";
 import { WebSocket as WsClient, WebSocketServer } from "ws";
 import { startStreamDeckForwarder } from "./run-stream-deck-forwarder";
+import { delay } from "@/packages/clock";
 
 // Integration test for the hub's client-message rebroadcast — the path the
 // browser link-capture extension relies on. Runs on ephemeral ports so it never
@@ -91,7 +92,7 @@ describe("stream deck forwarder hub", () => {
       JSON.stringify({ type: "browser-focus", focused: true, ts: 1 })
     );
 
-    await new Promise((r) => setTimeout(r, 200));
+    await delay(200);
     expect(echoed).toBe(false);
     sender.close();
   });

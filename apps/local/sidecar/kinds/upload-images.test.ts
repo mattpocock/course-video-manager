@@ -23,6 +23,7 @@ import {
 import type { JobContext } from "../job-kind";
 import { JOB_KIND_SPECS, enqueueJob } from "../job-specs";
 import { removeLocalImagesJobKind, uploadImagesJobKind } from "./upload-images";
+import { delay } from "@/packages/clock";
 
 let testDb: TestDb;
 let dbLayer: Layer.Layer<VideoOperationsService | JobOperationsService>;
@@ -173,7 +174,7 @@ describe("an upload-images Job interrupted mid-batch and run again", () => {
     hang = new Set(["b.png"]);
     const run1 = startUploadRun(job.id, BODY);
     await run1.firstRecorded;
-    await new Promise((r) => setTimeout(r, 50));
+    await delay(50);
     await Effect.runPromise(Fiber.interrupt(run1.fiber));
     expect(completed).toEqual(["a.png"]);
     // The upload Job never deletes: every file is still on disk.

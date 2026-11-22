@@ -13,6 +13,7 @@ import {
   type ClipSourceRow,
 } from "@/packages/clip-source";
 import { clipSegmentArgs } from "./clip-segment-args";
+import { nowMs } from "@/packages/clock";
 
 /**
  * A Clip's Footage Layers as the export draws them: one segment rendered by
@@ -22,7 +23,7 @@ import { clipSegmentArgs } from "./clip-segment-args";
  */
 const hasFfmpeg = spawnSync("ffmpeg", ["-version"]).status === 0;
 
-const dir = path.join(os.tmpdir(), `clip-layers-${process.pid}-${Date.now()}`);
+const dir = path.join(os.tmpdir(), `clip-layers-${process.pid}-${nowMs()}`);
 const file = (name: string) => path.join(dir, name);
 
 const lavfi = (name: string, inputs: string[], codec: string[]) =>

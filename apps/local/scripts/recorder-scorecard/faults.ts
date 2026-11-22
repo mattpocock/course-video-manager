@@ -17,6 +17,7 @@ import {
   sampleMarked,
   windowsClockOffset,
 } from "./windows";
+import { nowMs } from "@/packages/clock";
 
 /**
  * Back-to-back cycles, and the service killed mid-take.
@@ -173,7 +174,7 @@ export const crash = async (ctx: Ctx) => {
   await recordTake(ctx, async (t) => {
     take = t;
     await hold(ctx, 6000);
-    killWin = Date.now() + offset;
+    killWin = nowMs() + offset;
     await ctx.service.kill();
     throw new Error("killed");
   }).catch((e: unknown) => {

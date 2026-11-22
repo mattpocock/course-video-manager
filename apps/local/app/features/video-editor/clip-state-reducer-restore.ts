@@ -3,6 +3,7 @@ import type {
   ClipOnDatabase,
   ClipOptimisticallyAdded,
 } from "./clip-state-reducer.types";
+import { nowMs } from "@/packages/clock";
 
 type RestoreClip = Extract<clipStateReducer.Action, { type: "restore-clip" }>;
 type ClipRestoreFailed = Extract<
@@ -67,7 +68,7 @@ export const handleClipRestoreFailed = (
     error: {
       message: action.message,
       effectType: "unarchive-clips",
-      timestamp: Date.now(),
+      timestamp: nowMs(),
     },
   };
 };

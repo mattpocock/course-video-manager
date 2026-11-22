@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { nowMs } from "@/packages/clock";
 
 const ROOT = join(import.meta.dirname, "..");
 const HASH_FILE = join(ROOT, "build", ".build-hash");
@@ -51,12 +52,12 @@ if (existsSync(HASH_FILE) && existsSync(SERVER_ENTRY)) {
 }
 
 console.log("→ repo changed, running react-router build...");
-const startedAt = Date.now();
+const startedAt = nowMs();
 execFileSync("npx", ["react-router", "build"], {
   cwd: ROOT,
   stdio: "inherit",
 });
-const elapsedSeconds = ((Date.now() - startedAt) / 1000).toFixed(1);
+const elapsedSeconds = ((nowMs() - startedAt) / 1000).toFixed(1);
 
 writeFileSync(HASH_FILE, currentHash + "\n");
 

@@ -26,6 +26,7 @@ import {
   updateArgv,
   voiceJobs,
 } from "./cli-clip-mockup-test-harness";
+import { now } from "@/packages/clock";
 
 // ===========================================================================
 // cvm clip-mockup: the voice is QUEUED, never waited for
@@ -122,7 +123,7 @@ describe("cvm clip-mockup: voice", () => {
   const finishVoiceJobs = (status: "succeeded" | "failed") =>
     testDb
       .update(schema.jobs)
-      .set({ status, finishedAt: new Date() })
+      .set({ status, finishedAt: now() })
       .where(eq(schema.jobs.kind, "clip-mockup-voice"));
 
   /** What the Sidecar's Job leaves on a row once the voice is made. */

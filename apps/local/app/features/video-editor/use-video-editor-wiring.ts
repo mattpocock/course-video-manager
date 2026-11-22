@@ -30,6 +30,7 @@ import {
   resolveInsertionPoint,
 } from "@/services/clip-service";
 import type { VideoEditorLoaderData } from "@/services/video-editor-loader.server";
+import { nowMs } from "@/packages/clock";
 
 const clipService = createHttpClipService();
 
@@ -120,7 +121,7 @@ export const useVideoEditorWiring = (
       sessionId: activeSession.id,
       activeDiagramId: getActiveDiagramId(),
       diagramFocused: diagramFocus.isFocused(),
-      ts: Date.now(),
+      ts: nowMs(),
     });
   };
 
