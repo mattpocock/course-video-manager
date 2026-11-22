@@ -143,17 +143,27 @@ interface Override {
 
 const OWNED_RULES = ["local/response-body", "local/routes-folder"];
 
-const isConfig = (value: unknown): value is { overrides: Override[] } =>
+interface Config {
+  rules: Record<string, unknown>;
+  overrides: Override[];
+}
+
+const isConfig = (value: unknown): value is Config =>
   typeof value === "object" &&
   value !== null &&
+  "rules" in value &&
   "overrides" in value &&
   Array.isArray(value.overrides);
 
-const ownerOverrides = () => {
+const readConfig = () => {
   const source = readFileSync(path.join(ROOT, ".oxlintrc.json"), "utf8");
   const config: unknown = JSON.parse(source.replace(/^\s*\/\/.*$/gm, ""));
   if (!isConfig(config)) throw new Error(".oxlintrc.json has no overrides");
-  return config.overrides.filter((override) =>
+  return config;
+};
+
+const ownerOverrides = () =>
+  readConfig().overrides.filter((override) =>
     Object.keys(override.rules).some(
       (rule) =>
         OWNED_RULES.includes(rule) ||
@@ -161,7 +171,6 @@ const ownerOverrides = () => {
           override.files.some((file) => file.includes("components/ui/")))
     )
   );
-};
 
 describe("the module and file guards' owner overrides", () => {
   it("cover the toast wrappers, the stream owner and the routes folder", () => {
@@ -182,6 +191,106 @@ describe("the module and file guards' owner overrides", () => {
     (file) => {
       expect(existsSync(path.join(ROOT, file.split("*")[0] ?? file))).toBe(
         true
+      );
+    }
+  );
+});
+
+interface RestrictedPath {
+  name: string;
+}
+
+const isRestrictedPath = (value: unknown): value is RestrictedPath =>
+  typeof value === "object" &&
+  value !== null &&
+  "name" in value &&
+  typeof value.name === "string";
+
+const restrictedPaths = (setting: unknown): RestrictedPath[] => {
+  if (!Array.isArray(setting)) return [];
+  const options: unknown = setting[1];
+  if (typeof options !== "object" || options === null) return [];
+  if (!("paths" in options) || !Array.isArray(options.paths)) return [];
+  return options.paths.filter(isRestrictedPath);
+};
+
+const DB_PACKAGES = [
+  "pg",
+  "postgres",
+  "@neondatabase/serverless",
+  "@electric-sql/pglite",
+  "drizzle-orm/node-postgres",
+  "drizzle-orm/postgres-js",
+  "drizzle-orm/neon-http",
+  "drizzle-orm/neon-serverless",
+  "drizzle-orm/pglite",
+];
+
+interface Relist {
+  lifts: string[];
+  rewords: string[];
+  why: string;
+}
+
+const RELISTS: Record<string, Relist> = {
+  "apps/local/app/features/diagrams/**": {
+    lifts: [],
+    rewords: ["sonner"],
+    why: "Toasts are off on the Diagram Playground, so its sonner entry names usePlaygroundStatus() instead of the toast module.",
+  },
+  "apps/local/scripts/**": {
+    lifts: [],
+    rewords: [],
+    why: "Adds the @cvm/core/db/database-url ban for DB scripts.",
+  },
+  "packages/core/services/drizzle-service.server.ts": {
+    lifts: DB_PACKAGES,
+    rewords: [],
+    why: "The database client owners that import a client package.",
+  },
+  "apps/local/app/components/ui/sonner.tsx": {
+    lifts: ["sonner"],
+    rewords: [],
+    why: "The toast wrappers, the only files that import sonner.",
+  },
+};
+
+const importOverrides = () =>
+  readConfig().overrides.filter(
+    (override) => override.rules["no-restricted-imports"] !== undefined
+  );
+
+describe("every override that sets no-restricted-imports", () => {
+  it("is listed, with why, and the root entries it lifts or rewords", () => {
+    for (const relist of Object.values(RELISTS)) {
+      expect(relist.why).not.toBe("");
+    }
+    expect(
+      importOverrides()
+        .map((o) => o.files[0])
+        .sort()
+    ).toEqual(Object.keys(RELISTS).sort());
+  });
+
+  it.each(importOverrides().map((o) => [o.files[0] ?? "", o] as const))(
+    "%s re-lists every root entry it keeps, word for word",
+    (first, override) => {
+      const { lifts, rewords } = RELISTS[first] ?? {
+        lifts: [],
+        rewords: [],
+        why: "",
+      };
+      const own = restrictedPaths(override.rules["no-restricted-imports"]);
+      const kept = restrictedPaths(
+        readConfig().rules["no-restricted-imports"]
+      ).filter((entry) => !lifts.includes(entry.name));
+      for (const entry of kept) {
+        const copy = own.find((o) => o.name === entry.name);
+        if (rewords.includes(entry.name)) expect(copy).toBeDefined();
+        else expect(copy).toEqual(entry);
+      }
+      expect(own.map((o) => o.name).filter((n) => lifts.includes(n))).toEqual(
+        []
       );
     }
   );

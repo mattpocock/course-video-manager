@@ -2,21 +2,22 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { isValidElement, type MouseEvent } from "react";
 import { toast, toastError, ToastText } from "./toast";
 
-type Show = typeof toast.success;
+type SonnerToast = typeof import("sonner").toast;
+type Show = SonnerToast["success"];
 
 const sonnerToast = vi.hoisted(() =>
-  Object.assign(vi.fn<Show>(), {
+  Object.assign(vi.fn<SonnerToast>(), {
     success: vi.fn<Show>(),
     info: vi.fn<Show>(),
     warning: vi.fn<Show>(),
     error: vi.fn<Show>(),
     message: vi.fn<Show>(),
     loading: vi.fn<Show>(),
-    promise: vi.fn(),
-    custom: vi.fn(),
-    dismiss: vi.fn(),
-    getHistory: vi.fn(),
-    getToasts: vi.fn(),
+    promise: vi.fn<SonnerToast["promise"]>(),
+    custom: vi.fn<SonnerToast["custom"]>(),
+    dismiss: vi.fn<SonnerToast["dismiss"]>(),
+    getHistory: vi.fn<SonnerToast["getHistory"]>(),
+    getToasts: vi.fn<SonnerToast["getToasts"]>(),
   })
 );
 
