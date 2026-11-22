@@ -1,12 +1,13 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
 
-  // Oxlint runs advisory, not as a gate. Its `correctness` set stays at
-  // warning level: the repo has a standing backlog of them, cleared by hand a
-  // few at a time in the PRs that touch the file. Only the rules that encode a
-  // documented coding standard are errors — those are green today and must
-  // stay green.
-  "categories": { "correctness": "warn" },
+  // Every rule is an error. Lint gates through scripts/lint-ratchet.ts
+  // (`pnpm run lint`): violations that predate a rule are counted per file in
+  // lint-baseline.json, and a count may only fall.
+  "categories": { "correctness": "error" },
+
+  // The repo's own rules: lint/local.js, one file per rule in lint/rules/.
+  "jsPlugins": ["./lint/local.js"],
 
   "ignorePatterns": [
     "**/dist/**",
@@ -18,10 +19,15 @@
     "packages/lucide-icons/lib/generated/**",
     // Vendored shadcn/kibo-ui components. They are copied in, not written
     // here, so their style is not ours to enforce.
-    "apps/local/components/ui/**"
+    "apps/local/components/ui/**",
+    // Planted violations that must fail: scripts/check-lint-canary.ts lints
+    // them with their own config.
+    "lint/canary/**"
   ],
 
   "rules": {
+    // Overload signatures are never checked against the implementation.
+    "local/no-overloads": "error",
     // CODING STANDARD: "Functions stay simple". `modified` counts a whole
     // `switch` as one branch, so an exhaustive switch over a union (another
     // standard) is not punished for naming every member. A ratchet: files
@@ -75,8 +81,6 @@
       }
     ],
     // CODING STANDARD: "Every promise is awaited, handled or marked void".
-    // A ratchet: an error everywhere except the backlog directories in
-    // `overrides`, which stay at warn. React handler-heavy UI is the backlog.
     "typescript/no-floating-promises": "error",
     "typescript/no-misused-promises": "error",
     // `--type-aware` also switches on every other type-aware rule in
@@ -101,7 +105,7 @@
     // `const { versions, ...rest } = x` is how this repo omits a field. The
     // omitted name is not dead code, so ignoreRestSiblings keeps it quiet.
     "no-unused-vars": [
-      "warn",
+      "error",
       {
         "ignoreRestSiblings": true,
         "argsIgnorePattern": "^_",
@@ -111,21 +115,6 @@
   },
 
   "overrides": [
-    {
-      // The promise ratchet's backlog: these directories still have floating
-      // or misused promises, so here they are warnings, not errors. THIS LIST
-      // ONLY SHRINKS — fix a directory's hits and delete its line. Do not add
-      // one. Counts are in docs/plans/effect-codebase-health.md, phase 2.
-      "files": [
-        "apps/local/app/components/**",
-        "apps/local/app/features/video-posting/**",
-        "apps/local/app/routes/**/*.tsx"
-      ],
-      "rules": {
-        "typescript/no-floating-promises": "warn",
-        "typescript/no-misused-promises": "warn"
-      }
-    },
     {
       // The Diagram Playground turns toasts off (`handle = NO_TOASTS`), so a
       // toast fired here is never seen. Its one way to report an error is the

@@ -1,0 +1,6 @@
+# The lint gate. A lifted ban, a raised baseline count or a newly allowlisted
+# directive needs the owner's review. This only gates merges while the branch
+# ruleset requires code-owner review.
+/.oxlintrc.json @mattpocock
+/lint-baseline.json @mattpocock
+/lint/allowed-directives.json @mattpocock

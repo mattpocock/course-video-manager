@@ -1,4 +1,4 @@
-pnpm exec lint-staged
+pnpm exec lint-staged --concurrent false
 pnpm run check:effect-tsc
 pnpm run typecheck
 pnpm run lint:boundaries

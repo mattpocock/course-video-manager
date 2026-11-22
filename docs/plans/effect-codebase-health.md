@@ -3,6 +3,8 @@
 Measured 2026-10-06 on `origin/main` (2795ec48) in a scratch worktree. Counts below
 come from real runs, not estimates. The plan is advisory-first: a rule only
 becomes an error once it is green and a documented coding standard says why.
+(For oxlint this was superseded by #2768: every rule is an error, with
+pre-existing violations in a shrink-only baseline.)
 
 ## Current state
 
@@ -241,6 +243,13 @@ The two promise rules ratchet per directory with `overrides`, for example once
 >   resolve to a fallback (`fetchSnapshotList`, `fetchMeta`, the
 >   suggestions' Script) take the same fallback on a rejection. Remaining:
 >   `components` 16, `features/video-posting` 22, `.tsx` routes 57 (95).
+>
+> **Superseded (2026-11-22, #2768):** oxlint no longer has a warning tier.
+> Every rule is an error, and the backlog override is gone: the remaining
+> promise hits (50 floating / 45 misused) and every other pre-existing
+> violation are counted per file in `lint-baseline.json`, which
+> `scripts/lint-ratchet.ts` keeps shrink-only. A fix needs no new override
+> or promotion; `--write` locks it in.
 
 **Phase 3 — custom guards.** Add `scripts/check-effect-boundaries.sh` in the
 style of the existing guards.
@@ -341,11 +350,13 @@ style of the existing guards.
   rules, since Phase 4) → oxlint `--type-aware` → boundaries → guards →
   tests.
 - **Pre-commit:** the effect-tsc canary and `typecheck`, which carries the
-  Effect rules since Phase 4. The Phase-3 guard runs in staged mode. Type-aware oxlint stays
-  CI-only, which matches the split `check:response-body` already uses.
-- **Policy:** only rules backed by a standard (Phase 1 now, Phase 2 as each
-  reaches 0) are `error`. Everything else is `warning`, an invitation, as
-  `CLAUDE.md` says. A false positive gets
+  Effect rules since Phase 4. The Phase-3 guard runs in staged mode. Since
+  #2768, type-aware oxlint also runs on the staged files, through the lint
+  ratchet.
+- **Policy:** every oxlint rule is an error; violations that predate a rule
+  sit in the shrink-only `lint-baseline.json` (see `CLAUDE.md`). For the
+  Effect rules, only those backed by a standard are `error`; the rest are
+  warnings. A false positive gets
   `// @effect-diagnostics-next-line <rule>:off` with a reason.
 
 ## Risks

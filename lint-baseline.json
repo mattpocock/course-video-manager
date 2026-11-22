@@ -1,0 +1,206 @@
+{
+  ".sandcastle/review/review.ts": {
+    "eslint(no-unused-vars)": 1
+  },
+  "apps/local/app/components/add-link-modal.tsx": {
+    "typescript(no-floating-promises)": 1,
+    "typescript(no-misused-promises)": 1
+  },
+  "apps/local/app/components/app-sidebar.tsx": {
+    "typescript(no-floating-promises)": 2
+  },
+  "apps/local/app/components/copy-transcript-modal.tsx": {
+    "typescript(no-misused-promises)": 1
+  },
+  "apps/local/app/components/copy-video-modal.tsx": {
+    "typescript(no-misused-promises)": 1
+  },
+  "apps/local/app/components/delete-video-file-modal.tsx": {
+    "typescript(no-misused-promises)": 1
+  },
+  "apps/local/app/components/file-preview-modal.tsx": {
+    "typescript(no-floating-promises)": 1,
+    "typescript(no-misused-promises)": 1
+  },
+  "apps/local/app/components/markdown-monaco-editor.tsx": {
+    "typescript(no-misused-promises)": 1
+  },
+  "apps/local/app/components/move-video-modal.tsx": {
+    "typescript(no-misused-promises)": 1
+  },
+  "apps/local/app/components/purge-exports-modal.tsx": {
+    "typescript(no-misused-promises)": 1
+  },
+  "apps/local/app/components/remount-command.tsx": {
+    "typescript(no-misused-promises)": 1
+  },
+  "apps/local/app/components/rename-course-modal.tsx": {
+    "typescript(no-misused-promises)": 1
+  },
+  "apps/local/app/components/rename-video-modal.tsx": {
+    "typescript(no-misused-promises)": 1
+  },
+  "apps/local/app/components/video-file-management-modal.tsx": {
+    "typescript(no-misused-promises)": 1
+  },
+  "apps/local/app/features/article-writer/tool-call-display.tsx": {
+    "eslint(no-unused-expressions)": 2
+  },
+  "apps/local/app/features/av-calibration/av-calibration-reducer.test.ts": {
+    "unicorn(no-new-array)": 1
+  },
+  "apps/local/app/features/entity-links/entity-deep-link.ts": {
+    "unicorn(prefer-string-starts-ends-with)": 1
+  },
+  "apps/local/app/features/video-editor/components/queued-still.tsx": {
+    "unicorn(no-useless-spread)": 1
+  },
+  "apps/local/app/features/video-posting/ai-hero-components.tsx": {
+    "typescript(no-floating-promises)": 2,
+    "typescript(no-misused-promises)": 1
+  },
+  "apps/local/app/features/video-posting/ai-hero-page.tsx": {
+    "typescript(no-misused-promises)": 3
+  },
+  "apps/local/app/features/video-posting/lesson-page.tsx": {
+    "typescript(no-floating-promises)": 2,
+    "typescript(no-misused-promises)": 1
+  },
+  "apps/local/app/features/video-posting/newsletter-page.tsx": {
+    "typescript(no-misused-promises)": 2
+  },
+  "apps/local/app/features/video-posting/post-page-thumbnail-selector.tsx": {
+    "eslint(no-unused-expressions)": 1,
+    "typescript(no-misused-promises)": 1
+  },
+  "apps/local/app/features/video-posting/skills-changelog-helpers.tsx": {
+    "typescript(no-misused-promises)": 1
+  },
+  "apps/local/app/features/video-posting/skills-changelog-page.tsx": {
+    "typescript(no-misused-promises)": 5
+  },
+  "apps/local/app/features/video-posting/social-page.tsx": {
+    "typescript(no-misused-promises)": 3
+  },
+  "apps/local/app/features/video-posting/use-post-page-reducer.ts": {
+    "typescript(no-floating-promises)": 1
+  },
+  "apps/local/app/lib/unified-line-diff.ts": {
+    "unicorn(no-new-array)": 1
+  },
+  "apps/local/app/packages/mic-eq/lib/mic-eq-filter.ts": {
+    "unicorn(no-new-array)": 1
+  },
+  "apps/local/app/routes/_app.api-tokens.tsx": {
+    "typescript(no-misused-promises)": 2
+  },
+  "apps/local/app/routes/_app.archived-courses.tsx": {
+    "typescript(no-floating-promises)": 2
+  },
+  "apps/local/app/routes/_app.courses.$courseId._index.tsx": {
+    "typescript(no-floating-promises)": 2
+  },
+  "apps/local/app/routes/_app.courses.$courseId.archived-lessons.tsx": {
+    "typescript(no-floating-promises)": 1
+  },
+  "apps/local/app/routes/_app.courses.$courseId.sections.$sectionId.tsx": {
+    "typescript(no-floating-promises)": 2
+  },
+  "apps/local/app/routes/_app.pitches.$pitchId.tsx": {
+    "typescript(no-floating-promises)": 5
+  },
+  "apps/local/app/routes/_app.pitches._index.tsx": {
+    "typescript(no-floating-promises)": 6
+  },
+  "apps/local/app/routes/_app.shorts._index.tsx": {
+    "typescript(no-floating-promises)": 1,
+    "typescript(no-misused-promises)": 1
+  },
+  "apps/local/app/routes/_app.videos.$videoId.ai-hero.tsx": {
+    "typescript(no-floating-promises)": 2
+  },
+  "apps/local/app/routes/_app.videos.$videoId.lesson.tsx": {
+    "typescript(no-floating-promises)": 1
+  },
+  "apps/local/app/routes/_app.videos.$videoId.newsletter.tsx": {
+    "typescript(no-floating-promises)": 2
+  },
+  "apps/local/app/routes/_app.videos.$videoId.post.tsx": {
+    "typescript(no-floating-promises)": 3
+  },
+  "apps/local/app/routes/_app.videos.$videoId.skills-changelog.tsx": {
+    "typescript(no-floating-promises)": 2
+  },
+  "apps/local/app/routes/_app.videos.$videoId.social.tsx": {
+    "typescript(no-floating-promises)": 2
+  },
+  "apps/local/app/routes/_app.videos.$videoId.thumbnails.tsx": {
+    "typescript(no-floating-promises)": 1
+  },
+  "apps/local/app/routes/_app.videos.$videoId.tsx": {
+    "typescript(no-misused-promises)": 2
+  },
+  "apps/local/app/routes/_app.videos._index.tsx": {
+    "typescript(no-misused-promises)": 2
+  },
+  "apps/local/app/routes/api.videos.$videoId.stream.ts": {
+    "eslint(no-unused-vars)": 1
+  },
+  "apps/local/app/routes/diagram-playground.$diagramId.tsx": {
+    "typescript(no-floating-promises)": 5,
+    "typescript(no-misused-promises)": 4
+  },
+  "apps/local/app/routes/diagram-playground._index.tsx": {
+    "typescript(no-floating-promises)": 3,
+    "typescript(no-misused-promises)": 3
+  },
+  "apps/local/app/routes/teleprompter.tsx": {
+    "typescript(no-floating-promises)": 1,
+    "typescript(no-misused-promises)": 2
+  },
+  "apps/local/app/routes/view-image.ts": {
+    "eslint(no-unused-vars)": 1
+  },
+  "apps/local/app/routes/view-video.ts": {
+    "eslint(no-unused-vars)": 1
+  },
+  "apps/local/app/services/course-publish-service-publish.test.ts": {
+    "eslint(no-unused-vars)": 1
+  },
+  "apps/local/app/services/mkv-span.ffmpeg.test.ts": {
+    "unicorn(no-useless-spread)": 3
+  },
+  "apps/local/app/services/recorder-client/recorder-client-takes.test.ts": {
+    "unicorn(no-useless-spread)": 5
+  },
+  "apps/local/app/services/recorder-client/recorder-watch.ts": {
+    "unicorn(no-useless-spread)": 1
+  },
+  "apps/local/app/services/still-gate.test.ts": {
+    "unicorn(no-useless-spread)": 1
+  },
+  "apps/local/recorder-service/recorder-service.ts": {
+    "unicorn(no-useless-spread)": 2
+  },
+  "apps/local/recorder-service/stream-side.ts": {
+    "unicorn(no-useless-spread)": 1
+  },
+  "apps/local/scripts/recorder-scorecard/stills.ts": {
+    "unicorn(no-useless-spread)": 1
+  },
+  "apps/local/sidecar/publish-kind.test.ts": {
+    "eslint(no-unsafe-optional-chaining)": 1
+  },
+  "apps/local/sidecar/sidecar.ts": {
+    "unicorn(no-thenable)": 1
+  },
+  "packages/core/services/patient-connection-pool.test.ts": {
+    "local(no-overloads)": 2
+  },
+  "packages/core/services/version-copy-manifest.ts": {
+    "oxc(only-used-in-recursion)": 1
+  },
+  "packages/core/test-utils/test-db.ts": {
+    "unicorn(no-useless-spread)": 1
+  }
+}

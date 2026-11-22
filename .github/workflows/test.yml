@@ -7,7 +7,8 @@
 # and the ruleset (strict, required context `check`) makes every BEHIND PR pay
 # it again:
 #
-#   static      = pnpm run check:static         (typecheck + Effect rules, oxlint,
+#   static      = pnpm run check:static         (typecheck + Effect rules, the lint
+#                                                ratchet and its canary,
 #                                                lint:boundaries, the file guards,
 #                                                the Effect guards, the frontend
 #                                                state guard, the complexity
@@ -82,8 +83,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
-      # scripts/check-complexity.ts compares its allowlist with origin/main's
-      # so the list can only shrink; the shallow checkout lacks that ref.
+      # scripts/check-complexity.ts and scripts/lint-ratchet.ts compare their
+      # lists with origin/main's so they can only shrink; the shallow checkout
+      # lacks that ref, and the lint ratchet fails in CI without it.
       - run: git fetch --no-tags --depth=1 origin main:refs/remotes/origin/main
       - run: pnpm run check:static
 

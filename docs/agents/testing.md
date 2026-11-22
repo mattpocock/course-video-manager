@@ -20,7 +20,7 @@ This is deliberately manual rather than diff-derived — no `turbo --affected`, 
 
 ## The full suite: CI, not you
 
-`.github/workflows/test.yml` runs everything `pnpm run check` runs on every PR (split into parallel jobs, with `@cvm/local`'s suite sharded four ways, all rolled up into the one required `check` context) — `typecheck`, `oxlint`, `lint:boundaries`, the four `scripts/` guards and the **unfiltered** `pnpm run test` — every package, every test file, every time. That's what makes it safe to stay targeted locally: nothing merges without the exhaustive run passing regardless of what you ran (or skipped) by hand. Reach for the full `pnpm run test` yourself only if you have a specific reason to distrust your own targeting for this change (e.g. you suspect a cross-package regression the test files you picked wouldn't catch).
+`.github/workflows/test.yml` runs everything `pnpm run check` runs on every PR (split into parallel jobs, with `@cvm/local`'s suite sharded four ways, all rolled up into the one required `check` context) — `typecheck`, `oxlint` (the lint ratchet and its canary), `lint:boundaries`, the four `scripts/` guards and the **unfiltered** `pnpm run test` — every package, every test file, every time. That's what makes it safe to stay targeted locally: nothing merges without the exhaustive run passing regardless of what you ran (or skipped) by hand. Reach for the full `pnpm run test` yourself only if you have a specific reason to distrust your own targeting for this change (e.g. you suspect a cross-package regression the test files you picked wouldn't catch).
 
 ## The test database: one Postgres container, a database per test file
 

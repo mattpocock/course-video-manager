@@ -17,7 +17,8 @@
     "test:watch": "turbo run test:watch --filter=!@cvm/overlay-renderer",
     "typecheck": "turbo run typecheck typecheck:root --filter=!@cvm/overlay-renderer",
     "lint:boundaries": "turbo run lint:boundaries --filter=!@cvm/overlay-renderer",
-    "lint": "oxlint --type-aware",
+    "lint": "node scripts/lint-ratchet.ts",
+    "check:lint-canary": "node scripts/check-lint-canary.ts",
     "test:root": "vitest run",
     "recorder:scorecard": "pnpm --filter @cvm/local recorder:scorecard",
     "typecheck:root": "tsc",
@@ -58,7 +59,7 @@
     "check:frontend-state": "node scripts/check-frontend-state.ts",
     "check:background-jobs": "node scripts/check-background-jobs.ts",
     "check:complexity": "node scripts/check-complexity.ts",
-    "check:static": "node scripts/check-effect-tsc.ts && pnpm run typecheck && pnpm run lint && pnpm run lint:boundaries && ./scripts/check-file-tokens.sh --all && ./scripts/check-no-dirname.sh --all && ./scripts/check-no-gitlinks.sh && ./scripts/check-script-db-url.sh --all && ./scripts/check-db-clients.sh --all && ./scripts/check-clip-inserts.sh --all && ./scripts/check-env-example.sh --all && ./scripts/check-routes-folder.sh --all && ./scripts/check-entity-links.sh --all && ./scripts/check-duration-format.sh --all && ./scripts/check-response-body.sh --all && ./scripts/check-fs-writes.sh --all && ./scripts/check-toast-import.sh --all && node scripts/check-effect-guards.ts --all && node scripts/check-frontend-state.ts --all && node scripts/check-background-jobs.ts --all && node scripts/check-complexity.ts --all",
+    "check:static": "node scripts/check-effect-tsc.ts && pnpm run typecheck && pnpm run lint && node scripts/check-lint-canary.ts && pnpm run lint:boundaries && ./scripts/check-file-tokens.sh --all && ./scripts/check-no-dirname.sh --all && ./scripts/check-no-gitlinks.sh && ./scripts/check-script-db-url.sh --all && ./scripts/check-db-clients.sh --all && ./scripts/check-clip-inserts.sh --all && ./scripts/check-env-example.sh --all && ./scripts/check-routes-folder.sh --all && ./scripts/check-entity-links.sh --all && ./scripts/check-duration-format.sh --all && ./scripts/check-response-body.sh --all && ./scripts/check-fs-writes.sh --all && ./scripts/check-toast-import.sh --all && node scripts/check-effect-guards.ts --all && node scripts/check-frontend-state.ts --all && node scripts/check-background-jobs.ts --all && node scripts/check-complexity.ts --all",
     "check:client-build": "turbo run build --filter=@cvm/local^... && pnpm --filter @cvm/local exec react-router build",
     "check": "pnpm run check:static && pnpm run test && pnpm run check:client-build"
   },
