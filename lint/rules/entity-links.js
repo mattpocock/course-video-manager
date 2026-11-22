@@ -1,36 +1,32 @@
-import { keyName, memberName, unwrap } from "./names.ts";
+import {
+  calleeName,
+  keyName,
+  memberName,
+  unwrap,
+  unwrapCasts,
+} from "./names.ts";
 
 const APP_PATH = /^\/(?:videos|courses|pitches|diagram-playground)\//;
 const ID_NAME = /(?:^id|[a-z]Id)$/;
 
-/** @param {import("./rule.ts").NodeOf<"MemberExpression">["object"]} node */
-const bare = (node) => {
-  const inner = unwrap(node);
-  if (
-    inner.type === "TSAsExpression" ||
-    inner.type === "TSNonNullExpression" ||
-    inner.type === "TSSatisfiesExpression" ||
-    inner.type === "TSTypeAssertion"
-  ) {
-    return bare(inner.expression);
-  }
-  return inner;
-};
+const GUIDANCE =
+  "Render the entity's menu with EntityMenuContent, whose Copy Link builds the URL with entityDeepLink (features/entity-links/). It names the whole hierarchy, and cvm takes it wherever it takes an id.";
 
 /** @param {import("./rule.ts").NodeOf<"MemberExpression">["object"]} node */
-const nameOf = (node) => {
-  const inner = bare(node);
-  if (inner.type === "Identifier") return inner.name;
-  if (inner.type === "MemberExpression") return memberName(inner);
-  return undefined;
-};
+const nameOf = (node) => calleeName(unwrapCasts(node));
+
+/**
+ * @param {import("./rule.ts").NodeOf<"MemberExpression">["object"] | null | undefined} node
+ * @returns {boolean}
+ */
+const isLocation = (node) => !!node && nameOf(node) === "location";
 
 /**
  * @param {import("./rule.ts").NodeOf<"MemberExpression">["object"]} node
  * @returns {boolean}
  */
 const startsWithAppPath = (node) => {
-  const inner = bare(node);
+  const inner = unwrapCasts(node);
   if (inner.type === "Literal") {
     return typeof inner.value === "string" && APP_PATH.test(inner.value);
   }
@@ -50,7 +46,10 @@ const startsWithAppPath = (node) => {
   return false;
 };
 
-/** @param {import("./rule.ts").NodeOf<"MemberExpression">["object"] | undefined} arg */
+/**
+ * @param {import("./rule.ts").NodeOf<"MemberExpression">["object"] | undefined} arg
+ * @returns {boolean}
+ */
 const isHandBuiltLink = (arg) => {
   if (arg === undefined) return false;
   const name = nameOf(arg);
@@ -73,18 +72,11 @@ export default {
     },
     schema: [],
     messages: {
-      clipboard:
-        "A CVM link or raw id put on the clipboard by hand. Render the entity's menu with EntityMenuContent, whose Copy Link builds the URL with entityDeepLink (features/entity-links/). It names the whole hierarchy, and cvm takes it wherever it takes an id.",
-      origin:
-        "location.origin is only needed for a hand-built absolute app URL. Render the entity's menu with EntityMenuContent, whose Copy Link builds the URL with entityDeepLink (features/entity-links/). It names the whole hierarchy, and cvm takes it wherever it takes an id.",
+      clipboard: `A CVM link or raw id put on the clipboard by hand. ${GUIDANCE}`,
+      origin: `location.origin is only needed for a hand-built absolute app URL. ${GUIDANCE}`,
     },
   },
   create(context) {
-    /** @param {import("./rule.ts").NodeOf<"MemberExpression">["object"] | null | undefined} node */
-    const isLocation = (node) => {
-      if (!node) return false;
-      return nameOf(node) === "location";
-    };
     return {
       CallExpression(node) {
         const callee = unwrap(node.callee);

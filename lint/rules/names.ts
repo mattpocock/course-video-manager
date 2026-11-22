@@ -8,6 +8,9 @@ type Expression = Member["object"];
  * syntax tree rather than the source text, so a computed key (`orm["drizzle"]`)
  * or an indirect call (`(0, drizzle)(x)`) names the same thing as the plain
  * form. `keyName` is a member or property key, `memberName` a member's key,
+ * `unwrap` strips parentheses, `?.` and a sequence's leading expressions,
+ * `unwrapCasts` also strips `as`, `!`, `satisfies` and `<T>` (which
+ * `unwrap` keeps, because `local/response-body` bans some of them),
  * `calleeName` what a call or `new` invokes: a bare name, or the key of a
  * member, and `nameReferences` a visitor that reports each place one of
  * `names` is named, as an identifier or a computed key, once.
@@ -35,6 +38,19 @@ export const unwrap = (node: Expression): Expression => {
   if (node.type === "ChainExpression") return unwrap(node.expression);
   if (node.type === "ParenthesizedExpression") return unwrap(node.expression);
   return node;
+};
+
+export const unwrapCasts = (node: Expression): Expression => {
+  const inner = unwrap(node);
+  if (
+    inner.type === "TSAsExpression" ||
+    inner.type === "TSNonNullExpression" ||
+    inner.type === "TSSatisfiesExpression" ||
+    inner.type === "TSTypeAssertion"
+  ) {
+    return unwrapCasts(inner.expression);
+  }
+  return inner;
 };
 
 export const calleeName = (callee: Expression): string | undefined => {

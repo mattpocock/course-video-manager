@@ -4,7 +4,7 @@ import { calleeName, unwrap } from "./names.ts";
  * @param {import("./rule.ts").NodeOf<"MemberExpression">["object"]} node
  * @param {number} value
  */
-const isNumber = (node, value) => {
+const isNumericLiteral = (node, value) => {
   const inner = unwrap(node);
   return inner.type === "Literal" && inner.value === value;
 };
@@ -35,12 +35,12 @@ export default {
     let pads = false;
     return {
       BinaryExpression(node) {
-        if (node.operator === "%" && isNumber(node.right, 60)) {
+        if (node.operator === "%" && isNumericLiteral(node.right, 60)) {
           modulos.push(node);
         }
       },
       AssignmentExpression(node) {
-        if (node.operator === "%=" && isNumber(node.right, 60)) {
+        if (node.operator === "%=" && isNumericLiteral(node.right, 60)) {
           modulos.push(node);
         }
       },
@@ -51,7 +51,7 @@ export default {
           calleeName(node.callee) === "padStart" &&
           arg !== undefined &&
           arg.type !== "SpreadElement" &&
-          isNumber(arg, 2)
+          isNumericLiteral(arg, 2)
         ) {
           pads = true;
         }
