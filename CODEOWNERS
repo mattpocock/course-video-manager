@@ -3,4 +3,4 @@
 # ruleset requires code-owner review.
 /.oxlintrc.json @mattpocock
 /lint-baseline.json @mattpocock
-/allowed-directives.json @mattpocock
+/lint/allowed-directives.json @mattpocock

@@ -1,51 +1,28 @@
-// The lint ratchet. Every Oxlint rule is an error; the violations that
-// already existed when a rule was switched on are counted, per file and per
-// rule, in `lint-baseline.json`. A count may fall but never rise.
-//
-//   node scripts/lint-ratchet.ts                 whole repo (CI, check:static)
-//   node scripts/lint-ratchet.ts <file>...       only those files (pre-commit)
-//   node scripts/lint-ratchet.ts --write         lower the baseline to match
-//   node scripts/lint-ratchet.ts --introduce <rule>   (repeatable) record a
-//                                                newly switched-on rule's
-//                                                violations; implies --write
-//
-// Check mode fails when a (file, rule) count is above its baseline, printing
-// each offender and its diagnostics. A count below the baseline passes, so a
-// fix never has to touch the baseline file; `--write` locks it in.
-//
-// `--write` lints the whole repo and refuses, writing nothing, if any count
-// would rise. A file that git reports as a rename of a baselined file, against
-// origin/main, carries the old path's counts, in check mode too. A whole-repo
-// check also compares the baseline with origin/main's copy, and fails on any
-// raised count unless origin/main has no entries for that rule at all (an
-// introduction). In CI, a missing origin/main is a failure.
-//
-// Anything that stops the check from running (no baseline, an unparseable
-// one, a missing tool, a report that is not JSON) fails with the reason.
-
+/**
+ * The lint ratchet (`pnpm run lint`). Counts Oxlint's violations per file and
+ * rule, and fails any count above `lint-baseline.json`.
+ *
+ *   node scripts/lint-ratchet.ts [file…]          check the repo, or only those files
+ *   node scripts/lint-ratchet.ts --write          lower the baseline to match the code
+ *   node scripts/lint-ratchet.ts --introduce <rule>…   record a newly switched-on rule
+ */
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import {
+  LintToolError,
+  runOxlint,
+  toRepoPath,
+  type Diagnostic,
+} from "./oxlint-json.ts";
 
-export const BASELINE_PATH = "lint-baseline.json";
+const BASELINE_PATH = "lint-baseline.json";
 const BASE_REF = "origin/main";
 const LINTABLE = /\.[cm]?[jt]sx?$/;
-const OXLINT = "node_modules/oxlint/bin/oxlint";
-const TSGOLINT = "node_modules/.bin/tsgolint";
+type Baseline = Record<string, Record<string, number>>;
 
-/** file → rule code (as Oxlint's JSON reporter prints it) → count. */
-export type Baseline = Record<string, Record<string, number>>;
-
-interface Diagnostic {
-  filename: string;
-  code: string;
-  message: string;
-  labels?: { span: { line: number; column: number } }[];
-}
-
-class RatchetError extends Error {}
 const fail = (message: string): never => {
-  throw new RatchetError(message);
+  throw new LintToolError(message);
 };
 
 interface Args {
@@ -78,46 +55,13 @@ function git(root: string, args: string[]) {
 }
 
 function lint(root: string, files: readonly string[]): Diagnostic[] {
-  if (!existsSync(path.join(root, OXLINT))) {
-    fail(`Oxlint is not installed (${OXLINT} is missing). Run pnpm install.`);
-  }
-  if (!existsSync(path.join(root, TSGOLINT))) {
-    fail(
-      `oxlint-tsgolint is not installed (${TSGOLINT} is missing), so the type-aware rules cannot run. Run pnpm install.`
-    );
-  }
-  // Staged files the config ignores are not an error: they are not linted.
-  const paths =
-    files.length > 0 ? ["--no-error-on-unmatched-pattern", ...files] : [];
-  const run = spawnSync(
-    process.execPath,
-    [OXLINT, "--type-aware", "--format", "json", ...paths],
-    { cwd: root, encoding: "utf8", maxBuffer: 1 << 28 }
+  return runOxlint(
+    root,
+    files.length > 0 ? ["--no-error-on-unmatched-pattern", ...files] : []
   );
-  const output = `${run.stdout ?? ""}`;
-  let report: unknown;
-  try {
-    report = JSON.parse(output);
-  } catch {
-    report = undefined;
-  }
-  const diagnostics = (report as { diagnostics?: unknown } | undefined)
-    ?.diagnostics;
-  if (!Array.isArray(diagnostics) || (run.status !== 0 && run.status !== 1)) {
-    fail(
-      `Oxlint did not produce a JSON report (exit ${run.status}):\n${`${run.stderr ?? ""}${output}`.trim()}`
-    );
-  }
-  return (diagnostics as Diagnostic[]).map((d) => ({
-    ...d,
-    filename: relative(root, d.filename),
-  }));
 }
 
-const relative = (root: string, file: string) =>
-  path.relative(root, path.resolve(root, file)).split(path.sep).join("/");
-
-export function countDiagnostics(diagnostics: readonly Diagnostic[]): Baseline {
+function countDiagnostics(diagnostics: readonly Diagnostic[]): Baseline {
   const counts: Baseline = {};
   for (const { filename, code } of diagnostics) {
     const rules = (counts[filename] ??= {});
@@ -158,17 +102,14 @@ function readBaseline(root: string): Baseline {
 }
 
 interface Base {
-  /** origin/main's baseline; undefined when origin/main cannot be read. */
   baseline: Baseline | undefined;
-  /** new path → old path, for files git sees renamed since origin/main. */
   renames: Map<string, string>;
 }
 
 function readBase(root: string): Base {
   const renames = new Map<string, string>();
   if (git(root, ["rev-parse", "--verify", "--quiet", BASE_REF]).status !== 0) {
-    const ci = process.env.CI && process.env.CI !== "false";
-    if (ci) {
+    if (process.env.CI && process.env.CI !== "false") {
       fail(
         `${BASE_REF} is missing, so the baseline cannot be compared with it. In a shallow checkout, run: git fetch --no-tags --depth=1 origin main:refs/remotes/origin/main`
       );
@@ -178,22 +119,51 @@ function readBase(root: string): Base {
     );
     return { baseline: undefined, renames };
   }
-  const diff = git(root, ["diff", "--name-status", "-M", BASE_REF]);
-  for (const line of diff.stdout.split("\n")) {
+  const diff = gitOrFail(root, [
+    "diff",
+    "--name-status",
+    "-M",
+    forkPoint(root),
+  ]);
+  for (const line of diff.split("\n")) {
     const [status, from, to] = line.split("\t");
     if (status?.startsWith("R") && from && to) renames.set(to, from);
   }
-  const shown = git(root, ["show", `${BASE_REF}:${BASELINE_PATH}`]);
-  return {
-    baseline:
-      shown.status === 0
-        ? parseBaseline(shown.stdout, `${BASE_REF}:${BASELINE_PATH}`)
-        : {},
-    renames,
-  };
+  const listed = gitOrFail(root, [
+    "ls-tree",
+    "--name-only",
+    BASE_REF,
+    "--",
+    BASELINE_PATH,
+  ]);
+  const baseline =
+    listed.trim() === ""
+      ? {}
+      : parseBaseline(
+          gitOrFail(root, ["show", `${BASE_REF}:${BASELINE_PATH}`]),
+          `${BASE_REF}:${BASELINE_PATH}`
+        );
+  return { baseline, renames };
 }
 
-/** What `baseline` allows `file` for `rule`, following a rename. */
+function forkPoint(root: string): string {
+  const mergeBase = git(root, ["merge-base", BASE_REF, "HEAD"]);
+  if (mergeBase.status === 0) return mergeBase.stdout.trim();
+  const shallow = gitOrFail(root, ["rev-parse", "--is-shallow-repository"]);
+  if (shallow.trim() === "true") return BASE_REF;
+  return fail(
+    `git merge-base ${BASE_REF} HEAD failed: ${mergeBase.stderr.trim()}`
+  );
+}
+
+function gitOrFail(root: string, args: string[]): string {
+  const run = git(root, args);
+  if (run.status !== 0) {
+    fail(`git ${args.join(" ")} failed: ${(run.stderr ?? "").trim()}`);
+  }
+  return run.stdout;
+}
+
 function allowed(
   baseline: Baseline,
   renames: ReadonlyMap<string, string>,
@@ -250,7 +220,7 @@ function falls(
   return n;
 }
 
-export function serialise(counts: Baseline): string {
+function serialise(counts: Baseline): string {
   const sorted: Baseline = {};
   for (const file of Object.keys(counts).sort()) {
     const rules = Object.entries(counts[file]!)
@@ -310,7 +280,7 @@ function write(root: string, args: Args, baseline: Baseline) {
 }
 
 function check(root: string, args: Args, baseline: Baseline) {
-  const files = args.files.map((f) => relative(root, f));
+  const files = args.files.map((f) => toRepoPath(root, f));
   const lintable = files.filter((f) => LINTABLE.test(f));
   if (files.length > 0 && lintable.length === 0) return;
   const base = readBase(root);
@@ -368,7 +338,7 @@ function main() {
     if (args.write) write(root, args, baseline);
     else check(root, args, baseline);
   } catch (error) {
-    if (!(error instanceof RatchetError)) throw error;
+    if (!(error instanceof LintToolError)) throw error;
     console.error(`lint-ratchet: ${error.message}`);
     process.exitCode = 1;
   }

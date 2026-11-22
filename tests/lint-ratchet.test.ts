@@ -1,11 +1,6 @@
-// The lint ratchet, driven at its command-line seam: each test builds a
-// throwaway repo (an Oxlint config, a baseline, some source files, a git
-// history with an `origin/main`), runs `scripts/lint-ratchet.ts` in it, and
-// reads the exit code, the output and the baseline it leaves behind.
 import { execFileSync, spawnSync } from "node:child_process";
 import {
   chmodSync,
-  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -63,10 +58,6 @@ function installTools(dir: string, tools: { tsgolint?: boolean } = {}) {
   chmodSync(shim, 0o755);
 }
 
-/**
- * A repo whose `origin/main` holds `files` and `baseline`. Pass `baseline:
- * null` for a repo with no baseline file.
- */
 function makeRepo(opts: {
   files: Record<string, string>;
   baseline?: Baseline | null;
@@ -86,6 +77,12 @@ function makeRepo(opts: {
     write(dir, file, source);
   }
   git(dir, "init", "-q", "-b", "main");
+  commit(dir, "base");
+  git(dir, "update-ref", "refs/remotes/origin/main", "HEAD");
+  return dir;
+}
+
+function commit(dir: string, message: string) {
   git(dir, "add", "-A");
   git(
     dir,
@@ -96,10 +93,8 @@ function makeRepo(opts: {
     "commit",
     "-q",
     "-m",
-    "base"
+    message
   );
-  git(dir, "update-ref", "refs/remotes/origin/main", "HEAD");
-  return dir;
 }
 
 function write(dir: string, file: string, source: string) {
@@ -337,13 +332,48 @@ describe("the baseline compared with origin/main", () => {
     expect(ratchet(dir, [], { CI: "true" })).toMatchObject({ status: 0 });
   });
 
-  it("follows a rename", () => {
+  it("follows a rename from where the branch left origin/main, even after main rewrites the old file", () => {
     const dir = makeRepo({
-      files: { "old.ts": debuggers(1) },
-      baseline: { "old.ts": { [DEBUGGER]: 1 } },
+      files: { "a.ts": `${debuggers(2)}export const a = 1;\n` },
+      baseline: { "a.ts": { [DEBUGGER]: 2 } },
     });
-    git(dir, "mv", "old.ts", "new.ts");
-    expect(ratchet(dir, ["--write"])).toMatchObject({ status: 0 });
+    git(dir, "switch", "-q", "-c", "upstream");
+    write(dir, "a.ts", "export const rewritten = 2;\n");
+    commit(dir, "main moves on");
+    git(dir, "update-ref", "refs/remotes/origin/main", "HEAD");
+    git(dir, "switch", "-q", "main");
+    git(dir, "mv", "a.ts", "b.ts");
+    commit(dir, "branch renames");
+    expect(ratchet(dir, [], { CI: "true" })).toMatchObject({ status: 0 });
+  });
+  it("follows a rename in a shallow CI checkout, where there is no merge base", () => {
+    const source = makeRepo({
+      files: { "a.ts": debuggers(2) },
+      baseline: { "a.ts": { [DEBUGGER]: 2 } },
+    });
+    git(source, "switch", "-q", "-c", "pr");
+    git(source, "mv", "a.ts", "b.ts");
+    commit(source, "rename");
+    const dir = mkdtempSync(path.join(tmpdir(), "lint-ratchet-shallow-"));
+    repos.push(dir);
+    git(
+      tmpdir(),
+      "clone",
+      "-q",
+      "--depth=1",
+      "--branch=pr",
+      `file://${source}`,
+      dir
+    );
+    git(
+      dir,
+      "fetch",
+      "-q",
+      "--depth=1",
+      "origin",
+      "main:refs/remotes/origin/main"
+    );
+    installTools(dir);
     expect(ratchet(dir, [], { CI: "true" })).toMatchObject({ status: 0 });
   });
 });
@@ -366,7 +396,11 @@ describe("failing loudly", () => {
       path.join(dir, "lint-baseline.json"),
       JSON.stringify({ "a.ts": { [DEBUGGER]: 0 } })
     );
-    expect(ratchet(dir)).toMatchObject({ status: 1 });
+    const result = ratchet(dir);
+    expect(result.status).toBe(1);
+    expect(result.output).toContain(
+      `"a.ts" → "${DEBUGGER}" must be a positive integer`
+    );
   });
 
   it("fails in CI when origin/main is missing", () => {
@@ -408,7 +442,8 @@ describe("failing loudly", () => {
       path.join(dir, ".oxlintrc.json"),
       JSON.stringify({ rules: { "no-such-plugin/rule": "error" } })
     );
-    expect(ratchet(dir)).toMatchObject({ status: 1 });
-    expect(existsSync(path.join(dir, "lint-baseline.json"))).toBe(true);
+    const result = ratchet(dir);
+    expect(result.status).toBe(1);
+    expect(result.output).toContain("did not produce a JSON report");
   });
 });
