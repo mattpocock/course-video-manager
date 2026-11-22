@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
+  banOf,
   type Diagnostic,
   lintProbes,
   ownerPathExists,
@@ -68,15 +69,6 @@ const FILES: Record<string, readonly Ban[]> = {
   [`${ROUTES}/probe.helpers.tsx`]: [...EVERYWHERE, "routes-folder"],
   [`${ROUTES}/__tests__/probe.ts`]: [...EVERYWHERE, "routes-folder"],
   "apps/local/app/features/probe-utils.ts": EVERYWHERE,
-};
-
-const banOf = (d: Diagnostic): string | undefined => {
-  if (d.code.startsWith("local(")) return d.code.slice(6, -1);
-  if (d.code !== "eslint(no-restricted-imports)") return undefined;
-  const name = /'([^']+)'/.exec(d.message)?.[1];
-  return name === "use-effect-reducer"
-    ? "import useEffectReducer"
-    : `import ${name}`;
 };
 
 const GUARDED: ReadonlySet<string> = new Set(

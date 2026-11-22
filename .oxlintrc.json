@@ -64,6 +64,16 @@
     // A copy of a Clip must carry its children, so only the allowed writers
     // in the override at the bottom insert Clip rows.
     "local/clip-inserts": "error",
+    // CODING STANDARD: "Every entity menu can copy its link". A CVM link on
+    // the clipboard is built by entityDeepLink, so a clipboard write of a raw
+    // id or a hand-built app path fails, and so does location.origin. The
+    // entity-links feature, which builds them, is off in the override at the
+    // bottom.
+    "local/entity-links": "error",
+    // CODING STANDARD: "One duration formatter". A file that takes `% 60` and
+    // pads with padStart(2) is a hand-rolled m:ss formatter. The formatter
+    // module is off in the override at the bottom.
+    "local/duration-format": "error",
     // ESM: import.meta.dirname / import.meta.filename, never the CommonJS
     // globals, nor a shim named after them.
     "local/no-cjs-paths": "error",
@@ -1302,6 +1312,19 @@
         "packages/core/services/db-transcript-word-operations.server.ts"
       ],
       "rules": { "local/clip-inserts": "off" }
+    },
+    {
+      // The entity-links feature builds every CVM link: entityDeepLink, and
+      // the Copy Link action that puts it on the clipboard with the app's
+      // origin.
+      "files": ["apps/local/app/features/entity-links/**"],
+      "rules": { "local/entity-links": "off" }
+    },
+    {
+      // The duration formatter itself: formatDuration, and formatRunningClock,
+      // the Live Timer's fixed-width HH:MM:SS clock.
+      "files": ["apps/local/app/lib/format-duration.ts"],
+      "rules": { "local/duration-format": "off" }
     },
     {
       // Every file in the routes folder becomes a public route, so a test or

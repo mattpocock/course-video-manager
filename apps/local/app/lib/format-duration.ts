@@ -4,7 +4,7 @@
  * YouTube chapter. Seconds are floored, so a label never claims a second the
  * media doesn't have yet.
  *
- * `scripts/check-duration-format.sh` fails hand-rolled `m:ss` formatting
+ * `local/duration-format` fails hand-rolled `m:ss` formatting
  * anywhere else, so every duration grows its hours field the same way.
  */
 export function formatDuration(totalSeconds: number): string {
