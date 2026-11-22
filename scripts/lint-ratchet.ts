@@ -7,7 +7,13 @@
  *   node scripts/lint-ratchet.ts --introduce <rule>…   record a newly switched-on rule
  */
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import path from "node:path";
 import {
   LintToolError,
@@ -19,6 +25,8 @@ import {
 const BASELINE_PATH = "lint-baseline.json";
 const BASE_REF = "origin/main";
 const LINTABLE = /\.[cm]?[jt]sx?$/;
+const CORE = "packages/core";
+const CORE_READER = "apps/remote/";
 type Baseline = Record<string, Record<string, number>>;
 
 const fail = (message: string): never => {
@@ -58,6 +66,41 @@ function lint(root: string, files: readonly string[]): Diagnostic[] {
   return runOxlint(
     root,
     files.length > 0 ? ["--no-error-on-unmatched-pattern", ...files] : []
+  );
+}
+
+function newest(
+  dir: string,
+  include: (file: string) => boolean
+): number | undefined {
+  if (!existsSync(dir)) return undefined;
+  let latest: number | undefined;
+  for (const file of readdirSync(dir, { recursive: true, encoding: "utf8" })) {
+    const name = file.split(path.sep).join("/");
+    if (!include(name)) continue;
+    const stat = statSync(path.join(dir, file));
+    if (stat.isFile()) latest = Math.max(latest ?? 0, stat.mtimeMs);
+  }
+  return latest;
+}
+
+function requireCoreBuild(root: string, files: readonly string[]) {
+  const reads =
+    files.length === 0
+      ? existsSync(path.join(root, CORE_READER))
+      : files.some((f) => f.startsWith(CORE_READER));
+  if (!reads) return;
+  const built = newest(path.join(root, CORE, "dist"), () => true);
+  const edited = newest(
+    path.join(root, CORE),
+    (file) =>
+      /\.tsx?$/.test(file) &&
+      !/\.(test|d)\.tsx?$/.test(file) &&
+      !/(^|\/)(dist|node_modules)\//.test(file)
+  );
+  if (built !== undefined && built >= (edited ?? 0)) return;
+  fail(
+    `@cvm/core is not built, or its build is older than its sources, so its imports in ${CORE_READER} would type as errors and the type-aware rules would count spurious violations. Build it first: pnpm --filter @cvm/core build`
   );
 }
 
@@ -261,6 +304,7 @@ function write(root: string, args: Args, baseline: Baseline) {
       );
     }
   }
+  requireCoreBuild(root, []);
   const { renames } = readBase(root);
   const diagnostics = lint(root, []);
   const counts = countDiagnostics(diagnostics);
@@ -283,6 +327,7 @@ function check(root: string, args: Args, baseline: Baseline) {
   const files = args.files.map((f) => toRepoPath(root, f));
   const lintable = files.filter((f) => LINTABLE.test(f));
   if (files.length > 0 && lintable.length === 0) return;
+  requireCoreBuild(root, lintable);
   const base = readBase(root);
   const diagnostics = lint(root, lintable);
   const scope = new Set(lintable);
