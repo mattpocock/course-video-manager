@@ -1022,6 +1022,23 @@
           }
         ]
       }
+    },
+    {
+      // A path the app did not build itself (an absolute filePath read from
+      // the database, a path out of a request) must pass assertUnder before
+      // anything writes to it or deletes it. On a verify-cvm test clone the
+      // rows still name Matt's real files; the guard keeps a clone's save
+      // inside its run's scratch/. Test files get no exemption.
+      "files": [
+        "apps/local/app/routes/**/*.{ts,tsx}",
+        "apps/local/app/services/**/*.{ts,tsx}"
+      ],
+      "rules": { "local/fs-writes": "error" }
+    },
+    {
+      // The definition of removeBestEffort: its callers are what gets checked.
+      "files": ["apps/local/app/services/remove-best-effort.ts"],
+      "rules": { "local/fs-writes": "off" }
     }
   ]
 }

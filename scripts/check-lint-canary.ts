@@ -27,6 +27,7 @@ const EXPECTED = [
   "unicorn(no-abusive-eslint-disable)",
   "eslint(no-restricted-globals)",
   "eslint(no-restricted-properties)",
+  "local(fs-writes)",
 ];
 
 const SELF_DISABLE = "lint/canary/self-disable.ts";

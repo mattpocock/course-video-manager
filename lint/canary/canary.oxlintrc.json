@@ -1,1 +1,10 @@
-{ "extends": ["../../.oxlintrc.json"], "ignorePatterns": [] }
+{
+  "extends": ["../../.oxlintrc.json"],
+  "ignorePatterns": [],
+  "overrides": [
+    {
+      "files": ["fs-writes.ts"],
+      "rules": { "local/fs-writes": "error" }
+    }
+  ]
+}
