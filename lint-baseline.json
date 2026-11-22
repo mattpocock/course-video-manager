@@ -305,7 +305,7 @@
     "typescript(no-unsafe-return)": 2
   },
   "apps/local/app/cli/cli-layer.test.ts": {
-    "eslint(no-restricted-properties)": 6,
+    "eslint(no-restricted-properties)": 9,
     "local(no-unsafe-as)": 4,
     "typescript(no-non-null-assertion)": 2
   },
@@ -833,6 +833,7 @@
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/features/article-writer/use-screenshot-navigation.ts": {
+    "eslint(no-restricted-properties)": 1,
     "typescript(no-non-null-assertion)": 3
   },
   "apps/local/app/features/article-writer/use-writer-context.ts": {
@@ -1022,6 +1023,7 @@
     "eslint(no-restricted-globals)": 2
   },
   "apps/local/app/features/diagrams/centre-camera-on-content.test.ts": {
+    "eslint(no-restricted-properties)": 2,
     "local(no-unsafe-as)": 5,
     "typescript(no-non-null-assertion)": 15
   },
@@ -1044,6 +1046,7 @@
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/features/diagrams/diagram-frame.test.ts": {
+    "eslint(no-restricted-properties)": 2,
     "local(no-unsafe-as)": 2
   },
   "apps/local/app/features/diagrams/diagram-frame.ts": {
@@ -1086,6 +1089,9 @@
   },
   "apps/local/app/features/diagrams/palette/recent-icons.test.ts": {
     "local(no-unsafe-as)": 3
+  },
+  "apps/local/app/features/diagrams/palette/recent-icons.ts": {
+    "eslint(no-restricted-properties)": 2
   },
   "apps/local/app/features/diagrams/palette/use-grid-nav.ts": {
     "local(no-unsafe-as)": 1
@@ -1623,6 +1629,7 @@
     "unicorn(no-useless-spread)": 1
   },
   "apps/local/app/features/video-editor/components/reference-panel.tsx": {
+    "eslint(no-restricted-properties)": 2,
     "local(no-unsafe-as)": 1,
     "typescript(no-non-null-assertion)": 6,
     "typescript(no-unsafe-assignment)": 1,
@@ -1678,6 +1685,7 @@
     "eslint(no-restricted-globals)": 5
   },
   "apps/local/app/features/video-editor/hooks/use-suggestions-storage.test.ts": {
+    "eslint(no-restricted-properties)": 2,
     "local(no-unsafe-as)": 2
   },
   "apps/local/app/features/video-editor/hooks/use-suggestions.ts": {
@@ -1688,6 +1696,7 @@
     "local(no-unsafe-as)": 3
   },
   "apps/local/app/features/video-editor/hooks/use-video-copy-options.ts": {
+    "eslint(no-restricted-properties)": 2,
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/features/video-editor/hooks/use-video-editor.ts": {
@@ -1767,6 +1776,9 @@
     "eslint(no-restricted-globals)": 11,
     "local(no-unsafe-as)": 2,
     "typescript(no-unsafe-argument)": 1
+  },
+  "apps/local/app/features/video-editor/use-silence-length.ts": {
+    "eslint(no-restricted-properties)": 2
   },
   "apps/local/app/features/video-editor/use-video-editor-wiring.ts": {
     "eslint(no-restricted-globals)": 6,
@@ -1932,6 +1944,7 @@
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/hooks/use-local-storage.test.ts": {
+    "eslint(no-restricted-properties)": 4,
     "local(no-unsafe-as)": 4
   },
   "apps/local/app/hooks/use-thumbnail-reducer.ts": {

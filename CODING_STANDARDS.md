@@ -64,8 +64,7 @@ fallback branch without anyone deciding it should — a new clip-service write
 event would skip the Draft guard. Without a `default`, adding a member breaks
 the lint until each switch says what to do with it.
 
-Enforced by type-aware oxlint (`typescript/switch-exhaustiveness-check`, an
-error in `.oxlintrc.json`).
+Enforced by type-aware oxlint (`typescript/switch-exhaustiveness-check`).
 
 ### Functions stay simple
 
@@ -86,8 +85,7 @@ fail with a tagged error instead (`Effect.fail(new XError(...))`), never with
 `throw`. The one exception is React Router's `throw data(..., { status })` in
 a loader or action, because that is how a route answers with an error status.
 
-Enforced by type-aware oxlint (`typescript/only-throw-error`, an error in
-`.oxlintrc.json` that allows `data()`).
+Enforced by type-aware oxlint (`typescript/only-throw-error`).
 
 ### Every promise is awaited, handled or marked void
 
@@ -329,7 +327,7 @@ It also holds the video editor's Video menu, the longest, near eight entries.
 
 When a fetcher action's sole job after success is to navigate, return
 `redirect(...)` from the action instead of returning data and navigating from a
-client-side `useEffect`.
+client-side `useEffect`. React Router handles fetcher redirects automatically.
 The `useEffect` pattern is fragile: if any dep (e.g. an inline `onOpenChange`
 prop) changes between renders, the effect re-fires and re-issues
 `navigate(...)`, cancelling and restarting the in-flight navigation in a loop.

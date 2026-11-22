@@ -90,7 +90,7 @@
       },
       {
         "name": "Date",
-        "message": "In Effect code use Clock or DateTime. Elsewhere in apps/local use now, nowMs or toDate from @/packages/clock; in packages/core use features/time/london-time.ts. Date as a type annotation is fine."
+        "message": "In Effect code use Clock or DateTime. Elsewhere in apps/local use now, nowMs or toDate from @/packages/clock; in packages/core use features/time/. Date as a type annotation is fine."
       },
       {
         "name": "setTimeout",
@@ -117,6 +117,8 @@
         "message": "Use useLocalStorage from @/hooks/use-local-storage. It handles the SSR guard, the stored-value fallback and the save on every change."
       }
     ],
+    // The same globals read off globalThis, window, self or global. No owner
+    // lifts these: an owner uses its global by its bare name.
     "no-restricted-properties": [
       "error",
       {
@@ -128,6 +130,166 @@
         "object": "Math",
         "property": "random",
         "message": "In Effect code use Random. Elsewhere in apps/local use randomFraction or randomInt from @/packages/random."
+      },
+      {
+        "object": "globalThis",
+        "property": "fetch",
+        "message": "In Effect code use HttpClient from @effect/platform. Elsewhere in apps/local use httpRequest from @/packages/http."
+      },
+      {
+        "object": "window",
+        "property": "fetch",
+        "message": "In Effect code use HttpClient from @effect/platform. Elsewhere in apps/local use httpRequest from @/packages/http."
+      },
+      {
+        "object": "self",
+        "property": "fetch",
+        "message": "In Effect code use HttpClient from @effect/platform. Elsewhere in apps/local use httpRequest from @/packages/http."
+      },
+      {
+        "object": "global",
+        "property": "fetch",
+        "message": "In Effect code use HttpClient from @effect/platform. Elsewhere in apps/local use httpRequest from @/packages/http."
+      },
+      {
+        "object": "globalThis",
+        "property": "Date",
+        "message": "In Effect code use Clock or DateTime. Elsewhere in apps/local use now, nowMs or toDate from @/packages/clock; in packages/core use features/time/. Date as a type annotation is fine."
+      },
+      {
+        "object": "window",
+        "property": "Date",
+        "message": "In Effect code use Clock or DateTime. Elsewhere in apps/local use now, nowMs or toDate from @/packages/clock; in packages/core use features/time/. Date as a type annotation is fine."
+      },
+      {
+        "object": "self",
+        "property": "Date",
+        "message": "In Effect code use Clock or DateTime. Elsewhere in apps/local use now, nowMs or toDate from @/packages/clock; in packages/core use features/time/. Date as a type annotation is fine."
+      },
+      {
+        "object": "global",
+        "property": "Date",
+        "message": "In Effect code use Clock or DateTime. Elsewhere in apps/local use now, nowMs or toDate from @/packages/clock; in packages/core use features/time/. Date as a type annotation is fine."
+      },
+      {
+        "object": "globalThis",
+        "property": "setTimeout",
+        "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+      },
+      {
+        "object": "window",
+        "property": "setTimeout",
+        "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+      },
+      {
+        "object": "self",
+        "property": "setTimeout",
+        "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+      },
+      {
+        "object": "global",
+        "property": "setTimeout",
+        "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+      },
+      {
+        "object": "globalThis",
+        "property": "setInterval",
+        "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+      },
+      {
+        "object": "window",
+        "property": "setInterval",
+        "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+      },
+      {
+        "object": "self",
+        "property": "setInterval",
+        "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+      },
+      {
+        "object": "global",
+        "property": "setInterval",
+        "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+      },
+      {
+        "object": "globalThis",
+        "property": "clearTimeout",
+        "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+      },
+      {
+        "object": "window",
+        "property": "clearTimeout",
+        "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+      },
+      {
+        "object": "self",
+        "property": "clearTimeout",
+        "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+      },
+      {
+        "object": "global",
+        "property": "clearTimeout",
+        "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+      },
+      {
+        "object": "globalThis",
+        "property": "clearInterval",
+        "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+      },
+      {
+        "object": "window",
+        "property": "clearInterval",
+        "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+      },
+      {
+        "object": "self",
+        "property": "clearInterval",
+        "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+      },
+      {
+        "object": "global",
+        "property": "clearInterval",
+        "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+      },
+      {
+        "object": "globalThis",
+        "property": "console",
+        "message": "In Effect code use Effect.log*; the Sidecar logs through its JSON logger (sidecar/json-logger.ts). Elsewhere in apps/local use log from @/packages/log, and CLI commands write through CliOutput (app/cli/output.ts)."
+      },
+      {
+        "object": "window",
+        "property": "console",
+        "message": "In Effect code use Effect.log*; the Sidecar logs through its JSON logger (sidecar/json-logger.ts). Elsewhere in apps/local use log from @/packages/log, and CLI commands write through CliOutput (app/cli/output.ts)."
+      },
+      {
+        "object": "self",
+        "property": "console",
+        "message": "In Effect code use Effect.log*; the Sidecar logs through its JSON logger (sidecar/json-logger.ts). Elsewhere in apps/local use log from @/packages/log, and CLI commands write through CliOutput (app/cli/output.ts)."
+      },
+      {
+        "object": "global",
+        "property": "console",
+        "message": "In Effect code use Effect.log*; the Sidecar logs through its JSON logger (sidecar/json-logger.ts). Elsewhere in apps/local use log from @/packages/log, and CLI commands write through CliOutput (app/cli/output.ts)."
+      },
+      {
+        "object": "globalThis",
+        "property": "localStorage",
+        "message": "Use useLocalStorage from @/hooks/use-local-storage. It handles the SSR guard, the stored-value fallback and the save on every change."
+      },
+      {
+        "object": "window",
+        "property": "localStorage",
+        "message": "Use useLocalStorage from @/hooks/use-local-storage. It handles the SSR guard, the stored-value fallback and the save on every change."
+      },
+      {
+        "object": "self",
+        "property": "localStorage",
+        "message": "Use useLocalStorage from @/hooks/use-local-storage. It handles the SSR guard, the stored-value fallback and the save on every change."
+      },
+      {
+        "object": "global",
+        "property": "localStorage",
+        "message": "Use useLocalStorage from @/hooks/use-local-storage. It handles the SSR guard, the stored-value fallback and the save on every change."
       }
     ],
     // CODING STANDARD: "Effects are run, never dropped" — never `await` an
@@ -351,7 +513,7 @@
           },
           {
             "name": "Date",
-            "message": "In Effect code use Clock or DateTime. Elsewhere in apps/local use now, nowMs or toDate from @/packages/clock; in packages/core use features/time/london-time.ts. Date as a type annotation is fine."
+            "message": "In Effect code use Clock or DateTime. Elsewhere in apps/local use now, nowMs or toDate from @/packages/clock; in packages/core use features/time/. Date as a type annotation is fine."
           },
           {
             "name": "setTimeout",
@@ -390,6 +552,166 @@
             "object": "Math",
             "property": "random",
             "message": "In Effect code use Random. Elsewhere in apps/local use randomFraction or randomInt from @/packages/random."
+          },
+          {
+            "object": "globalThis",
+            "property": "fetch",
+            "message": "In Effect code use HttpClient from @effect/platform. Elsewhere in apps/local use httpRequest from @/packages/http."
+          },
+          {
+            "object": "window",
+            "property": "fetch",
+            "message": "In Effect code use HttpClient from @effect/platform. Elsewhere in apps/local use httpRequest from @/packages/http."
+          },
+          {
+            "object": "self",
+            "property": "fetch",
+            "message": "In Effect code use HttpClient from @effect/platform. Elsewhere in apps/local use httpRequest from @/packages/http."
+          },
+          {
+            "object": "global",
+            "property": "fetch",
+            "message": "In Effect code use HttpClient from @effect/platform. Elsewhere in apps/local use httpRequest from @/packages/http."
+          },
+          {
+            "object": "globalThis",
+            "property": "Date",
+            "message": "In Effect code use Clock or DateTime. Elsewhere in apps/local use now, nowMs or toDate from @/packages/clock; in packages/core use features/time/. Date as a type annotation is fine."
+          },
+          {
+            "object": "window",
+            "property": "Date",
+            "message": "In Effect code use Clock or DateTime. Elsewhere in apps/local use now, nowMs or toDate from @/packages/clock; in packages/core use features/time/. Date as a type annotation is fine."
+          },
+          {
+            "object": "self",
+            "property": "Date",
+            "message": "In Effect code use Clock or DateTime. Elsewhere in apps/local use now, nowMs or toDate from @/packages/clock; in packages/core use features/time/. Date as a type annotation is fine."
+          },
+          {
+            "object": "global",
+            "property": "Date",
+            "message": "In Effect code use Clock or DateTime. Elsewhere in apps/local use now, nowMs or toDate from @/packages/clock; in packages/core use features/time/. Date as a type annotation is fine."
+          },
+          {
+            "object": "globalThis",
+            "property": "setTimeout",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "object": "window",
+            "property": "setTimeout",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "object": "self",
+            "property": "setTimeout",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "object": "global",
+            "property": "setTimeout",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "object": "globalThis",
+            "property": "setInterval",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "object": "window",
+            "property": "setInterval",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "object": "self",
+            "property": "setInterval",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "object": "global",
+            "property": "setInterval",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "object": "globalThis",
+            "property": "clearTimeout",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "object": "window",
+            "property": "clearTimeout",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "object": "self",
+            "property": "clearTimeout",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "object": "global",
+            "property": "clearTimeout",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "object": "globalThis",
+            "property": "clearInterval",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "object": "window",
+            "property": "clearInterval",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "object": "self",
+            "property": "clearInterval",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "object": "global",
+            "property": "clearInterval",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "object": "globalThis",
+            "property": "console",
+            "message": "In Effect code use Effect.log*; the Sidecar logs through its JSON logger (sidecar/json-logger.ts). Elsewhere in apps/local use log from @/packages/log, and CLI commands write through CliOutput (app/cli/output.ts)."
+          },
+          {
+            "object": "window",
+            "property": "console",
+            "message": "In Effect code use Effect.log*; the Sidecar logs through its JSON logger (sidecar/json-logger.ts). Elsewhere in apps/local use log from @/packages/log, and CLI commands write through CliOutput (app/cli/output.ts)."
+          },
+          {
+            "object": "self",
+            "property": "console",
+            "message": "In Effect code use Effect.log*; the Sidecar logs through its JSON logger (sidecar/json-logger.ts). Elsewhere in apps/local use log from @/packages/log, and CLI commands write through CliOutput (app/cli/output.ts)."
+          },
+          {
+            "object": "global",
+            "property": "console",
+            "message": "In Effect code use Effect.log*; the Sidecar logs through its JSON logger (sidecar/json-logger.ts). Elsewhere in apps/local use log from @/packages/log, and CLI commands write through CliOutput (app/cli/output.ts)."
+          },
+          {
+            "object": "globalThis",
+            "property": "localStorage",
+            "message": "Use useLocalStorage from @/hooks/use-local-storage. It handles the SSR guard, the stored-value fallback and the save on every change."
+          },
+          {
+            "object": "window",
+            "property": "localStorage",
+            "message": "Use useLocalStorage from @/hooks/use-local-storage. It handles the SSR guard, the stored-value fallback and the save on every change."
+          },
+          {
+            "object": "self",
+            "property": "localStorage",
+            "message": "Use useLocalStorage from @/hooks/use-local-storage. It handles the SSR guard, the stored-value fallback and the save on every change."
+          },
+          {
+            "object": "global",
+            "property": "localStorage",
+            "message": "Use useLocalStorage from @/hooks/use-local-storage. It handles the SSR guard, the stored-value fallback and the save on every change."
           }
         ]
       }
@@ -402,7 +724,7 @@
           "error",
           {
             "name": "Date",
-            "message": "In Effect code use Clock or DateTime. Elsewhere in apps/local use now, nowMs or toDate from @/packages/clock; in packages/core use features/time/london-time.ts. Date as a type annotation is fine."
+            "message": "In Effect code use Clock or DateTime. Elsewhere in apps/local use now, nowMs or toDate from @/packages/clock; in packages/core use features/time/. Date as a type annotation is fine."
           },
           {
             "name": "setTimeout",
@@ -453,8 +775,9 @@
       }
     },
     {
-      // Owns Date in packages/core: the time feature.
-      "files": ["packages/core/features/time/london-time.ts"],
+      // Owns Date in packages/core: the time feature, not its tests.
+      "files": ["packages/core/features/time/**"],
+      "excludeFiles": ["**/*.test.ts"],
       "rules": {
         "no-restricted-globals": [
           "error",
@@ -499,6 +822,166 @@
             "object": "process",
             "property": "env",
             "message": "In Effect code use Config. Elsewhere in apps/local use readEnv or the .env reader from @/packages/env; in packages/core the database URL comes from packages/core/db/database-url.ts."
+          },
+          {
+            "object": "globalThis",
+            "property": "fetch",
+            "message": "In Effect code use HttpClient from @effect/platform. Elsewhere in apps/local use httpRequest from @/packages/http."
+          },
+          {
+            "object": "window",
+            "property": "fetch",
+            "message": "In Effect code use HttpClient from @effect/platform. Elsewhere in apps/local use httpRequest from @/packages/http."
+          },
+          {
+            "object": "self",
+            "property": "fetch",
+            "message": "In Effect code use HttpClient from @effect/platform. Elsewhere in apps/local use httpRequest from @/packages/http."
+          },
+          {
+            "object": "global",
+            "property": "fetch",
+            "message": "In Effect code use HttpClient from @effect/platform. Elsewhere in apps/local use httpRequest from @/packages/http."
+          },
+          {
+            "object": "globalThis",
+            "property": "Date",
+            "message": "In Effect code use Clock or DateTime. Elsewhere in apps/local use now, nowMs or toDate from @/packages/clock; in packages/core use features/time/. Date as a type annotation is fine."
+          },
+          {
+            "object": "window",
+            "property": "Date",
+            "message": "In Effect code use Clock or DateTime. Elsewhere in apps/local use now, nowMs or toDate from @/packages/clock; in packages/core use features/time/. Date as a type annotation is fine."
+          },
+          {
+            "object": "self",
+            "property": "Date",
+            "message": "In Effect code use Clock or DateTime. Elsewhere in apps/local use now, nowMs or toDate from @/packages/clock; in packages/core use features/time/. Date as a type annotation is fine."
+          },
+          {
+            "object": "global",
+            "property": "Date",
+            "message": "In Effect code use Clock or DateTime. Elsewhere in apps/local use now, nowMs or toDate from @/packages/clock; in packages/core use features/time/. Date as a type annotation is fine."
+          },
+          {
+            "object": "globalThis",
+            "property": "setTimeout",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "object": "window",
+            "property": "setTimeout",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "object": "self",
+            "property": "setTimeout",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "object": "global",
+            "property": "setTimeout",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "object": "globalThis",
+            "property": "setInterval",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "object": "window",
+            "property": "setInterval",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "object": "self",
+            "property": "setInterval",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "object": "global",
+            "property": "setInterval",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "object": "globalThis",
+            "property": "clearTimeout",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "object": "window",
+            "property": "clearTimeout",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "object": "self",
+            "property": "clearTimeout",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "object": "global",
+            "property": "clearTimeout",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "object": "globalThis",
+            "property": "clearInterval",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "object": "window",
+            "property": "clearInterval",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "object": "self",
+            "property": "clearInterval",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "object": "global",
+            "property": "clearInterval",
+            "message": "In Effect code use Effect.sleep or Schedule. Elsewhere in apps/local use delay, after or every from @/packages/clock."
+          },
+          {
+            "object": "globalThis",
+            "property": "console",
+            "message": "In Effect code use Effect.log*; the Sidecar logs through its JSON logger (sidecar/json-logger.ts). Elsewhere in apps/local use log from @/packages/log, and CLI commands write through CliOutput (app/cli/output.ts)."
+          },
+          {
+            "object": "window",
+            "property": "console",
+            "message": "In Effect code use Effect.log*; the Sidecar logs through its JSON logger (sidecar/json-logger.ts). Elsewhere in apps/local use log from @/packages/log, and CLI commands write through CliOutput (app/cli/output.ts)."
+          },
+          {
+            "object": "self",
+            "property": "console",
+            "message": "In Effect code use Effect.log*; the Sidecar logs through its JSON logger (sidecar/json-logger.ts). Elsewhere in apps/local use log from @/packages/log, and CLI commands write through CliOutput (app/cli/output.ts)."
+          },
+          {
+            "object": "global",
+            "property": "console",
+            "message": "In Effect code use Effect.log*; the Sidecar logs through its JSON logger (sidecar/json-logger.ts). Elsewhere in apps/local use log from @/packages/log, and CLI commands write through CliOutput (app/cli/output.ts)."
+          },
+          {
+            "object": "globalThis",
+            "property": "localStorage",
+            "message": "Use useLocalStorage from @/hooks/use-local-storage. It handles the SSR guard, the stored-value fallback and the save on every change."
+          },
+          {
+            "object": "window",
+            "property": "localStorage",
+            "message": "Use useLocalStorage from @/hooks/use-local-storage. It handles the SSR guard, the stored-value fallback and the save on every change."
+          },
+          {
+            "object": "self",
+            "property": "localStorage",
+            "message": "Use useLocalStorage from @/hooks/use-local-storage. It handles the SSR guard, the stored-value fallback and the save on every change."
+          },
+          {
+            "object": "global",
+            "property": "localStorage",
+            "message": "Use useLocalStorage from @/hooks/use-local-storage. It handles the SSR guard, the stored-value fallback and the save on every change."
           }
         ]
       }
@@ -515,7 +998,7 @@
           },
           {
             "name": "Date",
-            "message": "In Effect code use Clock or DateTime. Elsewhere in apps/local use now, nowMs or toDate from @/packages/clock; in packages/core use features/time/london-time.ts. Date as a type annotation is fine."
+            "message": "In Effect code use Clock or DateTime. Elsewhere in apps/local use now, nowMs or toDate from @/packages/clock; in packages/core use features/time/. Date as a type annotation is fine."
           },
           {
             "name": "setTimeout",

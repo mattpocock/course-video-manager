@@ -1,1 +1,3 @@
-export const readEnv = (name: string): string | undefined => process.env[name];
+import type { EnvName } from "./env-names";
+
+export const readEnv = (name: EnvName): string | undefined => process.env[name];

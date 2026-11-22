@@ -1,8 +1,15 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  ENV_NAMES,
   envEntries,
   findRepoRoot,
   readEnv,
@@ -31,12 +38,13 @@ const envFile = (contents: string) => {
 
 describe("readEnv", () => {
   it("reads a variable that is set", () => {
-    vi.stubEnv("CVM_ENV_PACKAGE_PROBE", "on");
-    expect(readEnv("CVM_ENV_PACKAGE_PROBE")).toBe("on");
+    vi.stubEnv("CVM_LOG_SQL", "1");
+    expect(readEnv("CVM_LOG_SQL")).toBe("1");
   });
 
   it("is undefined for a variable that is not set", () => {
-    expect(readEnv("CVM_ENV_PACKAGE_NEVER_SET")).toBeUndefined();
+    vi.stubEnv("CVM_LOG_SQL", undefined);
+    expect(readEnv("CVM_LOG_SQL")).toBeUndefined();
   });
 });
 
@@ -73,5 +81,18 @@ describe("the repo-root .env reader", () => {
     expect(resolveRepoEnvValue("CVM_ENV_PACKAGE_PROBE")).toBe(
       "from-environment"
     );
+  });
+});
+
+describe("ENV_NAMES", () => {
+  it("is every key .env.example documents, commented-out optional ones included", () => {
+    const example = readFileSync(
+      path.resolve(import.meta.dirname, "../../../../../../.env.example"),
+      "utf8"
+    );
+    const documented = [...example.matchAll(/^#?\s*([A-Z_0-9]+)=/gm)].map(
+      (match) => match[1]
+    );
+    expect([...ENV_NAMES].sort()).toEqual([...new Set(documented)].sort());
   });
 });
