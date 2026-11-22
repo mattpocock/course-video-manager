@@ -378,8 +378,8 @@ clock. Rounded estimates (`~1h 5m`) keep their own wording.
 Every toast comes from `@/components/ui/toast`, never straight from
 `sonner`. That module clamps a toast's text to four lines with a "Show more"
 toggle and gives every error toast a "Copy" action, so a huge server
-error stays readable and pasteable. Show a caught error with `toastError(error, fallback)`. `scripts/check-toast-import.sh`
-fails any other file that imports `sonner`.
+error stays readable and pasteable. Show a caught error with `toastError(error, fallback)`. Lint (`no-restricted-imports`) fails
+any other file that imports `sonner`.
 
 ## Interface design
 

@@ -1,23 +1,26 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { isValidElement, type MouseEvent } from "react";
-import { toast as sonnerToast } from "sonner";
 import { toast, toastError, ToastText } from "./toast";
 
-vi.mock("sonner", () => ({
-  toast: Object.assign(vi.fn(), {
-    success: vi.fn(),
-    info: vi.fn(),
-    warning: vi.fn(),
-    error: vi.fn(),
-    message: vi.fn(),
-    loading: vi.fn(),
+type Show = typeof toast.success;
+
+const sonnerToast = vi.hoisted(() =>
+  Object.assign(vi.fn<Show>(), {
+    success: vi.fn<Show>(),
+    info: vi.fn<Show>(),
+    warning: vi.fn<Show>(),
+    error: vi.fn<Show>(),
+    message: vi.fn<Show>(),
+    loading: vi.fn<Show>(),
     promise: vi.fn(),
     custom: vi.fn(),
     dismiss: vi.fn(),
     getHistory: vi.fn(),
     getToasts: vi.fn(),
-  }),
-}));
+  })
+);
+
+vi.mock("sonner", () => ({ toast: sonnerToast }));
 
 interface Action {
   label: string;
