@@ -1,4 +1,8 @@
 {
   "*": "prettier --ignore-unknown --write",
-  "*.{js,jsx,ts,tsx,mjs,cjs,mts,cts}": "node scripts/lint-ratchet.ts"
+  "*.{js,jsx,ts,tsx,mjs,cjs,mts,cts}": [
+    "node scripts/lint-ratchet.ts",
+    "node scripts/check-allowed-directives.ts"
+  ],
+  "lint/allowed-directives.json": "node scripts/check-allowed-directives.ts"
 }

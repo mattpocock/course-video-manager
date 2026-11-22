@@ -102,14 +102,12 @@ export const useImportedFootage = (listed: readonly string[]) => {
   useEffect(() => {
     dispatch({ type: "downloads-observed", live: downloads });
     // Only when a live download or its progress changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [downloadsKey, dispatch]);
   const key = JSON.stringify([live, listed]);
   useEffect(() => {
     dispatch({ type: "transcriptions-observed", live, listed });
     // Only when the live transcriptions or the listed files change: `key`
     // says exactly that.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, dispatch]);
 
   return [state, dispatch] as const;

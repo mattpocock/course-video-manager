@@ -18,7 +18,9 @@ import { makeConnectionPool } from "./drizzle-service.server.js";
 const faults = { connects: 0, drops: 0, connectCalls: 0, queryCalls: 0 };
 
 class FlakyClient extends pg.Client {
+  // oxlint-disable-next-line local/no-overloads
   override connect(): Promise<pg.Client>;
+  // oxlint-disable-next-line local/no-overloads
   override connect(callback: Parameters<pg.Client["connect"]>[0]): void;
   override connect(
     callback?: Parameters<pg.Client["connect"]>[0]

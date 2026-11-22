@@ -46,7 +46,6 @@ const SILENCE_OUTPUT_NEGATIVE_FIRST_START = [
   "[silencedetect @ 0x5dcf256ab0c0] silence_end: 26.2398 | silence_duration: 3.91283",
 ].join("\n");
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const run = <A>(effect: Effect.Effect<A, any, any>): Promise<A> =>
   Effect.runPromise(
     effect.pipe(Effect.provide(NodeContext.layer)) as Effect.Effect<A>

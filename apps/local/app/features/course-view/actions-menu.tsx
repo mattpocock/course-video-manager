@@ -111,6 +111,5 @@ function useCourseMenuIntent(run: (action: CourseMenuAction) => void) {
       preventScrollReset: true,
     });
     // Once per arrival: location.key changes with every navigation.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.key]);
 }

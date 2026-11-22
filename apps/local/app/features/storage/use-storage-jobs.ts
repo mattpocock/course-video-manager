@@ -27,7 +27,6 @@ export const useStorageJobs = (
   useEffect(() => {
     dispatch({ type: "storage-jobs-observed", jobs: observed });
     // Only when which Jobs are live changes: `key` says exactly that.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, dispatch]);
   return { views, cancelJob };
 };

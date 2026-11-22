@@ -205,6 +205,7 @@ const daemon = (version: string) =>
     let inFlight = 0;
     let lastActivity = Date.now();
 
+    const NO_SUCH_REQUEST = Symbol("no such request");
     const route = async (req: http.IncomingMessage): Promise<unknown> => {
       if (req.method === "GET" && req.url === "/version") {
         return {
@@ -228,10 +229,7 @@ const daemon = (version: string) =>
         log(`speak ${request.items.length} line(s)`);
         return run(speak(request));
       }
-      // A plain async function, not an Effect: the `.then` below turns this
-      // rejection into a 400, so it never reaches an Effect's failure channel.
-      // @effect-diagnostics-next-line globalErrorInEffectFailure:off
-      throw new Error(`no such request: ${req.method} ${req.url}`);
+      return NO_SUCH_REQUEST;
     };
 
     const server = http.createServer((req, res) => {
@@ -239,6 +237,13 @@ const daemon = (version: string) =>
       route(req)
         .then(
           (answer) => {
+            if (answer === NO_SUCH_REQUEST) {
+              const message = `no such request: ${req.method} ${req.url}`;
+              log(message);
+              res.writeHead(404, { "content-type": "application/json" });
+              res.end(JSON.stringify({ ok: false, message }));
+              return;
+            }
             res.writeHead(200, { "content-type": "application/json" });
             res.end(JSON.stringify(answer));
           },

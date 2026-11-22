@@ -71,7 +71,6 @@ export class InvalidVideoFilePathError extends Data.TaggedError(
 /** Walk up from `start` until a directory containing package.json is found. */
 function findPackageRoot(start: string): string | undefined {
   let dir = start;
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     if (existsSync(path.join(dir, "package.json"))) return dir;
     const parent = path.dirname(dir);

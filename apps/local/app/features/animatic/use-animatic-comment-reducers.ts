@@ -69,7 +69,6 @@ export function useAnimaticCommentThreadReducer(props: {
         ? { type: "thread-shown", target: props.target }
         : { type: "thread-hidden" }
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, open]);
 
   return {

@@ -1,0 +1,27 @@
+[
+  {
+    "file": "apps/local/app/services/route-action.server.test.ts",
+    "directive": "@effect-diagnostics-next-line globalErrorInEffectFailure:off",
+    "reason": "The test fails with a deliberately untagged Error to pin the action's fallback to a 500 for an error with no _tag at all, which product code no longer produces."
+  },
+  {
+    "file": "apps/local/sidecar/posting-kinds.test.ts",
+    "directive": "@ts-expect-error a posting kind's policy is fixed: no attempts to set",
+    "reason": "A type test: it passes only while the compiler refuses maxAttempts on a posting kind."
+  },
+  {
+    "file": "apps/local/sidecar/posting-kinds.test.ts",
+    "directive": "@ts-expect-error a kind that posts is defined with definePostingJobKind",
+    "reason": "A type test: it passes only while the compiler refuses posting: true on defineJobKind."
+  },
+  {
+    "file": "apps/local/sidecar/posting-kinds.test.ts",
+    "directive": "@ts-expect-error checkPosted is required",
+    "reason": "A type test: it passes only while the compiler refuses a posting kind with no checkPosted."
+  },
+  {
+    "file": "packages/core/services/patient-connection-pool.test.ts",
+    "directive": "oxlint-disable-next-line local/no-overloads",
+    "reason": "The fake overrides pg.Client's overloaded connect, and an override must match both library signatures. One generic signature is rejected (TS2416), and the other ways out are an any return, an as never cast, or widening makeConnectionPool's Client option in production code."
+  }
+]
