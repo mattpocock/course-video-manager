@@ -125,10 +125,14 @@ The cost, from this repo: `makeLoader` took `ManagedRuntime<any, any>` with an
 unconstrained `R`, so a route asking for an unprovided service type-checked
 across all 111 route modules and the Animatic page 500ed on every load.
 
-An `any` survives review only when a third-party type is genuinely `any` at the
-boundary: cast once at the edge into a named type and keep it out of exported
-signatures. A new `any` needs a reason in the PR; a file you touch should leave
-review with fewer of them than it had.
+An assertion (`as`, `<T>x`, `x!`) is a hidden `any`: narrow instead.
+`as const` and `satisfies` pass. Narrow a third-party `any` once, at the edge. A
+helper that must cast is a generic whose type parameter is constrained, never a
+bare `<T>(v: unknown): T`.
+
+Enforced by oxlint, tests too: `local/no-unsafe-as`, `no-non-null-assertion`,
+`no-explicit-any`, `ban-ts-comment`, `no-unsafe-*`. Old hits sit in
+`lint-baseline.json`; a touched file should leave review with fewer.
 
 ## Course Versions
 

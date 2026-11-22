@@ -1,12 +1,506 @@
 {
+  ".claude/skills/verify-cvm/scripts/migrate-clone.mjs": {
+    "typescript(no-unsafe-argument)": 1,
+    "typescript(no-unsafe-assignment)": 7,
+    "typescript(no-unsafe-call)": 6,
+    "typescript(no-unsafe-member-access)": 9
+  },
+  ".sandcastle/implement-pr/implement-pr-output.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  ".sandcastle/main.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  ".sandcastle/retry-feedback.ts": {
+    "local(no-unsafe-as)": 3
+  },
+  ".sandcastle/review/parse-diff-lines.ts": {
+    "typescript(no-non-null-assertion)": 4
+  },
+  ".sandcastle/review/review-output.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
   ".sandcastle/review/review.ts": {
     "eslint(no-unused-vars)": 1
   },
+  ".sandcastle/run-with-extraction.test.ts": {
+    "local(no-unsafe-as)": 6,
+    "typescript(no-non-null-assertion)": 7
+  },
+  ".sandcastle/run-with-retry.test.ts": {
+    "local(no-unsafe-as)": 5,
+    "typescript(no-non-null-assertion)": 5
+  },
+  ".sandcastle/to-issues-prd/to-issues-prd.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/av-calibration-constants.test.ts": {
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/av-calibration-constants.ts": {
+    "typescript(no-non-null-assertion)": 6
+  },
+  "apps/local/app/cli/bin.mjs": {
+    "typescript(no-unsafe-argument)": 1
+  },
+  "apps/local/app/cli/bundle.mjs": {
+    "typescript(no-unsafe-argument)": 7,
+    "typescript(no-unsafe-assignment)": 11,
+    "typescript(no-unsafe-call)": 9,
+    "typescript(no-unsafe-member-access)": 27,
+    "typescript(no-unsafe-return)": 3
+  },
+  "apps/local/app/cli/cli-agent-sessions.test.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 5,
+    "typescript(no-unsafe-return)": 1
+  },
+  "apps/local/app/cli/cli-beat-writes.test.ts": {
+    "local(no-unsafe-as)": 12,
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/cli/cli-chapter-writes.test.ts": {
+    "local(no-unsafe-as)": 5
+  },
+  "apps/local/app/cli/cli-chat-highlight-list.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 8
+  },
+  "apps/local/app/cli/cli-clip-archived-view.test.ts": {
+    "local(no-unsafe-as)": 4,
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/cli/cli-clip-edit-transcript.test.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/cli/cli-clip-frame-repo-env.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/cli/cli-clip-layer.test.ts": {
+    "local(no-unsafe-as)": 5,
+    "typescript(no-non-null-assertion)": 13,
+    "typescript(no-unsafe-assignment)": 1
+  },
+  "apps/local/app/cli/cli-clip-mockup-capture.test.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/cli/cli-clip-mockup-chapter.order-space.test.ts": {
+    "local(no-unsafe-as)": 9,
+    "typescript(no-non-null-assertion)": 6
+  },
+  "apps/local/app/cli/cli-clip-mockup-chapter.test.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-non-null-assertion)": 9
+  },
+  "apps/local/app/cli/cli-clip-mockup-comment.test.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/cli/cli-clip-mockup-html-capture.test.ts": {
+    "local(no-unsafe-as)": 9,
+    "typescript(no-non-null-assertion)": 15,
+    "typescript(no-unsafe-member-access)": 1
+  },
+  "apps/local/app/cli/cli-clip-mockup-ordering.test.ts": {
+    "local(no-unsafe-as)": 4,
+    "typescript(no-non-null-assertion)": 14
+  },
+  "apps/local/app/cli/cli-clip-mockup-short.test.ts": {
+    "local(no-unsafe-as)": 5,
+    "typescript(no-non-null-assertion)": 21
+  },
+  "apps/local/app/cli/cli-clip-mockup-store-location.test.ts": {
+    "local(no-unsafe-as)": 5,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/cli/cli-clip-mockup-test-harness.ts": {
+    "local(no-unsafe-as)": 5
+  },
+  "apps/local/app/cli/cli-clip-mockup-voice.test.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 17
+  },
+  "apps/local/app/cli/cli-clip-mockup-writes.test.ts": {
+    "local(no-unsafe-as)": 8,
+    "typescript(no-non-null-assertion)": 9
+  },
+  "apps/local/app/cli/cli-clip-move-video.test.ts": {
+    "local(no-unsafe-as)": 8,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/cli/cli-clip-restore.test.ts": {
+    "local(no-unsafe-as)": 5
+  },
+  "apps/local/app/cli/cli-clip-retime-cascade.test.ts": {
+    "local(no-unsafe-as)": 6
+  },
+  "apps/local/app/cli/cli-clip-scene.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 4
+  },
+  "apps/local/app/cli/cli-clip-split.test.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-non-null-assertion)": 4
+  },
+  "apps/local/app/cli/cli-clip-words.test.ts": {
+    "local(no-unsafe-as)": 5
+  },
+  "apps/local/app/cli/cli-clip-writes.test.ts": {
+    "local(no-unsafe-as)": 19,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/cli/cli-course-publish-placeholders.test.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-non-null-assertion)": 1,
+    "typescript(no-unsafe-assignment)": 1,
+    "typescript(no-unsafe-call)": 2,
+    "typescript(no-unsafe-member-access)": 8,
+    "typescript(no-unsafe-return)": 1
+  },
+  "apps/local/app/cli/cli-course-readiness.test.ts": {
+    "typescript(no-non-null-assertion)": 5,
+    "typescript(no-unsafe-assignment)": 19,
+    "typescript(no-unsafe-member-access)": 56
+  },
+  "apps/local/app/cli/cli-deliverable-writes.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/cli/cli-diagram-create.test.ts": {
+    "local(no-unsafe-as)": 5,
+    "typescript(no-non-null-assertion)": 27
+  },
+  "apps/local/app/cli/cli-diagram-get.test.ts": {
+    "local(no-unsafe-as)": 5,
+    "typescript(no-non-null-assertion)": 17,
+    "typescript(no-unsafe-assignment)": 2
+  },
+  "apps/local/app/cli/cli-diagram-list.test.ts": {
+    "local(no-unsafe-as)": 6,
+    "typescript(no-non-null-assertion)": 13,
+    "typescript(no-unsafe-assignment)": 1
+  },
+  "apps/local/app/cli/cli-diagram-snapshot.test.ts": {
+    "local(no-unsafe-as)": 19,
+    "typescript(no-non-null-assertion)": 48
+  },
+  "apps/local/app/cli/cli-diagram-update.test.ts": {
+    "local(no-unsafe-as)": 5,
+    "typescript(no-non-null-assertion)": 5
+  },
+  "apps/local/app/cli/cli-entity-links.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-unsafe-assignment)": 1,
+    "typescript(no-unsafe-member-access)": 5
+  },
+  "apps/local/app/cli/cli-error-round-trip.test.ts": {
+    "local(no-unsafe-as)": 5,
+    "typescript(no-non-null-assertion)": 10
+  },
+  "apps/local/app/cli/cli-footage-writes.test.ts": {
+    "local(no-unsafe-as)": 8,
+    "typescript(no-non-null-assertion)": 11,
+    "typescript(no-unsafe-assignment)": 3,
+    "typescript(no-unsafe-member-access)": 4
+  },
+  "apps/local/app/cli/cli-footage-youtube.test.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-unsafe-member-access)": 2
+  },
+  "apps/local/app/cli/cli-frame-landscape.test.ts": {
+    "local(no-unsafe-as)": 4,
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/cli/cli-frame.test.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 3,
+    "typescript(no-unsafe-member-access)": 2
+  },
+  "apps/local/app/cli/cli-integration-test-harness.ts": {
+    "typescript(no-non-null-assertion)": 33
+  },
+  "apps/local/app/cli/cli-integration.test.ts": {
+    "local(no-unsafe-as)": 31,
+    "typescript(no-explicit-any)": 5,
+    "typescript(no-non-null-assertion)": 12,
+    "typescript(no-unsafe-argument)": 3,
+    "typescript(no-unsafe-assignment)": 15,
+    "typescript(no-unsafe-call)": 4,
+    "typescript(no-unsafe-member-access)": 32,
+    "typescript(no-unsafe-return)": 2
+  },
+  "apps/local/app/cli/cli-layer.test.ts": {
+    "local(no-unsafe-as)": 4,
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/cli/cli-learning-goal-writes.test.ts": {
+    "local(no-unsafe-as)": 9
+  },
+  "apps/local/app/cli/cli-lesson-move-update.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 18
+  },
+  "apps/local/app/cli/cli-lesson-optional.test.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/cli/cli-lesson-video-writes.test.ts": {
+    "local(no-unsafe-as)": 14,
+    "typescript(no-non-null-assertion)": 4
+  },
+  "apps/local/app/cli/cli-local-only.test.ts": {
+    "typescript(no-non-null-assertion)": 1,
+    "typescript(no-unsafe-assignment)": 4,
+    "typescript(no-unsafe-member-access)": 22,
+    "typescript(no-unsafe-return)": 1
+  },
+  "apps/local/app/cli/cli-overlay-bullet-panel-writes.test.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/cli/cli-overlay-call-to-action-writes.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/cli/cli-overlay-chat-card-writes.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 10
+  },
+  "apps/local/app/cli/cli-overlay-kind-writes.test.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/cli/cli-overlay-transform-writes.test.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/cli/cli-overlay-writes.test.ts": {
+    "local(no-unsafe-as)": 5,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/cli/cli-pitch-beat-writes.test.ts": {
+    "local(no-unsafe-as)": 5,
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/cli/cli-read-test-harness.ts": {
+    "typescript(no-non-null-assertion)": 33,
+    "typescript(no-unsafe-return)": 1
+  },
+  "apps/local/app/cli/cli-remote-auth.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 1,
+    "typescript(no-unsafe-member-access)": 4,
+    "typescript(no-unsafe-return)": 1
+  },
+  "apps/local/app/cli/cli-remote-test-harness.ts": {
+    "local(no-unsafe-as)": 3
+  },
+  "apps/local/app/cli/cli-search.test.ts": {
+    "local(no-unsafe-as)": 19,
+    "typescript(no-explicit-any)": 19,
+    "typescript(no-non-null-assertion)": 1,
+    "typescript(no-unsafe-assignment)": 7,
+    "typescript(no-unsafe-call)": 3,
+    "typescript(no-unsafe-member-access)": 32,
+    "typescript(no-unsafe-return)": 4
+  },
+  "apps/local/app/cli/cli-section-lint.test.ts": {
+    "typescript(no-non-null-assertion)": 8,
+    "typescript(no-unsafe-assignment)": 14,
+    "typescript(no-unsafe-call)": 4,
+    "typescript(no-unsafe-member-access)": 43
+  },
+  "apps/local/app/cli/cli-section-writes.test.ts": {
+    "local(no-unsafe-as)": 6,
+    "typescript(no-non-null-assertion)": 15
+  },
+  "apps/local/app/cli/cli-short-create.test.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-non-null-assertion)": 28
+  },
+  "apps/local/app/cli/cli-short-post.test.ts": {
+    "local(no-unsafe-as)": 5,
+    "typescript(no-non-null-assertion)": 1,
+    "typescript(no-unsafe-assignment)": 10
+  },
+  "apps/local/app/cli/cli-short-render.test.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 1,
+    "typescript(no-unsafe-member-access)": 1
+  },
+  "apps/local/app/cli/cli-stale-id.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 24,
+    "typescript(no-unsafe-assignment)": 2,
+    "typescript(no-unsafe-member-access)": 6
+  },
+  "apps/local/app/cli/cli-tree-slim.test.ts": {
+    "typescript(no-unsafe-assignment)": 5,
+    "typescript(no-unsafe-call)": 1,
+    "typescript(no-unsafe-member-access)": 2
+  },
+  "apps/local/app/cli/cli-version-gate.test.ts": {
+    "typescript(no-non-null-assertion)": 2,
+    "typescript(no-unsafe-assignment)": 1,
+    "typescript(no-unsafe-member-access)": 10,
+    "typescript(no-unsafe-return)": 1
+  },
+  "apps/local/app/cli/cli-video-archive.test.ts": {
+    "local(no-unsafe-as)": 4,
+    "typescript(no-non-null-assertion)": 7
+  },
+  "apps/local/app/cli/cli-video-chapters.test.ts": {
+    "typescript(no-non-null-assertion)": 5,
+    "typescript(no-unsafe-assignment)": 1,
+    "typescript(no-unsafe-member-access)": 3
+  },
+  "apps/local/app/cli/cli-write-test-harness.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-non-null-assertion)": 13,
+    "typescript(no-unsafe-return)": 1
+  },
+  "apps/local/app/cli/commands/animatic-position.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/cli/commands/beat.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 8
+  },
+  "apps/local/app/cli/commands/chapter.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/cli/commands/chat-highlight.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/cli/commands/clip-mockup-chapter.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/cli/commands/clip-mockup.batch.ts": {
+    "local(no-unsafe-as)": 5,
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/cli/commands/clip-mockup.capture.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/cli/commands/clip-mockup.short-guard.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/cli/commands/clip-mockup.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 13
+  },
+  "apps/local/app/cli/commands/clip.layer.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/cli/commands/clip.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/cli/commands/clip.update.ts": {
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/cli/commands/course-publish-wait.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-unsafe-argument)": 1,
+    "typescript(no-unsafe-assignment)": 1
+  },
+  "apps/local/app/cli/commands/course-publish-wait.ts": {
+    "local(no-unsafe-as)": 5
+  },
+  "apps/local/app/cli/commands/deliverable.ts": {
+    "local(no-unsafe-as)": 4
+  },
+  "apps/local/app/cli/commands/diagram-input.ts": {
+    "local(no-unsafe-as)": 6
+  },
+  "apps/local/app/cli/commands/diagram-list.ts": {
+    "local(no-unsafe-as)": 4,
+    "typescript(no-non-null-assertion)": 1,
+    "typescript(no-unsafe-assignment)": 2
+  },
+  "apps/local/app/cli/commands/diagram.help.test.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 6,
+    "typescript(no-unsafe-return)": 1
+  },
+  "apps/local/app/cli/commands/diagram.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/cli/commands/footage-transcribe-wait.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/cli/commands/learning-goal.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/cli/commands/lesson.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/cli/commands/overlay.bullets.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/cli/commands/overlay.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/cli/commands/pitch.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/cli/commands/search.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/cli/commands/section.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/cli/commands/short-create.ts": {
+    "typescript(no-non-null-assertion)": 7
+  },
+  "apps/local/app/cli/commands/short-post.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/cli/commands/short-render-wait.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/cli/commands/timeline-position.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/cli/commands/video.agent-sessions.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/cli/commands/video.chapters.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/cli/commands/video.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/cli/env.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/cli/helpers.ts": {
+    "local(no-unsafe-as)": 4,
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/cli/output.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/cli/render.ts": {
+    "local(no-unsafe-as)": 3
+  },
+  "apps/local/app/components/FileTree.tsx": {
+    "typescript(no-non-null-assertion)": 1
+  },
   "apps/local/app/components/add-link-modal.tsx": {
+    "local(no-unsafe-as)": 1,
     "typescript(no-floating-promises)": 1,
     "typescript(no-misused-promises)": 1
   },
   "apps/local/app/components/app-sidebar.tsx": {
+    "local(no-unsafe-as)": 1,
     "typescript(no-floating-promises)": 2
   },
   "apps/local/app/components/copy-transcript-modal.tsx": {
@@ -18,12 +512,20 @@
   "apps/local/app/components/delete-video-file-modal.tsx": {
     "typescript(no-misused-promises)": 1
   },
+  "apps/local/app/components/dependency-selector.tsx": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/components/feedback-modal.tsx": {
+    "local(no-unsafe-as)": 1
+  },
   "apps/local/app/components/file-preview-modal.tsx": {
     "typescript(no-floating-promises)": 1,
     "typescript(no-misused-promises)": 1
   },
   "apps/local/app/components/markdown-monaco-editor.tsx": {
-    "typescript(no-misused-promises)": 1
+    "typescript(no-misused-promises)": 1,
+    "typescript(no-unsafe-argument)": 1,
+    "typescript(no-unsafe-member-access)": 2
   },
   "apps/local/app/components/move-video-modal.tsx": {
     "typescript(no-misused-promises)": 1
@@ -38,166 +540,4142 @@
     "typescript(no-misused-promises)": 1
   },
   "apps/local/app/components/rename-video-modal.tsx": {
+    "local(no-unsafe-as)": 1,
     "typescript(no-misused-promises)": 1
+  },
+  "apps/local/app/components/ui/sonner.tsx": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/components/ui/toast.test.ts": {
+    "local(no-unsafe-as)": 5,
+    "typescript(no-non-null-assertion)": 4
+  },
+  "apps/local/app/components/use-app-sidebar-reducer.ts": {
+    "local(no-unsafe-as)": 2
   },
   "apps/local/app/components/video-file-management-modal.tsx": {
     "typescript(no-misused-promises)": 1
   },
+  "apps/local/app/components/video-file-paste-modal.tsx": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/features/animatic/animatic-chapters.test.ts": {
+    "typescript(no-non-null-assertion)": 14
+  },
+  "apps/local/app/features/animatic/animatic-chapters.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/features/animatic/animatic-course-walk.test.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/features/animatic/animatic-course-walk.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/features/animatic/animatic-export.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/features/animatic/animatic-player.tsx": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/features/animatic/animatic-progress.test.ts": {
+    "typescript(no-non-null-assertion)": 7
+  },
+  "apps/local/app/features/animatic/animatic-subtitles.test.ts": {
+    "typescript(no-non-null-assertion)": 7
+  },
+  "apps/local/app/features/animatic/animatic-subtitles.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/features/animatic/animatic-timeline.test.ts": {
+    "typescript(no-non-null-assertion)": 9
+  },
+  "apps/local/app/features/animatic/animatic-timeline.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/features/article-writer/assistant-message.test.tsx": {
+    "typescript(no-non-null-assertion)": 4
+  },
+  "apps/local/app/features/article-writer/choose-screenshot-components.tsx": {
+    "local(no-unsafe-as)": 5
+  },
+  "apps/local/app/features/article-writer/choose-screenshot-mutations.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/features/article-writer/choose-screenshot.tsx": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/features/article-writer/commit-map-components.tsx": {
+    "local(no-unsafe-as)": 7
+  },
+  "apps/local/app/features/article-writer/commit-map-syntax.test.ts": {
+    "typescript(no-non-null-assertion)": 7
+  },
+  "apps/local/app/features/article-writer/commit-map-syntax.ts": {
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/features/article-writer/crop-reducer.test.ts": {
+    "typescript(no-non-null-assertion)": 4
+  },
+  "apps/local/app/features/article-writer/crop-reducer.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/features/article-writer/document-editing-engine.test.ts": {
+    "typescript(no-unsafe-assignment)": 9
+  },
+  "apps/local/app/features/article-writer/document-editing-engine.ts": {
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/features/article-writer/document-flow-reducer.test.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/features/article-writer/document-preview-markdown.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/features/article-writer/document-tool-calls.test.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/features/article-writer/lint-rules.test.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/features/article-writer/message-text-mutation.test.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/features/article-writer/message-text-mutation.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/features/article-writer/preview-component-maps.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/features/article-writer/quiz-components.tsx": {
+    "local(no-unsafe-as)": 3
+  },
+  "apps/local/app/features/article-writer/quiz-ids.test.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/features/article-writer/quiz-markdown.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/features/article-writer/quiz-syntax.test.ts": {
+    "typescript(no-non-null-assertion)": 19
+  },
+  "apps/local/app/features/article-writer/quiz-syntax.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 4
+  },
+  "apps/local/app/features/article-writer/screenshot-navigation.test.ts": {
+    "local(no-unsafe-as)": 20,
+    "typescript(no-explicit-any)": 12,
+    "typescript(no-unsafe-member-access)": 12
+  },
+  "apps/local/app/features/article-writer/screenshot-navigation.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 2
+  },
   "apps/local/app/features/article-writer/tool-call-display.tsx": {
-    "eslint(no-unused-expressions)": 2
+    "eslint(no-unused-expressions)": 2,
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 14,
+    "typescript(no-unsafe-assignment)": 1,
+    "typescript(no-unsafe-return)": 1
+  },
+  "apps/local/app/features/article-writer/use-doc-screenshot-runtime.ts": {
+    "typescript(no-unsafe-argument)": 2,
+    "typescript(no-unsafe-assignment)": 1
+  },
+  "apps/local/app/features/article-writer/use-document-flow.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/features/article-writer/use-memory-autosave.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/features/article-writer/use-message-queue.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/features/article-writer/use-screenshot-navigation.ts": {
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/features/article-writer/write-chat.tsx": {
+    "typescript(no-unsafe-argument)": 1,
+    "typescript(no-unsafe-assignment)": 1
+  },
+  "apps/local/app/features/article-writer/write-mode-dropdown.tsx": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/features/article-writer/write-utils.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/features/article-writer/writer-chat-requests.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/features/article-writer/writer-engine-utils.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/features/article-writer/writer-engine.tsx": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/features/article-writer/writer-errors.test.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/features/article-writer/writer-errors.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/features/article-writer/writer-shortcuts.test.ts": {
+    "local(no-unsafe-as)": 6
+  },
+  "apps/local/app/features/article-writer/writer-shortcuts.ts": {
+    "local(no-unsafe-as)": 2
   },
   "apps/local/app/features/av-calibration/av-calibration-reducer.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 5,
     "unicorn(no-new-array)": 1
   },
+  "apps/local/app/features/av-calibration/calibration-session.tsx": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/features/av-calibration/calibration-timeline.ts": {
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/features/av-calibration/use-av-calibration.ts": {
+    "local(no-unsafe-as)": 4
+  },
+  "apps/local/app/features/av-calibration/use-level-meter.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "apps/local/app/features/beats/beat-list.tsx": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/features/course-view/actions-menu.tsx": {
+    "typescript(no-unsafe-assignment)": 4,
+    "typescript(no-unsafe-call)": 1,
+    "typescript(no-unsafe-member-access)": 12
+  },
+  "apps/local/app/features/course-view/course-editor-helpers.test.ts": {
+    "local(no-unsafe-as)": 11,
+    "typescript(no-unsafe-assignment)": 4
+  },
+  "apps/local/app/features/course-view/course-editor-helpers.ts": {
+    "typescript(no-unsafe-argument)": 4,
+    "typescript(no-unsafe-assignment)": 9,
+    "typescript(no-unsafe-call)": 10,
+    "typescript(no-unsafe-member-access)": 28,
+    "typescript(no-unsafe-return)": 3
+  },
+  "apps/local/app/features/course-view/course-view-components.tsx": {
+    "typescript(no-unsafe-argument)": 1,
+    "typescript(no-unsafe-assignment)": 14,
+    "typescript(no-unsafe-member-access)": 17
+  },
+  "apps/local/app/features/course-view/course-view-loader.server.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/features/course-view/course-view-visibility.tsx": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/features/course-view/dependency-drag.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/features/course-view/lesson-beat-tree.tsx": {
+    "typescript(no-unsafe-assignment)": 6,
+    "typescript(no-unsafe-call)": 1,
+    "typescript(no-unsafe-member-access)": 10,
+    "typescript(no-unsafe-return)": 1
+  },
+  "apps/local/app/features/course-view/lesson-context-menu.tsx": {
+    "typescript(no-unsafe-argument)": 1,
+    "typescript(no-unsafe-assignment)": 13,
+    "typescript(no-unsafe-call)": 1,
+    "typescript(no-unsafe-member-access)": 15
+  },
+  "apps/local/app/features/course-view/lesson-title-editor.tsx": {
+    "typescript(no-unsafe-argument)": 1,
+    "typescript(no-unsafe-assignment)": 4,
+    "typescript(no-unsafe-member-access)": 4
+  },
+  "apps/local/app/features/course-view/next-todo-card.tsx": {
+    "typescript(no-unsafe-argument)": 1,
+    "typescript(no-unsafe-assignment)": 6,
+    "typescript(no-unsafe-member-access)": 4
+  },
+  "apps/local/app/features/course-view/optimistic-applier-beats.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 14,
+    "typescript(no-unsafe-assignment)": 24,
+    "typescript(no-unsafe-call)": 5,
+    "typescript(no-unsafe-member-access)": 32,
+    "typescript(no-unsafe-return)": 9
+  },
+  "apps/local/app/features/course-view/optimistic-applier-composition.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 16,
+    "typescript(no-unsafe-assignment)": 19,
+    "typescript(no-unsafe-member-access)": 26
+  },
+  "apps/local/app/features/course-view/optimistic-applier-delete-video.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 23,
+    "typescript(no-unsafe-assignment)": 18,
+    "typescript(no-unsafe-member-access)": 36
+  },
+  "apps/local/app/features/course-view/optimistic-applier-deletes.test.ts": {
+    "typescript(no-non-null-assertion)": 25,
+    "typescript(no-unsafe-assignment)": 22,
+    "typescript(no-unsafe-member-access)": 41
+  },
+  "apps/local/app/features/course-view/optimistic-applier-reorders.test.ts": {
+    "typescript(no-non-null-assertion)": 55,
+    "typescript(no-unsafe-assignment)": 63,
+    "typescript(no-unsafe-call)": 21,
+    "typescript(no-unsafe-member-access)": 111,
+    "typescript(no-unsafe-return)": 21
+  },
+  "apps/local/app/features/course-view/optimistic-applier-test-helpers.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/features/course-view/optimistic-applier.test.ts": {
+    "typescript(no-non-null-assertion)": 43,
+    "typescript(no-unsafe-assignment)": 36,
+    "typescript(no-unsafe-member-access)": 63
+  },
+  "apps/local/app/features/course-view/optimistic-applier.ts": {
+    "typescript(no-non-null-assertion)": 1,
+    "typescript(no-unsafe-argument)": 6,
+    "typescript(no-unsafe-assignment)": 92,
+    "typescript(no-unsafe-call)": 46,
+    "typescript(no-unsafe-member-access)": 99,
+    "typescript(no-unsafe-return)": 35
+  },
+  "apps/local/app/features/course-view/section-card.tsx": {
+    "typescript(no-non-null-assertion)": 1,
+    "typescript(no-unsafe-argument)": 9,
+    "typescript(no-unsafe-assignment)": 17,
+    "typescript(no-unsafe-call)": 1,
+    "typescript(no-unsafe-member-access)": 30,
+    "typescript(no-unsafe-return)": 1
+  },
+  "apps/local/app/features/course-view/section-grid-utils.test.ts": {
+    "local(no-unsafe-as)": 4,
+    "typescript(no-non-null-assertion)": 2,
+    "typescript(no-unsafe-assignment)": 2,
+    "typescript(no-unsafe-member-access)": 3,
+    "typescript(no-unsafe-return)": 3
+  },
+  "apps/local/app/features/course-view/section-grid-utils.ts": {
+    "typescript(no-non-null-assertion)": 5,
+    "typescript(no-unsafe-argument)": 4,
+    "typescript(no-unsafe-assignment)": 3,
+    "typescript(no-unsafe-call)": 11,
+    "typescript(no-unsafe-member-access)": 26,
+    "typescript(no-unsafe-return)": 6
+  },
+  "apps/local/app/features/course-view/section-grid.tsx": {
+    "typescript(no-non-null-assertion)": 1,
+    "typescript(no-unsafe-argument)": 2,
+    "typescript(no-unsafe-assignment)": 18,
+    "typescript(no-unsafe-call)": 7,
+    "typescript(no-unsafe-member-access)": 28,
+    "typescript(no-unsafe-return)": 6
+  },
+  "apps/local/app/features/course-view/section-learning-goals.tsx": {
+    "typescript(no-unsafe-assignment)": 4,
+    "typescript(no-unsafe-call)": 3,
+    "typescript(no-unsafe-member-access)": 14,
+    "typescript(no-unsafe-return)": 1
+  },
+  "apps/local/app/features/course-view/section-scripts-utils.test.ts": {
+    "typescript(no-non-null-assertion)": 5
+  },
+  "apps/local/app/features/course-view/section-transcript-beats.test.ts": {
+    "local(no-unsafe-as)": 8,
+    "typescript(no-unsafe-assignment)": 19,
+    "typescript(no-unsafe-member-access)": 7
+  },
+  "apps/local/app/features/course-view/section-transcript.test.ts": {
+    "local(no-unsafe-as)": 17,
+    "typescript(no-non-null-assertion)": 5,
+    "typescript(no-unsafe-assignment)": 20,
+    "typescript(no-unsafe-member-access)": 28
+  },
+  "apps/local/app/features/course-view/section-transcript.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-unsafe-argument)": 18,
+    "typescript(no-unsafe-assignment)": 1,
+    "typescript(no-unsafe-call)": 2,
+    "typescript(no-unsafe-member-access)": 67,
+    "typescript(no-unsafe-return)": 1
+  },
+  "apps/local/app/features/course-view/sortable-lesson-item.tsx": {
+    "local(no-unsafe-as)": 4,
+    "typescript(no-unsafe-argument)": 4,
+    "typescript(no-unsafe-assignment)": 37,
+    "typescript(no-unsafe-call)": 6,
+    "typescript(no-unsafe-member-access)": 58,
+    "typescript(no-unsafe-return)": 1
+  },
+  "apps/local/app/features/course-view/use-lesson-drag.ts": {
+    "typescript(no-unsafe-argument)": 2,
+    "typescript(no-unsafe-assignment)": 4,
+    "typescript(no-unsafe-member-access)": 2,
+    "typescript(no-unsafe-return)": 1
+  },
+  "apps/local/app/features/course-view/use-optimistic-course.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-unsafe-assignment)": 3,
+    "typescript(no-unsafe-return)": 1
+  },
+  "apps/local/app/features/course-view/video-context-menu.tsx": {
+    "typescript(no-unsafe-argument)": 5,
+    "typescript(no-unsafe-assignment)": 18,
+    "typescript(no-unsafe-call)": 1,
+    "typescript(no-unsafe-member-access)": 29
+  },
+  "apps/local/app/features/course-view/video-thumbnail-grid.tsx": {
+    "typescript(no-unsafe-argument)": 2,
+    "typescript(no-unsafe-assignment)": 5,
+    "typescript(no-unsafe-member-access)": 12
+  },
+  "apps/local/app/features/deliverables-calendar/deliverable-card.tsx": {
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/features/deliverables-calendar/deliverable-form.tsx": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 7
+  },
+  "apps/local/app/features/deliverables-calendar/deliverable-grouping.test.ts": {
+    "typescript(no-non-null-assertion)": 57
+  },
+  "apps/local/app/features/deliverables-calendar/deliverable-grouping.ts": {
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/features/deliverables-calendar/deliverable-links.tsx": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/features/deliverables-calendar/iso-week.test.ts": {
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/features/diagrams/centre-camera-on-content.test.ts": {
+    "local(no-unsafe-as)": 5,
+    "typescript(no-non-null-assertion)": 15
+  },
+  "apps/local/app/features/diagrams/copy-scene-to-clipboard.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-unsafe-assignment)": 1,
+    "typescript(no-unsafe-member-access)": 2
+  },
+  "apps/local/app/features/diagrams/cvm-icon-shape.test.ts": {
+    "local(no-unsafe-as)": 7
+  },
+  "apps/local/app/features/diagrams/diagram-editor.browser.test.tsx": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/features/diagrams/diagram-editor.tsx": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/features/diagrams/diagram-frame.test.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/features/diagrams/diagram-frame.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/features/diagrams/diagram-playground-reducer-test-helpers.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/features/diagrams/diagram-playground-reducer.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/features/diagrams/diagram-thumbnail.tsx": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/features/diagrams/head-autosaver.test.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/features/diagrams/insert-onto-canvas.browser.test.tsx": {
+    "local(no-unsafe-as)": 4,
+    "typescript(no-non-null-assertion)": 7
+  },
+  "apps/local/app/features/diagrams/insert-onto-canvas.test.ts": {
+    "local(no-unsafe-as)": 9,
+    "typescript(no-non-null-assertion)": 5
+  },
+  "apps/local/app/features/diagrams/insert-onto-canvas.ts": {
+    "local(no-unsafe-as)": 5
+  },
+  "apps/local/app/features/diagrams/palette/icon-glyph.tsx": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/features/diagrams/palette/palette-reducer.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/features/diagrams/palette/recent-icons.test.ts": {
+    "local(no-unsafe-as)": 3
+  },
+  "apps/local/app/features/diagrams/palette/use-grid-nav.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/features/diagrams/palette/use-palette.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-unsafe-argument)": 1,
+    "typescript(no-unsafe-assignment)": 4,
+    "typescript(no-unsafe-member-access)": 6,
+    "typescript(no-unsafe-return)": 1
+  },
+  "apps/local/app/features/diagrams/render-scene-png.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/features/diagrams/render-thumbnail.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/features/diagrams/replace-icon.test.ts": {
+    "local(no-unsafe-as)": 6,
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/features/diagrams/replace-icon.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/features/diagrams/simple-diagram-in-tldraw.browser.test.tsx": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/features/diagrams/snapshot-list.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/features/diagrams/snapshot-navigation.ts": {
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/features/diagrams/use-diagram-playground-reducer.ts": {
+    "typescript(no-unsafe-assignment)": 8,
+    "typescript(no-unsafe-member-access)": 2
+  },
+  "apps/local/app/features/diagrams/use-recentre-diagram-shortcut.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/features/diagrams/use-snapshot-step-shortcut.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/features/diagrams/use-tldraw-license-key.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/features/entity-links/entity-deep-link.test.ts": {
+    "local(no-unsafe-as)": 3
+  },
   "apps/local/app/features/entity-links/entity-deep-link.ts": {
+    "local(no-unsafe-as)": 2,
     "unicorn(prefer-string-starts-ends-with)": 1
+  },
+  "apps/local/app/features/global-search/use-global-search-reducer.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/features/image-upload/image-upload-job.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/features/image-upload/image-upload-reducer.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/features/imported-footage/imported-footage-reducer.test.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/features/imported-footage/use-imported-footage.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/features/jobs/duplicate-course-job.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/features/jobs/job-event-actions.ts": {
+    "typescript(no-unsafe-assignment)": 2,
+    "typescript(no-unsafe-member-access)": 4
+  },
+  "apps/local/app/features/jobs/job-stage-history.test.ts": {
+    "typescript(no-non-null-assertion)": 8
+  },
+  "apps/local/app/features/jobs/job-stage-history.ts": {
+    "typescript(no-non-null-assertion)": 5
+  },
+  "apps/local/app/features/jobs/job-toasts.test.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-non-null-assertion)": 21,
+    "typescript(no-unsafe-assignment)": 2
+  },
+  "apps/local/app/features/jobs/jobs-reducer-clip-mockup-voice.test.ts": {
+    "typescript(no-explicit-any)": 3,
+    "typescript(no-non-null-assertion)": 1,
+    "typescript(no-unsafe-return)": 1
+  },
+  "apps/local/app/features/jobs/jobs-reducer-duplicate-course.test.ts": {
+    "typescript(no-explicit-any)": 3,
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/features/jobs/jobs-reducer-enqueue.test.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/features/jobs/jobs-reducer-image-upload.test.ts": {
+    "typescript(no-explicit-any)": 3,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/features/jobs/jobs-reducer-posting.test.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/features/jobs/jobs-reducer-storage-delete.test.ts": {
+    "typescript(no-explicit-any)": 6,
+    "typescript(no-non-null-assertion)": 2,
+    "typescript(no-unsafe-argument)": 1,
+    "typescript(no-unsafe-member-access)": 1
+  },
+  "apps/local/app/features/jobs/jobs-reducer-storage-move.test.ts": {
+    "typescript(no-explicit-any)": 6,
+    "typescript(no-non-null-assertion)": 3,
+    "typescript(no-unsafe-argument)": 1,
+    "typescript(no-unsafe-member-access)": 1
+  },
+  "apps/local/app/features/jobs/jobs-reducer-timing.test.ts": {
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/features/jobs/jobs-reducer-transcription.test.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/features/jobs/use-jobs.ts": {
+    "typescript(no-unsafe-argument)": 4
+  },
+  "apps/local/app/features/lesson-writer/lesson-body-writer-modal.browser.test.tsx": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 4
+  },
+  "apps/local/app/features/lesson-writer/lesson-body-writer-modal.tsx": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/features/lesson-writer/use-autofill-description-reducer.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/features/publish/pending-recovery-banner.tsx": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/features/publish/placeholder-floor-panel.tsx": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/features/publish/publish-blockers.test.ts": {
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/features/storage/bucket-page-actions.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 1,
+    "typescript(no-unsafe-assignment)": 1
+  },
+  "apps/local/app/features/storage/bucket-page-reducer.test.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/features/storage/bucket-page-reducer.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/features/storage/storage-action-effects.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/features/storage/storage-action.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/features/storage/storage-jobs.test.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/features/storage/storage-jobs.ts": {
+    "local(no-unsafe-as)": 6
+  },
+  "apps/local/app/features/storage/storage-page-actions.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-unsafe-assignment)": 1
+  },
+  "apps/local/app/features/storage/storage-page-reducer.test.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 3,
+    "typescript(no-unsafe-assignment)": 1
+  },
+  "apps/local/app/features/storage/storage-page-reducer.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/features/storage/use-bucket-page.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-unsafe-argument)": 1,
+    "typescript(no-unsafe-assignment)": 1
+  },
+  "apps/local/app/features/storage/use-storage-page.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-unsafe-argument)": 1,
+    "typescript(no-unsafe-assignment)": 1
+  },
+  "apps/local/app/features/streaming/broadcast-chat-view.tsx": {
+    "typescript(no-unsafe-argument)": 1
+  },
+  "apps/local/app/features/streaming/broadcast-thumbnail-reducer.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/features/streaming/chat-presenter.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/features/streaming/live-stream-context.tsx": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/features/streaming/live-timer.test.ts": {
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/features/streaming/use-live-stream-reducer.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/features/teleprompter/glass-links-test-helpers.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/features/teleprompter/heading-sections.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/features/teleprompter/script-blocks.test.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/features/teleprompter/script-blocks.ts": {
+    "typescript(no-non-null-assertion)": 10
+  },
+  "apps/local/app/features/teleprompter/script-markdown.tsx": {
+    "typescript(no-unsafe-assignment)": 1
+  },
+  "apps/local/app/features/teleprompter/session-marks.test.tsx": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/features/teleprompter/session-marks.tsx": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/features/teleprompter/sticky-heading.tsx": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/features/teleprompter/sticky-headings.browser.test.tsx": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 4
+  },
+  "apps/local/app/features/teleprompter/suggestion-glass.test.tsx": {
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/features/teleprompter/use-teleprompter-actions.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "apps/local/app/features/thumbnail-editor/recorder-still-reducer.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/features/thumbnail-editor/thumbnail-diagram-editor.tsx": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/features/thumbnail-editor/thumbnail-face-history.browser.test.tsx": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/features/thumbnail-editor/thumbnail-state-reducer-drawing.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 7,
+    "typescript(no-unsafe-call)": 3,
+    "typescript(no-unsafe-member-access)": 3,
+    "typescript(no-unsafe-return)": 1
+  },
+  "apps/local/app/features/thumbnail-editor/thumbnail-state-reducer-face-history.test.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/features/thumbnail-editor/thumbnail-state-reducer-flush.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 4,
+    "typescript(no-unsafe-assignment)": 2,
+    "typescript(no-unsafe-call)": 2,
+    "typescript(no-unsafe-member-access)": 3,
+    "typescript(no-unsafe-return)": 1
+  },
+  "apps/local/app/features/thumbnail-editor/thumbnail-state-reducer-sources.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 7,
+    "typescript(no-unsafe-call)": 3,
+    "typescript(no-unsafe-member-access)": 7,
+    "typescript(no-unsafe-return)": 1
+  },
+  "apps/local/app/features/upload-manager/upload-context.browser.test.tsx": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/features/upload-manager/upload-context.tsx": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/features/upload-manager/upload-eta-schedule.test.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/features/upload-manager/upload-eta-schedule.ts": {
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/features/upload-manager/upload-eta.test.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/features/upload-manager/upload-eta.ts": {
+    "typescript(no-non-null-assertion)": 4
+  },
+  "apps/local/app/features/upload-manager/upload-timing.test.ts": {
+    "typescript(no-non-null-assertion)": 9
+  },
+  "apps/local/app/features/upload-manager/upload-timing.ts": {
+    "typescript(no-non-null-assertion)": 4
+  },
+  "apps/local/app/features/video-editor/clip-frame-preview-reducer.test.ts": {
+    "typescript(no-non-null-assertion)": 4
+  },
+  "apps/local/app/features/video-editor/clip-playback-picture.test.ts": {
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/features/video-editor/clip-reducer-render-benchmark.browser.test.tsx": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 12
+  },
+  "apps/local/app/features/video-editor/clip-state-reducer-chapters.test.ts": {
+    "local(no-unsafe-as)": 34,
+    "typescript(no-non-null-assertion)": 10
+  },
+  "apps/local/app/features/video-editor/clip-state-reducer-chapters.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/features/video-editor/clip-state-reducer-clear-all-sessions.test.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/features/video-editor/clip-state-reducer-clip-text.test.ts": {
+    "local(no-unsafe-as)": 5
+  },
+  "apps/local/app/features/video-editor/clip-state-reducer-deletion.test.ts": {
+    "local(no-unsafe-as)": 40
+  },
+  "apps/local/app/features/video-editor/clip-state-reducer-diagram-pin.test.ts": {
+    "local(no-unsafe-as)": 6,
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/features/video-editor/clip-state-reducer-effect-clips.test.ts": {
+    "local(no-unsafe-as)": 4,
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/features/video-editor/clip-state-reducer-insertion-point.test.ts": {
+    "typescript(no-non-null-assertion)": 6
+  },
+  "apps/local/app/features/video-editor/clip-state-reducer-mic-settings.test.ts": {
+    "local(no-unsafe-as)": 9,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/features/video-editor/clip-state-reducer-permanent-removal.test.ts": {
+    "local(no-unsafe-as)": 19,
+    "typescript(no-non-null-assertion)": 20
+  },
+  "apps/local/app/features/video-editor/clip-state-reducer-recording.test.ts": {
+    "local(no-unsafe-as)": 6,
+    "typescript(no-non-null-assertion)": 12
+  },
+  "apps/local/app/features/video-editor/clip-state-reducer-recording.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/features/video-editor/clip-state-reducer-restore.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/features/video-editor/clip-state-reducer-retranscribe-old-job.test.ts": {
+    "local(no-unsafe-as)": 4,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/features/video-editor/clip-state-reducer-scene-override.test.ts": {
+    "local(no-unsafe-as)": 8
+  },
+  "apps/local/app/features/video-editor/clip-state-reducer-section-ops.test.ts": {
+    "local(no-unsafe-as)": 31,
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/features/video-editor/clip-state-reducer-session-clips.test.ts": {
+    "local(no-unsafe-as)": 15,
+    "typescript(no-non-null-assertion)": 10
+  },
+  "apps/local/app/features/video-editor/clip-state-reducer-snapshot-pinning.test.ts": {
+    "local(no-unsafe-as)": 10,
+    "typescript(no-explicit-any)": 8,
+    "typescript(no-non-null-assertion)": 6,
+    "typescript(no-unsafe-assignment)": 8,
+    "typescript(no-unsafe-call)": 4,
+    "typescript(no-unsafe-member-access)": 10
+  },
+  "apps/local/app/features/video-editor/clip-state-reducer-timeline.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/features/video-editor/clip-state-reducer-transcription-jobs.test.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/features/video-editor/clip-state-reducer-transcription-jobs.ts": {
+    "local(no-unsafe-as)": 4
+  },
+  "apps/local/app/features/video-editor/clip-state-reducer-transcription.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 5,
+    "typescript(no-unsafe-argument)": 20,
+    "typescript(no-unsafe-assignment)": 17
+  },
+  "apps/local/app/features/video-editor/clip-state-reducer-web-links.test.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-explicit-any)": 5,
+    "typescript(no-non-null-assertion)": 6,
+    "typescript(no-unsafe-assignment)": 3,
+    "typescript(no-unsafe-call)": 1,
+    "typescript(no-unsafe-member-access)": 5
+  },
+  "apps/local/app/features/video-editor/clip-state-reducer.helpers.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/features/video-editor/clip-state-reducer.types.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/features/video-editor/components/autofill-chapters-modal.tsx": {
+    "local(no-unsafe-as)": 6,
+    "typescript(no-unsafe-argument)": 3
+  },
+  "apps/local/app/features/video-editor/components/chapter-naming-modal.tsx": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/features/video-editor/components/clip-layers-list.tsx": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/features/video-editor/components/clip-scene-picker.test.ts": {
+    "local(no-unsafe-as)": 3
+  },
+  "apps/local/app/features/video-editor/components/clip-timeline.tsx": {
+    "local(no-unsafe-as)": 6
+  },
+  "apps/local/app/features/video-editor/components/create-video-from-selection-modal.tsx": {
+    "local(no-unsafe-as)": 1
   },
   "apps/local/app/features/video-editor/components/queued-still.tsx": {
     "unicorn(no-useless-spread)": 1
   },
+  "apps/local/app/features/video-editor/components/reference-panel.tsx": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 6,
+    "typescript(no-unsafe-assignment)": 1,
+    "typescript(no-unsafe-return)": 1
+  },
+  "apps/local/app/features/video-editor/cvm-recorder-render-benchmark.browser.test.tsx": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/features/video-editor/edit-effect-handlers.ts": {
+    "local(no-unsafe-as)": 3
+  },
+  "apps/local/app/features/video-editor/editor-menu.test.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/features/video-editor/editor-menu.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/features/video-editor/editor-modals-reducer.test.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/features/video-editor/editor-video-menu.tsx": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/features/video-editor/hooks/use-autofill-chapters-modal.tsx": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/features/video-editor/hooks/use-browser-link-capture.ts": {
+    "typescript(no-unsafe-argument)": 1
+  },
+  "apps/local/app/features/video-editor/hooks/use-chapter-modal.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/features/video-editor/hooks/use-suggestions-storage.test.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/features/video-editor/hooks/use-suggestions.ts": {
+    "local(no-unsafe-as)": 5
+  },
+  "apps/local/app/features/video-editor/hooks/use-teleprompter-editor-mode.ts": {
+    "local(no-unsafe-as)": 3
+  },
+  "apps/local/app/features/video-editor/hooks/use-video-copy-options.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/features/video-editor/hooks/use-video-editor.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/features/video-editor/hooks/use-websocket.ts": {
+    "typescript(no-unsafe-argument)": 1
+  },
+  "apps/local/app/features/video-editor/insert-at-point.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/features/video-editor/overlay-preview.tsx": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/features/video-editor/overlay-spill.test.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/features/video-editor/overlay-spill.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/features/video-editor/preloadable-clip.tsx": {
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/features/video-editor/recorder-attention-reducer.test.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/features/video-editor/recorder-takes-test-harness.ts": {
+    "local(no-unsafe-as)": 4,
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/features/video-editor/recorder-takes.test.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/features/video-editor/session-clip-marks.test.ts": {
+    "local(no-unsafe-as)": 4,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/features/video-editor/session-latest-transcript.test.ts": {
+    "local(no-unsafe-as)": 4
+  },
+  "apps/local/app/features/video-editor/session-panel-reducer.test.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/features/video-editor/suggestions-reducer.test.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/features/video-editor/transcribe-clips-response.ts": {
+    "local(no-unsafe-as)": 3
+  },
+  "apps/local/app/features/video-editor/transcript-word-status.test.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-non-null-assertion)": 1,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "apps/local/app/features/video-editor/use-cvm-recorder.browser.test.tsx": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 4
+  },
+  "apps/local/app/features/video-editor/use-cvm-recorder.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "apps/local/app/features/video-editor/use-video-editor-wiring.ts": {
+    "local(no-unsafe-as)": 9,
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/features/video-editor/video-editor-context.tsx": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/features/video-editor/video-editor-selectors-capture.test.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-unsafe-assignment)": 1
+  },
+  "apps/local/app/features/video-editor/video-editor-selectors-chapters.test.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-explicit-any)": 2,
+    "typescript(no-unsafe-assignment)": 2
+  },
+  "apps/local/app/features/video-editor/video-editor-selectors-clips.test.ts": {
+    "local(no-unsafe-as)": 4,
+    "typescript(no-explicit-any)": 2,
+    "typescript(no-unsafe-assignment)": 2
+  },
+  "apps/local/app/features/video-editor/video-editor-selectors-danger-metadata.test.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-unsafe-assignment)": 1
+  },
+  "apps/local/app/features/video-editor/video-editor-selectors-retranscribe.test.ts": {
+    "local(no-unsafe-as)": 4
+  },
+  "apps/local/app/features/video-editor/video-editor-selectors-timeline.test.ts": {
+    "local(no-unsafe-as)": 6,
+    "typescript(no-explicit-any)": 2,
+    "typescript(no-non-null-assertion)": 48,
+    "typescript(no-unsafe-assignment)": 2
+  },
+  "apps/local/app/features/video-editor/video-editor-selectors.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/features/video-editor/video-editor.tsx": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/features/video-editor/video-state-reducer.test.ts": {
+    "local(no-unsafe-as)": 36
+  },
+  "apps/local/app/features/video-editor/video-state-reducer.ts": {
+    "typescript(no-non-null-assertion)": 4
+  },
   "apps/local/app/features/video-posting/ai-hero-components.tsx": {
     "typescript(no-floating-promises)": 2,
-    "typescript(no-misused-promises)": 1
+    "typescript(no-misused-promises)": 1,
+    "typescript(no-unsafe-argument)": 2,
+    "typescript(no-unsafe-assignment)": 6,
+    "typescript(no-unsafe-member-access)": 7
   },
   "apps/local/app/features/video-posting/ai-hero-page.tsx": {
-    "typescript(no-misused-promises)": 3
+    "local(no-unsafe-as)": 1,
+    "typescript(no-misused-promises)": 3,
+    "typescript(no-unsafe-assignment)": 2,
+    "typescript(no-unsafe-member-access)": 1
+  },
+  "apps/local/app/features/video-posting/auto-select-thumbnail.ts": {
+    "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/features/video-posting/lesson-page.tsx": {
+    "local(no-unsafe-as)": 1,
     "typescript(no-floating-promises)": 2,
-    "typescript(no-misused-promises)": 1
+    "typescript(no-misused-promises)": 1,
+    "typescript(no-unsafe-assignment)": 1,
+    "typescript(no-unsafe-member-access)": 1
   },
   "apps/local/app/features/video-posting/newsletter-page.tsx": {
-    "typescript(no-misused-promises)": 2
+    "typescript(no-misused-promises)": 2,
+    "typescript(no-unsafe-assignment)": 1
   },
   "apps/local/app/features/video-posting/post-page-thumbnail-selector.tsx": {
     "eslint(no-unused-expressions)": 1,
     "typescript(no-misused-promises)": 1
   },
+  "apps/local/app/features/video-posting/posting-requests.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-unsafe-argument)": 1,
+    "typescript(no-unsafe-assignment)": 4,
+    "typescript(no-unsafe-member-access)": 2
+  },
+  "apps/local/app/features/video-posting/shorts-posting-queue.server.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
   "apps/local/app/features/video-posting/skills-changelog-helpers.tsx": {
-    "typescript(no-misused-promises)": 1
+    "local(no-unsafe-as)": 1,
+    "typescript(no-misused-promises)": 1,
+    "typescript(no-unsafe-assignment)": 1,
+    "typescript(no-unsafe-member-access)": 1
   },
   "apps/local/app/features/video-posting/skills-changelog-page.tsx": {
-    "typescript(no-misused-promises)": 5
+    "typescript(no-misused-promises)": 5,
+    "typescript(no-unsafe-assignment)": 1
   },
   "apps/local/app/features/video-posting/social-page.tsx": {
-    "typescript(no-misused-promises)": 3
+    "local(no-unsafe-as)": 1,
+    "typescript(no-misused-promises)": 3,
+    "typescript(no-unsafe-argument)": 2,
+    "typescript(no-unsafe-assignment)": 3,
+    "typescript(no-unsafe-member-access)": 2
   },
   "apps/local/app/features/video-posting/use-post-page-reducer.ts": {
     "typescript(no-floating-promises)": 1
   },
+  "apps/local/app/features/video-posting/use-shorts-posting-reducer.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/hooks/effect-entity.ts": {
+    "local(no-unsafe-as)": 3
+  },
+  "apps/local/app/hooks/effect-store.browser.test.tsx": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 5
+  },
+  "apps/local/app/hooks/effect-store.test.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/hooks/effect-store.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/hooks/should-ignore-keyboard-shortcut.test.ts": {
+    "local(no-unsafe-as)": 7,
+    "typescript(no-explicit-any)": 6,
+    "typescript(no-unsafe-member-access)": 6
+  },
+  "apps/local/app/hooks/should-ignore-keyboard-shortcut.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/hooks/use-banned-phrases.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/hooks/use-effect-reducer.browser.test.tsx": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 5
+  },
+  "apps/local/app/hooks/use-lint.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/hooks/use-local-storage.test.ts": {
+    "local(no-unsafe-as)": 4
+  },
+  "apps/local/app/hooks/use-thumbnail-reducer.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-unsafe-assignment)": 3,
+    "typescript(no-unsafe-member-access)": 1
+  },
+  "apps/local/app/lib/close-open-bold.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/lib/create-sse-response.server.test.ts": {
+    "typescript(no-non-null-assertion)": 3,
+    "typescript(no-unsafe-assignment)": 1
+  },
+  "apps/local/app/lib/create-sse-response.server.ts": {
+    "typescript(no-explicit-any)": 4,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "apps/local/app/lib/diagram-action-resolver.test.ts": {
+    "local(no-unsafe-as)": 8,
+    "typescript(no-explicit-any)": 8,
+    "typescript(no-unsafe-assignment)": 8
+  },
+  "apps/local/app/lib/diagram-action-resolver.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/lib/early-clicks.browser.test.tsx": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/lib/live-channels.ts": {
+    "typescript(no-unsafe-assignment)": 1
+  },
+  "apps/local/app/lib/post-confirmed.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/lib/route-toasts.ts": {
+    "local(no-unsafe-as)": 1
+  },
   "apps/local/app/lib/unified-line-diff.ts": {
+    "typescript(no-non-null-assertion)": 11,
     "unicorn(no-new-array)": 1
+  },
+  "apps/local/app/packages/clap-detection/lib/audio-onsets.ts": {
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/packages/clap-detection/lib/match.ts": {
+    "typescript(no-non-null-assertion)": 10
+  },
+  "apps/local/app/packages/clap-detection/tests/match.test.ts": {
+    "typescript(no-non-null-assertion)": 11
+  },
+  "apps/local/app/packages/clap-step/lib/clap-step.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/packages/clip-source/lib/clip-source.ts": {
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/packages/clip-source/lib/layers.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/packages/clip-source/tests/clip-frame.ffmpeg.test.ts": {
+    "typescript(no-non-null-assertion)": 4
+  },
+  "apps/local/app/packages/clip-source/tests/clip-source.test.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/packages/course-json/lib/build-course-json.ts": {
+    "typescript(no-non-null-assertion)": 10
+  },
+  "apps/local/app/packages/course-json/lib/lesson-publish-status.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/packages/course-json/tests/course-json-fixtures.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/packages/course-json/tests/course-json-optional-lesson.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 3,
+    "typescript(no-unsafe-member-access)": 1
+  },
+  "apps/local/app/packages/course-json/tests/course-json-text-lesson.test.ts": {
+    "typescript(no-non-null-assertion)": 8,
+    "typescript(no-unsafe-assignment)": 1,
+    "typescript(no-unsafe-call)": 1,
+    "typescript(no-unsafe-member-access)": 2,
+    "typescript(no-unsafe-return)": 1
+  },
+  "apps/local/app/packages/course-json/tests/course-json-validation.test.ts": {
+    "typescript(no-non-null-assertion)": 17
+  },
+  "apps/local/app/packages/course-json/tests/course-json.test.ts": {
+    "typescript(no-explicit-any)": 2,
+    "typescript(no-non-null-assertion)": 29,
+    "typescript(no-unsafe-argument)": 1,
+    "typescript(no-unsafe-assignment)": 4,
+    "typescript(no-unsafe-call)": 2,
+    "typescript(no-unsafe-member-access)": 9,
+    "typescript(no-unsafe-return)": 1
+  },
+  "apps/local/app/packages/course-json/tests/effective-sections.test.ts": {
+    "typescript(no-non-null-assertion)": 14
+  },
+  "apps/local/app/packages/course-json/tests/lesson-publish-status.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/packages/course-json/tests/session-extract.test.ts": {
+    "typescript(no-non-null-assertion)": 3
   },
   "apps/local/app/packages/mic-eq/lib/mic-eq-filter.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 1,
     "unicorn(no-new-array)": 1
   },
+  "apps/local/app/packages/mic-eq/tests/mic-eq-coefficients.test.ts": {
+    "typescript(no-non-null-assertion)": 12
+  },
+  "apps/local/app/packages/scene-layout/tests/scene-filter-graph.ffmpeg.test.ts": {
+    "typescript(no-non-null-assertion)": 11
+  },
+  "apps/local/app/packages/storage/lib/buckets.ts": {
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/packages/storage/lib/delete-job-wire.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/packages/storage/lib/delete-safety.server.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/packages/storage/lib/dirty-bit.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/packages/storage/lib/move-copy.server.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/packages/storage/lib/move-io.server.ts": {
+    "local(no-unsafe-as)": 4
+  },
+  "apps/local/app/packages/storage/lib/move-partials.server.ts": {
+    "local(no-unsafe-as)": 5
+  },
+  "apps/local/app/packages/storage/lib/move-placed.server.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/packages/storage/lib/move-plan.server.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/packages/storage/lib/move-wire.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/packages/storage/lib/offline.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/packages/storage/lib/originals-check.server.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/packages/storage/lib/originals.server.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/packages/storage/lib/purge-exports.server.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/packages/storage/lib/purge-wire.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/packages/storage/lib/real-drives.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/packages/storage/lib/resolve.ts": {
+    "local(no-unsafe-as)": 4
+  },
+  "apps/local/app/packages/storage/lib/scan-wire.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/packages/storage/lib/scan.server.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/packages/storage/lib/storage-roots.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/packages/storage/lib/unused-checks.server.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/packages/storage/tests/bucket-files.test.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 10
+  },
+  "apps/local/app/packages/storage/tests/delete-other.test.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-non-null-assertion)": 19
+  },
+  "apps/local/app/packages/storage/tests/move-busy.test.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-non-null-assertion)": 7
+  },
+  "apps/local/app/packages/storage/tests/move-partials.test.ts": {
+    "local(no-unsafe-as)": 6,
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/packages/storage/tests/move.test.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-non-null-assertion)": 9,
+    "typescript(no-unsafe-assignment)": 2
+  },
+  "apps/local/app/packages/storage/tests/originals-job.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/packages/storage/tests/originals-test-harness.ts": {
+    "local(no-unsafe-as)": 4,
+    "typescript(no-non-null-assertion)": 8
+  },
+  "apps/local/app/packages/storage/tests/originals.test.ts": {
+    "typescript(no-non-null-assertion)": 3,
+    "typescript(no-unsafe-assignment)": 4
+  },
+  "apps/local/app/packages/storage/tests/ownership-schema-behind.test.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/packages/storage/tests/purge-exports.test.ts": {
+    "local(no-unsafe-as)": 4,
+    "typescript(no-non-null-assertion)": 15
+  },
+  "apps/local/app/packages/storage/tests/real-drives.test.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/packages/storage/tests/resolve.test.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/packages/storage/tests/scan.test.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 12
+  },
+  "apps/local/app/packages/storage/tests/unused-delete.test.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/prompts/generate-suggest-next-clip.test.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/prompts/generate-suggest-next-clip.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/root.tsx": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/routes/_app._index.tsx": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 2
+  },
   "apps/local/app/routes/_app.api-tokens.tsx": {
-    "typescript(no-misused-promises)": 2
+    "local(no-unsafe-as)": 1,
+    "typescript(no-misused-promises)": 2,
+    "typescript(no-unsafe-assignment)": 2,
+    "typescript(no-unsafe-call)": 1,
+    "typescript(no-unsafe-member-access)": 3
   },
   "apps/local/app/routes/_app.archived-courses.tsx": {
-    "typescript(no-floating-promises)": 2
+    "typescript(no-floating-promises)": 2,
+    "typescript(no-unsafe-assignment)": 2,
+    "typescript(no-unsafe-call)": 1,
+    "typescript(no-unsafe-member-access)": 7
+  },
+  "apps/local/app/routes/_app.av-calibration.tsx": {
+    "typescript(no-unsafe-assignment)": 3,
+    "typescript(no-unsafe-member-access)": 4
   },
   "apps/local/app/routes/_app.courses.$courseId._index.tsx": {
-    "typescript(no-floating-promises)": 2
+    "local(no-unsafe-as)": 1,
+    "typescript(no-floating-promises)": 2,
+    "typescript(no-non-null-assertion)": 2,
+    "typescript(no-unsafe-argument)": 15,
+    "typescript(no-unsafe-assignment)": 20,
+    "typescript(no-unsafe-call)": 5,
+    "typescript(no-unsafe-member-access)": 40,
+    "typescript(no-unsafe-return)": 4
   },
   "apps/local/app/routes/_app.courses.$courseId.archived-lessons.tsx": {
-    "typescript(no-floating-promises)": 1
+    "typescript(no-floating-promises)": 1,
+    "typescript(no-non-null-assertion)": 1,
+    "typescript(no-unsafe-assignment)": 4,
+    "typescript(no-unsafe-call)": 2,
+    "typescript(no-unsafe-member-access)": 9
+  },
+  "apps/local/app/routes/_app.courses.$courseId.changelog.tsx": {
+    "typescript(no-non-null-assertion)": 2,
+    "typescript(no-unsafe-assignment)": 1,
+    "typescript(no-unsafe-member-access)": 3
+  },
+  "apps/local/app/routes/_app.courses.$courseId.publish.tsx": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 3,
+    "typescript(no-unsafe-argument)": 5,
+    "typescript(no-unsafe-assignment)": 17,
+    "typescript(no-unsafe-member-access)": 22
   },
   "apps/local/app/routes/_app.courses.$courseId.sections.$sectionId.tsx": {
-    "typescript(no-floating-promises)": 2
+    "typescript(no-floating-promises)": 2,
+    "typescript(no-non-null-assertion)": 2,
+    "typescript(no-unsafe-argument)": 5,
+    "typescript(no-unsafe-assignment)": 13,
+    "typescript(no-unsafe-call)": 2,
+    "typescript(no-unsafe-member-access)": 25,
+    "typescript(no-unsafe-return)": 1
+  },
+  "apps/local/app/routes/_app.imported-footage.tsx": {
+    "typescript(no-unsafe-argument)": 6,
+    "typescript(no-unsafe-assignment)": 13,
+    "typescript(no-unsafe-call)": 6,
+    "typescript(no-unsafe-member-access)": 38,
+    "typescript(no-unsafe-return)": 1
   },
   "apps/local/app/routes/_app.pitches.$pitchId.tsx": {
-    "typescript(no-floating-promises)": 5
+    "local(no-unsafe-as)": 2,
+    "typescript(no-floating-promises)": 5,
+    "typescript(no-non-null-assertion)": 1,
+    "typescript(no-unsafe-assignment)": 17,
+    "typescript(no-unsafe-call)": 4,
+    "typescript(no-unsafe-member-access)": 30,
+    "typescript(no-unsafe-return)": 1
   },
   "apps/local/app/routes/_app.pitches._index.tsx": {
-    "typescript(no-floating-promises)": 6
+    "local(no-unsafe-as)": 2,
+    "typescript(no-floating-promises)": 6,
+    "typescript(no-unsafe-argument)": 3,
+    "typescript(no-unsafe-assignment)": 3,
+    "typescript(no-unsafe-member-access)": 2
   },
   "apps/local/app/routes/_app.shorts._index.tsx": {
     "typescript(no-floating-promises)": 1,
-    "typescript(no-misused-promises)": 1
+    "typescript(no-misused-promises)": 1,
+    "typescript(no-unsafe-argument)": 7,
+    "typescript(no-unsafe-assignment)": 6,
+    "typescript(no-unsafe-call)": 1,
+    "typescript(no-unsafe-member-access)": 14,
+    "typescript(no-unsafe-return)": 1
+  },
+  "apps/local/app/routes/_app.storage_.$bucketId.tsx": {
+    "typescript(no-unsafe-assignment)": 2,
+    "typescript(no-unsafe-member-access)": 2
+  },
+  "apps/local/app/routes/_app.streaming.$videoId.tsx": {
+    "typescript(no-non-null-assertion)": 2,
+    "typescript(no-unsafe-assignment)": 9,
+    "typescript(no-unsafe-member-access)": 7,
+    "typescript(no-unsafe-return)": 1
+  },
+  "apps/local/app/routes/_app.streaming._index.tsx": {
+    "typescript(no-unsafe-argument)": 4,
+    "typescript(no-unsafe-assignment)": 3,
+    "typescript(no-unsafe-call)": 2,
+    "typescript(no-unsafe-member-access)": 11,
+    "typescript(no-unsafe-return)": 1
+  },
+  "apps/local/app/routes/_app.tsx": {
+    "local(no-unsafe-as)": 1
   },
   "apps/local/app/routes/_app.videos.$videoId.ai-hero.tsx": {
-    "typescript(no-floating-promises)": 2
+    "local(no-unsafe-as)": 1,
+    "typescript(no-floating-promises)": 2,
+    "typescript(no-non-null-assertion)": 2,
+    "typescript(no-unsafe-argument)": 1,
+    "typescript(no-unsafe-assignment)": 14,
+    "typescript(no-unsafe-member-access)": 2
+  },
+  "apps/local/app/routes/_app.videos.$videoId.animatic.tsx": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 2,
+    "typescript(no-unsafe-argument)": 1,
+    "typescript(no-unsafe-assignment)": 11,
+    "typescript(no-unsafe-member-access)": 10
+  },
+  "apps/local/app/routes/_app.videos.$videoId.edit.tsx": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 1,
+    "typescript(no-unsafe-argument)": 1,
+    "typescript(no-unsafe-assignment)": 1,
+    "typescript(no-unsafe-member-access)": 2
   },
   "apps/local/app/routes/_app.videos.$videoId.lesson.tsx": {
-    "typescript(no-floating-promises)": 1
+    "local(no-unsafe-as)": 1,
+    "typescript(no-floating-promises)": 1,
+    "typescript(no-non-null-assertion)": 2,
+    "typescript(no-unsafe-argument)": 1,
+    "typescript(no-unsafe-assignment)": 8,
+    "typescript(no-unsafe-member-access)": 2
+  },
+  "apps/local/app/routes/_app.videos.$videoId.move-to-course.tsx": {
+    "typescript(no-non-null-assertion)": 1,
+    "typescript(no-unsafe-argument)": 1,
+    "typescript(no-unsafe-assignment)": 15,
+    "typescript(no-unsafe-call)": 6,
+    "typescript(no-unsafe-member-access)": 23
   },
   "apps/local/app/routes/_app.videos.$videoId.newsletter.tsx": {
-    "typescript(no-floating-promises)": 2
+    "local(no-unsafe-as)": 1,
+    "typescript(no-floating-promises)": 2,
+    "typescript(no-non-null-assertion)": 1,
+    "typescript(no-unsafe-assignment)": 14,
+    "typescript(no-unsafe-member-access)": 2
   },
   "apps/local/app/routes/_app.videos.$videoId.post.tsx": {
-    "typescript(no-floating-promises)": 3
+    "local(no-unsafe-as)": 1,
+    "typescript(no-floating-promises)": 3,
+    "typescript(no-non-null-assertion)": 1,
+    "typescript(no-unsafe-assignment)": 18,
+    "typescript(no-unsafe-member-access)": 2
   },
   "apps/local/app/routes/_app.videos.$videoId.skills-changelog.tsx": {
-    "typescript(no-floating-promises)": 2
+    "local(no-unsafe-as)": 1,
+    "typescript(no-floating-promises)": 2,
+    "typescript(no-non-null-assertion)": 2,
+    "typescript(no-unsafe-argument)": 1,
+    "typescript(no-unsafe-assignment)": 14,
+    "typescript(no-unsafe-member-access)": 2
   },
   "apps/local/app/routes/_app.videos.$videoId.social.tsx": {
-    "typescript(no-floating-promises)": 2
+    "local(no-unsafe-as)": 1,
+    "typescript(no-floating-promises)": 2,
+    "typescript(no-non-null-assertion)": 1,
+    "typescript(no-unsafe-assignment)": 14,
+    "typescript(no-unsafe-member-access)": 3
   },
   "apps/local/app/routes/_app.videos.$videoId.thumbnails.tsx": {
-    "typescript(no-floating-promises)": 1
+    "local(no-unsafe-as)": 1,
+    "typescript(no-floating-promises)": 1,
+    "typescript(no-non-null-assertion)": 1,
+    "typescript(no-unsafe-argument)": 4,
+    "typescript(no-unsafe-assignment)": 16,
+    "typescript(no-unsafe-call)": 2,
+    "typescript(no-unsafe-member-access)": 18
   },
   "apps/local/app/routes/_app.videos.$videoId.tsx": {
-    "typescript(no-misused-promises)": 2
+    "local(no-unsafe-as)": 2,
+    "typescript(no-misused-promises)": 2,
+    "typescript(no-non-null-assertion)": 1,
+    "typescript(no-unsafe-argument)": 7,
+    "typescript(no-unsafe-assignment)": 19
   },
   "apps/local/app/routes/_app.videos._index.tsx": {
-    "typescript(no-misused-promises)": 2
+    "typescript(no-misused-promises)": 2,
+    "typescript(no-unsafe-argument)": 4,
+    "typescript(no-unsafe-assignment)": 6,
+    "typescript(no-unsafe-call)": 2,
+    "typescript(no-unsafe-member-access)": 10,
+    "typescript(no-unsafe-return)": 1
+  },
+  "apps/local/app/routes/api.auth.ai-hero.poll.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-unsafe-assignment)": 1,
+    "typescript(no-unsafe-member-access)": 1
+  },
+  "apps/local/app/routes/api.auth.dropbox.callback.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/routes/api.auth.google.callback.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/routes/api.av-calibration.$calibrationId.clap-step.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.av-calibration.$calibrationId.frame.$frame.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.av-calibration.$calibrationId.mic-offset.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.av-calibration.$calibrationId.preview.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.av-calibration.$calibrationId.timeline.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.clip-mockups.$clipMockupId.$asset.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.clip-service.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/routes/api.clips.$clipId.diagram-pin.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 1,
+    "typescript(no-unsafe-argument)": 1,
+    "typescript(no-unsafe-member-access)": 1
+  },
+  "apps/local/app/routes/api.clips.$clipId.web-links.ts": {
+    "typescript(no-non-null-assertion)": 1,
+    "typescript(no-unsafe-argument)": 2,
+    "typescript(no-unsafe-member-access)": 2
+  },
+  "apps/local/app/routes/api.course-editor.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/routes/api.courses.$courseId.archive.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.courses.$courseId.duplicate.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.courses.$courseId.rename-course.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.courses.$courseId.update-memory.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.deliverables.$deliverableId.archive.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.deliverables.$deliverableId.duplicate.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.deliverables.$deliverableId.update-status.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.deliverables.$deliverableId.update.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.diagram-component-thumbnails.$componentId.ts": {
+    "typescript(no-unsafe-argument)": 2,
+    "typescript(no-unsafe-assignment)": 1,
+    "typescript(no-unsafe-member-access)": 1
+  },
+  "apps/local/app/routes/api.diagram-components.$componentId.delete.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.diagram-components.$componentId.insert.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.diagram-components.$componentId.rename.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.diagram-components.create.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/routes/api.diagram-snapshots.$snapshotId.archive.ts": {
+    "typescript(no-non-null-assertion)": 1,
+    "typescript(no-unsafe-argument)": 2,
+    "typescript(no-unsafe-assignment)": 2,
+    "typescript(no-unsafe-call)": 2,
+    "typescript(no-unsafe-member-access)": 4
+  },
+  "apps/local/app/routes/api.diagram-snapshots.$snapshotId.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.diagram-thumbnails.$diagramId.$contentHash.ts": {
+    "typescript(no-unsafe-argument)": 4,
+    "typescript(no-unsafe-assignment)": 1,
+    "typescript(no-unsafe-member-access)": 1
+  },
+  "apps/local/app/routes/api.diagrams.$diagramId.head.ts": {
+    "typescript(no-non-null-assertion)": 2,
+    "typescript(no-unsafe-argument)": 1,
+    "typescript(no-unsafe-member-access)": 1
+  },
+  "apps/local/app/routes/api.diagrams.$diagramId.restore-from-search.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.diagrams.$diagramId.restore-to-head.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.diagrams.$diagramId.snapshots.list.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/routes/api.diagrams.$diagramId.snapshots.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/routes/api.diagrams.$diagramId.update.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.feedback.ts": {
+    "typescript(no-non-null-assertion)": 1,
+    "typescript(no-unsafe-assignment)": 5,
+    "typescript(no-unsafe-call)": 3,
+    "typescript(no-unsafe-member-access)": 4
+  },
+  "apps/local/app/routes/api.jobs.events.ts": {
+    "typescript(no-unsafe-assignment)": 2,
+    "typescript(no-unsafe-call)": 2,
+    "typescript(no-unsafe-member-access)": 2
+  },
+  "apps/local/app/routes/api.jobs.stage-history.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/routes/api.lessons.$lessonId.add-video.ts": {
+    "typescript(no-non-null-assertion)": 2,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "apps/local/app/routes/api.lessons.$lessonId.unarchive.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.links.$linkId.delete.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.links.fetch-title.ts": {
+    "typescript(no-unsafe-assignment)": 2,
+    "typescript(no-unsafe-call)": 2,
+    "typescript(no-unsafe-member-access)": 2
+  },
+  "apps/local/app/routes/api.links.ts": {
+    "local(no-unsafe-as)": 3
+  },
+  "apps/local/app/routes/api.pitches.$pitchId.create-video.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.pitches.$pitchId.delete.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.pitches.$pitchId.update.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.remove-background.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.shortlinks.find-or-create.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-unsafe-assignment)": 1
+  },
+  "apps/local/app/routes/api.storage.buckets.$bucketId.files.ts": {
+    "typescript(no-unsafe-assignment)": 1,
+    "typescript(no-unsafe-member-access)": 1
+  },
+  "apps/local/app/routes/api.teleprompter.$videoId.content.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.thumbnails.$thumbnailId.delete.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.thumbnails.$thumbnailId.diagram.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.thumbnails.$thumbnailId.image.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.thumbnails.$thumbnailId.layer.$layerType.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.thumbnails.$thumbnailId.sources.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.thumbnails.$thumbnailId.update.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.thumbnails.create.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/routes/api.video-files.create.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/routes/api.video-files.read.ts": {
+    "typescript(no-unsafe-argument)": 2,
+    "typescript(no-unsafe-member-access)": 1
+  },
+  "apps/local/app/routes/api.videos.$videoId.autofill-chapters.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.videos.$videoId.autofill-description.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.videos.$videoId.capture-screenshot.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.videos.$videoId.copy.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/routes/api.videos.$videoId.export-file-exists.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.videos.$videoId.generate.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.videos.$videoId.lesson-writer.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/routes/api.videos.$videoId.log-path.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.videos.$videoId.move-to-lesson.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.videos.$videoId.next-video-needing-body.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.videos.$videoId.open-folder.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.videos.$videoId.open-in-vscode.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.videos.$videoId.posted-status.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.videos.$videoId.posting-queue.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/routes/api.videos.$videoId.purge-export.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.videos.$videoId.recorder.end-stream.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.videos.$videoId.recorder.events.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.videos.$videoId.recorder.go-live.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.videos.$videoId.recorder.hide-highlight.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.videos.$videoId.recorder.place-take.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.videos.$videoId.recorder.record.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.videos.$videoId.recorder.retry-camera.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.videos.$videoId.recorder.retry-screen.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.videos.$videoId.recorder.scene.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.videos.$videoId.recorder.show-highlight.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.videos.$videoId.recorder.silence-length.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/routes/api.videos.$videoId.recorder.stop.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.videos.$videoId.rename.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.videos.$videoId.reveal.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.videos.$videoId.script.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 2
   },
   "apps/local/app/routes/api.videos.$videoId.stream.ts": {
-    "eslint(no-unused-vars)": 1
+    "eslint(no-unused-vars)": 1,
+    "typescript(no-non-null-assertion)": 3,
+    "typescript(no-unsafe-argument)": 4,
+    "typescript(no-unsafe-assignment)": 4,
+    "typescript(no-unsafe-call)": 3,
+    "typescript(no-unsafe-member-access)": 9
+  },
+  "apps/local/app/routes/api.videos.$videoId.unarchive.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.videos.$videoId.unlink-from-pitch.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.videos.$videoId.vertical-export-exists.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.videos.$videoId.writer-chats.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/routes/api.videos.$videoId.youtube-draft.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/api.videos.create.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/routes/clips.$clipId.first-frame.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/clips.$clipId.frame.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/routes/clips.$clipId.last-frame.ts": {
+    "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/routes/diagram-playground.$diagramId.tsx": {
     "typescript(no-floating-promises)": 5,
-    "typescript(no-misused-promises)": 4
+    "typescript(no-misused-promises)": 4,
+    "typescript(no-unsafe-argument)": 1,
+    "typescript(no-unsafe-assignment)": 7,
+    "typescript(no-unsafe-call)": 2,
+    "typescript(no-unsafe-member-access)": 13
   },
   "apps/local/app/routes/diagram-playground._index.tsx": {
     "typescript(no-floating-promises)": 3,
-    "typescript(no-misused-promises)": 3
+    "typescript(no-misused-promises)": 3,
+    "typescript(no-unsafe-argument)": 4,
+    "typescript(no-unsafe-assignment)": 10,
+    "typescript(no-unsafe-call)": 2,
+    "typescript(no-unsafe-member-access)": 22
+  },
+  "apps/local/app/routes/diagram-render.tsx": {
+    "local(no-unsafe-as)": 4
   },
   "apps/local/app/routes/teleprompter.tsx": {
+    "local(no-unsafe-as)": 1,
     "typescript(no-floating-promises)": 1,
     "typescript(no-misused-promises)": 2
   },
+  "apps/local/app/routes/videos.$videoId.completions.ts": {
+    "typescript(no-non-null-assertion)": 1,
+    "typescript(no-unsafe-assignment)": 1
+  },
+  "apps/local/app/routes/videos.$videoId.document-completions.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 1,
+    "typescript(no-unsafe-assignment)": 1
+  },
+  "apps/local/app/routes/videos.$videoId.suggest-next-clip.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
   "apps/local/app/routes/view-image.ts": {
-    "eslint(no-unused-vars)": 1
+    "eslint(no-unused-vars)": 1,
+    "typescript(no-unsafe-argument)": 1,
+    "typescript(no-unsafe-assignment)": 1,
+    "typescript(no-unsafe-member-access)": 2
   },
   "apps/local/app/routes/view-video.ts": {
-    "eslint(no-unused-vars)": 1
+    "eslint(no-unused-vars)": 1,
+    "typescript(no-non-null-assertion)": 1,
+    "typescript(no-unsafe-argument)": 3,
+    "typescript(no-unsafe-assignment)": 3,
+    "typescript(no-unsafe-call)": 3,
+    "typescript(no-unsafe-member-access)": 8
+  },
+  "apps/local/app/services/agent-session-placement.ts": {
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/services/ai-hero-auth-service.ts": {
+    "local(no-unsafe-as)": 4,
+    "typescript(no-unsafe-assignment)": 1,
+    "typescript(no-unsafe-member-access)": 2
+  },
+  "apps/local/app/services/ai-hero-shortlink-service.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/services/ai-hero-upload-service.test.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 1,
+    "typescript(no-unsafe-member-access)": 1,
+    "typescript(no-unsafe-return)": 1
+  },
+  "apps/local/app/services/ai-hero-upload-service.ts": {
+    "local(no-unsafe-as)": 8
+  },
+  "apps/local/app/services/animatic-clip-mockup-files.test.ts": {
+    "typescript(no-non-null-assertion)": 5
+  },
+  "apps/local/app/services/animatic-export-service.ts": {
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/services/autofill-chapters-write.server.ts": {
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/services/autofill-service.test.ts": {
+    "typescript(no-non-null-assertion)": 16
+  },
+  "apps/local/app/services/autofill-service.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/services/av-calibration.server.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/services/b-roll-footage-layers.ffmpeg.test.ts": {
+    "typescript(no-non-null-assertion)": 5
+  },
+  "apps/local/app/services/background-removal-service.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/services/broadcast-chat-live.server.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/services/broadcast-chat-viewers.test.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/services/broadcast-chat.test.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 10
+  },
+  "apps/local/app/services/broadcast-chat.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/services/buffer-api-service.server.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/services/buffer-posting-orchestration.server.test.ts": {
+    "local(no-unsafe-as)": 8,
+    "typescript(no-explicit-any)": 4,
+    "typescript(no-non-null-assertion)": 8,
+    "typescript(no-unsafe-argument)": 2,
+    "typescript(no-unsafe-member-access)": 1,
+    "typescript(no-unsafe-return)": 1
+  },
+  "apps/local/app/services/changelog-diff.ts": {
+    "typescript(no-non-null-assertion)": 17,
+    "typescript(no-unsafe-assignment)": 1,
+    "typescript(no-unsafe-return)": 1
+  },
+  "apps/local/app/services/changelog-service.ts": {
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/services/chat-card-face-clear.test.ts": {
+    "typescript(no-non-null-assertion)": 10
+  },
+  "apps/local/app/services/claude-session-reader.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-non-null-assertion)": 6
+  },
+  "apps/local/app/services/clip-concat-args.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/services/clip-frame.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/services/clip-layers-export.ffmpeg.test.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/services/clip-mockup-copy-forward.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 4,
+    "typescript(no-non-null-assertion)": 6,
+    "typescript(no-unsafe-argument)": 2
+  },
+  "apps/local/app/services/clip-mockup-daemon/daemon.mjs": {
+    "typescript(no-unsafe-argument)": 1,
+    "typescript(no-unsafe-assignment)": 1,
+    "typescript(no-unsafe-call)": 1
+  },
+  "apps/local/app/services/clip-mockup-daemon/server.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/services/clip-mockup-files.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/services/clip-segment-args-short.test.ts": {
+    "typescript(no-non-null-assertion)": 13,
+    "typescript(no-unsafe-assignment)": 1,
+    "typescript(no-unsafe-member-access)": 1
+  },
+  "apps/local/app/services/clip-service-chapters.server.ts": {
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/services/clip-service-clip-text.test.ts": {
+    "typescript(no-non-null-assertion)": 5
+  },
+  "apps/local/app/services/clip-service-clips.server.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/services/clip-service-effect-clips.test.ts": {
+    "typescript(no-non-null-assertion)": 7
+  },
+  "apps/local/app/services/clip-service-footage-stats-copies.test.ts": {
+    "typescript(no-explicit-any)": 3,
+    "typescript(no-non-null-assertion)": 5,
+    "typescript(no-unsafe-argument)": 2
+  },
+  "apps/local/app/services/clip-service-footage-stats.test.ts": {
+    "typescript(no-non-null-assertion)": 7
+  },
+  "apps/local/app/services/clip-service-handler.failures.test.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/services/clip-service-handler.helpers.ts": {
+    "typescript(no-non-null-assertion)": 4
+  },
+  "apps/local/app/services/clip-service-insertion-point.test.ts": {
+    "local(no-unsafe-as)": 23,
+    "typescript(no-non-null-assertion)": 13,
+    "typescript(no-unsafe-assignment)": 3
+  },
+  "apps/local/app/services/clip-service-mic-offset-shared-session.test.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-explicit-any)": 6,
+    "typescript(no-non-null-assertion)": 6,
+    "typescript(no-unsafe-argument)": 5,
+    "typescript(no-unsafe-assignment)": 1,
+    "typescript(no-unsafe-member-access)": 1
+  },
+  "apps/local/app/services/clip-service-mic-settings.server.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/services/clip-service-mic-settings.test.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-non-null-assertion)": 6
+  },
+  "apps/local/app/services/clip-service-reorder.server.ts": {
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/services/clip-service-scene-override.server.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/services/clip-service-scene-override.test.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 8
+  },
+  "apps/local/app/services/clip-service-sections.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 33,
+    "typescript(no-unsafe-assignment)": 1
+  },
+  "apps/local/app/services/clip-service-selection-move.test.ts": {
+    "typescript(no-non-null-assertion)": 11
+  },
+  "apps/local/app/services/clip-service-selection.test.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 18,
+    "typescript(no-unsafe-assignment)": 1,
+    "typescript(no-unsafe-member-access)": 1
+  },
+  "apps/local/app/services/clip-service-speech.test.ts": {
+    "local(no-unsafe-as)": 5,
+    "typescript(no-non-null-assertion)": 5
+  },
+  "apps/local/app/services/clip-service-test-setup.ts": {
+    "local(no-unsafe-as)": 7,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "apps/local/app/services/clip-service-timeline.test.ts": {
+    "typescript(no-non-null-assertion)": 24,
+    "typescript(no-unsafe-assignment)": 1
+  },
+  "apps/local/app/services/clip-service.ts": {
+    "local(no-unsafe-as)": 9,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/services/clip-source-files.server.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/services/clip-transcription.server.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/services/clip-transcription.test.ts": {
+    "local(no-unsafe-as)": 4
+  },
+  "apps/local/app/services/clips-race.test.ts": {
+    "local(no-unsafe-as)": 6,
+    "typescript(no-explicit-any)": 7,
+    "typescript(no-non-null-assertion)": 2,
+    "typescript(no-unsafe-argument)": 5,
+    "typescript(no-unsafe-member-access)": 1,
+    "typescript(no-unsafe-return)": 2
+  },
+  "apps/local/app/services/cloudinary-markdown-service.test.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-explicit-any)": 3,
+    "typescript(no-non-null-assertion)": 2,
+    "typescript(no-unsafe-argument)": 1,
+    "typescript(no-unsafe-assignment)": 1,
+    "typescript(no-unsafe-member-access)": 2
+  },
+  "apps/local/app/services/cloudinary-service.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/services/course-editor-service-beats.test.ts": {
+    "typescript(no-non-null-assertion)": 6
+  },
+  "apps/local/app/services/course-editor-service-handler.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/services/course-editor-service-lessons.test.ts": {
+    "typescript(no-non-null-assertion)": 17,
+    "typescript(no-unsafe-assignment)": 3
+  },
+  "apps/local/app/services/course-editor-service-sections.test.ts": {
+    "typescript(no-non-null-assertion)": 4,
+    "typescript(no-unsafe-assignment)": 1
+  },
+  "apps/local/app/services/course-editor-service-test-setup.ts": {
+    "local(no-unsafe-as)": 4,
+    "typescript(no-explicit-any)": 6,
+    "typescript(no-non-null-assertion)": 6,
+    "typescript(no-unsafe-argument)": 3,
+    "typescript(no-unsafe-assignment)": 1,
+    "typescript(no-unsafe-call)": 1,
+    "typescript(no-unsafe-member-access)": 1
+  },
+  "apps/local/app/services/course-editor-service.ts": {
+    "local(no-unsafe-as)": 24
+  },
+  "apps/local/app/services/course-publish-bundle-address.test.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/services/course-publish-dropbox-optional-lesson.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/services/course-publish-dropbox-placeholder.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 6,
+    "typescript(no-non-null-assertion)": 3,
+    "typescript(no-unsafe-call)": 1,
+    "typescript(no-unsafe-member-access)": 7,
+    "typescript(no-unsafe-return)": 6
+  },
+  "apps/local/app/services/course-publish-dropbox-sync.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 15
+  },
+  "apps/local/app/services/course-publish-dropbox-text-lesson.test.ts": {
+    "typescript(no-non-null-assertion)": 4
+  },
+  "apps/local/app/services/course-publish-dropbox-upload-reuse.test.ts": {
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 1,
+    "typescript(no-unsafe-member-access)": 1
+  },
+  "apps/local/app/services/course-publish-dropbox-upload-test-setup.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-explicit-any)": 6,
+    "typescript(no-non-null-assertion)": 9,
+    "typescript(no-unsafe-argument)": 3,
+    "typescript(no-unsafe-call)": 1,
+    "typescript(no-unsafe-member-access)": 1,
+    "typescript(no-unsafe-return)": 1
+  },
+  "apps/local/app/services/course-publish-dropbox-upload.test.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-non-null-assertion)": 5,
+    "typescript(no-unsafe-assignment)": 6,
+    "typescript(no-unsafe-member-access)": 1,
+    "typescript(no-unsafe-return)": 1
+  },
+  "apps/local/app/services/course-publish-dropbox.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/services/course-publish-export-video.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/services/course-publish-lesson-statuses.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/services/course-publish-reuse-plan.ts": {
+    "local(no-unsafe-as)": 4,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/services/course-publish-service-batch-export.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 4,
+    "typescript(no-non-null-assertion)": 1,
+    "typescript(no-unsafe-argument)": 1,
+    "typescript(no-unsafe-call)": 1,
+    "typescript(no-unsafe-member-access)": 3,
+    "typescript(no-unsafe-return)": 3
+  },
+  "apps/local/app/services/course-publish-service-cvm-recorder.test.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/services/course-publish-service-offline-footage.test.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/services/course-publish-service-overlay-composite.test.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 30
+  },
+  "apps/local/app/services/course-publish-service-pipeline.test.ts": {
+    "local(no-unsafe-as)": 4,
+    "typescript(no-explicit-any)": 2,
+    "typescript(no-non-null-assertion)": 5,
+    "typescript(no-unsafe-argument)": 2,
+    "typescript(no-unsafe-assignment)": 1,
+    "typescript(no-unsafe-call)": 1,
+    "typescript(no-unsafe-member-access)": 1,
+    "typescript(no-unsafe-return)": 1
   },
   "apps/local/app/services/course-publish-service-publish.test.ts": {
-    "eslint(no-unused-vars)": 1
+    "eslint(no-unused-vars)": 1,
+    "local(no-unsafe-as)": 8,
+    "typescript(no-explicit-any)": 10,
+    "typescript(no-unsafe-argument)": 2,
+    "typescript(no-unsafe-assignment)": 5,
+    "typescript(no-unsafe-call)": 1,
+    "typescript(no-unsafe-member-access)": 16,
+    "typescript(no-unsafe-return)": 1
+  },
+  "apps/local/app/services/course-publish-service-reexport.test.ts": {
+    "local(no-unsafe-as)": 5,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 15,
+    "typescript(no-unsafe-call)": 1,
+    "typescript(no-unsafe-member-access)": 3,
+    "typescript(no-unsafe-return)": 3
+  },
+  "apps/local/app/services/course-publish-service-short-export.test.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-explicit-any)": 2,
+    "typescript(no-non-null-assertion)": 2,
+    "typescript(no-unsafe-member-access)": 1
+  },
+  "apps/local/app/services/course-publish-service-stale-export.test.ts": {
+    "typescript(no-non-null-assertion)": 4,
+    "typescript(no-unsafe-assignment)": 2,
+    "typescript(no-unsafe-member-access)": 2
+  },
+  "apps/local/app/services/course-publish-service-submit-order.test.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-explicit-any)": 3,
+    "typescript(no-unsafe-argument)": 3,
+    "typescript(no-unsafe-member-access)": 1
+  },
+  "apps/local/app/services/course-publish-service-syllabus-only.test.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-explicit-any)": 6,
+    "typescript(no-unsafe-argument)": 2,
+    "typescript(no-unsafe-assignment)": 1,
+    "typescript(no-unsafe-call)": 1,
+    "typescript(no-unsafe-member-access)": 7,
+    "typescript(no-unsafe-return)": 4
+  },
+  "apps/local/app/services/course-publish-service-test-setup.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-explicit-any)": 4,
+    "typescript(no-non-null-assertion)": 7,
+    "typescript(no-unsafe-argument)": 3
+  },
+  "apps/local/app/services/course-publish-service-video-tasks.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 3,
+    "typescript(no-non-null-assertion)": 8,
+    "typescript(no-unsafe-call)": 4,
+    "typescript(no-unsafe-member-access)": 17,
+    "typescript(no-unsafe-return)": 3
+  },
+  "apps/local/app/services/course-publish-service.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/services/cover-video-opening.test.ts": {
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/app/services/document-writing-agent.test.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/services/dropbox-fetch.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/services/dropbox-http-client.test.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/services/dropbox-http-client.ts": {
+    "local(no-unsafe-as)": 9
+  },
+  "apps/local/app/services/dropbox-upload-config.test.ts": {
+    "typescript(no-explicit-any)": 1
+  },
+  "apps/local/app/services/export-hash-rename.test.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/services/export-hash-rename.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/services/export-hash.test.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-explicit-any)": 2,
+    "typescript(no-non-null-assertion)": 16,
+    "typescript(no-unsafe-argument)": 2
+  },
+  "apps/local/app/services/export-render-clips.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/services/export-sha256-sidecar.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/services/ffmpeg-error.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/services/ffmpeg-run-input-cut-short.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-unsafe-assignment)": 1,
+    "typescript(no-unsafe-member-access)": 5
+  },
+  "apps/local/app/services/ffmpeg-video-logger.test.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-explicit-any)": 2,
+    "typescript(no-unsafe-argument)": 2
+  },
+  "apps/local/app/services/finished-videos.server.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/services/footage-cache.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/services/footage-chunking.test.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-explicit-any)": 2,
+    "typescript(no-non-null-assertion)": 5
+  },
+  "apps/local/app/services/footage-probe.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/services/format-failure-cause.test.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/services/format-failure-cause.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/services/frame-capture-service.ts": {
+    "local(no-unsafe-as)": 5
+  },
+  "apps/local/app/services/gpu-gate.test.ts": {
+    "local(no-unsafe-as)": 3
   },
   "apps/local/app/services/mkv-span.ffmpeg.test.ts": {
+    "typescript(no-non-null-assertion)": 5,
     "unicorn(no-useless-spread)": 3
   },
+  "apps/local/app/services/mkv-span.ts": {
+    "typescript(no-non-null-assertion)": 5
+  },
+  "apps/local/app/services/new-broadcast.server.test.ts": {
+    "typescript(no-non-null-assertion)": 1,
+    "typescript(no-unsafe-assignment)": 4
+  },
+  "apps/local/app/services/new-broadcast.server.ts": {
+    "local(no-unsafe-as)": 3
+  },
+  "apps/local/app/services/oauth-token-refresh.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 4
+  },
+  "apps/local/app/services/overlay-composite-ffmpeg-graph.test.ts": {
+    "typescript(no-non-null-assertion)": 6
+  },
+  "apps/local/app/services/overlay-compositing.test.ts": {
+    "typescript(no-non-null-assertion)": 34
+  },
+  "apps/local/app/services/overlay-content-renderer.test.ts": {
+    "typescript(no-non-null-assertion)": 4
+  },
+  "apps/local/app/services/overlay-render-cache.server.test.ts": {
+    "local(no-unsafe-as)": 4,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/services/overlay-render-cache.test.ts": {
+    "typescript(no-non-null-assertion)": 4
+  },
+  "apps/local/app/services/pending-discard.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 3,
+    "typescript(no-unsafe-argument)": 2,
+    "typescript(no-unsafe-assignment)": 12,
+    "typescript(no-unsafe-call)": 19,
+    "typescript(no-unsafe-member-access)": 16,
+    "typescript(no-unsafe-return)": 2
+  },
+  "apps/local/app/services/pending-recovery.server.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/services/pending-recovery.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 2,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "apps/local/app/services/preview-gains.test.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/services/recorder-client/calibration-commands.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/services/recorder-client/client.server.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/services/recorder-client/existing-client.server.ts": {
+    "local(no-unsafe-as)": 4
+  },
+  "apps/local/app/services/recorder-client/go-live-test-harness.ts": {
+    "local(no-unsafe-as)": 5
+  },
+  "apps/local/app/services/recorder-client/go-live.server.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/services/recorder-client/ingest-format.test.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/services/recorder-client/ingest-frames-lost.test.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/services/recorder-client/ingest-mic-offset.test.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/services/recorder-client/ingest.server.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/services/recorder-client/ingest.test.ts": {
+    "local(no-unsafe-as)": 5,
+    "typescript(no-non-null-assertion)": 15,
+    "typescript(no-unsafe-assignment)": 1
+  },
+  "apps/local/app/services/recorder-client/live.server.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/services/recorder-client/recorder-client-busy-streaming.test.ts": {
+    "typescript(no-unsafe-assignment)": 1
+  },
+  "apps/local/app/services/recorder-client/recorder-client-chat-highlight.test.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-non-null-assertion)": 30
+  },
+  "apps/local/app/services/recorder-client/recorder-client-end-stream-unlist.test.ts": {
+    "typescript(no-non-null-assertion)": 1,
+    "typescript(no-unsafe-assignment)": 1
+  },
+  "apps/local/app/services/recorder-client/recorder-client-go-live.test.ts": {
+    "local(no-unsafe-as)": 4,
+    "typescript(no-non-null-assertion)": 13
+  },
+  "apps/local/app/services/recorder-client/recorder-client-mixed-video.test.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/services/recorder-client/recorder-client-old-service.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-unsafe-assignment)": 2,
+    "typescript(no-unsafe-member-access)": 3
+  },
+  "apps/local/app/services/recorder-client/recorder-client-on-demand.test.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/services/recorder-client/recorder-client-reconnect.test.ts": {
+    "typescript(no-unsafe-assignment)": 1
+  },
+  "apps/local/app/services/recorder-client/recorder-client-short.test.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/services/recorder-client/recorder-client-stream-feeds.test.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/services/recorder-client/recorder-client-stream-reconnect.test.ts": {
+    "typescript(no-non-null-assertion)": 15,
+    "typescript(no-unsafe-member-access)": 2,
+    "typescript(no-unsafe-return)": 1
+  },
+  "apps/local/app/services/recorder-client/recorder-client-stream-sound.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 3
+  },
   "apps/local/app/services/recorder-client/recorder-client-takes.test.ts": {
+    "typescript(no-non-null-assertion)": 3,
     "unicorn(no-useless-spread)": 5
+  },
+  "apps/local/app/services/recorder-client/recorder-client-test-harness.ts": {
+    "local(no-unsafe-as)": 6,
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/services/recorder-client/recorder-client.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 8,
+    "typescript(no-unsafe-assignment)": 5,
+    "typescript(no-unsafe-member-access)": 6,
+    "typescript(no-unsafe-return)": 2
   },
   "apps/local/app/services/recorder-client/recorder-watch.ts": {
     "unicorn(no-useless-spread)": 1
   },
+  "apps/local/app/services/render-vertical-video-service.test.ts": {
+    "local(no-unsafe-as)": 15,
+    "typescript(no-explicit-any)": 12,
+    "typescript(no-non-null-assertion)": 23,
+    "typescript(no-unsafe-argument)": 13,
+    "typescript(no-unsafe-assignment)": 2
+  },
+  "apps/local/app/services/resolve-clip-mockup-speech.ts": {
+    "typescript(no-non-null-assertion)": 5
+  },
+  "apps/local/app/services/route-action.server.test.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/services/route-action.server.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/services/schema-behind.server.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/services/short-render-clips.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/services/short-subtitles.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/services/sidecar-context.test.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/services/sidecar-socket.server.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/services/silence-detection.test.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-explicit-any)": 2,
+    "typescript(no-non-null-assertion)": 6
+  },
+  "apps/local/app/services/silence-detection.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/services/slow-request-log.server.test.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 3
+  },
   "apps/local/app/services/still-gate.test.ts": {
+    "local(no-unsafe-as)": 3,
     "unicorn(no-useless-spread)": 1
   },
+  "apps/local/app/services/storage-relocation-apply.server.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/services/storage-relocation-exports.server.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/services/storage-relocation-plan.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/services/storage-relocation.test.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 17
+  },
+  "apps/local/app/services/storage-root-availability.server.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/services/text-generation-service.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/services/version-lifecycle.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 6,
+    "typescript(no-non-null-assertion)": 13,
+    "typescript(no-unsafe-argument)": 2,
+    "typescript(no-unsafe-member-access)": 1
+  },
+  "apps/local/app/services/vertical-overlay-props.test.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/services/video-chapters.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/services/video-editor-loader.server.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/services/video-export-composite.ffmpeg.test.ts": {
+    "typescript(no-non-null-assertion)": 23
+  },
+  "apps/local/app/services/video-files.test.ts": {
+    "local(no-unsafe-as)": 3
+  },
+  "apps/local/app/services/video-files.ts": {
+    "local(no-unsafe-as)": 3
+  },
+  "apps/local/app/services/video-posting-context.server.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 29,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "apps/local/app/services/video-posting-context.server.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/services/video-warnings.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/services/web-file-stream.server.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/services/writer-message-repair.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-unsafe-assignment)": 1
+  },
+  "apps/local/app/services/writer-message-repair.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/services/writer-stream-errors.ts": {
+    "local(no-unsafe-as)": 5,
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/services/writer-turn-errors.test.ts": {
+    "typescript(no-non-null-assertion)": 2,
+    "typescript(no-unsafe-assignment)": 3
+  },
+  "apps/local/app/services/youtube-footage-import.server.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/services/youtube-live-broadcast-writes.ts": {
+    "local(no-unsafe-as)": 3
+  },
+  "apps/local/app/services/youtube-live-service.test.ts": {
+    "typescript(no-unsafe-assignment)": 1
+  },
+  "apps/local/app/services/youtube-live-service.ts": {
+    "local(no-unsafe-as)": 12
+  },
+  "apps/local/app/services/youtube-upload-service.test.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/services/youtube-upload-service.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-unsafe-assignment)": 1,
+    "typescript(no-unsafe-return)": 1
+  },
+  "apps/local/app/spacedesk-wake.test.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-non-null-assertion)": 4
+  },
+  "apps/local/app/spacedesk-wake.ts": {
+    "typescript(no-non-null-assertion)": 4
+  },
+  "apps/local/app/test-utils/autofill-service-test-setup.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 11
+  },
+  "apps/local/app/test-utils/cli-frame-harness.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/test-utils/fake-dropbox.ts": {
+    "local(no-unsafe-as)": 7,
+    "typescript(no-non-null-assertion)": 6,
+    "typescript(no-unsafe-argument)": 3,
+    "typescript(no-unsafe-assignment)": 7,
+    "typescript(no-unsafe-call)": 4,
+    "typescript(no-unsafe-member-access)": 11
+  },
+  "apps/local/app/test-utils/fake-overlay-render-cache.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/test-utils/fake-text-generation.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/test-utils/fake-video-editor-logger.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/test-utils/fake-video-processing.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "apps/local/app/test-utils/fake-youtube-live.ts": {
+    "local(no-unsafe-as)": 4,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 3,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "apps/local/app/test-utils/hand-clock.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/test-utils/reducer-tester.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-unsafe-assignment)": 3,
+    "typescript(no-unsafe-call)": 1,
+    "typescript(no-unsafe-member-access)": 2,
+    "typescript(no-unsafe-return)": 2
+  },
+  "apps/local/app/test-utils/video-export-ffmpeg.ts": {
+    "local(no-unsafe-as)": 3
+  },
+  "apps/local/chrome-extension/background.js": {
+    "typescript(no-unsafe-assignment)": 1,
+    "typescript(no-unsafe-call)": 10,
+    "typescript(no-unsafe-member-access)": 20
+  },
+  "apps/local/recorder-service/allowed-origin.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/recorder-service/calibration-run.ffmpeg.test.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/recorder-service/camera-cfr.ffmpeg.test.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/recorder-service/camera-writer-graph.ffmpeg.test.ts": {
+    "typescript(no-non-null-assertion)": 4
+  },
+  "apps/local/recorder-service/capture-args.test.ts": {
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/recorder-service/card-feed.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 13
+  },
+  "apps/local/recorder-service/card-server.test.ts": {
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/recorder-service/card-server.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/recorder-service/chat-highlights.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/recorder-service/command-schema.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/recorder-service/crash-recovery.test.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/recorder-service/ffmpeg-build.test.ts": {
+    "typescript(no-non-null-assertion)": 4
+  },
+  "apps/local/recorder-service/frames-lost.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/recorder-service/health.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/recorder-service/level-meter.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/recorder-service/mic-timing.ffmpeg.test.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/recorder-service/png-rgba.ts": {
+    "typescript(no-non-null-assertion)": 4
+  },
+  "apps/local/recorder-service/preview-feeds.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/recorder-service/preview-feeds.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/recorder-service/recorder-service-arming.test.ts": {
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/recorder-service/recorder-service-meter.test.ts": {
+    "typescript(no-non-null-assertion)": 11
+  },
+  "apps/local/recorder-service/recorder-service-preview-watchdog.test.ts": {
+    "typescript(no-non-null-assertion)": 5
+  },
+  "apps/local/recorder-service/recorder-service-short-waking.test.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/recorder-service/recorder-service-short.test.ts": {
+    "typescript(no-non-null-assertion)": 3,
+    "typescript(no-unsafe-assignment)": 1
+  },
+  "apps/local/recorder-service/recorder-service-stream-deck.test.ts": {
+    "typescript(no-unsafe-assignment)": 1
+  },
+  "apps/local/recorder-service/recorder-service-tuning.test.ts": {
+    "typescript(no-non-null-assertion)": 4
+  },
+  "apps/local/recorder-service/recorder-service.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 7
+  },
   "apps/local/recorder-service/recorder-service.ts": {
+    "local(no-unsafe-as)": 1,
     "unicorn(no-useless-spread)": 2
+  },
+  "apps/local/recorder-service/recording-session.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/recorder-service/run-recorder-service.ts": {
+    "local(no-unsafe-as)": 1
   },
   "apps/local/recorder-service/stream-side.ts": {
     "unicorn(no-useless-spread)": 1
   },
+  "apps/local/recorder-service/take-isolation.ffmpeg.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 13
+  },
+  "apps/local/recorder-service/test-utils/fake-card-server.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 1,
+    "typescript(no-unsafe-assignment)": 1
+  },
+  "apps/local/recorder-service/test-utils/fake-windows.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/recorder-service/test-utils/service-harness.ts": {
+    "local(no-unsafe-as)": 3
+  },
+  "apps/local/recorder-service/windows-clock.test.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/scripts/baseline-migrations.ts": {
+    "typescript(no-unsafe-assignment)": 2,
+    "typescript(no-unsafe-member-access)": 7
+  },
+  "apps/local/scripts/db-dump.test.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/scripts/db-dump.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/scripts/generate-lucide-icons.ts": {
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/scripts/install-ffmpeg.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/scripts/migrate-production.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/scripts/nightly-dump.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/scripts/preview-latency.ts": {
+    "local(no-unsafe-as)": 7,
+    "typescript(no-non-null-assertion)": 8
+  },
+  "apps/local/scripts/recorder-parity-metrics.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/scripts/recorder-parity.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 4
+  },
+  "apps/local/scripts/recorder-scorecard/card-checks.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 6
+  },
+  "apps/local/scripts/recorder-scorecard/faults.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/scripts/recorder-scorecard/footage-analysis.ts": {
+    "typescript(no-non-null-assertion)": 19
+  },
+  "apps/local/scripts/recorder-scorecard/main.ts": {
+    "local(no-unsafe-as)": 3
+  },
+  "apps/local/scripts/recorder-scorecard/metrics.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 7
+  },
+  "apps/local/scripts/recorder-scorecard/preview-probe.test.ts": {
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/scripts/recorder-scorecard/preview-probe.ts": {
+    "local(no-unsafe-as)": 6,
+    "typescript(no-non-null-assertion)": 5
+  },
+  "apps/local/scripts/recorder-scorecard/report.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/scripts/recorder-scorecard/scenarios.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/scripts/recorder-scorecard/service-control.ts": {
+    "local(no-unsafe-as)": 3
+  },
+  "apps/local/scripts/recorder-scorecard/sink-checks.ts": {
+    "typescript(no-non-null-assertion)": 9
+  },
   "apps/local/scripts/recorder-scorecard/stills.ts": {
+    "typescript(no-non-null-assertion)": 1,
     "unicorn(no-useless-spread)": 1
   },
+  "apps/local/scripts/recorder-scorecard/stream-faults.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/scripts/recorder-scorecard/stream-sink.ts": {
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/scripts/recorder-scorecard/stream-speed.test.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/scripts/recorder-scorecard/streamed.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 3
+  },
+  "apps/local/scripts/recorder-scorecard/synthetic-launcher.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/scripts/recorder-scorecard/takes.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/scripts/recorder-scorecard/windows.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/scripts/running-cvm.test.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/scripts/screen-colour-gpu.ts": {
+    "typescript(no-non-null-assertion)": 9
+  },
+  "apps/local/scripts/service-token-file.test.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/scripts/storage-migrate-paths.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/scripts/storage-relocate.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/scripts/storage-rename-exports.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/scripts/verify-api.ts": {
+    "local(no-unsafe-as)": 3
+  },
+  "apps/local/scripts/warn-pending-migrations.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-unsafe-assignment)": 1,
+    "typescript(no-unsafe-member-access)": 1
+  },
+  "apps/local/scripts/white-noise-asset.ffmpeg.test.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/scripts/windows-guard.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/sidecar/clip-mockup-voice-sweep.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 4
+  },
+  "apps/local/sidecar/job-event-feed.test.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "apps/local/sidecar/job-kind.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/sidecar/job-specs.test.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/sidecar/job-specs.ts": {
+    "local(no-unsafe-as)": 10,
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/sidecar/json-logger.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/sidecar/kinds/autofill.test.ts": {
+    "typescript(no-non-null-assertion)": 2,
+    "typescript(no-unsafe-assignment)": 2
+  },
+  "apps/local/sidecar/kinds/batch-export.test.ts": {
+    "local(no-unsafe-as)": 6,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 2,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "apps/local/sidecar/kinds/batch-export.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-unsafe-member-access)": 2
+  },
+  "apps/local/sidecar/kinds/buffer.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/sidecar/kinds/clip-mockup-voice-final-failure.test.ts": {
+    "local(no-unsafe-as)": 4,
+    "typescript(no-non-null-assertion)": 5,
+    "typescript(no-unsafe-assignment)": 1
+  },
+  "apps/local/sidecar/kinds/clip-mockup-voice.test.ts": {
+    "local(no-unsafe-as)": 8,
+    "typescript(no-non-null-assertion)": 10
+  },
+  "apps/local/sidecar/kinds/clip-mockup-voice.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/sidecar/kinds/duplicate-course.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 6
+  },
+  "apps/local/sidecar/kinds/measure-preview-loudness.ffmpeg.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 4,
+    "typescript(no-unsafe-assignment)": 1,
+    "typescript(no-unsafe-member-access)": 5,
+    "typescript(no-unsafe-return)": 1
+  },
+  "apps/local/sidecar/kinds/publish.test.ts": {
+    "local(no-unsafe-as)": 10,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "apps/local/sidecar/kinds/publish.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-unsafe-return)": 1
+  },
+  "apps/local/sidecar/kinds/storage-delete-ops.test.ts": {
+    "local(no-unsafe-as)": 6,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/sidecar/kinds/storage-delete.test.ts": {
+    "local(no-unsafe-as)": 6,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 7
+  },
+  "apps/local/sidecar/kinds/storage-move.test.ts": {
+    "local(no-unsafe-as)": 8,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 9,
+    "typescript(no-unsafe-assignment)": 1
+  },
+  "apps/local/sidecar/kinds/transcribe-clips-requeue.test.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-non-null-assertion)": 16
+  },
+  "apps/local/sidecar/kinds/transcribe-clips.test.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-non-null-assertion)": 8
+  },
+  "apps/local/sidecar/kinds/transcribe-footage.test.ts": {
+    "local(no-unsafe-as)": 4,
+    "typescript(no-unsafe-assignment)": 4,
+    "typescript(no-unsafe-call)": 1,
+    "typescript(no-unsafe-member-access)": 4
+  },
+  "apps/local/sidecar/kinds/upload-images.test.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/sidecar/lanes.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/sidecar/local-whisper-engine.ts": {
+    "typescript(no-unsafe-assignment)": 1
+  },
+  "apps/local/sidecar/posting-kinds.test.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "apps/local/sidecar/posting-queue-failures.test.ts": {
+    "typescript(no-non-null-assertion)": 1,
+    "typescript(no-unsafe-assignment)": 3
+  },
+  "apps/local/sidecar/posting-queue-failures.ts": {
+    "local(no-unsafe-as)": 3
+  },
+  "apps/local/sidecar/posting-queue-test-harness.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-non-null-assertion)": 4
+  },
+  "apps/local/sidecar/posting-queue-tick.test.ts": {
+    "typescript(no-non-null-assertion)": 6,
+    "typescript(no-unsafe-assignment)": 1,
+    "typescript(no-unsafe-member-access)": 3
+  },
   "apps/local/sidecar/publish-kind.test.ts": {
-    "eslint(no-unsafe-optional-chaining)": 1
+    "eslint(no-unsafe-optional-chaining)": 1,
+    "local(no-unsafe-as)": 2,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-unsafe-argument)": 1,
+    "typescript(no-unsafe-assignment)": 1
+  },
+  "apps/local/sidecar/settle-retry.test.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "apps/local/sidecar/sidecar-after-recovery.test.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/sidecar/sidecar-cancel.test.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "apps/local/sidecar/sidecar-outage.test.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-explicit-any)": 2,
+    "typescript(no-unsafe-argument)": 2,
+    "typescript(no-unsafe-assignment)": 1,
+    "typescript(no-unsafe-call)": 1,
+    "typescript(no-unsafe-return)": 2
+  },
+  "apps/local/sidecar/sidecar-resumable.test.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/sidecar/sidecar.test.ts": {
+    "local(no-unsafe-as)": 4,
+    "typescript(no-explicit-any)": 6,
+    "typescript(no-unsafe-argument)": 1,
+    "typescript(no-unsafe-assignment)": 5,
+    "typescript(no-unsafe-call)": 4,
+    "typescript(no-unsafe-member-access)": 13,
+    "typescript(no-unsafe-return)": 3
   },
   "apps/local/sidecar/sidecar.ts": {
     "unicorn(no-thenable)": 1
   },
+  "apps/local/sidecar/socket-events.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "apps/local/sidecar/socket.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/sidecar/stuck-clip-sweep.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 21
+  },
+  "apps/local/sidecar/supervise.test.ts": {
+    "local(no-unsafe-as)": 3
+  },
+  "apps/local/sidecar/transcribe-clips-enqueue.test.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/sidecar/yt-dlp.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "apps/local/stream-deck-forwarder/run-stream-deck-forwarder.test.ts": {
+    "local(no-unsafe-as)": 3
+  },
+  "apps/remote/routes/search.ts": {
+    "local(no-unsafe-as)": 4
+  },
+  "apps/remote/rpc.ts": {
+    "typescript(no-unsafe-argument)": 1,
+    "typescript(no-unsafe-assignment)": 1
+  },
+  "apps/remote/scripts/migrate-on-deploy.mjs": {
+    "typescript(no-unsafe-assignment)": 2,
+    "typescript(no-unsafe-member-access)": 1
+  },
+  "lint/rules/allowed-directives.js": {
+    "typescript(no-unsafe-argument)": 6,
+    "typescript(no-unsafe-assignment)": 2,
+    "typescript(no-unsafe-call)": 4,
+    "typescript(no-unsafe-member-access)": 6,
+    "typescript(no-unsafe-return)": 2
+  },
+  "lint/rules/no-overloads.js": {
+    "typescript(no-unsafe-assignment)": 2,
+    "typescript(no-unsafe-member-access)": 2
+  },
+  "packages/core/db/connection-patience.ts": {
+    "local(no-unsafe-as)": 7
+  },
+  "packages/core/db/migrate-on-deploy.test.ts": {
+    "local(no-unsafe-as)": 3
+  },
+  "packages/core/db/migrate-on-deploy.ts": {
+    "local(no-unsafe-as)": 3
+  },
+  "packages/core/db/migrations.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 5,
+    "typescript(no-unsafe-argument)": 1,
+    "typescript(no-unsafe-assignment)": 4,
+    "typescript(no-unsafe-member-access)": 3
+  },
+  "packages/core/db/planetscale-backup.test.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-non-null-assertion)": 2
+  },
+  "packages/core/db/planetscale-backup.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "packages/core/db/schema-feature-probes.test.ts": {
+    "typescript(no-unsafe-assignment)": 2
+  },
+  "packages/core/drizzle.config.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "packages/core/features/agent-sessions/content-rules.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "packages/core/features/clip-mockups/voice-job-cover.ts": {
+    "local(no-unsafe-as)": 3
+  },
+  "packages/core/features/posting-queue/channel-failures.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "packages/core/features/posting-queue/posting-jobs.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "packages/core/features/posting-queue/slot-schedule.test.ts": {
+    "typescript(no-non-null-assertion)": 18
+  },
+  "packages/core/features/posting-queue/slot-schedule.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "packages/core/features/time/london-time.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 10
+  },
+  "packages/core/features/videos/chat-card.test.ts": {
+    "typescript(no-non-null-assertion)": 5
+  },
+  "packages/core/features/videos/clip-layer.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "packages/core/features/videos/clip-split.test.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "packages/core/features/videos/clip-split.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "packages/core/features/videos/clip-zoom.test.ts": {
+    "typescript(no-non-null-assertion)": 12,
+    "typescript(no-unsafe-assignment)": 5,
+    "typescript(no-unsafe-call)": 1,
+    "typescript(no-unsafe-return)": 1
+  },
+  "packages/core/features/videos/clip-zoom.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "packages/core/features/videos/overlay-kind.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "packages/core/features/videos/overlay-transform.test.ts": {
+    "typescript(no-non-null-assertion)": 14,
+    "typescript(no-unsafe-call)": 1,
+    "typescript(no-unsafe-return)": 1
+  },
+  "packages/core/features/videos/retext-transcript-words.ts": {
+    "typescript(no-non-null-assertion)": 3
+  },
+  "packages/core/features/videos/retime-cascade.test.ts": {
+    "typescript(no-non-null-assertion)": 3
+  },
+  "packages/core/features/videos/video-format.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "packages/core/lib/extract-scene-text/index.ts": {
+    "local(no-unsafe-as)": 3
+  },
+  "packages/core/lib/extract-scene-text/lib/impl.ts": {
+    "local(no-unsafe-as)": 4
+  },
+  "packages/core/lib/scene-hash.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "packages/core/lib/simple-diagram/lib/format.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "packages/core/lib/simple-diagram/lib/read.ts": {
+    "local(no-unsafe-as)": 6
+  },
+  "packages/core/lib/simple-diagram/lib/validate.ts": {
+    "local(no-unsafe-as)": 3
+  },
+  "packages/core/lib/simple-diagram/lib/write.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "packages/core/lib/simple-diagram/tests/fixtures.ts": {
+    "local(no-unsafe-as)": 4,
+    "typescript(no-non-null-assertion)": 5
+  },
+  "packages/core/lib/simple-diagram/tests/simple-diagram.test.ts": {
+    "local(no-unsafe-as)": 13,
+    "typescript(no-non-null-assertion)": 19,
+    "typescript(no-unsafe-assignment)": 2
+  },
+  "packages/core/lib/simple-diagram/tests/tldraw-store.test.ts": {
+    "local(no-unsafe-as)": 7,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "packages/core/lib/sort-by-order.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "packages/core/lib/thumbnail-diagram-sources.ts": {
+    "local(no-unsafe-as)": 4
+  },
+  "packages/core/lib/transcript-builder.test.ts": {
+    "typescript(no-non-null-assertion)": 7
+  },
+  "packages/core/lib/transcript-builder.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "packages/core/rpc/wire.test.ts": {
+    "local(no-unsafe-as)": 7
+  },
+  "packages/core/rpc/wire.ts": {
+    "local(no-unsafe-as)": 8
+  },
+  "packages/core/services/copy-child-rows.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "packages/core/services/copy-paths-table-guard.test.ts": {
+    "local(no-unsafe-as)": 4,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 17,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/copy-paths.round-trip.test.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-non-null-assertion)": 13
+  },
+  "packages/core/services/course-write-e2e.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 4,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/course-write-move-ops.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "packages/core/services/course-write-service.ts": {
+    "typescript(no-non-null-assertion)": 5
+  },
+  "packages/core/services/db-agent-session-operations.test.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 2,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-api-token-operations.server.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 2
+  },
+  "packages/core/services/db-api-token-operations.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 5
+  },
+  "packages/core/services/db-beat-operations.list.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 3,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-beat-operations.server.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 4
+  },
+  "packages/core/services/db-beat-operations.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 5,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-chapter-operations.server.ts": {
+    "typescript(no-non-null-assertion)": 6
+  },
+  "packages/core/services/db-clip-mockup-chapter-operations.server.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "packages/core/services/db-clip-mockup-comment-copy.test.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 17,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-clip-mockup-comment-operations.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 11,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-clip-mockup-operations.server.ts": {
+    "local(no-unsafe-as)": 5,
+    "typescript(no-non-null-assertion)": 2
+  },
+  "packages/core/services/db-clip-mockup-operations.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 18,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-clip-mockup-voice-operations.server.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "packages/core/services/db-clip-mockup-voice-operations.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 2,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-clip-operations.server.ts": {
+    "typescript(no-non-null-assertion)": 8
+  },
+  "packages/core/services/db-clip-retime.server.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "packages/core/services/db-clip-split.server.ts": {
+    "typescript(no-non-null-assertion)": 3,
+    "typescript(no-unsafe-assignment)": 1
+  },
+  "packages/core/services/db-clip-split.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 7,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-clip-zoom.server.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "packages/core/services/db-course-duplicate.server.ts": {
+    "typescript(no-non-null-assertion)": 5
+  },
+  "packages/core/services/db-course-operations-list-ordering.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 1,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-course-operations-name-guard.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-course-operations-slim-clips.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 20,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-deliverable-operations.server.ts": {
+    "typescript(no-non-null-assertion)": 7
+  },
+  "packages/core/services/db-deliverable-operations.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-diagram-agent-operations.server.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "packages/core/services/db-diagram-agent-operations.test.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-explicit-any)": 2,
+    "typescript(no-non-null-assertion)": 6,
+    "typescript(no-unsafe-argument)": 2
+  },
+  "packages/core/services/db-diagram-component-operations.server.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "packages/core/services/db-diagram-component-operations.test.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "packages/core/services/db-diagram-operations.server.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "packages/core/services/db-diagram-operations.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 4,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-diagram-restore-from-search.test.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-explicit-any)": 2,
+    "typescript(no-non-null-assertion)": 3,
+    "typescript(no-unsafe-argument)": 2,
+    "typescript(no-unsafe-call)": 1,
+    "typescript(no-unsafe-member-access)": 1
+  },
+  "packages/core/services/db-diagram-search-query.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 9,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-diagram-search-text.test.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-explicit-any)": 2,
+    "typescript(no-non-null-assertion)": 2,
+    "typescript(no-unsafe-argument)": 1,
+    "typescript(no-unsafe-member-access)": 1
+  },
+  "packages/core/services/db-diagram-snapshot-operations.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 10,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-duplicate-course-drift.test.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-explicit-any)": 4,
+    "typescript(no-non-null-assertion)": 42,
+    "typescript(no-unsafe-argument)": 1,
+    "typescript(no-unsafe-assignment)": 2,
+    "typescript(no-unsafe-member-access)": 4
+  },
+  "packages/core/services/db-duplicate-course.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 68,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-duplicate-course.thumbnails.test.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 15,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-duplicate-course.transaction.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 7,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-job-cancel.test.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 6,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-job-enqueue.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-job-feed.server.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "packages/core/services/db-job-lost-runs.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-job-operations.server.ts": {
+    "local(no-unsafe-as)": 3
+  },
+  "packages/core/services/db-job-operations.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-job-posting.server.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "packages/core/services/db-job-stage-history.test.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-explicit-any)": 2,
+    "typescript(no-non-null-assertion)": 6,
+    "typescript(no-unsafe-argument)": 1,
+    "typescript(no-unsafe-member-access)": 1,
+    "typescript(no-unsafe-return)": 1
+  },
+  "packages/core/services/db-learning-goal-operations.server.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 1,
+    "typescript(no-unsafe-assignment)": 1
+  },
+  "packages/core/services/db-learning-goal-operations.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 8,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-lesson-section-operations.server.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "packages/core/services/db-lesson-unarchive.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 4,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-pitch-effort.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 5,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-pitch-operations.server.ts": {
+    "typescript(no-unsafe-assignment)": 1
+  },
+  "packages/core/services/db-pitch-operations.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 16,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-pitch-state.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 11,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-posting-queue-changes.server.ts": {
+    "typescript(no-non-null-assertion)": 3
+  },
+  "packages/core/services/db-posting-queue-operations.server.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 6
+  },
+  "packages/core/services/db-posting-queue-sidecar.server.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 3
+  },
+  "packages/core/services/db-recording-session.test.ts": {
+    "typescript(no-non-null-assertion)": 13
+  },
+  "packages/core/services/db-search-operations.server.ts": {
+    "local(no-unsafe-as)": 4
+  },
+  "packages/core/services/db-service-append-clips.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 3,
+    "typescript(no-non-null-assertion)": 34,
+    "typescript(no-unsafe-argument)": 1,
+    "typescript(no-unsafe-assignment)": 18,
+    "typescript(no-unsafe-member-access)": 4
+  },
+  "packages/core/services/db-service-clip-move-to-video.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 1,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-service-clip-ordering.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 10,
+    "typescript(no-non-null-assertion)": 28,
+    "typescript(no-unsafe-argument)": 1,
+    "typescript(no-unsafe-assignment)": 23,
+    "typescript(no-unsafe-member-access)": 19,
+    "typescript(no-unsafe-return)": 3
+  },
+  "packages/core/services/db-service-course-structure.test.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-explicit-any)": 2,
+    "typescript(no-non-null-assertion)": 45,
+    "typescript(no-unsafe-argument)": 1,
+    "typescript(no-unsafe-member-access)": 1
+  },
+  "packages/core/services/db-service-next-video-needing-body.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 10,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-service-video-navigation.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 38,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-short-create.server.ts": {
+    "typescript(no-non-null-assertion)": 9
+  },
+  "packages/core/services/db-sidecar-lease.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-thumbnail-diagram-copy.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 15,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-thumbnail-diagram-search.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 5,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-thumbnail-diagram-sources.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 7,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-thumbnail-draft-guard.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 6,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-thumbnail-operations.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 7,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-version-copy.children.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 36,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-version-copy.incomplete.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 9,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-version-copy.round-trip.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 10,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-version-copy.server.ts": {
+    "typescript(no-non-null-assertion)": 4
+  },
+  "packages/core/services/db-version-copy.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 38,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-version-lineage.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 22,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-version-operations.server.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "packages/core/services/db-version-slim.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 16,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-video-archive.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 2,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-video-body-description.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 9,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-video-copy.thumbnails.test.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 11
+  },
+  "packages/core/services/db-video-format.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 13,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-video-from-selection.server.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "packages/core/services/db-video-navigation.server.ts": {
+    "typescript(no-non-null-assertion)": 5
+  },
+  "packages/core/services/db-video-operations.copy.server.ts": {
+    "typescript(no-non-null-assertion)": 5
+  },
+  "packages/core/services/db-video-operations.copy.test.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 14
+  },
+  "packages/core/services/db-video-operations.server.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "packages/core/services/db-video-operations.write.server.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "packages/core/services/db-video-post-operations.server.ts": {
+    "typescript(no-non-null-assertion)": 3
+  },
+  "packages/core/services/db-video-post-operations.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 2,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-video-unlink-from-pitch.test.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 3,
+    "typescript(no-unsafe-argument)": 1
+  },
+  "packages/core/services/db-writer-chat-operations.server.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "packages/core/services/draft-guard.server.test.ts": {
+    "local(no-unsafe-as)": 26,
+    "typescript(no-explicit-any)": 26,
+    "typescript(no-non-null-assertion)": 18,
+    "typescript(no-unsafe-argument)": 26
+  },
+  "packages/core/services/drizzle-service.server.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "packages/core/services/lesson-move-planner.test.ts": {
+    "typescript(no-non-null-assertion)": 11
+  },
+  "packages/core/services/lesson-path-service.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "packages/core/services/path-projection.test.ts": {
+    "typescript(no-non-null-assertion)": 9
+  },
+  "packages/core/services/path-projection.ts": {
+    "typescript(no-non-null-assertion)": 7
+  },
+  "packages/core/services/path-uniqueness-test-helpers.ts": {
+    "typescript(no-non-null-assertion)": 6
+  },
+  "packages/core/services/patient-connection-pool.test.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "packages/core/services/section-path-service.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "packages/core/services/storage-path-migration.server.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "packages/core/services/storage-path-migration.test.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 11
+  },
+  "packages/core/services/version-copy-check.server.ts": {
+    "typescript(no-non-null-assertion)": 2
+  },
   "packages/core/services/version-copy-manifest.ts": {
-    "oxc(only-used-in-recursion)": 1
+    "local(no-unsafe-as)": 1,
+    "oxc(only-used-in-recursion)": 1,
+    "typescript(no-non-null-assertion)": 8
+  },
+  "packages/core/services/version-not-draft-message.ts": {
+    "typescript(no-unsafe-assignment)": 1
+  },
+  "packages/core/services/with-db-transaction.test.ts": {
+    "local(no-unsafe-as)": 6,
+    "typescript(no-explicit-any)": 5,
+    "typescript(no-unsafe-argument)": 5
+  },
+  "packages/core/test-utils/copy-round-trip.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-non-null-assertion)": 9
+  },
+  "packages/core/test-utils/cvm-recorder-clip.ts": {
+    "typescript(no-non-null-assertion)": 5
+  },
+  "packages/core/test-utils/global-setup.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-explicit-any)": 1,
+    "typescript(no-unsafe-argument)": 1
   },
   "packages/core/test-utils/test-db.ts": {
+    "local(no-unsafe-as)": 2,
     "unicorn(no-useless-spread)": 1
+  },
+  "packages/core/test-utils/test-postgres.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "packages/lucide-icons/generator.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 3,
+    "typescript(no-unsafe-call)": 1
+  },
+  "packages/lucide-icons/index.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "packages/lucide-icons/lib/parse-path-d.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "packages/lucide-icons/lib/search.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "packages/lucide-icons/lib/to-path-builder.ts": {
+    "typescript(no-non-null-assertion)": 4
+  },
+  "packages/lucide-icons/tests/icon-table.test.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "packages/lucide-icons/tests/search.test.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "packages/lucide-icons/tests/to-path-builder.test.ts": {
+    "local(no-unsafe-as)": 3,
+    "typescript(no-non-null-assertion)": 3
+  },
+  "packages/overlay-renderer/bin.mjs": {
+    "typescript(no-unsafe-assignment)": 1,
+    "typescript(no-unsafe-call)": 1,
+    "typescript(no-unsafe-member-access)": 1
+  },
+  "packages/overlay-renderer/card-server.mjs": {
+    "typescript(no-unsafe-assignment)": 1,
+    "typescript(no-unsafe-call)": 1,
+    "typescript(no-unsafe-member-access)": 1
+  },
+  "packages/overlay-renderer/remotion/BulletPanel.tsx": {
+    "local(no-unsafe-as)": 2
+  },
+  "packages/overlay-renderer/remotion/ChatCard.tsx": {
+    "typescript(no-non-null-assertion)": 2
+  },
+  "packages/overlay-renderer/src/cli.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "packages/overlay-renderer/src/render.ts": {
+    "typescript(no-non-null-assertion)": 1
+  },
+  "packages/overlay-renderer/tests/chat-card-emoji.render.test.ts": {
+    "typescript(no-non-null-assertion)": 3,
+    "typescript(no-unsafe-argument)": 2,
+    "typescript(no-unsafe-assignment)": 1,
+    "typescript(no-unsafe-member-access)": 6
+  },
+  "packages/overlay-renderer/tests/png-pixels.ts": {
+    "typescript(no-non-null-assertion)": 9
+  },
+  "scripts/check-allowed-directives.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "scripts/check-background-jobs-network.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "scripts/check-background-jobs.ts": {
+    "local(no-unsafe-as)": 1,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "scripts/check-complexity.ts": {
+    "local(no-unsafe-as)": 5,
+    "typescript(no-unsafe-assignment)": 2,
+    "typescript(no-unsafe-member-access)": 3
+  },
+  "scripts/check-effect-guards.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "scripts/check-frontend-state.ts": {
+    "local(no-unsafe-as)": 2,
+    "typescript(no-non-null-assertion)": 1
+  },
+  "scripts/lint-ratchet.ts": {
+    "local(no-unsafe-as)": 4,
+    "typescript(no-non-null-assertion)": 3
+  },
+  "scripts/oxlint-json.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "tests/background-jobs-guard.test.ts": {
+    "local(no-unsafe-as)": 2
+  },
+  "tests/overlay-renderer-typescript.test.ts": {
+    "local(no-unsafe-as)": 1
+  },
+  "tests/production-source.test.ts": {
+    "typescript(no-unsafe-assignment)": 3
+  },
+  "tests/verify-cvm-run-isolation.test.ts": {
+    "typescript(no-non-null-assertion)": 1,
+    "typescript(no-unsafe-assignment)": 1
+  },
+  "tests/verify-cvm-write-ledger.test.ts": {
+    "typescript(no-unsafe-assignment)": 1
+  },
+  "tests/workspace-layout.test.ts": {
+    "typescript(no-non-null-assertion)": 4,
+    "typescript(no-unsafe-return)": 1
   }
 }

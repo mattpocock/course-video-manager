@@ -4,11 +4,13 @@
  */
 import allowedDirectives from "./rules/allowed-directives.js";
 import noOverloads from "./rules/no-overloads.js";
+import noUnsafeAs from "./rules/no-unsafe-as.js";
 
 export default {
   meta: { name: "local" },
   rules: {
     "allowed-directives": allowedDirectives,
     "no-overloads": noOverloads,
+    "no-unsafe-as": noUnsafeAs,
   },
 };
