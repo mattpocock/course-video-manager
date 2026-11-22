@@ -70,8 +70,8 @@ const fixture = vi.hoisted(async () => {
   return { root, storeDir, sourceDir, envPath };
 });
 
-vi.mock("@/services/repo-env", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/services/repo-env")>();
+vi.mock("@/packages/env", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/packages/env")>();
   const { envPath } = await fixture;
 
   // EVERY door into the `.env` is redirected at the temp file, not just

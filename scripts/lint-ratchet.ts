@@ -247,6 +247,7 @@ function report(
       const span = d.labels?.[0]?.span;
       const at = span ? `:${span.line}:${span.column}` : "";
       console.error(`      ${d.filename}${at}  ${d.message}`);
+      if (d.help) console.error(`          help: ${d.help}`);
     }
   }
   console.error("");

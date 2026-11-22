@@ -13,7 +13,7 @@ import {
   cardBrowserPath,
   chatHighlightsUnavailable,
 } from "@/services/card-browser.server";
-import { installLocationRepoRoot } from "@/services/repo-env";
+import { installLocationRepoRoot } from "@/packages/env";
 import { ThumbnailOperationsService } from "@/services/db-thumbnail-operations.server";
 import type { Route } from "./+types/_app.streaming.$videoId";
 

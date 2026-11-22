@@ -23,7 +23,8 @@
 //    server's interactive calls a person waits on for a moment.
 // 4. `network` — an outbound call: every use of the global `fetch` (called,
 //    aliased, destructured or read off `globalThis`; only `fetch("/…")`, the
-//    app calling itself, is exempt), the AI SDK's `generateText`,
+//    app calling itself, is exempt) and of `httpRequest`, its owner in
+//    `@/packages/http`, the AI SDK's `generateText`,
 //    `streamText`, `generateObject`, `streamObject` and `ToolLoopAgent`
 //    (named or through a namespace), a provider model's `doGenerate` and
 //    `doStream`, the OpenAI and Anthropic clients, Effect's `HttpClient`, and the Cloudinary SDK's
@@ -169,7 +170,7 @@ const isEventStreamLiteral = (node: Node): boolean =>
 export function scan(file: string, source: string): Hit[] {
   if (!isInScope(file)) return [];
   if (
-    !/createSSEResponse|text\/event-stream|consumeSSEStream|EventSource|unmounted|Command|fetch|\bai\b|openai|anthropic-ai|cloudinary|doGenerate|doStream|HttpClient/.test(
+    !/createSSEResponse|text\/event-stream|consumeSSEStream|EventSource|unmounted|Command|fetch|\bai\b|openai|anthropic-ai|cloudinary|doGenerate|doStream|HttpClient|packages\/http/.test(
       source
     )
   ) {

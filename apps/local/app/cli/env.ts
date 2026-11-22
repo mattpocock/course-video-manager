@@ -7,7 +7,7 @@ import {
   installLocationRepoRoot,
   readEnvValue,
   resolveRepoEnvValue,
-} from "@/services/repo-env";
+} from "@/packages/env";
 
 /**
  * Resolve DATABASE_URL anchored to the INSTALL LOCATION (this repo), not the

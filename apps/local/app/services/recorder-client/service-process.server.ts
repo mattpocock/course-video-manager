@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import { IDLE_STOP, RECORDER_SERVICE_PORT } from "recorder-service/protocol";
 import { recorderBusy, recorderHealth } from "recorder-service/health";
-import { installLocationRepoRoot } from "@/services/repo-env";
+import { installLocationRepoRoot } from "@/packages/env";
 import type {
   RecorderServiceLauncher,
   RunningRecorderService,
