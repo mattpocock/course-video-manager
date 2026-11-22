@@ -7,7 +7,13 @@
  *   node scripts/lint-ratchet.ts --introduce <rule>…   record a newly switched-on rule
  */
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import path from "node:path";
 import {
   LintToolError,
@@ -19,6 +25,8 @@ import {
 const BASELINE_PATH = "lint-baseline.json";
 const BASE_REF = "origin/main";
 const LINTABLE = /\.[cm]?[jt]sx?$/;
+const CORE = "packages/core";
+const CORE_READER = "apps/remote/";
 type Baseline = Record<string, Record<string, number>>;
 
 const fail = (message: string): never => {
@@ -58,6 +66,88 @@ function lint(root: string, files: readonly string[]): Diagnostic[] {
   return runOxlint(
     root,
     files.length > 0 ? ["--no-error-on-unmatched-pattern", ...files] : []
+  );
+}
+
+function newest(files: readonly string[]): number | undefined {
+  let latest: number | undefined;
+  for (const file of files) {
+    latest = Math.max(latest ?? 0, statSync(file).mtimeMs);
+  }
+  return latest;
+}
+
+const matches = (file: string, patterns: readonly string[]) =>
+  patterns.some(
+    (p) => path.matchesGlob(file, p) || path.matchesGlob(file, `${p}/**`)
+  );
+
+function walk(
+  root: string,
+  include: readonly string[],
+  exclude: readonly string[],
+  dir = ""
+): string[] {
+  const found: string[] = [];
+  for (const entry of readdirSync(path.join(root, dir), {
+    withFileTypes: true,
+  })) {
+    const file = dir === "" ? entry.name : `${dir}/${entry.name}`;
+    if (matches(file, exclude)) continue;
+    if (entry.isDirectory()) found.push(...walk(root, include, exclude, file));
+    else if (entry.isFile() && matches(file, include)) {
+      found.push(path.join(root, file));
+    }
+  }
+  return found;
+}
+
+function coreBuildInputs(root: string): string[] {
+  const cwd = path.join(root, CORE);
+  const config = path.join(cwd, "tsconfig.build.json");
+  let json: unknown;
+  try {
+    json = JSON.parse(
+      readFileSync(config, "utf8").replace(
+        /("(?:\\.|[^"\\])*")|\/\/[^\n]*|\/\*[\s\S]*?\*\//g,
+        (_, string: string | undefined) => string ?? ""
+      )
+    );
+  } catch (error) {
+    return fail(`cannot read ${CORE}/tsconfig.build.json: ${String(error)}`);
+  }
+  const strings = (key: string): string[] | undefined => {
+    const value: unknown =
+      typeof json === "object" && json !== null
+        ? Object.getOwnPropertyDescriptor(json, key)?.value
+        : undefined;
+    if (!Array.isArray(value)) return undefined;
+    const items: unknown[] = value;
+    const found = items.filter((s): s is string => typeof s === "string");
+    return found.length === items.length ? found : undefined;
+  };
+  const include = strings("include");
+  const exclude = strings("exclude");
+  if (!include || !exclude) {
+    return fail(`${CORE}/tsconfig.build.json must list include and exclude`);
+  }
+  return walk(cwd, include, exclude).filter((file) =>
+    /\.([cm]?tsx?|json)$/.test(file)
+  );
+}
+
+function requireCoreBuild(root: string, files: readonly string[]) {
+  const reads =
+    files.length === 0
+      ? existsSync(path.join(root, CORE_READER))
+      : files.some((f) => f.startsWith(CORE_READER));
+  if (!reads) return;
+  const dist = path.join(root, CORE, "dist");
+  const built = existsSync(dist) ? newest(walk(dist, ["**/*"], [])) : undefined;
+  const edited = newest(coreBuildInputs(root));
+  if (built !== undefined && built >= (edited ?? 0)) return;
+  fail(
+    `@cvm/core is not built, or its build is older than its sources, so its imports in ${CORE_READER} would type as errors and the type-aware rules would count spurious violations. Build it first: pnpm --filter @cvm/core build`
   );
 }
 
@@ -262,6 +352,7 @@ function write(root: string, args: Args, baseline: Baseline) {
       );
     }
   }
+  requireCoreBuild(root, []);
   const { renames } = readBase(root);
   const diagnostics = lint(root, []);
   const counts = countDiagnostics(diagnostics);
@@ -284,6 +375,7 @@ function check(root: string, args: Args, baseline: Baseline) {
   const files = args.files.map((f) => toRepoPath(root, f));
   const lintable = files.filter((f) => LINTABLE.test(f));
   if (files.length > 0 && lintable.length === 0) return;
+  requireCoreBuild(root, lintable);
   const base = readBase(root);
   const diagnostics = lint(root, lintable);
   const scope = new Set(lintable);
