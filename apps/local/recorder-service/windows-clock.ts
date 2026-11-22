@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { log } from "@/packages/log";
 
 /**
  * The Windows wall clock, readable from WSL at any moment. ffmpeg.exe stamps
@@ -99,7 +100,7 @@ export const startWindowsClock = async (o: WindowsClockOptions = {}) => {
         startUp = undefined;
         return;
       }
-      console.error(
+      log.error(
         `recorder: the Windows clock (PowerShell) ${reason}; respawning it`
       );
       respawnTimer = setTimeout(run, respawnAfterMs);

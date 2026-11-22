@@ -32,6 +32,7 @@ import {
 } from "@cvm/core/db/planetscale-backup";
 import { scriptDatabaseUrl } from "./script-database-url";
 import { readServiceToken } from "./service-token-file";
+import { log } from "@/packages/log";
 
 const REPO_ROOT = path.resolve(
   fileURLToPath(new URL("../../..", import.meta.url))
@@ -46,7 +47,7 @@ const JOURNAL = path.join(
 );
 
 const fail = (message: string): never => {
-  console.error(`\n${message}\n\nNothing was migrated.`);
+  log.error(`\n${message}\n\nNothing was migrated.`);
   process.exit(1);
 };
 
@@ -99,14 +100,14 @@ try {
     retentionDays: 30,
     pollIntervalMs: 10_000,
     timeoutMs: 30 * 60_000,
-    log: (line) => console.log(line),
+    log: (line) => log.info(line),
     migrate,
   });
-  console.log(`\nMigrated. Pre-migration backup: ${backupId}`);
+  log.info(`\nMigrated. Pre-migration backup: ${backupId}`);
 } catch (error) {
   if (error instanceof BackupFirstMigrateError) fail(error.message);
   if (error instanceof MigrateFailedError) {
-    console.error(`\n${error.message}`);
+    log.error(`\n${error.message}`);
     process.exit(1);
   }
   throw error;

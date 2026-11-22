@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { FFMPEG_BUILD } from "../recorder-service/windows-devices";
 import { cvmFfmpegPath } from "../recorder-service/windows-launcher";
+import { log } from "@/packages/log";
 
 /**
  * Builds CVM's ffmpeg.exe (apps/local/ffmpeg/build.sh, cached in
@@ -44,5 +45,5 @@ const target = cvmFfmpegPath(path.join(USERS, candidates[0]!));
 fs.mkdirSync(path.dirname(target), { recursive: true });
 fs.copyFileSync(built, target);
 fs.chmodSync(target, 0o755);
-console.log(`installed ${FFMPEG_BUILD}: ${target}`);
-console.log("Restart the recorder service (pnpm dev) to use it.");
+log.info(`installed ${FFMPEG_BUILD}: ${target}`);
+log.info("Restart the recorder service (pnpm dev) to use it.");

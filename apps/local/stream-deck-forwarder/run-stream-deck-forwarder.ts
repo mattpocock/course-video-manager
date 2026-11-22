@@ -11,6 +11,7 @@ import {
 } from "../recorder-service/protocol";
 import { createConnectionLog } from "./connection-log";
 import { forwarderRefusal } from "../live-desk/live-desk";
+import { log } from "@/packages/log";
 
 export const DEFAULT_WS_PORT = 5172;
 export const DEFAULT_HTTP_PORT = 5174;
@@ -48,14 +49,14 @@ export function startStreamDeckForwarder(opts?: {
     const ws = new WebSocket(recorderUrl);
     ws.once("open", () => ws.send(JSON.stringify(command), () => ws.close()));
     ws.once("error", (error) =>
-      console.error(
+      log.error(
         `Stream Deck: the recorder service did not take ${press.action} (${recorderUrl}): ${error.message}`
       )
     );
   };
 
   const wss = new WebSocketServer({ port: wsPort }, () => {
-    console.log(`Stream Deck Forwarder server started on port ${wsPort}`);
+    log.info(`Stream Deck Forwarder server started on port ${wsPort}`);
   });
 
   const clients = new Map<string, WebSocket>();
@@ -78,7 +79,7 @@ export function startStreamDeckForwarder(opts?: {
       origin: req.headers.origin,
       clientCount: clients.size,
     });
-    if (line) console.log(line);
+    if (line) log.info(line);
 
     // Rebroadcast anything a client sends over the socket to every other client.
     // Stream Deck actions arrive via the HTTP endpoints below, but other
@@ -100,7 +101,7 @@ export function startStreamDeckForwarder(opts?: {
       clients.delete(connectionId);
     });
     ws.on("error", (error) => {
-      console.error("WebSocket error:", error);
+      log.error("WebSocket error:", error);
       clients.delete(connectionId);
     });
   });
@@ -147,7 +148,7 @@ export function startStreamDeckForwarder(opts?: {
   });
 
   httpServer.listen(httpPort, () => {
-    console.log(`HTTP server started on port ${httpPort}`);
+    log.info(`HTTP server started on port ${httpPort}`);
   });
 
   return { wss, httpServer, sendMessage };
@@ -159,7 +160,7 @@ export function startStreamDeckForwarder(opts?: {
 if (!process.env.VITEST) {
   const refusal = forwarderRefusal(process.cwd());
   if (refusal) {
-    console.log(refusal);
+    log.info(refusal);
   } else {
     startStreamDeckForwarder();
   }

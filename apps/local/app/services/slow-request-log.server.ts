@@ -5,6 +5,7 @@ import {
 } from "@cvm/core/db/sql-statement-tally";
 import { Effect, FiberRef } from "effect";
 import type { MiddlewareFunction } from "react-router";
+import { log } from "@/packages/log";
 
 /**
  * The slow-request log: one line in the server log for every route request
@@ -69,7 +70,7 @@ export async function logSlowRequest<A>(
   {
     thresholdMs = SLOW_REQUEST_MS,
     now = () => performance.now(),
-    write = (line) => console.warn(line),
+    write = (line) => log.warn(line),
   }: SlowRequestLogOptions = {}
 ): Promise<A> {
   const route = new URL(request.url).pathname;

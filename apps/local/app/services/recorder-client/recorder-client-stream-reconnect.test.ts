@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
+import { log } from "@/packages/log";
 import type { StreamHealth } from "recorder-service/stream-protocol";
 import { clock, connect } from "recorder-service/test-utils/service-harness";
 import { ended, ready, setupGoLiveTests } from "./go-live-test-harness";
@@ -346,7 +347,7 @@ describe("a feed that overflows", () => {
   it("turns the health amber, counts it and logs it, while the stream and the take carry on; amber clears once the feeds stop overflowing", async () => {
     const errors: string[] = [];
     const error = vi
-      .spyOn(console, "error")
+      .spyOn(log, "error")
       .mockImplementation((...a) => void errors.push(a.map(String).join(" ")));
     const r = await live();
     const stream = r.windows.streams[0]!;

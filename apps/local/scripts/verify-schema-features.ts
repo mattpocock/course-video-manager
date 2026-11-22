@@ -12,6 +12,7 @@
  */
 import { SCHEMA_FEATURE_PROBES } from "@/db/schema-feature-probes";
 import { scriptPgClient } from "./script-database-url";
+import { log } from "@/packages/log";
 
 const { client } = scriptPgClient({ direct: true });
 await client.connect();
@@ -22,7 +23,7 @@ try {
     const result = await client.query(probe.sql);
     const verdict = probe.check(result.rows);
     if (!verdict.ok) failures++;
-    console.log(
+    log.info(
       `${verdict.ok ? "PASS" : "FAIL"}  ${probe.name}\n      ${verdict.detail}`
     );
   }
@@ -31,7 +32,7 @@ try {
 }
 
 if (failures > 0) {
-  console.error(`\n${failures} feature(s) unsupported — do not cut over.`);
+  log.error(`\n${failures} feature(s) unsupported — do not cut over.`);
   process.exit(1);
 }
-console.log("\nAll schema features verified.");
+log.info("\nAll schema features verified.");

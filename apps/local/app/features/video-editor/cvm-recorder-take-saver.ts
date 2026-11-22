@@ -4,6 +4,7 @@ import {
 } from "@/services/clip-service";
 import type { PlacedTake } from "./cvm-recorder-wire";
 import type { TakeSaver, TakesSaved } from "./take-saver";
+import { log } from "@/packages/log";
 
 /**
  * The CVM recorder's `TakeSaver`. Its Recording Session has no file to
@@ -35,7 +36,7 @@ export const cvmRecorderTakeSaver = (o: {
       if (!takes) {
         // Not lost: unanswered, the app server saves it after the Video's
         // last item and says so (`clips-saved`).
-        console.warn(
+        log.warn(
           `No Recording Session saving takes for ${recordingSessionId}: place-take ignored`
         );
         return;
@@ -55,7 +56,7 @@ export const cvmRecorderTakeSaver = (o: {
         .catch((error: unknown) =>
           // Not lost: the app server saves it after the Video's last item
           // and says so (`clips-saved`).
-          console.error("Could not tell the recorder where to save", error)
+          log.error("Could not tell the recorder where to save", error)
         );
     },
   };

@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import * as schema from "@/db/schema";
 import { extractSceneText } from "@cvm/core/lib/extract-scene-text";
 import { scriptDrizzle } from "./script-database-url";
+import { log } from "@/packages/log";
 
 const { db } = scriptDrizzle();
 
@@ -21,7 +22,7 @@ for (const snap of snapshots) {
     .where(eq(schema.diagramSnapshots.id, snap.id));
   snapshotCount++;
 }
-console.log(`Backfilled ${snapshotCount} snapshot(s).`);
+log.info(`Backfilled ${snapshotCount} snapshot(s).`);
 
 let diagramCount = 0;
 const allDiagrams = await db
@@ -39,6 +40,6 @@ for (const diag of allDiagrams) {
     .where(eq(schema.diagrams.id, diag.id));
   diagramCount++;
 }
-console.log(`Backfilled ${diagramCount} diagram(s).`);
+log.info(`Backfilled ${diagramCount} diagram(s).`);
 
 process.exit(0);

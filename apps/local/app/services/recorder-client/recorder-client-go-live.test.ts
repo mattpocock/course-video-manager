@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
+import { log } from "@/packages/log";
 import { Either, Redacted } from "effect";
 import {
   STREAM_KEY_MISSING,
@@ -548,8 +549,8 @@ describe("the Stream Key", () => {
         logged.push(a.map(String).join(" "));
         write(...a);
       };
-    vi.spyOn(console, "log").mockImplementation(keep(() => {}));
-    vi.spyOn(console, "error").mockImplementation(keep(() => {}));
+    vi.spyOn(log, "info").mockImplementation(keep(() => {}));
+    vi.spyOn(log, "error").mockImplementation(keep(() => {}));
     const r = await ready();
     await r.goLive();
     await vi.waitFor(() =>

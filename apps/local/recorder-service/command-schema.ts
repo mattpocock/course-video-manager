@@ -2,6 +2,7 @@ import { Either, Schema } from "effect";
 import type { VideoFormat } from "@/features/videos/video-format";
 import { SCENES } from "../app/packages/scene-layout";
 import { CALIBRATION_REQUIRED, type RecorderCommand } from "./protocol";
+import { log } from "@/packages/log";
 
 /**
  * What the recorder service accepts on its WebSocket: every `RecorderCommand`
@@ -175,6 +176,6 @@ export const readCommand = (
   if (Either.isRight(decoded)) return { command: decoded.right };
   const refusal = refusalOfUndecodable(raw);
   if (refusal) return { refusal };
-  console.error(`recorder: unreadable command ${excerptOfUndecodable(raw)}`);
+  log.error(`recorder: unreadable command ${excerptOfUndecodable(raw)}`);
   return undefined;
 };

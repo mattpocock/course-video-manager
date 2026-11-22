@@ -12,6 +12,7 @@ import { newestSnapshotHashByDiagram } from "@/lib/filtered-newest-snapshot";
 import { data } from "react-router";
 import { NO_TOASTS } from "@/lib/route-toasts";
 import type { Route } from "./+types/diagram-playground._index";
+import { log } from "@/packages/log";
 
 export const handle = NO_TOASTS;
 
@@ -230,7 +231,7 @@ export default function DiagramPlaygroundHome({
                       inputClassName="w-full rounded bg-zinc-900 px-1 text-sm font-medium text-zinc-100 outline-none ring-1 ring-zinc-500"
                       // Home has no status line and toasts are off here; the
                       // tile keeps showing the saved name.
-                      onRenameError={(message) => console.error(message)}
+                      onRenameError={(message) => log.error(message)}
                     />
                     <span className="text-xs text-zinc-400">
                       {formatTimeAgo(new Date(tile.updatedAt))}

@@ -1,6 +1,7 @@
 import { lineSplitter, type LaunchedProcess, type Launcher } from "./launcher";
 import type { CardStill } from "./card-feed";
 import { decodePngRgba } from "./png-rgba";
+import { log } from "@/packages/log";
 
 /**
  * THE CARD SERVER, as the recorder service runs it (spec #2445): the overlay
@@ -91,7 +92,7 @@ export const createCardServer = (o: {
               return;
             }
             if (reply.type === "ready") {
-              console.log(
+              log.info(
                 `recorder: card server ready (warm card ${reply.warmRenderMs} ms)`
               );
               if (
@@ -122,7 +123,7 @@ export const createCardServer = (o: {
     void ready.catch(() => {});
     const hung = setTimeout(() => {
       if (running !== self) return;
-      console.error(`recorder: ${cardServerHung(o.startMs)}`);
+      log.error(`recorder: ${cardServerHung(o.startMs)}`);
       failed?.(cardServerHung(o.startMs));
       running = undefined;
       child.kill();
@@ -138,7 +139,7 @@ export const createCardServer = (o: {
         answer({ type: "error", id: null, message: why });
       if (running !== self) return;
       running = undefined;
-      console.error(`recorder: ${why}`);
+      log.error(`recorder: ${why}`);
     });
     return self;
   };
@@ -164,7 +165,7 @@ export const createCardServer = (o: {
       clearTimeout(overdue);
       self.answers.delete(id);
       if (!reply) {
-        console.error(
+        log.error(
           `recorder: the card server did not answer within ${o.answerMs} ms; starting a fresh one`
         );
         if (running === self) {

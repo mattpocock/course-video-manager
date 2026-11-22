@@ -11,6 +11,7 @@ import type { ChooseScreenshotRuntime } from "./choose-screenshot-components";
 import type { IndexedClip } from "./types";
 import type { ClipFrame, ScreenCrop } from "@/packages/clip-source";
 import { screenshotMemory } from "./screenshot-memory";
+import { log } from "@/packages/log";
 
 /**
  * The document pane's `<ChooseScreenshot>` runtime: capturing a frame from the
@@ -69,7 +70,7 @@ export function useDocScreenshotRuntime(opts: {
         }
         return true;
       } catch (err) {
-        console.error("Screenshot capture failed:", err);
+        log.error("Screenshot capture failed:", err);
         toastError(err, "Screenshot capture failed");
         return false;
       } finally {

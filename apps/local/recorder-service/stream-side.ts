@@ -19,6 +19,7 @@ import {
   readStreamHealth,
   type ProcessHealth,
 } from "./stream-health";
+import { log } from "@/packages/log";
 
 /**
  * THE STREAM SIDE (spec #2445, ADR 0054): the one Live Stream process, built
@@ -151,9 +152,9 @@ const stderrLog = (redact: (text: string) => string) => {
     }
     logged += 1;
     if (logged <= STDERR_LINES_PER_MINUTE)
-      console.error(`recorder: Live Stream: ${redact(line)}`);
+      log.error(`recorder: Live Stream: ${redact(line)}`);
     else if (logged === STDERR_LINES_PER_MINUTE + 1)
-      console.error("recorder: Live Stream: (more lines this minute left out)");
+      log.error("recorder: Live Stream: (more lines this minute left out)");
   };
 };
 
@@ -222,7 +223,7 @@ export const createStreamSide = (o: {
     feedOverflows += 1;
     lastOverflowAt = o.now();
     if (!wasDropping)
-      console.error(
+      log.error(
         "recorder: Live Stream: a take's feed to it overflowed (the stream fell behind it): packets dropped until its next keyframe; the recording carries on"
       );
     sendHealth();
@@ -260,7 +261,7 @@ export const createStreamSide = (o: {
 
   const launchOne = (
     s: StreamStart,
-    log: (line: string) => void,
+    logLine: (line: string) => void,
     relaunchAt?: number
   ) => {
     // To the millisecond, as the graph spells it, so the card feed (told
@@ -301,7 +302,7 @@ export const createStreamSide = (o: {
       clearTimeout(stall);
       stall = setTimeout(() => {
         if (!current()) return;
-        console.error(
+        log.error(
           `recorder: the Live Stream process stalled (no new frame for ${ms} ms); launching it again, the recording carries on`
         );
         self.gone = quit(self, STALLED_QUIT_TIMEOUT_MS);
@@ -332,7 +333,7 @@ export const createStreamSide = (o: {
     p.onStderr(
       lineSplitter((line) => {
         read.stderrLine(line);
-        log(line);
+        logLine(line);
         if (!current()) return;
         if (PUSH_LOST.test(line) && !self.pushLost) {
           self.pushLost = true;
@@ -351,7 +352,7 @@ export const createStreamSide = (o: {
       if (self.ending) return void (running = undefined);
       if (self.liveAt !== undefined && Date.now() - self.liveAt >= HEALTHY_MS)
         relaunches = 0;
-      console.error(
+      log.error(
         `recorder: the Live Stream process quit (exit ${code}); launching it again, the recording carries on`
       );
       reconnecting();
@@ -390,8 +391,8 @@ export const createStreamSide = (o: {
 
   const start = async (s: StreamStart): Promise<void> => {
     if (running || held) throw new Error("A Live Stream is already running.");
-    const log = stderrLog(redactStreamKey(s.streamKey));
-    held = { start: s, log };
+    const logLine = stderrLog(redactStreamKey(s.streamKey));
+    held = { start: s, log: logLine };
     reconnects = 0;
     feedOverflows = 0;
     lastOverflowAt = -Infinity;
@@ -399,7 +400,7 @@ export const createStreamSide = (o: {
     health = NO_HEALTH;
     set({ kind: "starting" });
     scene = s.scene;
-    const self = launchOne(s, log);
+    const self = launchOne(s, logLine);
     const p = self.process;
     const listening = new Promise<void>((resolve) => {
       p.onStderr((chunk) => {
@@ -420,7 +421,7 @@ export const createStreamSide = (o: {
     ]);
     clearTimeout(timer);
     if (!inTime)
-      console.error(
+      log.error(
         `recorder: the Live Stream was not listening ${bound} ms after Go Live; recording anyway`
       );
   };

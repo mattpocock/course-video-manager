@@ -1,4 +1,5 @@
 import { runRecorderService } from "./run-recorder-service";
+import { log } from "@/packages/log";
 
 /**
  * The recorder service's own process, spawned on demand by the app server
@@ -8,6 +9,6 @@ try {
   await runRecorderService();
   process.exit(0);
 } catch (error) {
-  console.error("recorder service failed:", error);
+  log.error("recorder service failed:", error);
   process.exit(1);
 }

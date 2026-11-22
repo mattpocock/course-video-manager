@@ -3,6 +3,7 @@ import path from "node:path";
 import { readJsonLines, type IndexEntry } from "./crash-recovery";
 import { RECENT_SESSIONS, type RecordingSessionEvent } from "./protocol";
 import { Refusal } from "./refusal";
+import { log } from "@/packages/log";
 
 /**
  * THE RECORDING SESSION INDEX: every Recording Session the service has
@@ -26,7 +27,7 @@ export const createSessionIndex = (stateDir: string) => {
       try {
         fs.appendFileSync(file, `${JSON.stringify(entry)}\n`);
       } catch (e) {
-        console.error("recorder: could not index the Recording Session", e);
+        log.error("recorder: could not index the Recording Session", e);
       }
     },
     /** The latest few Recording Sessions' ids, for the greeting. */
@@ -36,10 +37,7 @@ export const createSessionIndex = (stateDir: string) => {
           .slice(-RECENT_SESSIONS)
           .map((e) => e.recordingSessionId);
       } catch (e) {
-        console.error(
-          "recorder: could not read the Recording Session index",
-          e
-        );
+        log.error("recorder: could not read the Recording Session index", e);
         return [];
       }
     },

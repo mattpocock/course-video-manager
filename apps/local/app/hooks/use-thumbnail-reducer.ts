@@ -10,6 +10,7 @@ import {
 } from "@/features/thumbnail-editor/thumbnail-state-reducer";
 import type { ThumbnailEditorHistory } from "@/features/thumbnail-editor/thumbnail-face-history";
 import type { ThumbnailDiagramDocument } from "@cvm/core/lib/thumbnail-diagram";
+import { log } from "@/packages/log";
 
 function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -153,7 +154,7 @@ export function useThumbnailReducer(
           });
         })
         .catch((error) => {
-          console.error("Background removal failed:", error);
+          log.error("Background removal failed:", error);
           dispatch({
             type: "background-removal-failed",
             error:
@@ -174,7 +175,7 @@ export function useThumbnailReducer(
           });
         })
         .catch((error) => {
-          console.error("Failed to save thumbnail:", error);
+          log.error("Failed to save thumbnail:", error);
           dispatch({ type: "save-failed" });
         });
     },
@@ -187,7 +188,7 @@ export function useThumbnailReducer(
           dispatch({ type: "delete-succeeded" });
         })
         .catch((error) => {
-          console.error("Failed to delete thumbnail:", error);
+          log.error("Failed to delete thumbnail:", error);
           dispatch({ type: "delete-failed" });
         });
     },
@@ -235,7 +236,7 @@ export function useThumbnailReducer(
           });
         })
         .catch((error) => {
-          console.error("Failed to load thumbnail for editing:", error);
+          log.error("Failed to load thumbnail for editing:", error);
           dispatch({ type: "edit-failed" });
         });
     },

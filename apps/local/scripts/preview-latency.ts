@@ -60,6 +60,7 @@ import {
 import { startPreviewFeeds } from "../recorder-service/preview-feeds";
 import { findFfmpegExe } from "../recorder-service/windows-launcher";
 import { guardWindows } from "./windows-guard";
+import { log } from "@/packages/log";
 
 const SCENARIOS = [
   "floor",
@@ -449,6 +450,6 @@ const chosen: readonly Scenario[] =
 const results: Record<string, Awaited<ReturnType<typeof measure>>> = {};
 for (const scenario of chosen) {
   results[scenario] = await measure(scenario);
-  console.error(scenario, JSON.stringify(results[scenario]));
+  log.error(scenario, JSON.stringify(results[scenario]));
 }
 console.table(results);

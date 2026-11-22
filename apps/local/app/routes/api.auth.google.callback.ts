@@ -2,6 +2,7 @@ import { Config, ConfigProvider, Console, Data, Effect } from "effect";
 import { redirect } from "react-router";
 import { runtimeLive } from "@/services/layer.server";
 import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
+import { log } from "@/packages/log";
 
 class GoogleOAuthError extends Data.TaggedError("GoogleOAuthError")<{
   message: string;
@@ -20,12 +21,12 @@ export const loader = async ({ request }: { request: Request }) => {
 
   // Handle OAuth errors from Google
   if (error) {
-    console.error("Google OAuth error:", error);
+    log.error("Google OAuth error:", error);
     return redirect(`${state}?error=oauth_${error}`);
   }
 
   if (!code) {
-    console.error("No authorization code received");
+    log.error("No authorization code received");
     return redirect(`${state}?error=no_code`);
   }
 
@@ -101,12 +102,12 @@ export const loader = async ({ request }: { request: Request }) => {
       return Effect.succeed(redirect("/?error=oauth_not_configured"));
     }),
     Effect.catchTag("GoogleOAuthError", (e) => {
-      console.error("Google OAuth error:", e.message);
+      log.error("Google OAuth error:", e.message);
       return Effect.succeed(redirect(`${state}?error=oauth_failed`));
     }),
     Effect.withConfigProvider(ConfigProvider.fromEnv()),
     Effect.catchAll((e) => {
-      console.error("OAuth callback error:", e);
+      log.error("OAuth callback error:", e);
       return Effect.succeed(redirect(`${state}?error=oauth_error`));
     }),
     runtimeLive.runPromise

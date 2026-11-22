@@ -1,5 +1,6 @@
 import { lineSplitter, type LaunchedProcess } from "./launcher";
 import { PREVIEW_STALL_MS } from "./protocol";
+import { log } from "@/packages/log";
 
 /**
  * THE PREVIEW WATCHDOG (#2192). A preview ffmpeg.exe can stall while still
@@ -48,9 +49,9 @@ export const watchPreview = (o: {
       }
       logged += 1;
       if (logged <= STDERR_LINES_PER_MINUTE)
-        console.error(`recorder: ${o.name}: ${line}`);
+        log.error(`recorder: ${o.name}: ${line}`);
       else if (logged === STDERR_LINES_PER_MINUTE + 1)
-        console.error(`recorder: ${o.name}: (more lines this minute left out)`);
+        log.error(`recorder: ${o.name}: (more lines this minute left out)`);
     })
   );
   const unsubscribe = o.onFrame(() => {

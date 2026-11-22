@@ -3,6 +3,7 @@ import path from "node:path";
 import { lineSplitter } from "./launcher";
 import { STREAM_PACKET_LINE } from "./stream-args";
 import type { StreamHealth } from "./stream-protocol";
+import { log } from "@/packages/log";
 
 /**
  * THE LIVE STREAM'S HEALTH (spec #2445, stories 46–47): one stream
@@ -112,7 +113,7 @@ export const openStreamHealthLog = (folder: string) => {
   out.on("error", (e) => {
     if (failed) return;
     failed = true;
-    console.error(`recorder: ${STREAM_HEALTH_LOG}: ${e.message}`);
+    log.error(`recorder: ${STREAM_HEALTH_LOG}: ${e.message}`);
   });
   return {
     write: (line: { atMs: number; fileTime: number } & StreamHealth) => {

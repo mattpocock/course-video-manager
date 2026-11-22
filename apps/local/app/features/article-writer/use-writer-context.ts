@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import type { WriterContextData } from "@/services/video-posting-context.server";
 import type { WriterContext } from "./writer-engine";
+import { log } from "@/packages/log";
 
 /**
  * Project the server-loaded {@link WriterContextData} down to the client
@@ -49,7 +50,7 @@ export function useWriterContext(
           setCtx(toWriterContext(data));
         }
       })
-      .catch(console.error);
+      .catch(log.error);
     return () => {
       cancelled = true;
     };

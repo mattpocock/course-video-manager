@@ -15,6 +15,7 @@ import {
   VERIFY_RUN_DIR_ENV_KEY,
 } from "@/packages/storage/server";
 import { resolveRepoEnvValue } from "@/packages/env";
+import { log } from "@/packages/log";
 
 /**
  * The ONE place `STORAGE_ROOTS` is read. Everything that needs a Storage Root
@@ -204,7 +205,7 @@ export const assertStorageRoots = (
   const { refusal, offline } = judgeStorageRoots(env, isDirectorySync);
   if (refusal !== undefined) throw new InvalidStorageRootsError(refusal);
   for (const root of offline) {
-    console.warn(
+    log.warn(
       `[storage] Storage Root ${root} is offline (not mounted or not a directory): files on it will be "not found" until it is back.`
     );
   }

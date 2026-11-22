@@ -16,6 +16,7 @@
 import { readFileSync } from "node:fs";
 import { pendingMigrations, type JournalEntry } from "./pending-migrations";
 import { scriptPgClient } from "./script-database-url";
+import { log } from "@/packages/log";
 
 const journal: JournalEntry[] = JSON.parse(
   readFileSync(
@@ -38,7 +39,7 @@ try {
   );
   const pending = pendingMigrations(journal, Number(result.rows[0]?.max ?? 0));
   if (pending.length > 0) {
-    console.warn(
+    log.warn(
       [
         "",
         "!".repeat(72),
@@ -52,10 +53,10 @@ try {
       ].join("\n")
     );
   } else {
-    console.log(`Migrations: ${host} is up to date with this checkout.`);
+    log.info(`Migrations: ${host} is up to date with this checkout.`);
   }
 } catch (error) {
-  console.warn(
+  log.warn(
     `Migrations: could not check ${host} (${(error as Error).message}); starting anyway.`
   );
 } finally {

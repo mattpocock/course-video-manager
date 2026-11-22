@@ -26,6 +26,7 @@ import { createSpeechDetector } from "./speech-detector";
 import { writerGraphUp } from "./writer-graph";
 import { CAMERA_FPS, countFramesLost } from "./frames-lost";
 import type { StopReason, TakeSettings } from "./take-settings";
+import { log } from "@/packages/log";
 
 /**
  * ONE RECORDING SESSION (#2207). Its camera + mic writer is armed before
@@ -33,7 +34,7 @@ import type { StopReason, TakeSettings } from "./take-settings";
  * dropping every frame. Record (`begin`) tells it T0, and starts the screen
  * recorder; Stop quits both. The devices stay open throughout, in the
  * capture, and the preview never notices. All it reports goes through
- * `log`, which numbers it, appends it to `events.jsonl` and only then hands
+ * `logEvent`, which numbers it, appends it to `events.jsonl` and only then hands
  * it on, so nothing is sent that a replay could not send again.
  */
 
@@ -176,7 +177,7 @@ export const armTake = (o: {
     );
     // A log that cannot be written must not take the recording down with it.
     ffmpegLog.on("error", (error) =>
-      console.error(`recorder: ffmpeg-${name}.log`, error.message)
+      log.error(`recorder: ffmpeg-${name}.log`, error.message)
     );
     let tail = "";
     const child = o.launch({ tool: "ffmpeg", args: processArgs, cwd: dir });
@@ -222,7 +223,7 @@ export const armTake = (o: {
     try {
       fs.rmSync(dir, { recursive: true, force: true });
     } catch (e) {
-      console.error(`recorder: could not remove ${dir}`, e);
+      log.error(`recorder: could not remove ${dir}`, e);
     }
   };
   const ready = writerGraphUp(
@@ -309,10 +310,10 @@ const beginTake = (
   let highlight: string | undefined;
   /** Why the event log could not be written, once it could not. */
   let logFailure: string | undefined;
-  // `log` runs inside ffmpeg's stderr listener and promise callbacks, where a
+  // `logEvent` runs inside ffmpeg's stderr listener and promise callbacks, where a
   // throw would kill the service and leave ffmpeg.exe recording. A failed
   // append (a full or missing drive) stops the Recording Session instead.
-  const log = (event: Unlogged) => {
+  const logEvent = (event: Unlogged) => {
     seq += 1;
     const logged = {
       ...event,
@@ -323,7 +324,7 @@ const beginTake = (
       fs.appendFileSync(eventLog, `${JSON.stringify(logged)}\n`);
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
-      console.error(`recorder: could not write ${eventLog}`, e);
+      log.error(`recorder: could not write ${eventLog}`, e);
       if (!logFailure) {
         logFailure = `Could not write the event log: ${message}`;
         // `recording-stopped` reports the failure; nothing else waits on it.
@@ -358,7 +359,7 @@ const beginTake = (
   // dropped frames, beside the files.
   const captureLog = fs.createWriteStream(path.join(dir, "ffmpeg-capture.log"));
   captureLog.on("error", (error) =>
-    console.error("recorder: ffmpeg-capture.log", error.message)
+    log.error("recorder: ffmpeg-capture.log", error.message)
   );
   // FRAMES LOST (`frames-lost.ts`): each told at once, for the editor.
   const framesLost = countFramesLost({
@@ -368,7 +369,7 @@ const beginTake = (
     pictureTime: () => pressTime(),
     tell: (lost, lostFrameSpans) => {
       if (!ended)
-        log({
+        logEvent({
           type: "frames-lost",
           fileTime: lastFileTime,
           ...lost,
@@ -391,7 +392,7 @@ const beginTake = (
   camera.child.onStderr(
     lineSplitter((line) => {
       if (framesLost.writerLine(line)) return;
-      for (const change of speech.line(line)) log(change);
+      for (const change of speech.line(line)) logEvent(change);
     })
   );
   screen?.child.onStderr(lineSplitter(framesLost.screenLine));
@@ -412,7 +413,7 @@ const beginTake = (
         lastFileTime = Math.max(lastFileTime, Number(time[1]) / 1e6);
         // The file's own time is the Take's clock, not the wall's.
         const take = speech.progress(lastFileTime);
-        if (take) log(take);
+        if (take) logEvent(take);
       }
       const frame = line.match(/^frame=(\d+)/);
       if (frame) cameraFrames = Math.max(cameraFrames, Number(frame[1]));
@@ -439,7 +440,7 @@ const beginTake = (
     o.cameraStartTimeoutMs
   );
 
-  log({
+  logEvent({
     type: "recording-started",
     videoId: o.videoId,
     t0Ms,
@@ -451,7 +452,7 @@ const beginTake = (
     avCalibrationId: o.avCalibrationId,
     devices: o.capture.devices,
   });
-  log({ type: "scene-changed", scene: o.scene, fileTime: 0 });
+  logEvent({ type: "scene-changed", scene: o.scene, fileTime: 0 });
 
   // ddagrab skips frame slots at Windows' default 15.6 ms timer tick and
   // ffmpeg never raises it; Normal priority and power throttling cost more.
@@ -468,7 +469,7 @@ const beginTake = (
       if (ended) return;
       const detail =
         (code === 0 ? stdout : stderr || stdout).trim().split(/\r?\n/)[0] ?? "";
-      log({ type: "screen-recorder-tuned", ok: code === 0, detail });
+      logEvent({ type: "screen-recorder-tuned", ok: code === 0, detail });
     });
 
   /** Done once it exited and, if it had to be killed, Windows stopped it too. */
@@ -503,7 +504,7 @@ const beginTake = (
     try {
       return (o.now() - t0Ms) / 1000;
     } catch (e) {
-      console.error("recorder: Stop could not read the clock", e);
+      log.error("recorder: Stop could not read the clock", e);
       return lastFileTime;
     }
   };
@@ -555,16 +556,16 @@ const beginTake = (
         streamFinished(captureLog).catch(() => {}),
       ]);
       framesLost.stop();
-      for (const last of speech.stop(lastFileTime)) log(last);
+      for (const last of speech.stop(lastFileTime)) logEvent(last);
       if (highlight)
-        log({
+        logEvent({
           type: "chat-highlight-hidden",
           highlightId: highlight,
           atMs: t0Ms + lastFileTime * 1000,
           fileTime: lastFileTime,
         });
       const captureErrors = o.capture.quitWith() ?? [];
-      log({
+      logEvent({
         type: "recording-stopped",
         reason,
         fileTime: lastFileTime,
@@ -598,7 +599,7 @@ const beginTake = (
   /** The camera went: say so, then stop the whole Recording Session. */
   function cameraLost(errors: string[]) {
     if (stopping) return;
-    log({ type: "camera-lost", fileTime: lastFileTime, errors });
+    logEvent({ type: "camera-lost", fileTime: lastFileTime, errors });
     // `recording-stopped` reports the end; nothing else waits on it.
     void stopWith("camera-lost");
   }
@@ -626,13 +627,17 @@ const beginTake = (
       if (ended) return;
       // Picture time: the wall clock every process stamps its frames with,
       // less T0 (protocol.ts, TIME BASE).
-      log({ type: "scene-changed", scene, fileTime: (o.now() - t0Ms) / 1000 });
+      logEvent({
+        type: "scene-changed",
+        scene,
+        fileTime: (o.now() - t0Ms) / 1000,
+      });
     },
     chatHighlight: (edge) => {
       if (ended) return;
       highlight =
         edge.type === "chat-highlight-shown" ? edge.highlightId : undefined;
-      log(edge);
+      logEvent(edge);
     },
     stop: () => stopWith("requested"),
     writerQuit: camera.child.exited.then(() => {}),

@@ -44,6 +44,7 @@ import { RECORDER_CAMERA_NAME } from "../app/av-calibration-constants";
 import { createRecordingDevices } from "./recording-devices";
 import { createScreenSide, refuseScreenlessScene } from "./screen-side";
 import { createPreviewEncoders } from "./preview-encoders";
+import { log } from "@/packages/log";
 
 /**
  * THE RECORDER SERVICE (ADR 0034): a long-running process of its own in WSL
@@ -53,7 +54,7 @@ import { createPreviewEncoders } from "./preview-encoders";
  * `events.jsonl`, beside the Footage.
  *
  * Commands are handled one at a time, in the order they arrive, so a `stop`
- * can never overtake the `record` it stops.
+ * never overtakes the `record` it stops.
  *
  * It holds the Cam Link and the mic only while the recorder is open for a
  * Video, in the camera capture (`camera.ts`); Record is refused until it is
@@ -145,7 +146,7 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
   });
   // An error event nobody hears kills the process, and with it the only
   // thing that can send ffmpeg.exe its `q`. No client may do that.
-  wss.on("error", (e) => console.error("recorder: WebSocket server error", e));
+  wss.on("error", (e) => log.error("recorder: WebSocket server error", e));
   const send = (ws: WebSocket, message: RecorderMessage) => {
     if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(message));
   };
@@ -299,7 +300,7 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
     live.sessionEnded(session, streamEnded);
     session = undefined;
     reopen(state.videoId);
-    console.log(
+    log.info(
       `recorder: Stop took ${Date.now() - startedMs} ms to open again; the take finalises in the background, preview untouched`
     );
   };
@@ -372,7 +373,7 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
       throw e;
     }
     index.add({ recordingSessionId: session.id, eventLog: session.eventLog });
-    console.log(
+    log.info(
       recordTook({
         ...{ startedMs, devicesMs, screenMs, armedMs },
         ...{ fromCache, wasArmed, relayWasHeld },
@@ -538,7 +539,7 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
         index: index.read(),
       });
     } catch (e) {
-      console.error("recorder: crash recovery failed", e);
+      log.error("recorder: crash recovery failed", e);
     }
   });
   queue = recovering;
@@ -546,7 +547,7 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
     // ws raises a client's protocol violation (an unmasked or oversized
     // frame, bad UTF-8) on its socket: drop that client, keep recording.
     ws.on("error", (e) => {
-      console.error("recorder: dropping a client that broke the protocol", e);
+      log.error("recorder: dropping a client that broke the protocol", e);
       ws.terminate();
     });
     // The meter runs for the client that started it: one that goes (the app
@@ -577,7 +578,7 @@ export const startRecorderService = async (o: RecorderServiceOptions) => {
         } catch (e) {
           const message = e instanceof Error ? e.message : String(e);
           if (!(e instanceof Refusal))
-            console.error(`recorder: ${command.type} failed`, e);
+            log.error(`recorder: ${command.type} failed`, e);
           send(ws, { type: "refused", command: command.type, message });
         }
       });

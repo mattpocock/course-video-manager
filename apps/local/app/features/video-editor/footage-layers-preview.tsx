@@ -10,6 +10,7 @@ import {
   VIDEO_FORMAT_DIMENSIONS,
   type VideoFormat,
 } from "@/features/videos/video-format";
+import { log } from "@/packages/log";
 
 /**
  * How far a PLAYING Footage Layer may drift from where its Clip says it
@@ -117,7 +118,7 @@ const FootageLayerVideo = (props: {
       void video.play().catch((error: unknown) => {
         if (error instanceof DOMException && error.name === "AbortError")
           return;
-        console.error("A Footage Layer's preview would not play", error);
+        log.error("A Footage Layer's preview would not play", error);
       });
     }
   }, [props.footageTime, props.playing, props.playbackRate]);

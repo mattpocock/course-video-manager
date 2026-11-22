@@ -1,6 +1,7 @@
 import type { RecorderCommand } from "recorder-service/protocol";
 import type { SilenceLength } from "@/silence-detection-constants";
 import type { LastPassedCalibration } from "@/av-calibration-constants";
+import { log } from "@/packages/log";
 
 /**
  * What a Stream Deck Record on the open Video records with, as the recorder
@@ -51,10 +52,7 @@ export const streamDeckPreparation = (o: {
       })
       .catch((error: unknown) => {
         if (attempt === attempts) prepared = undefined;
-        console.error(
-          "recorder client: could not read the AV Calibration",
-          error
-        );
+        log.error("recorder client: could not read the AV Calibration", error);
       });
   };
 

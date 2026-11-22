@@ -7,6 +7,7 @@ import { STREAM_TAG } from "./stream-args";
 import type { RecordingSessionEvent } from "./protocol";
 import { recorderTag } from "./recording-session";
 import { endSpeech } from "./speech-detector";
+import { log } from "@/packages/log";
 
 /**
  * CRASH RECOVERY, at the recorder service's start-up. A Recording Session
@@ -40,7 +41,7 @@ export const readJsonLines = <T>(file: string): T[] =>
       try {
         return [JSON.parse(line) as T];
       } catch {
-        console.error(`recorder: skipped an unreadable line in ${file}`);
+        log.error(`recorder: skipped an unreadable line in ${file}`);
         return [];
       }
     });
@@ -71,7 +72,7 @@ export const recoverCrashedSessions = async (o: {
       if (events.some((e) => ENDED.includes(e.type))) return [];
       return [{ ...entry, events, files: started.files }];
     } catch (e) {
-      console.error(
+      log.error(
         `recorder: could not read Recording Session ${entry.recordingSessionId}`,
         e
       );
@@ -140,7 +141,7 @@ export const recoverCrashedSessions = async (o: {
     } catch (e) {
       // One Recording Session's drive gone must not stop the service; it is
       // tried again at the next start.
-      console.error(
+      log.error(
         `recorder: could not recover Recording Session ${session.recordingSessionId}`,
         e
       );

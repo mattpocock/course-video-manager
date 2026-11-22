@@ -36,6 +36,7 @@ import {
   judgeConnection,
 } from "@cvm/core/db/connection-guard";
 import { isInsideGitWorktree } from "@cvm/core/git-worktree";
+import { log } from "@/packages/log";
 
 export interface ScriptDatabase {
   readonly url: string;
@@ -58,14 +59,14 @@ export const scriptDatabaseUrl = (
     ? resolveMigrationDatabaseUrl()
     : resolveDatabaseUrl();
   if (!url) {
-    console.error(
+    log.error(
       "DATABASE_URL is not set (checked the environment and the repo-root .env)"
     );
     process.exit(1);
   }
 
   const host = new URL(url).host;
-  console.log(`Target database: ${host}`);
+  log.info(`Target database: ${host}`);
 
   const verdict = judgeConnection({
     url,
@@ -73,7 +74,7 @@ export const scriptDatabaseUrl = (
     insideGitWorktree: () => isInsideGitWorktree(),
   });
   if (!verdict.allowed) {
-    console.error(`\n${formatConnectionRefusal(verdict)}\n`);
+    log.error(`\n${formatConnectionRefusal(verdict)}\n`);
     process.exit(1);
   }
   return { url, host };

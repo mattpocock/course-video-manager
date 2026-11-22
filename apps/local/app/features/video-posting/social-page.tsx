@@ -17,6 +17,7 @@ import {
 import { Loader2Icon, SparklesIcon, LinkIcon } from "lucide-react";
 import type { SectionWithWordCount } from "@/features/article-writer/types";
 import type { CourseStructure } from "@/components/video-context-panel";
+import { log } from "@/packages/log";
 
 const SOCIAL_CAPTION_STORAGE_KEY = (videoId: string) =>
   `social-caption-${videoId}`;
@@ -89,7 +90,7 @@ export const SocialPagePanel = (props: SocialPagePanelProps) => {
         setSocialCaption(generatedText);
       }
     } catch (error) {
-      console.error("Failed to generate caption:", error);
+      log.error("Failed to generate caption:", error);
     } finally {
       setIsGeneratingCaption(false);
     }
@@ -136,7 +137,7 @@ export const SocialPagePanel = (props: SocialPagePanelProps) => {
         description: `${platform} short link copied to clipboard: ${shortLinkUrl}`,
       });
     } catch (error) {
-      console.error("Failed to create short link:", error);
+      log.error("Failed to create short link:", error);
       toast.error("Failed to create short link", {
         description:
           error instanceof Error ? error.message : "An error occurred",
