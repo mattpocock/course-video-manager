@@ -5,9 +5,7 @@ pnpm run lint:boundaries
 pnpm run check:file-tokens
 pnpm run check:no-dirname
 pnpm run check:no-gitlinks
-pnpm run check:script-db-url
 pnpm run check:db-clients
-pnpm run check:clip-inserts
 pnpm run check:env-example
 pnpm run check:routes-folder
 pnpm run check:entity-links

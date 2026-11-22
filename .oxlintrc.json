@@ -56,6 +56,14 @@
     "typescript/no-unsafe-call": "error",
     "typescript/no-unsafe-member-access": "error",
     "typescript/no-unsafe-return": "error",
+    // Every database client is built by a guarded factory, which runs the
+    // connection guard (packages/core/db/connection-guard.ts) before it
+    // connects. The factories and the clients that cannot use one are in the
+    // override at the bottom, each with its reason.
+    "local/db-clients": "error",
+    // A copy of a Clip must carry its children, so only the allowed writers
+    // in the override at the bottom insert Clip rows.
+    "local/clip-inserts": "error",
     // CODING STANDARD: "Functions stay simple". `modified` counts a whole
     // `switch` as one branch, so an exhaustive switch over a union (another
     // standard) is not punished for naming every member. A ratchet: files
@@ -1022,6 +1030,100 @@
           }
         ]
       }
+    },
+    {
+      // These files build a database client themselves. THIS LIST MUST NOT
+      // GROW: a new client goes through a factory.
+      "files": [
+        // The guarded factories: DrizzleService, and scriptPgClient() /
+        // scriptDrizzle() for one-off DB scripts.
+        "packages/core/services/drizzle-service.server.ts",
+        "apps/local/scripts/script-database-url.ts",
+        // Vercel build step (#2655): plain .mjs, no TypeScript step. Its only
+        // gates are VERCEL_ENV=production and assert-production-source.mjs
+        // (GitHub's main, cloned); the worktree guard has nothing to say
+        // about a Vercel clone.
+        "apps/remote/scripts/migrate-on-deploy.mjs",
+        // The test Postgres (ADR 0046): builds every test client, and refuses
+        // any server but a local one before it connects.
+        "packages/core/test-utils/test-postgres.ts",
+        // verify-cvm: migrates the run's clone; refuses anything but
+        // localhost:5433/cvm_verify_<id> before it connects (stricter than
+        // the guard).
+        ".claude/skills/verify-cvm/scripts/migrate-clone.mjs"
+      ],
+      "rules": { "local/db-clients": "off" }
+    },
+    {
+      // One-off DB scripts resolve their connection string through
+      // scriptDatabaseUrl() (apps/local/scripts/script-database-url.ts), which
+      // loads the repo-root .env as drizzle.config.ts does, lets the shell
+      // win, and prints the target host.
+      "files": ["apps/local/scripts/**", "packages/*/scripts/**"],
+      "rules": {
+        "local/script-db-url": "error",
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              // Repeated from the top-level rule, which this override replaces.
+              {
+                "name": "use-effect-reducer",
+                "importNames": ["useEffectReducer"],
+                "message": "Import useEffectReducer from @/hooks/use-effect-reducer. The package's own version loses effects under StrictMode (#2386); its types are fine to import."
+              },
+              {
+                "name": "@cvm/core/db/database-url",
+                "message": "Use scriptDatabaseUrl() from apps/local/scripts/script-database-url.ts instead: const { url, host } = scriptDatabaseUrl(); ({ direct: true } for schema work)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      // Owns resolving a DB script's database URL.
+      "files": ["apps/local/scripts/script-database-url.ts"],
+      "rules": {
+        "local/script-db-url": "off",
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              // Repeated from the top-level rule, which this override replaces.
+              {
+                "name": "use-effect-reducer",
+                "importNames": ["useEffectReducer"],
+                "message": "Import useEffectReducer from @/hooks/use-effect-reducer. The package's own version loses effects under StrictMode (#2386); its types are fine to import."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      // The files that may insert Clip rows, and why. Keep this short: a new
+      // entry is a genuinely new way to CREATE a Clip, never a copy.
+      "files": [
+        // The shared copy helper: copyClipsOntoVideo / copyClipChildren.
+        "packages/core/services/copy-child-rows.ts",
+        // Submit (COPY_PATHS.submit) and duplicateCourse
+        // (COPY_PATHS.duplicateCourse): Version-level copies, children via
+        // copyClipChildren.
+        "packages/core/services/db-version-copy.server.ts",
+        "packages/core/services/db-course-duplicate.server.ts",
+        // Fresh Clips: createClip / appendClips / createClipWebLinks.
+        "packages/core/services/db-clip-operations.server.ts",
+        // Fresh Clips cut by `cvm short create` (its copies go through
+        // copyClipsOntoVideo, COPY_PATHS.shortCreate).
+        "packages/core/services/db-short-create.server.ts",
+        // Fresh Clips from recording: appendClips / insert-at-position.
+        "apps/local/app/services/clip-service-handler.helpers.ts",
+        // Fresh child rows on one existing Clip.
+        "packages/core/services/db-overlay-operations.server.ts",
+        "packages/core/services/db-transcript-word-operations.server.ts"
+      ],
+      "rules": { "local/clip-inserts": "off" }
     }
   ]
 }

@@ -63,7 +63,7 @@ export const urlForDatabase = (serverUrl: string, database: string): string => {
 
 /**
  * Every client the test suite opens is built here, after the host check above
- * — scripts/check-db-clients.sh flags `new Pool(` / `drizzle(` anywhere else.
+ * — the lint rule local/db-clients flags `new Pool(` / `drizzle(` anywhere else.
  */
 export const connectAdmin = async (url: string): Promise<pg.Client> => {
   const client = new pg.Client({ connectionString: url });
