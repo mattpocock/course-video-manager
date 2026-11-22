@@ -20,6 +20,7 @@ const EMPTY = "eslint(no-empty)";
 
 const CONFIG = {
   categories: { correctness: "off" },
+  options: { reportUnusedDisableDirectives: "error" },
   ignorePatterns: ["node_modules/**"],
   rules: { "no-debugger": "error", "no-empty": "error" },
 };
@@ -157,6 +158,16 @@ describe("check mode", () => {
     expect(result.status).toBe(1);
     expect(result.output).toContain(`b.ts  ${EMPTY}: 1, baseline 0`);
     expect(result.output).toContain(`a.ts  ${EMPTY}: 1, baseline 0`);
+  });
+
+  it("fails an unused disable directive under its own rule code", () => {
+    const dir = makeRepo({ files: { "a.ts": "" } });
+    write(dir, "a.ts", "// oxlint-disable-next-line no-debugger\nexport {};\n");
+    const result = ratchet(dir);
+    expect(result.status).toBe(1);
+    expect(result.output).toContain(
+      "a.ts  oxlint(unused-disable-directive): 1, baseline 0"
+    );
   });
 
   it("passes a fall without touching the baseline, and hints at --write", () => {

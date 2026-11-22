@@ -6,6 +6,9 @@
   // lint-baseline.json, and a count may only fall.
   "categories": { "correctness": "error" },
 
+  // A disable directive that silences nothing fails too.
+  "options": { "reportUnusedDisableDirectives": "error" },
+
   // The repo's own rules: lint/local.js, one file per rule in lint/rules/.
   "jsPlugins": ["./lint/local.js"],
 
@@ -26,6 +29,15 @@
   ],
 
   "rules": {
+    // Every disable directive, @ts-expect-error and Effect diagnostics
+    // directive needs an entry, with a reason, in lint/allowed-directives.json.
+    "local/allowed-directives": [
+      "error",
+      { "allowlist": "lint/allowed-directives.json" }
+    ],
+    // A disable directive names the rules it silences. A bare one would also
+    // silence local/allowed-directives, and this rule cannot be silenced.
+    "unicorn/no-abusive-eslint-disable": "error",
     // Overload signatures are never checked against the implementation.
     "local/no-overloads": "error",
     // CODING STANDARD: "Every `any` is a leak". Narrow a type instead of

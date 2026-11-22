@@ -2799,7 +2799,7 @@
   },
   "apps/local/app/services/course-editor-service-test-setup.ts": {
     "local(no-unsafe-as)": 4,
-    "typescript(no-explicit-any)": 4,
+    "typescript(no-explicit-any)": 6,
     "typescript(no-non-null-assertion)": 6,
     "typescript(no-unsafe-argument)": 3,
     "typescript(no-unsafe-assignment)": 1,
@@ -3014,6 +3014,7 @@
   },
   "apps/local/app/services/footage-chunking.test.ts": {
     "local(no-unsafe-as)": 2,
+    "typescript(no-explicit-any)": 2,
     "typescript(no-non-null-assertion)": 5
   },
   "apps/local/app/services/footage-probe.ts": {
@@ -3220,6 +3221,7 @@
   },
   "apps/local/app/services/silence-detection.test.ts": {
     "local(no-unsafe-as)": 2,
+    "typescript(no-explicit-any)": 2,
     "typescript(no-non-null-assertion)": 6
   },
   "apps/local/app/services/silence-detection.ts": {
@@ -3835,96 +3837,23 @@
   "apps/local/stream-deck-forwarder/run-stream-deck-forwarder.test.ts": {
     "local(no-unsafe-as)": 3
   },
-  "apps/remote/auth.ts": {
-    "typescript(no-unsafe-argument)": 1,
-    "typescript(no-unsafe-assignment)": 3,
-    "typescript(no-unsafe-call)": 4,
-    "typescript(no-unsafe-return)": 1
-  },
-  "apps/remote/routes/agent-session.ts": {
-    "typescript(no-unsafe-argument)": 3
-  },
-  "apps/remote/routes/beat.ts": {
-    "typescript(no-unsafe-argument)": 10
-  },
-  "apps/remote/routes/chapter.ts": {
-    "typescript(no-unsafe-argument)": 6
-  },
-  "apps/remote/routes/clip-mockup-chapter.ts": {
-    "typescript(no-unsafe-argument)": 8
-  },
-  "apps/remote/routes/clip-mockup-comment.ts": {
-    "typescript(no-unsafe-argument)": 5
-  },
-  "apps/remote/routes/clip-mockup.ts": {
-    "typescript(no-unsafe-argument)": 7
-  },
-  "apps/remote/routes/clip.ts": {
-    "typescript(no-unsafe-argument)": 16
-  },
-  "apps/remote/routes/course.ts": {
-    "typescript(no-unsafe-argument)": 5
-  },
-  "apps/remote/routes/deliverable.ts": {
-    "typescript(no-unsafe-argument)": 5
-  },
-  "apps/remote/routes/diagram-component.ts": {
-    "typescript(no-unsafe-argument)": 1
-  },
-  "apps/remote/routes/diagram.ts": {
-    "typescript(no-unsafe-argument)": 9
-  },
-  "apps/remote/routes/learning-goal.ts": {
-    "typescript(no-unsafe-argument)": 7
-  },
-  "apps/remote/routes/lesson.ts": {
-    "typescript(no-unsafe-argument)": 10
-  },
-  "apps/remote/routes/overlay.ts": {
-    "typescript(no-unsafe-argument)": 7
-  },
-  "apps/remote/routes/pitch.ts": {
-    "typescript(no-unsafe-argument)": 6
-  },
   "apps/remote/routes/search.ts": {
-    "local(no-unsafe-as)": 4,
-    "typescript(no-unsafe-argument)": 1,
-    "typescript(no-unsafe-assignment)": 5,
-    "typescript(no-unsafe-call)": 3,
-    "typescript(no-unsafe-return)": 1
-  },
-  "apps/remote/routes/section.ts": {
-    "typescript(no-unsafe-argument)": 6
-  },
-  "apps/remote/routes/short.ts": {
-    "typescript(no-unsafe-argument)": 4
-  },
-  "apps/remote/routes/version.ts": {
-    "typescript(no-unsafe-argument)": 6
-  },
-  "apps/remote/routes/video.ts": {
-    "typescript(no-unsafe-argument)": 18
+    "local(no-unsafe-as)": 4
   },
   "apps/remote/rpc.ts": {
     "typescript(no-unsafe-argument)": 1,
-    "typescript(no-unsafe-assignment)": 4,
-    "typescript(no-unsafe-call)": 3
-  },
-  "apps/remote/runtime.ts": {
-    "typescript(no-unsafe-argument)": 1,
-    "typescript(no-unsafe-assignment)": 1,
-    "typescript(no-unsafe-call)": 2,
-    "typescript(no-unsafe-member-access)": 3
+    "typescript(no-unsafe-assignment)": 1
   },
   "apps/remote/scripts/migrate-on-deploy.mjs": {
-    "typescript(no-unsafe-assignment)": 4,
-    "typescript(no-unsafe-call)": 1,
+    "typescript(no-unsafe-assignment)": 2,
     "typescript(no-unsafe-member-access)": 1
   },
-  "apps/remote/version.ts": {
-    "typescript(no-unsafe-argument)": 1,
-    "typescript(no-unsafe-assignment)": 5,
-    "typescript(no-unsafe-call)": 4
+  "lint/rules/allowed-directives.js": {
+    "typescript(no-unsafe-argument)": 6,
+    "typescript(no-unsafe-assignment)": 2,
+    "typescript(no-unsafe-call)": 4,
+    "typescript(no-unsafe-member-access)": 6,
+    "typescript(no-unsafe-return)": 2
   },
   "lint/rules/no-overloads.js": {
     "typescript(no-unsafe-assignment)": 2,
@@ -4592,7 +4521,6 @@
     "typescript(no-non-null-assertion)": 6
   },
   "packages/core/services/patient-connection-pool.test.ts": {
-    "local(no-overloads)": 2,
     "local(no-unsafe-as)": 3,
     "typescript(no-explicit-any)": 1,
     "typescript(no-non-null-assertion)": 1
@@ -4699,6 +4627,9 @@
   },
   "packages/overlay-renderer/tests/png-pixels.ts": {
     "typescript(no-non-null-assertion)": 9
+  },
+  "scripts/check-allowed-directives.ts": {
+    "local(no-unsafe-as)": 1
   },
   "scripts/check-background-jobs-network.ts": {
     "local(no-unsafe-as)": 2

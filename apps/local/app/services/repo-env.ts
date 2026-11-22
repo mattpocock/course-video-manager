@@ -23,7 +23,6 @@ import { dirname, join } from "node:path";
  */
 export const findRepoRoot = (start: string): string | undefined => {
   let dir = start;
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     if (existsSync(join(dir, "pnpm-workspace.yaml"))) return dir;
     const parent = dirname(dir);

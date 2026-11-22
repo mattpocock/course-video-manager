@@ -1,3 +1,4 @@
+import { stripVTControlCharacters } from "node:util";
 import { HelpDoc, ValidationError } from "@effect/cli";
 import { Cause, Effect, Option } from "effect";
 import { storageRootOfflineErrorOf } from "@/packages/storage";
@@ -197,10 +198,9 @@ export const renderToExitCode = <E, R>(
             // agent learns what to pass instead of just that it was wrong.
             const detail =
               error._tag === "InvalidValue" || error._tag === "InvalidArgument"
-                ? HelpDoc.toAnsiText(error.error)
-                    // eslint-disable-next-line no-control-regex
-                    .replace(/\x1b\[[0-9;]*m/g, "")
-                    .trim()
+                ? stripVTControlCharacters(
+                    HelpDoc.toAnsiText(error.error)
+                  ).trim()
                 : "";
             yield* out.stderr(
               serializeError("ParseError", {

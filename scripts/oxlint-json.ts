@@ -17,7 +17,9 @@ export class LintToolError extends Error {}
 
 /**
  * Runs type-aware Oxlint in `root` with the JSON reporter and returns its
- * diagnostics, with filenames relative to `root`. Throws `LintToolError` when
+ * diagnostics, with filenames relative to `root`. Oxlint's own diagnostics,
+ * which carry no rule code, get one: an unused disable directive is
+ * `oxlint(unused-disable-directive)`. Throws `LintToolError` when
  * Oxlint or oxlint-tsgolint is not installed, or when the output is not a
  * JSON report (a config error, a crash).
  */
@@ -49,11 +51,19 @@ export function runOxlint(root: string, args: readonly string[]): Diagnostic[] {
       `Oxlint did not produce a JSON report (exit ${run.status}):\n${`${run.stderr ?? ""}${stdout}`.trim()}`
     );
   }
-  return (diagnostics as Diagnostic[]).map((d) => ({
-    ...d,
-    filename: toRepoPath(root, d.filename),
-  }));
+  return (diagnostics as (Omit<Diagnostic, "code"> & { code?: string })[]).map(
+    (d) => ({
+      ...d,
+      code: d.code ?? ownCode(d.message),
+      filename: toRepoPath(root, d.filename),
+    })
+  );
 }
+
+const ownCode = (message: string) =>
+  /^Unused \S+ directive/.test(message)
+    ? "oxlint(unused-disable-directive)"
+    : "oxlint";
 
 export const toRepoPath = (root: string, file: string) =>
   path.relative(root, path.resolve(root, file)).split(path.sep).join("/");
