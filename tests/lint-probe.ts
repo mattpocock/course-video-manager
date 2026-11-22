@@ -1,8 +1,10 @@
 import { spawnSync } from "node:child_process";
 import {
   copyFileSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   realpathSync,
   rmSync,
   symlinkSync,
@@ -65,3 +67,44 @@ export const lintProbes = (files: Record<string, string>) => {
     remove: () => rmSync(dir, { recursive: true, force: true }),
   };
 };
+
+export interface Override {
+  files: string[];
+  rules: Record<string, unknown>;
+}
+
+const isOverride = (value: unknown): value is Override =>
+  typeof value === "object" &&
+  value !== null &&
+  "files" in value &&
+  Array.isArray(value.files) &&
+  value.files.every((file) => typeof file === "string") &&
+  "rules" in value &&
+  typeof value.rules === "object" &&
+  value.rules !== null;
+
+/**
+ * The `overrides` of the repo's `.oxlintrc.json`, read with its comments
+ * stripped. `ownerPathExists` is true when an override's file entry names
+ * something in the repo: a path, or the folder a glob starts in.
+ */
+export const configOverrides = (): Override[] => {
+  const source = readFileSync(path.join(ROOT, ".oxlintrc.json"), "utf8");
+  const config: unknown = JSON.parse(
+    source.replace(
+      /("(?:\\.|[^"\\])*")|\/\/[^\n]*|\/\*[\s\S]*?\*\//g,
+      (_, string: string | undefined) => string ?? ""
+    )
+  );
+  const overrides: unknown =
+    typeof config === "object" && config !== null && "overrides" in config
+      ? config.overrides
+      : undefined;
+  if (!Array.isArray(overrides) || !overrides.every(isOverride)) {
+    throw new Error(".oxlintrc.json has no readable overrides");
+  }
+  return overrides;
+};
+
+export const ownerPathExists = (file: string) =>
+  existsSync(path.join(ROOT, file.split("*")[0] ?? file));

@@ -1,13 +1,16 @@
-import { existsSync, readFileSync } from "node:fs";
-import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { type Diagnostic, lintProbes, ROOT } from "./lint-probe.ts";
+import {
+  configOverrides,
+  type Diagnostic,
+  lintProbes,
+  ownerPathExists,
+} from "./lint-probe.ts";
 
 const RULE = "local(fs-writes)";
 
 const PROBE = [
   'import fs from "node:fs";',
-  'import { assertUnder } from "./assert-under";',
+  'import { assertUnder } from "@/services/assert-under";',
   "export const raw = (filePath: string) => fs.rmSync(filePath);",
   "export const guarded = (filePath: string) =>",
   '  fs.rmSync(assertUnder("/base", filePath));',
@@ -28,41 +31,10 @@ const FILES: Record<string, number> = {
   "packages/core/services/probe.ts": 0,
 };
 
-const isOverride = (
-  value: unknown
-): value is { files: string[]; rules: Record<string, unknown> } =>
-  typeof value === "object" &&
-  value !== null &&
-  "files" in value &&
-  Array.isArray(value.files) &&
-  "rules" in value &&
-  typeof value.rules === "object" &&
-  value.rules !== null;
-
-const ownerPaths = () => {
-  const source = readFileSync(path.join(ROOT, ".oxlintrc.json"), "utf8");
-  const config: unknown = JSON.parse(
-    source.replace(
-      /("(?:\\.|[^"\\])*")|\/\/[^\n]*|\/\*[\s\S]*?\*\//g,
-      (_, string: string | undefined) => string ?? ""
-    )
-  );
-  const overrides: unknown[] =
-    typeof config === "object" &&
-    config !== null &&
-    "overrides" in config &&
-    Array.isArray(config.overrides)
-      ? config.overrides
-      : [];
-  return overrides
-    .filter(isOverride)
-    .filter((o) =>
-      Object.entries(o.rules).some(
-        ([r, v]) => r === "local/fs-writes" && v === "off"
-      )
-    )
+const ownerPaths = () =>
+  configOverrides()
+    .filter((o) => o.rules["local/fs-writes"] === "off")
     .flatMap((o) => o.files);
-};
 
 let probes: ReturnType<typeof lintProbes>;
 let diagnostics: Diagnostic[];
@@ -99,7 +71,7 @@ describe("local/fs-writes in the repo config", () => {
     const owners = ownerPaths();
     expect(owners).toEqual(["apps/local/app/services/remove-best-effort.ts"]);
     for (const owner of owners) {
-      expect(existsSync(path.join(ROOT, owner)), owner).toBe(true);
+      expect(ownerPathExists(owner), owner).toBe(true);
     }
   });
 });
