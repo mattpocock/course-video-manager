@@ -1,6 +1,7 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import {
   chmodSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -468,6 +469,14 @@ describe("@cvm/core's build, which apps/remote's types read", () => {
       files: {
         "apps/remote/route.ts": "",
         "packages/core/service.ts": "export const a = 1;\n",
+        "packages/core/meta/journal.json": "{}\n",
+        "packages/core/tsconfig.build.json": [
+          "// The build.",
+          JSON.stringify({
+            include: ["**/*"],
+            exclude: ["node_modules", "dist", "**/*.test.ts", "test-utils/**"],
+          }),
+        ].join("\n"),
       },
     });
 
@@ -486,7 +495,7 @@ describe("@cvm/core's build, which apps/remote's types read", () => {
     utimesSync(path.join(dir, "packages/core/dist/service.js"), at, at);
   };
   const edit = (dir: string, file: string, at: Date) => {
-    write(dir, file, "export const a = 2;\n");
+    if (!existsSync(path.join(dir, file))) write(dir, file, "export {};\n");
     utimesSync(path.join(dir, file), at, at);
   };
   const EARLIER = new Date("2026-01-01T00:00:00Z");
@@ -504,12 +513,37 @@ describe("@cvm/core's build, which apps/remote's types read", () => {
   it("lints once the build is newer than every source", () => {
     const dir = remoteRepo();
     edit(dir, "packages/core/service.ts", EARLIER);
+    edit(dir, "packages/core/meta/journal.json", EARLIER);
+    edit(dir, "packages/core/tsconfig.build.json", EARLIER);
     edit(dir, "packages/core/service.test.ts", LATER);
     build(dir, EARLIER);
     expect(ratchet(dir, ["apps/remote/route.ts"])).toMatchObject({
       status: 0,
     });
     expect(ratchet(dir)).toMatchObject({ status: 0 });
+  });
+
+  it("ignores a file the build excludes", () => {
+    const dir = remoteRepo();
+    edit(dir, "packages/core/service.ts", EARLIER);
+    edit(dir, "packages/core/meta/journal.json", EARLIER);
+    edit(dir, "packages/core/tsconfig.build.json", EARLIER);
+    edit(dir, "packages/core/test-utils/fixtures.ts", LATER);
+    build(dir, EARLIER);
+    expect(ratchet(dir, ["apps/remote/route.ts"])).toMatchObject({
+      status: 0,
+    });
+  });
+
+  it("counts a JSON source the build imports", () => {
+    const dir = remoteRepo();
+    build(dir, EARLIER);
+    edit(dir, "packages/core/service.ts", EARLIER);
+    edit(dir, "packages/core/tsconfig.build.json", EARLIER);
+    edit(dir, "packages/core/meta/journal.json", LATER);
+    const result = ratchet(dir, ["apps/remote/route.ts"]);
+    expect(result.status).toBe(1);
+    expect(result.output).toContain(BUILD_FIRST);
   });
 
   it("is not needed to lint files outside apps/remote", () => {
