@@ -1,7 +1,7 @@
 import http from "node:http";
 import path from "node:path";
 import { Data, Effect } from "effect";
-import { installLocationRepoRoot } from "./repo-env";
+import { installLocationRepoRoot } from "@/packages/env";
 
 /**
  * The app server's side of the Sidecar's Unix socket (`apps/local/sidecar/socket.ts`).

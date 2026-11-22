@@ -1,14 +1,32 @@
 {
   ".claude/skills/verify-cvm/scripts/migrate-clone.mjs": {
+    "eslint(no-restricted-globals)": 5,
     "typescript(no-unsafe-argument)": 1,
     "typescript(no-unsafe-assignment)": 7,
     "typescript(no-unsafe-call)": 6,
     "typescript(no-unsafe-member-access)": 9
   },
+  ".sandcastle/architecture-review/architecture-review.ts": {
+    "eslint(no-restricted-globals)": 7,
+    "eslint(no-restricted-properties)": 2
+  },
   ".sandcastle/implement-pr/implement-pr-output.ts": {
     "typescript(no-non-null-assertion)": 1
   },
+  ".sandcastle/implement-pr/implement-pr.ts": {
+    "eslint(no-restricted-globals)": 10,
+    "eslint(no-restricted-properties)": 2
+  },
+  ".sandcastle/implement-prd/implement-prd.ts": {
+    "eslint(no-restricted-globals)": 3,
+    "eslint(no-restricted-properties)": 1
+  },
+  ".sandcastle/implement/implement.ts": {
+    "eslint(no-restricted-globals)": 4,
+    "eslint(no-restricted-properties)": 2
+  },
   ".sandcastle/main.ts": {
+    "eslint(no-restricted-globals)": 10,
     "local(no-unsafe-as)": 1
   },
   ".sandcastle/retry-feedback.ts": {
@@ -21,6 +39,8 @@
     "typescript(no-non-null-assertion)": 1
   },
   ".sandcastle/review/review.ts": {
+    "eslint(no-restricted-globals)": 10,
+    "eslint(no-restricted-properties)": 2,
     "eslint(no-unused-vars)": 1
   },
   ".sandcastle/run-with-extraction.test.ts": {
@@ -32,25 +52,46 @@
     "typescript(no-non-null-assertion)": 5
   },
   ".sandcastle/to-issues-prd/to-issues-prd.ts": {
+    "eslint(no-restricted-globals)": 6,
+    "eslint(no-restricted-properties)": 1,
     "typescript(no-non-null-assertion)": 1
   },
+  ".sandcastle/update-branch/update-branch.ts": {
+    "eslint(no-restricted-globals)": 6,
+    "eslint(no-restricted-properties)": 2
+  },
+  ".sandcastle/write-pr/write-pr.ts": {
+    "eslint(no-restricted-globals)": 3,
+    "eslint(no-restricted-properties)": 2
+  },
+  ".sandcastle/write-prd-pr/write-prd-pr.ts": {
+    "eslint(no-restricted-globals)": 3,
+    "eslint(no-restricted-properties)": 2
+  },
   "apps/local/app/av-calibration-constants.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "typescript(no-non-null-assertion)": 3
   },
   "apps/local/app/av-calibration-constants.ts": {
+    "eslint(no-restricted-globals)": 1,
     "typescript(no-non-null-assertion)": 6
   },
   "apps/local/app/cli/bin.mjs": {
     "typescript(no-unsafe-argument)": 1
   },
   "apps/local/app/cli/bundle.mjs": {
+    "eslint(no-restricted-globals)": 2,
     "typescript(no-unsafe-argument)": 7,
     "typescript(no-unsafe-assignment)": 11,
     "typescript(no-unsafe-call)": 9,
     "typescript(no-unsafe-member-access)": 27,
     "typescript(no-unsafe-return)": 3
   },
+  "apps/local/app/cli/bundle.test.ts": {
+    "eslint(no-restricted-globals)": 1
+  },
   "apps/local/app/cli/cli-agent-sessions.test.ts": {
+    "eslint(no-restricted-globals)": 3,
     "local(no-unsafe-as)": 2,
     "typescript(no-non-null-assertion)": 5,
     "typescript(no-unsafe-return)": 1
@@ -63,6 +104,7 @@
     "local(no-unsafe-as)": 5
   },
   "apps/local/app/cli/cli-chat-highlight-list.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 1,
     "typescript(no-non-null-assertion)": 8
   },
@@ -75,23 +117,28 @@
     "typescript(no-non-null-assertion)": 3
   },
   "apps/local/app/cli/cli-clip-frame-repo-env.test.ts": {
+    "eslint(no-restricted-properties)": 6,
     "local(no-unsafe-as)": 1,
     "typescript(no-non-null-assertion)": 2
   },
   "apps/local/app/cli/cli-clip-layer.test.ts": {
+    "eslint(no-restricted-properties)": 5,
     "local(no-unsafe-as)": 5,
     "typescript(no-non-null-assertion)": 13,
     "typescript(no-unsafe-assignment)": 1
   },
   "apps/local/app/cli/cli-clip-mockup-capture.test.ts": {
+    "eslint(no-restricted-properties)": 4,
     "local(no-unsafe-as)": 3,
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/cli/cli-clip-mockup-chapter.order-space.test.ts": {
+    "eslint(no-restricted-properties)": 4,
     "local(no-unsafe-as)": 9,
     "typescript(no-non-null-assertion)": 6
   },
   "apps/local/app/cli/cli-clip-mockup-chapter.test.ts": {
+    "eslint(no-restricted-properties)": 4,
     "local(no-unsafe-as)": 3,
     "typescript(no-non-null-assertion)": 9
   },
@@ -100,19 +147,23 @@
     "typescript(no-non-null-assertion)": 2
   },
   "apps/local/app/cli/cli-clip-mockup-html-capture.test.ts": {
+    "eslint(no-restricted-properties)": 4,
     "local(no-unsafe-as)": 9,
     "typescript(no-non-null-assertion)": 15,
     "typescript(no-unsafe-member-access)": 1
   },
   "apps/local/app/cli/cli-clip-mockup-ordering.test.ts": {
+    "eslint(no-restricted-properties)": 4,
     "local(no-unsafe-as)": 4,
     "typescript(no-non-null-assertion)": 14
   },
   "apps/local/app/cli/cli-clip-mockup-short.test.ts": {
+    "eslint(no-restricted-properties)": 4,
     "local(no-unsafe-as)": 5,
     "typescript(no-non-null-assertion)": 21
   },
   "apps/local/app/cli/cli-clip-mockup-store-location.test.ts": {
+    "eslint(no-restricted-properties)": 7,
     "local(no-unsafe-as)": 5,
     "typescript(no-non-null-assertion)": 1
   },
@@ -120,10 +171,13 @@
     "local(no-unsafe-as)": 5
   },
   "apps/local/app/cli/cli-clip-mockup-voice.test.ts": {
+    "eslint(no-restricted-globals)": 1,
+    "eslint(no-restricted-properties)": 4,
     "local(no-unsafe-as)": 2,
     "typescript(no-non-null-assertion)": 17
   },
   "apps/local/app/cli/cli-clip-mockup-writes.test.ts": {
+    "eslint(no-restricted-properties)": 4,
     "local(no-unsafe-as)": 8,
     "typescript(no-non-null-assertion)": 9
   },
@@ -146,13 +200,17 @@
     "typescript(no-non-null-assertion)": 4
   },
   "apps/local/app/cli/cli-clip-words.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 5
   },
   "apps/local/app/cli/cli-clip-writes.test.ts": {
+    "eslint(no-restricted-globals)": 1,
+    "eslint(no-restricted-properties)": 4,
     "local(no-unsafe-as)": 19,
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/cli/cli-course-publish-placeholders.test.ts": {
+    "eslint(no-restricted-properties)": 8,
     "local(no-unsafe-as)": 3,
     "typescript(no-non-null-assertion)": 1,
     "typescript(no-unsafe-assignment)": 1,
@@ -161,6 +219,7 @@
     "typescript(no-unsafe-return)": 1
   },
   "apps/local/app/cli/cli-course-readiness.test.ts": {
+    "eslint(no-restricted-properties)": 8,
     "typescript(no-non-null-assertion)": 5,
     "typescript(no-unsafe-assignment)": 19,
     "typescript(no-unsafe-member-access)": 56
@@ -170,24 +229,31 @@
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/cli/cli-diagram-create.test.ts": {
+    "eslint(no-restricted-properties)": 1,
     "local(no-unsafe-as)": 5,
     "typescript(no-non-null-assertion)": 27
   },
   "apps/local/app/cli/cli-diagram-get.test.ts": {
+    "eslint(no-restricted-globals)": 1,
+    "eslint(no-restricted-properties)": 1,
     "local(no-unsafe-as)": 5,
     "typescript(no-non-null-assertion)": 17,
     "typescript(no-unsafe-assignment)": 2
   },
   "apps/local/app/cli/cli-diagram-list.test.ts": {
+    "eslint(no-restricted-globals)": 1,
+    "eslint(no-restricted-properties)": 2,
     "local(no-unsafe-as)": 6,
     "typescript(no-non-null-assertion)": 13,
     "typescript(no-unsafe-assignment)": 1
   },
   "apps/local/app/cli/cli-diagram-snapshot.test.ts": {
+    "eslint(no-restricted-properties)": 2,
     "local(no-unsafe-as)": 19,
     "typescript(no-non-null-assertion)": 48
   },
   "apps/local/app/cli/cli-diagram-update.test.ts": {
+    "eslint(no-restricted-properties)": 1,
     "local(no-unsafe-as)": 5,
     "typescript(no-non-null-assertion)": 5
   },
@@ -200,13 +266,18 @@
     "local(no-unsafe-as)": 5,
     "typescript(no-non-null-assertion)": 10
   },
+  "apps/local/app/cli/cli-file-writes.test.ts": {
+    "eslint(no-restricted-properties)": 7
+  },
   "apps/local/app/cli/cli-footage-writes.test.ts": {
+    "eslint(no-restricted-properties)": 10,
     "local(no-unsafe-as)": 8,
     "typescript(no-non-null-assertion)": 11,
     "typescript(no-unsafe-assignment)": 3,
     "typescript(no-unsafe-member-access)": 4
   },
   "apps/local/app/cli/cli-footage-youtube.test.ts": {
+    "eslint(no-restricted-properties)": 10,
     "local(no-unsafe-as)": 3,
     "typescript(no-unsafe-member-access)": 2
   },
@@ -220,6 +291,7 @@
     "typescript(no-unsafe-member-access)": 2
   },
   "apps/local/app/cli/cli-integration-test-harness.ts": {
+    "eslint(no-restricted-globals)": 3,
     "typescript(no-non-null-assertion)": 33
   },
   "apps/local/app/cli/cli-integration.test.ts": {
@@ -233,6 +305,7 @@
     "typescript(no-unsafe-return)": 2
   },
   "apps/local/app/cli/cli-layer.test.ts": {
+    "eslint(no-restricted-properties)": 9,
     "local(no-unsafe-as)": 4,
     "typescript(no-non-null-assertion)": 2
   },
@@ -240,6 +313,7 @@
     "local(no-unsafe-as)": 9
   },
   "apps/local/app/cli/cli-lesson-move-update.test.ts": {
+    "eslint(no-restricted-globals)": 3,
     "local(no-unsafe-as)": 1,
     "typescript(no-non-null-assertion)": 18
   },
@@ -251,6 +325,7 @@
     "typescript(no-non-null-assertion)": 4
   },
   "apps/local/app/cli/cli-local-only.test.ts": {
+    "eslint(no-restricted-properties)": 6,
     "typescript(no-non-null-assertion)": 1,
     "typescript(no-unsafe-assignment)": 4,
     "typescript(no-unsafe-member-access)": 22,
@@ -265,6 +340,7 @@
     "typescript(no-non-null-assertion)": 3
   },
   "apps/local/app/cli/cli-overlay-chat-card-writes.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 1,
     "typescript(no-non-null-assertion)": 10
   },
@@ -285,16 +361,19 @@
     "typescript(no-non-null-assertion)": 2
   },
   "apps/local/app/cli/cli-read-test-harness.ts": {
+    "eslint(no-restricted-globals)": 3,
     "typescript(no-non-null-assertion)": 33,
     "typescript(no-unsafe-return)": 1
   },
   "apps/local/app/cli/cli-remote-auth.test.ts": {
+    "eslint(no-restricted-globals)": 2,
     "local(no-unsafe-as)": 1,
     "typescript(no-non-null-assertion)": 1,
     "typescript(no-unsafe-member-access)": 4,
     "typescript(no-unsafe-return)": 1
   },
   "apps/local/app/cli/cli-remote-test-harness.ts": {
+    "eslint(no-restricted-globals)": 2,
     "local(no-unsafe-as)": 3
   },
   "apps/local/app/cli/cli-search.test.ts": {
@@ -313,24 +392,30 @@
     "typescript(no-unsafe-member-access)": 43
   },
   "apps/local/app/cli/cli-section-writes.test.ts": {
+    "eslint(no-restricted-globals)": 3,
     "local(no-unsafe-as)": 6,
     "typescript(no-non-null-assertion)": 15
   },
   "apps/local/app/cli/cli-short-create.test.ts": {
+    "eslint(no-restricted-globals)": 2,
     "local(no-unsafe-as)": 3,
     "typescript(no-non-null-assertion)": 28
   },
   "apps/local/app/cli/cli-short-post.test.ts": {
+    "eslint(no-restricted-globals)": 15,
+    "eslint(no-restricted-properties)": 9,
     "local(no-unsafe-as)": 5,
     "typescript(no-non-null-assertion)": 1,
     "typescript(no-unsafe-assignment)": 10
   },
   "apps/local/app/cli/cli-short-render.test.ts": {
+    "eslint(no-restricted-properties)": 4,
     "local(no-unsafe-as)": 2,
     "typescript(no-non-null-assertion)": 1,
     "typescript(no-unsafe-member-access)": 1
   },
   "apps/local/app/cli/cli-stale-id.test.ts": {
+    "eslint(no-restricted-globals)": 2,
     "local(no-unsafe-as)": 1,
     "typescript(no-non-null-assertion)": 24,
     "typescript(no-unsafe-assignment)": 2,
@@ -357,6 +442,8 @@
     "typescript(no-unsafe-member-access)": 3
   },
   "apps/local/app/cli/cli-write-test-harness.ts": {
+    "eslint(no-restricted-globals)": 1,
+    "eslint(no-restricted-properties)": 16,
     "local(no-unsafe-as)": 3,
     "typescript(no-non-null-assertion)": 13,
     "typescript(no-unsafe-return)": 1
@@ -410,9 +497,11 @@
     "typescript(no-unsafe-assignment)": 1
   },
   "apps/local/app/cli/commands/course-publish-wait.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 5
   },
   "apps/local/app/cli/commands/deliverable.ts": {
+    "eslint(no-restricted-globals)": 2,
     "local(no-unsafe-as)": 4
   },
   "apps/local/app/cli/commands/diagram-input.ts": {
@@ -432,7 +521,11 @@
     "local(no-unsafe-as)": 2,
     "typescript(no-non-null-assertion)": 1
   },
+  "apps/local/app/cli/commands/footage-frame.ts": {
+    "eslint(no-restricted-properties)": 1
+  },
   "apps/local/app/cli/commands/footage-transcribe-wait.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 2
   },
   "apps/local/app/cli/commands/learning-goal.ts": {
@@ -455,6 +548,7 @@
     "local(no-unsafe-as)": 2
   },
   "apps/local/app/cli/commands/section.ts": {
+    "eslint(no-restricted-globals)": 1,
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/cli/commands/short-create.ts": {
@@ -464,6 +558,7 @@
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/cli/commands/short-render-wait.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 2
   },
   "apps/local/app/cli/commands/timeline-position.ts": {
@@ -479,6 +574,7 @@
     "typescript(no-non-null-assertion)": 2
   },
   "apps/local/app/cli/env.ts": {
+    "eslint(no-restricted-properties)": 3,
     "typescript(no-non-null-assertion)": 2
   },
   "apps/local/app/cli/helpers.ts": {
@@ -488,8 +584,17 @@
   "apps/local/app/cli/output.ts": {
     "local(no-unsafe-as)": 1
   },
+  "apps/local/app/cli/render.test.ts": {
+    "eslint(no-restricted-properties)": 4
+  },
   "apps/local/app/cli/render.ts": {
     "local(no-unsafe-as)": 3
+  },
+  "apps/local/app/cli/verify-clone.test.ts": {
+    "eslint(no-restricted-properties)": 10
+  },
+  "apps/local/app/cli/verify-clone.ts": {
+    "eslint(no-restricted-properties)": 2
   },
   "apps/local/app/components/FileTree.tsx": {
     "typescript(no-non-null-assertion)": 1
@@ -509,18 +614,30 @@
   "apps/local/app/components/copy-video-modal.tsx": {
     "typescript(no-misused-promises)": 1
   },
+  "apps/local/app/components/create-section-modal.tsx": {
+    "eslint(no-restricted-globals)": 2
+  },
   "apps/local/app/components/delete-video-file-modal.tsx": {
     "typescript(no-misused-promises)": 1
   },
   "apps/local/app/components/dependency-selector.tsx": {
+    "eslint(no-restricted-globals)": 1,
     "typescript(no-non-null-assertion)": 1
   },
+  "apps/local/app/components/duplicate-course-modal.tsx": {
+    "eslint(no-restricted-globals)": 1
+  },
   "apps/local/app/components/feedback-modal.tsx": {
+    "eslint(no-restricted-globals)": 2,
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/components/file-preview-modal.tsx": {
+    "eslint(no-restricted-globals)": 2,
     "typescript(no-floating-promises)": 1,
     "typescript(no-misused-promises)": 1
+  },
+  "apps/local/app/components/footage-stats.tsx": {
+    "eslint(no-restricted-globals)": 1
   },
   "apps/local/app/components/markdown-monaco-editor.tsx": {
     "typescript(no-misused-promises)": 1,
@@ -551,7 +668,17 @@
     "typescript(no-non-null-assertion)": 4
   },
   "apps/local/app/components/use-app-sidebar-reducer.ts": {
+    "eslint(no-restricted-globals)": 2,
     "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/components/use-video-file-paste-reducer.ts": {
+    "eslint(no-restricted-globals)": 4
+  },
+  "apps/local/app/components/version-selector-modal.tsx": {
+    "eslint(no-restricted-globals)": 1
+  },
+  "apps/local/app/components/video-context-panel.tsx": {
+    "eslint(no-restricted-globals)": 1
   },
   "apps/local/app/components/video-file-management-modal.tsx": {
     "typescript(no-misused-promises)": 1
@@ -607,6 +734,9 @@
     "local(no-unsafe-as)": 2,
     "typescript(no-non-null-assertion)": 2
   },
+  "apps/local/app/features/article-writer/clipboard.test.ts": {
+    "eslint(no-restricted-globals)": 1
+  },
   "apps/local/app/features/article-writer/commit-map-components.tsx": {
     "local(no-unsafe-as)": 7
   },
@@ -640,6 +770,9 @@
   },
   "apps/local/app/features/article-writer/lint-rules.test.ts": {
     "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/features/article-writer/memory-autosaver.ts": {
+    "eslint(no-restricted-globals)": 3
   },
   "apps/local/app/features/article-writer/message-text-mutation.test.ts": {
     "typescript(no-non-null-assertion)": 1
@@ -682,7 +815,11 @@
     "typescript(no-unsafe-assignment)": 1,
     "typescript(no-unsafe-return)": 1
   },
+  "apps/local/app/features/article-writer/use-context-panel-reducer.ts": {
+    "eslint(no-restricted-globals)": 2
+  },
   "apps/local/app/features/article-writer/use-doc-screenshot-runtime.ts": {
+    "eslint(no-restricted-globals)": 2,
     "typescript(no-unsafe-argument)": 2,
     "typescript(no-unsafe-assignment)": 1
   },
@@ -696,25 +833,36 @@
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/features/article-writer/use-screenshot-navigation.ts": {
+    "eslint(no-restricted-properties)": 1,
     "typescript(no-non-null-assertion)": 3
   },
+  "apps/local/app/features/article-writer/use-writer-context.ts": {
+    "eslint(no-restricted-globals)": 1
+  },
   "apps/local/app/features/article-writer/write-chat.tsx": {
+    "eslint(no-restricted-globals)": 2,
     "typescript(no-unsafe-argument)": 1,
     "typescript(no-unsafe-assignment)": 1
   },
   "apps/local/app/features/article-writer/write-mode-dropdown.tsx": {
     "local(no-unsafe-as)": 2
   },
+  "apps/local/app/features/article-writer/write-utils.test.ts": {
+    "eslint(no-restricted-globals)": 9
+  },
   "apps/local/app/features/article-writer/write-utils.ts": {
+    "eslint(no-restricted-globals)": 7,
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/features/article-writer/writer-chat-requests.ts": {
+    "eslint(no-restricted-globals)": 2,
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/features/article-writer/writer-engine-utils.ts": {
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/features/article-writer/writer-engine.tsx": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/features/article-writer/writer-errors.test.ts": {
@@ -735,13 +883,18 @@
     "typescript(no-non-null-assertion)": 5,
     "unicorn(no-new-array)": 1
   },
+  "apps/local/app/features/av-calibration/calibration-history.tsx": {
+    "eslint(no-restricted-globals)": 1
+  },
   "apps/local/app/features/av-calibration/calibration-session.tsx": {
+    "eslint(no-restricted-globals)": 1,
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/features/av-calibration/calibration-timeline.ts": {
     "typescript(no-non-null-assertion)": 3
   },
   "apps/local/app/features/av-calibration/use-av-calibration.ts": {
+    "eslint(no-restricted-globals)": 7,
     "local(no-unsafe-as)": 4
   },
   "apps/local/app/features/av-calibration/use-level-meter.ts": {
@@ -751,26 +904,11 @@
   "apps/local/app/features/beats/beat-list.tsx": {
     "local(no-unsafe-as)": 1
   },
-  "apps/local/app/features/course-view/actions-menu.tsx": {
-    "typescript(no-unsafe-assignment)": 4,
-    "typescript(no-unsafe-call)": 1,
-    "typescript(no-unsafe-member-access)": 12
+  "apps/local/app/features/beats/create-beat-dialog.tsx": {
+    "eslint(no-restricted-globals)": 2
   },
   "apps/local/app/features/course-view/course-editor-helpers.test.ts": {
-    "local(no-unsafe-as)": 11,
-    "typescript(no-unsafe-assignment)": 4
-  },
-  "apps/local/app/features/course-view/course-editor-helpers.ts": {
-    "typescript(no-unsafe-argument)": 4,
-    "typescript(no-unsafe-assignment)": 9,
-    "typescript(no-unsafe-call)": 10,
-    "typescript(no-unsafe-member-access)": 28,
-    "typescript(no-unsafe-return)": 3
-  },
-  "apps/local/app/features/course-view/course-view-components.tsx": {
-    "typescript(no-unsafe-argument)": 1,
-    "typescript(no-unsafe-assignment)": 14,
-    "typescript(no-unsafe-member-access)": 17
+    "local(no-unsafe-as)": 11
   },
   "apps/local/app/features/course-view/course-view-loader.server.ts": {
     "local(no-unsafe-as)": 1
@@ -782,197 +920,124 @@
   "apps/local/app/features/course-view/dependency-drag.ts": {
     "typescript(no-non-null-assertion)": 1
   },
-  "apps/local/app/features/course-view/lesson-beat-tree.tsx": {
-    "typescript(no-unsafe-assignment)": 6,
-    "typescript(no-unsafe-call)": 1,
-    "typescript(no-unsafe-member-access)": 10,
-    "typescript(no-unsafe-return)": 1
-  },
-  "apps/local/app/features/course-view/lesson-context-menu.tsx": {
-    "typescript(no-unsafe-argument)": 1,
-    "typescript(no-unsafe-assignment)": 13,
-    "typescript(no-unsafe-call)": 1,
-    "typescript(no-unsafe-member-access)": 15
-  },
-  "apps/local/app/features/course-view/lesson-title-editor.tsx": {
-    "typescript(no-unsafe-argument)": 1,
-    "typescript(no-unsafe-assignment)": 4,
-    "typescript(no-unsafe-member-access)": 4
-  },
-  "apps/local/app/features/course-view/next-todo-card.tsx": {
-    "typescript(no-unsafe-argument)": 1,
-    "typescript(no-unsafe-assignment)": 6,
-    "typescript(no-unsafe-member-access)": 4
-  },
   "apps/local/app/features/course-view/optimistic-applier-beats.test.ts": {
     "local(no-unsafe-as)": 1,
-    "typescript(no-non-null-assertion)": 14,
-    "typescript(no-unsafe-assignment)": 24,
-    "typescript(no-unsafe-call)": 5,
-    "typescript(no-unsafe-member-access)": 32,
-    "typescript(no-unsafe-return)": 9
+    "typescript(no-non-null-assertion)": 14
   },
   "apps/local/app/features/course-view/optimistic-applier-composition.test.ts": {
     "local(no-unsafe-as)": 1,
     "typescript(no-explicit-any)": 1,
     "typescript(no-non-null-assertion)": 16,
-    "typescript(no-unsafe-assignment)": 19,
-    "typescript(no-unsafe-member-access)": 26
+    "typescript(no-unsafe-member-access)": 1
   },
   "apps/local/app/features/course-view/optimistic-applier-delete-video.test.ts": {
     "local(no-unsafe-as)": 1,
     "typescript(no-explicit-any)": 1,
     "typescript(no-non-null-assertion)": 23,
-    "typescript(no-unsafe-assignment)": 18,
-    "typescript(no-unsafe-member-access)": 36
+    "typescript(no-unsafe-member-access)": 1
   },
   "apps/local/app/features/course-view/optimistic-applier-deletes.test.ts": {
-    "typescript(no-non-null-assertion)": 25,
-    "typescript(no-unsafe-assignment)": 22,
-    "typescript(no-unsafe-member-access)": 41
+    "typescript(no-non-null-assertion)": 25
   },
   "apps/local/app/features/course-view/optimistic-applier-reorders.test.ts": {
-    "typescript(no-non-null-assertion)": 55,
-    "typescript(no-unsafe-assignment)": 63,
-    "typescript(no-unsafe-call)": 21,
-    "typescript(no-unsafe-member-access)": 111,
-    "typescript(no-unsafe-return)": 21
+    "typescript(no-non-null-assertion)": 55
   },
   "apps/local/app/features/course-view/optimistic-applier-test-helpers.ts": {
+    "eslint(no-restricted-globals)": 2,
     "local(no-unsafe-as)": 2
   },
   "apps/local/app/features/course-view/optimistic-applier.test.ts": {
-    "typescript(no-non-null-assertion)": 43,
-    "typescript(no-unsafe-assignment)": 36,
-    "typescript(no-unsafe-member-access)": 63
+    "typescript(no-non-null-assertion)": 43
   },
   "apps/local/app/features/course-view/optimistic-applier.ts": {
-    "typescript(no-non-null-assertion)": 1,
-    "typescript(no-unsafe-argument)": 6,
-    "typescript(no-unsafe-assignment)": 92,
-    "typescript(no-unsafe-call)": 46,
-    "typescript(no-unsafe-member-access)": 99,
-    "typescript(no-unsafe-return)": 35
+    "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/features/course-view/section-card.tsx": {
-    "typescript(no-non-null-assertion)": 1,
-    "typescript(no-unsafe-argument)": 9,
-    "typescript(no-unsafe-assignment)": 17,
-    "typescript(no-unsafe-call)": 1,
-    "typescript(no-unsafe-member-access)": 30,
-    "typescript(no-unsafe-return)": 1
+    "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/features/course-view/section-grid-utils.test.ts": {
     "local(no-unsafe-as)": 4,
-    "typescript(no-non-null-assertion)": 2,
-    "typescript(no-unsafe-assignment)": 2,
-    "typescript(no-unsafe-member-access)": 3,
-    "typescript(no-unsafe-return)": 3
+    "typescript(no-non-null-assertion)": 2
   },
   "apps/local/app/features/course-view/section-grid-utils.ts": {
-    "typescript(no-non-null-assertion)": 5,
-    "typescript(no-unsafe-argument)": 4,
-    "typescript(no-unsafe-assignment)": 3,
-    "typescript(no-unsafe-call)": 11,
-    "typescript(no-unsafe-member-access)": 26,
-    "typescript(no-unsafe-return)": 6
+    "typescript(no-non-null-assertion)": 5
   },
   "apps/local/app/features/course-view/section-grid.tsx": {
-    "typescript(no-non-null-assertion)": 1,
-    "typescript(no-unsafe-argument)": 2,
-    "typescript(no-unsafe-assignment)": 18,
-    "typescript(no-unsafe-call)": 7,
-    "typescript(no-unsafe-member-access)": 28,
-    "typescript(no-unsafe-return)": 6
+    "typescript(no-non-null-assertion)": 1
   },
-  "apps/local/app/features/course-view/section-learning-goals.tsx": {
-    "typescript(no-unsafe-assignment)": 4,
-    "typescript(no-unsafe-call)": 3,
-    "typescript(no-unsafe-member-access)": 14,
-    "typescript(no-unsafe-return)": 1
+  "apps/local/app/features/course-view/section-script-field.tsx": {
+    "eslint(no-restricted-globals)": 5
   },
   "apps/local/app/features/course-view/section-scripts-utils.test.ts": {
     "typescript(no-non-null-assertion)": 5
   },
   "apps/local/app/features/course-view/section-transcript-beats.test.ts": {
     "local(no-unsafe-as)": 8,
-    "typescript(no-unsafe-assignment)": 19,
+    "typescript(no-unsafe-assignment)": 6,
     "typescript(no-unsafe-member-access)": 7
   },
   "apps/local/app/features/course-view/section-transcript.test.ts": {
     "local(no-unsafe-as)": 17,
     "typescript(no-non-null-assertion)": 5,
-    "typescript(no-unsafe-assignment)": 20,
-    "typescript(no-unsafe-member-access)": 28
+    "typescript(no-unsafe-assignment)": 11,
+    "typescript(no-unsafe-member-access)": 23
   },
   "apps/local/app/features/course-view/section-transcript.ts": {
-    "local(no-unsafe-as)": 1,
-    "typescript(no-unsafe-argument)": 18,
-    "typescript(no-unsafe-assignment)": 1,
-    "typescript(no-unsafe-call)": 2,
-    "typescript(no-unsafe-member-access)": 67,
-    "typescript(no-unsafe-return)": 1
+    "local(no-unsafe-as)": 1
   },
   "apps/local/app/features/course-view/sortable-lesson-item.tsx": {
-    "local(no-unsafe-as)": 4,
-    "typescript(no-unsafe-argument)": 4,
-    "typescript(no-unsafe-assignment)": 37,
-    "typescript(no-unsafe-call)": 6,
-    "typescript(no-unsafe-member-access)": 58,
-    "typescript(no-unsafe-return)": 1
+    "local(no-unsafe-as)": 4
   },
   "apps/local/app/features/course-view/use-lesson-drag.ts": {
-    "typescript(no-unsafe-argument)": 2,
-    "typescript(no-unsafe-assignment)": 4,
-    "typescript(no-unsafe-member-access)": 2,
-    "typescript(no-unsafe-return)": 1
+    "typescript(no-unsafe-assignment)": 1
   },
   "apps/local/app/features/course-view/use-optimistic-course.ts": {
-    "local(no-unsafe-as)": 1,
-    "typescript(no-unsafe-assignment)": 3,
-    "typescript(no-unsafe-return)": 1
-  },
-  "apps/local/app/features/course-view/video-context-menu.tsx": {
-    "typescript(no-unsafe-argument)": 5,
-    "typescript(no-unsafe-assignment)": 18,
-    "typescript(no-unsafe-call)": 1,
-    "typescript(no-unsafe-member-access)": 29
-  },
-  "apps/local/app/features/course-view/video-thumbnail-grid.tsx": {
-    "typescript(no-unsafe-argument)": 2,
-    "typescript(no-unsafe-assignment)": 5,
-    "typescript(no-unsafe-member-access)": 12
+    "eslint(no-restricted-globals)": 1,
+    "local(no-unsafe-as)": 1
   },
   "apps/local/app/features/deliverables-calendar/deliverable-card.tsx": {
+    "eslint(no-restricted-globals)": 1,
     "typescript(no-non-null-assertion)": 3
   },
   "apps/local/app/features/deliverables-calendar/deliverable-form.tsx": {
+    "eslint(no-restricted-globals)": 3,
     "local(no-unsafe-as)": 1,
     "typescript(no-non-null-assertion)": 7
   },
   "apps/local/app/features/deliverables-calendar/deliverable-grouping.test.ts": {
+    "eslint(no-restricted-globals)": 11,
     "typescript(no-non-null-assertion)": 57
   },
   "apps/local/app/features/deliverables-calendar/deliverable-grouping.ts": {
+    "eslint(no-restricted-globals)": 4,
     "typescript(no-non-null-assertion)": 3
   },
   "apps/local/app/features/deliverables-calendar/deliverable-links.tsx": {
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/features/deliverables-calendar/iso-week.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "typescript(no-non-null-assertion)": 3
   },
+  "apps/local/app/features/deliverables-calendar/iso-week.ts": {
+    "eslint(no-restricted-globals)": 2
+  },
   "apps/local/app/features/diagrams/centre-camera-on-content.test.ts": {
+    "eslint(no-restricted-properties)": 2,
     "local(no-unsafe-as)": 5,
     "typescript(no-non-null-assertion)": 15
   },
   "apps/local/app/features/diagrams/copy-scene-to-clipboard.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 1,
     "typescript(no-unsafe-assignment)": 1,
     "typescript(no-unsafe-member-access)": 2
   },
   "apps/local/app/features/diagrams/cvm-icon-shape.test.ts": {
     "local(no-unsafe-as)": 7
+  },
+  "apps/local/app/features/diagrams/diagram-centering-settings.ts": {
+    "eslint(no-restricted-globals)": 1
   },
   "apps/local/app/features/diagrams/diagram-editor.browser.test.tsx": {
     "local(no-unsafe-as)": 2
@@ -981,6 +1046,7 @@
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/features/diagrams/diagram-frame.test.ts": {
+    "eslint(no-restricted-properties)": 2,
     "local(no-unsafe-as)": 2
   },
   "apps/local/app/features/diagrams/diagram-frame.ts": {
@@ -990,14 +1056,19 @@
     "local(no-unsafe-as)": 2
   },
   "apps/local/app/features/diagrams/diagram-playground-reducer.ts": {
+    "eslint(no-restricted-globals)": 2,
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/features/diagrams/diagram-thumbnail.tsx": {
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/features/diagrams/head-autosaver.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 3,
     "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/features/diagrams/head-autosaver.ts": {
+    "eslint(no-restricted-globals)": 3
   },
   "apps/local/app/features/diagrams/insert-onto-canvas.browser.test.tsx": {
     "local(no-unsafe-as)": 4,
@@ -1019,15 +1090,22 @@
   "apps/local/app/features/diagrams/palette/recent-icons.test.ts": {
     "local(no-unsafe-as)": 3
   },
+  "apps/local/app/features/diagrams/palette/recent-icons.ts": {
+    "eslint(no-restricted-properties)": 2
+  },
   "apps/local/app/features/diagrams/palette/use-grid-nav.ts": {
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/features/diagrams/palette/use-palette.ts": {
+    "eslint(no-restricted-globals)": 16,
     "local(no-unsafe-as)": 2,
     "typescript(no-unsafe-argument)": 1,
     "typescript(no-unsafe-assignment)": 4,
     "typescript(no-unsafe-member-access)": 6,
     "typescript(no-unsafe-return)": 1
+  },
+  "apps/local/app/features/diagrams/playground-palette-handlers.ts": {
+    "eslint(no-restricted-globals)": 1
   },
   "apps/local/app/features/diagrams/render-scene-png.ts": {
     "local(no-unsafe-as)": 1
@@ -1042,19 +1120,36 @@
   "apps/local/app/features/diagrams/replace-icon.ts": {
     "local(no-unsafe-as)": 1
   },
+  "apps/local/app/features/diagrams/report-active-diagram-text.ts": {
+    "eslint(no-restricted-globals)": 2
+  },
   "apps/local/app/features/diagrams/simple-diagram-in-tldraw.browser.test.tsx": {
     "local(no-unsafe-as)": 3,
     "typescript(no-non-null-assertion)": 3
   },
   "apps/local/app/features/diagrams/snapshot-list.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/features/diagrams/snapshot-navigation.ts": {
     "typescript(no-non-null-assertion)": 3
   },
+  "apps/local/app/features/diagrams/snapshot-stepper.test.ts": {
+    "eslint(no-restricted-globals)": 1
+  },
+  "apps/local/app/features/diagrams/timeline-panel.tsx": {
+    "eslint(no-restricted-globals)": 1
+  },
+  "apps/local/app/features/diagrams/unknown-shape-boundary.tsx": {
+    "eslint(no-restricted-globals)": 1
+  },
   "apps/local/app/features/diagrams/use-diagram-playground-reducer.ts": {
+    "eslint(no-restricted-globals)": 10,
     "typescript(no-unsafe-assignment)": 8,
     "typescript(no-unsafe-member-access)": 2
+  },
+  "apps/local/app/features/diagrams/use-diagram-snapshot-scene.ts": {
+    "eslint(no-restricted-globals)": 1
   },
   "apps/local/app/features/diagrams/use-recentre-diagram-shortcut.ts": {
     "local(no-unsafe-as)": 1
@@ -1072,7 +1167,11 @@
     "local(no-unsafe-as)": 2,
     "unicorn(prefer-string-starts-ends-with)": 1
   },
+  "apps/local/app/features/entity-links/use-deep-link-focus.ts": {
+    "eslint(no-restricted-globals)": 1
+  },
   "apps/local/app/features/global-search/use-global-search-reducer.ts": {
+    "eslint(no-restricted-globals)": 3,
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/features/image-upload/image-upload-job.ts": {
@@ -1085,16 +1184,19 @@
     "typescript(no-non-null-assertion)": 2
   },
   "apps/local/app/features/imported-footage/use-imported-footage.ts": {
+    "eslint(no-restricted-globals)": 2,
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/features/jobs/duplicate-course-job.ts": {
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/features/jobs/job-event-actions.ts": {
+    "eslint(no-restricted-globals)": 1,
     "typescript(no-unsafe-assignment)": 2,
     "typescript(no-unsafe-member-access)": 4
   },
   "apps/local/app/features/jobs/job-stage-history.test.ts": {
+    "eslint(no-restricted-globals)": 3,
     "typescript(no-non-null-assertion)": 8
   },
   "apps/local/app/features/jobs/job-stage-history.ts": {
@@ -1105,12 +1207,22 @@
     "typescript(no-non-null-assertion)": 21,
     "typescript(no-unsafe-assignment)": 2
   },
+  "apps/local/app/features/jobs/job-toasts.ts": {
+    "eslint(no-restricted-globals)": 2
+  },
+  "apps/local/app/features/jobs/jobs-fold.ts": {
+    "eslint(no-restricted-globals)": 1
+  },
+  "apps/local/app/features/jobs/jobs-pickup-order.test.ts": {
+    "eslint(no-restricted-globals)": 3
+  },
   "apps/local/app/features/jobs/jobs-reducer-clip-mockup-voice.test.ts": {
     "typescript(no-explicit-any)": 3,
     "typescript(no-non-null-assertion)": 1,
     "typescript(no-unsafe-return)": 1
   },
   "apps/local/app/features/jobs/jobs-reducer-duplicate-course.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "typescript(no-explicit-any)": 3,
     "typescript(no-non-null-assertion)": 3
   },
@@ -1118,6 +1230,7 @@
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/features/jobs/jobs-reducer-image-upload.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "typescript(no-explicit-any)": 3,
     "typescript(no-non-null-assertion)": 1
   },
@@ -1125,35 +1238,48 @@
     "typescript(no-non-null-assertion)": 2
   },
   "apps/local/app/features/jobs/jobs-reducer-storage-delete.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "typescript(no-explicit-any)": 6,
     "typescript(no-non-null-assertion)": 2,
     "typescript(no-unsafe-argument)": 1,
     "typescript(no-unsafe-member-access)": 1
   },
   "apps/local/app/features/jobs/jobs-reducer-storage-move.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "typescript(no-explicit-any)": 6,
     "typescript(no-non-null-assertion)": 3,
     "typescript(no-unsafe-argument)": 1,
     "typescript(no-unsafe-member-access)": 1
   },
   "apps/local/app/features/jobs/jobs-reducer-timing.test.ts": {
+    "eslint(no-restricted-globals)": 3,
     "typescript(no-non-null-assertion)": 3
   },
   "apps/local/app/features/jobs/jobs-reducer-transcription.test.ts": {
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/features/jobs/use-jobs.ts": {
+    "eslint(no-restricted-globals)": 8,
     "typescript(no-unsafe-argument)": 4
   },
+  "apps/local/app/features/lesson-writer/lesson-body-chain-reducer.test.ts": {
+    "eslint(no-restricted-globals)": 1
+  },
   "apps/local/app/features/lesson-writer/lesson-body-writer-modal.browser.test.tsx": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 2,
     "typescript(no-non-null-assertion)": 4
   },
   "apps/local/app/features/lesson-writer/lesson-body-writer-modal.tsx": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/features/lesson-writer/use-autofill-description-reducer.ts": {
+    "eslint(no-restricted-globals)": 2,
     "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/features/pitches/use-pitch-form-reducer.ts": {
+    "eslint(no-restricted-globals)": 5
   },
   "apps/local/app/features/publish/pending-recovery-banner.tsx": {
     "local(no-unsafe-as)": 1
@@ -1176,6 +1302,7 @@
     "typescript(no-non-null-assertion)": 2
   },
   "apps/local/app/features/storage/storage-action-effects.ts": {
+    "eslint(no-restricted-globals)": 7,
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/features/storage/storage-action.ts": {
@@ -1201,17 +1328,25 @@
     "typescript(no-non-null-assertion)": 2
   },
   "apps/local/app/features/storage/use-bucket-page.ts": {
+    "eslint(no-restricted-globals)": 3,
     "local(no-unsafe-as)": 3,
     "typescript(no-unsafe-argument)": 1,
     "typescript(no-unsafe-assignment)": 1
   },
   "apps/local/app/features/storage/use-storage-page.ts": {
+    "eslint(no-restricted-globals)": 2,
     "local(no-unsafe-as)": 3,
     "typescript(no-unsafe-argument)": 1,
     "typescript(no-unsafe-assignment)": 1
   },
+  "apps/local/app/features/storage/use-window-refocus.ts": {
+    "eslint(no-restricted-globals)": 1
+  },
   "apps/local/app/features/streaming/broadcast-chat-view.tsx": {
     "typescript(no-unsafe-argument)": 1
+  },
+  "apps/local/app/features/streaming/broadcast-picker.tsx": {
+    "eslint(no-restricted-globals)": 1
   },
   "apps/local/app/features/streaming/broadcast-thumbnail-reducer.ts": {
     "typescript(no-non-null-assertion)": 1
@@ -1224,10 +1359,21 @@
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/features/streaming/live-timer.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "typescript(no-non-null-assertion)": 3
   },
+  "apps/local/app/features/streaming/live-timer.tsx": {
+    "eslint(no-restricted-globals)": 7
+  },
+  "apps/local/app/features/streaming/new-stream-video.ts": {
+    "eslint(no-restricted-globals)": 1
+  },
   "apps/local/app/features/streaming/use-live-stream-reducer.ts": {
+    "eslint(no-restricted-globals)": 8,
     "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/features/streaming/use-new-broadcast-reducer.ts": {
+    "eslint(no-restricted-globals)": 1
   },
   "apps/local/app/features/teleprompter/glass-links-test-helpers.ts": {
     "typescript(no-non-null-assertion)": 2
@@ -1240,6 +1386,9 @@
   },
   "apps/local/app/features/teleprompter/script-blocks.ts": {
     "typescript(no-non-null-assertion)": 10
+  },
+  "apps/local/app/features/teleprompter/script-code-block.tsx": {
+    "eslint(no-restricted-globals)": 1
   },
   "apps/local/app/features/teleprompter/script-markdown.tsx": {
     "typescript(no-unsafe-assignment)": 1
@@ -1261,6 +1410,7 @@
     "typescript(no-non-null-assertion)": 3
   },
   "apps/local/app/features/teleprompter/use-teleprompter-actions.ts": {
+    "eslint(no-restricted-globals)": 3,
     "local(no-unsafe-as)": 1,
     "typescript(no-unsafe-argument)": 1
   },
@@ -1268,10 +1418,14 @@
     "local(no-unsafe-as)": 2
   },
   "apps/local/app/features/thumbnail-editor/thumbnail-diagram-editor.tsx": {
+    "eslint(no-restricted-globals)": 4,
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/features/thumbnail-editor/thumbnail-face-history.browser.test.tsx": {
     "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/features/thumbnail-editor/thumbnail-menu.tsx": {
+    "eslint(no-restricted-globals)": 1
   },
   "apps/local/app/features/thumbnail-editor/thumbnail-state-reducer-drawing.test.ts": {
     "local(no-unsafe-as)": 1,
@@ -1298,10 +1452,18 @@
     "typescript(no-unsafe-member-access)": 7,
     "typescript(no-unsafe-return)": 1
   },
+  "apps/local/app/features/thumbnail-editor/use-recorder-still.ts": {
+    "eslint(no-restricted-globals)": 2
+  },
+  "apps/local/app/features/upload-manager/global-upload-progress.tsx": {
+    "eslint(no-restricted-globals)": 4
+  },
   "apps/local/app/features/upload-manager/upload-context.browser.test.tsx": {
+    "eslint(no-restricted-globals)": 1,
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/features/upload-manager/upload-context.tsx": {
+    "eslint(no-restricted-globals)": 1,
     "typescript(no-non-null-assertion)": 2
   },
   "apps/local/app/features/upload-manager/upload-eta-schedule.test.ts": {
@@ -1329,6 +1491,7 @@
     "typescript(no-non-null-assertion)": 3
   },
   "apps/local/app/features/video-editor/clip-reducer-render-benchmark.browser.test.tsx": {
+    "eslint(no-restricted-globals)": 2,
     "local(no-unsafe-as)": 2,
     "typescript(no-non-null-assertion)": 12
   },
@@ -1350,10 +1513,12 @@
     "local(no-unsafe-as)": 40
   },
   "apps/local/app/features/video-editor/clip-state-reducer-diagram-pin.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 6,
     "typescript(no-non-null-assertion)": 2
   },
   "apps/local/app/features/video-editor/clip-state-reducer-effect-clips.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 4,
     "typescript(no-non-null-assertion)": 3
   },
@@ -1364,6 +1529,9 @@
     "local(no-unsafe-as)": 9,
     "typescript(no-non-null-assertion)": 1
   },
+  "apps/local/app/features/video-editor/clip-state-reducer-mic-settings.ts": {
+    "eslint(no-restricted-globals)": 1
+  },
   "apps/local/app/features/video-editor/clip-state-reducer-permanent-removal.test.ts": {
     "local(no-unsafe-as)": 19,
     "typescript(no-non-null-assertion)": 20
@@ -1373,10 +1541,12 @@
     "typescript(no-non-null-assertion)": 12
   },
   "apps/local/app/features/video-editor/clip-state-reducer-recording.ts": {
+    "eslint(no-restricted-globals)": 3,
     "local(no-unsafe-as)": 1,
     "typescript(no-non-null-assertion)": 3
   },
   "apps/local/app/features/video-editor/clip-state-reducer-restore.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/features/video-editor/clip-state-reducer-retranscribe-old-job.test.ts": {
@@ -1403,6 +1573,7 @@
     "typescript(no-unsafe-member-access)": 10
   },
   "apps/local/app/features/video-editor/clip-state-reducer-timeline.ts": {
+    "eslint(no-restricted-globals)": 1,
     "typescript(no-non-null-assertion)": 2
   },
   "apps/local/app/features/video-editor/clip-state-reducer-transcription-jobs.test.ts": {
@@ -1428,6 +1599,9 @@
   },
   "apps/local/app/features/video-editor/clip-state-reducer.helpers.ts": {
     "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/features/video-editor/clip-state-reducer.ts": {
+    "eslint(no-restricted-globals)": 1
   },
   "apps/local/app/features/video-editor/clip-state-reducer.types.ts": {
     "local(no-unsafe-as)": 2
@@ -1455,6 +1629,7 @@
     "unicorn(no-useless-spread)": 1
   },
   "apps/local/app/features/video-editor/components/reference-panel.tsx": {
+    "eslint(no-restricted-properties)": 2,
     "local(no-unsafe-as)": 1,
     "typescript(no-non-null-assertion)": 6,
     "typescript(no-unsafe-assignment)": 1,
@@ -1464,7 +1639,11 @@
     "local(no-unsafe-as)": 1,
     "typescript(no-non-null-assertion)": 3
   },
+  "apps/local/app/features/video-editor/cvm-recorder-take-saver.ts": {
+    "eslint(no-restricted-globals)": 2
+  },
   "apps/local/app/features/video-editor/edit-effect-handlers.ts": {
+    "eslint(no-restricted-globals)": 4,
     "local(no-unsafe-as)": 3
   },
   "apps/local/app/features/video-editor/editor-menu.test.ts": {
@@ -1477,8 +1656,12 @@
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/features/video-editor/editor-video-menu.tsx": {
+    "eslint(no-restricted-globals)": 2,
     "local(no-unsafe-as)": 2,
     "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/features/video-editor/footage-layers-preview.tsx": {
+    "eslint(no-restricted-globals)": 1
   },
   "apps/local/app/features/video-editor/hooks/use-autofill-chapters-modal.tsx": {
     "local(no-unsafe-as)": 1
@@ -1489,16 +1672,31 @@
   "apps/local/app/features/video-editor/hooks/use-chapter-modal.ts": {
     "typescript(no-non-null-assertion)": 1
   },
+  "apps/local/app/features/video-editor/hooks/use-clip-frame-preview.ts": {
+    "eslint(no-restricted-globals)": 1
+  },
+  "apps/local/app/features/video-editor/hooks/use-clipboard-operations.ts": {
+    "eslint(no-restricted-globals)": 4
+  },
+  "apps/local/app/features/video-editor/hooks/use-popup-open.ts": {
+    "eslint(no-restricted-globals)": 2
+  },
+  "apps/local/app/features/video-editor/hooks/use-session-panel-reducer.ts": {
+    "eslint(no-restricted-globals)": 5
+  },
   "apps/local/app/features/video-editor/hooks/use-suggestions-storage.test.ts": {
+    "eslint(no-restricted-properties)": 2,
     "local(no-unsafe-as)": 2
   },
   "apps/local/app/features/video-editor/hooks/use-suggestions.ts": {
+    "eslint(no-restricted-globals)": 4,
     "local(no-unsafe-as)": 5
   },
   "apps/local/app/features/video-editor/hooks/use-teleprompter-editor-mode.ts": {
     "local(no-unsafe-as)": 3
   },
   "apps/local/app/features/video-editor/hooks/use-video-copy-options.ts": {
+    "eslint(no-restricted-properties)": 2,
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/features/video-editor/hooks/use-video-editor.ts": {
@@ -1510,6 +1708,12 @@
   "apps/local/app/features/video-editor/insert-at-point.ts": {
     "typescript(no-non-null-assertion)": 1
   },
+  "apps/local/app/features/video-editor/latest-frame.browser.test.tsx": {
+    "eslint(no-restricted-globals)": 1
+  },
+  "apps/local/app/features/video-editor/latest-frame.ts": {
+    "eslint(no-restricted-globals)": 3
+  },
   "apps/local/app/features/video-editor/overlay-preview.tsx": {
     "typescript(no-non-null-assertion)": 2
   },
@@ -1520,6 +1724,7 @@
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/features/video-editor/preloadable-clip.tsx": {
+    "eslint(no-restricted-globals)": 2,
     "typescript(no-non-null-assertion)": 3
   },
   "apps/local/app/features/video-editor/recorder-attention-reducer.test.ts": {
@@ -1532,6 +1737,9 @@
   "apps/local/app/features/video-editor/recorder-takes.test.ts": {
     "local(no-unsafe-as)": 2,
     "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/features/video-editor/save-clip-diagram-pin.ts": {
+    "eslint(no-restricted-globals)": 1
   },
   "apps/local/app/features/video-editor/session-clip-marks.test.ts": {
     "local(no-unsafe-as)": 4,
@@ -1554,15 +1762,26 @@
     "typescript(no-non-null-assertion)": 1,
     "typescript(no-unsafe-argument)": 1
   },
+  "apps/local/app/features/video-editor/use-calibration-gate.ts": {
+    "eslint(no-restricted-globals)": 3
+  },
+  "apps/local/app/features/video-editor/use-composite-playback.ts": {
+    "eslint(no-restricted-globals)": 2
+  },
   "apps/local/app/features/video-editor/use-cvm-recorder.browser.test.tsx": {
     "local(no-unsafe-as)": 1,
     "typescript(no-non-null-assertion)": 4
   },
   "apps/local/app/features/video-editor/use-cvm-recorder.ts": {
+    "eslint(no-restricted-globals)": 11,
     "local(no-unsafe-as)": 2,
     "typescript(no-unsafe-argument)": 1
   },
+  "apps/local/app/features/video-editor/use-silence-length.ts": {
+    "eslint(no-restricted-properties)": 2
+  },
   "apps/local/app/features/video-editor/use-video-editor-wiring.ts": {
+    "eslint(no-restricted-globals)": 6,
     "local(no-unsafe-as)": 9,
     "typescript(no-non-null-assertion)": 2
   },
@@ -1570,29 +1789,35 @@
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/features/video-editor/video-editor-selectors-capture.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 3,
     "typescript(no-explicit-any)": 1,
     "typescript(no-unsafe-assignment)": 1
   },
   "apps/local/app/features/video-editor/video-editor-selectors-chapters.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 3,
     "typescript(no-explicit-any)": 2,
     "typescript(no-unsafe-assignment)": 2
   },
   "apps/local/app/features/video-editor/video-editor-selectors-clips.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 4,
     "typescript(no-explicit-any)": 2,
     "typescript(no-unsafe-assignment)": 2
   },
   "apps/local/app/features/video-editor/video-editor-selectors-danger-metadata.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 3,
     "typescript(no-explicit-any)": 1,
     "typescript(no-unsafe-assignment)": 1
   },
   "apps/local/app/features/video-editor/video-editor-selectors-retranscribe.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 4
   },
   "apps/local/app/features/video-editor/video-editor-selectors-timeline.test.ts": {
+    "eslint(no-restricted-globals)": 2,
     "local(no-unsafe-as)": 6,
     "typescript(no-explicit-any)": 2,
     "typescript(no-non-null-assertion)": 48,
@@ -1612,6 +1837,7 @@
     "typescript(no-non-null-assertion)": 4
   },
   "apps/local/app/features/video-posting/ai-hero-components.tsx": {
+    "eslint(no-restricted-globals)": 3,
     "typescript(no-floating-promises)": 2,
     "typescript(no-misused-promises)": 1,
     "typescript(no-unsafe-argument)": 2,
@@ -1619,6 +1845,7 @@
     "typescript(no-unsafe-member-access)": 7
   },
   "apps/local/app/features/video-posting/ai-hero-page.tsx": {
+    "eslint(no-restricted-globals)": 5,
     "local(no-unsafe-as)": 1,
     "typescript(no-misused-promises)": 3,
     "typescript(no-unsafe-assignment)": 2,
@@ -1628,6 +1855,7 @@
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/features/video-posting/lesson-page.tsx": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 1,
     "typescript(no-floating-promises)": 2,
     "typescript(no-misused-promises)": 1,
@@ -1635,6 +1863,7 @@
     "typescript(no-unsafe-member-access)": 1
   },
   "apps/local/app/features/video-posting/newsletter-page.tsx": {
+    "eslint(no-restricted-globals)": 4,
     "typescript(no-misused-promises)": 2,
     "typescript(no-unsafe-assignment)": 1
   },
@@ -1643,6 +1872,7 @@
     "typescript(no-misused-promises)": 1
   },
   "apps/local/app/features/video-posting/posting-requests.ts": {
+    "eslint(no-restricted-globals)": 3,
     "local(no-unsafe-as)": 1,
     "typescript(no-unsafe-argument)": 1,
     "typescript(no-unsafe-assignment)": 4,
@@ -1652,16 +1882,19 @@
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/features/video-posting/skills-changelog-helpers.tsx": {
+    "eslint(no-restricted-globals)": 2,
     "local(no-unsafe-as)": 1,
     "typescript(no-misused-promises)": 1,
     "typescript(no-unsafe-assignment)": 1,
     "typescript(no-unsafe-member-access)": 1
   },
   "apps/local/app/features/video-posting/skills-changelog-page.tsx": {
+    "eslint(no-restricted-globals)": 5,
     "typescript(no-misused-promises)": 5,
     "typescript(no-unsafe-assignment)": 1
   },
   "apps/local/app/features/video-posting/social-page.tsx": {
+    "eslint(no-restricted-globals)": 4,
     "local(no-unsafe-as)": 1,
     "typescript(no-misused-promises)": 3,
     "typescript(no-unsafe-argument)": 2,
@@ -1669,9 +1902,11 @@
     "typescript(no-unsafe-member-access)": 2
   },
   "apps/local/app/features/video-posting/use-post-page-reducer.ts": {
+    "eslint(no-restricted-globals)": 7,
     "typescript(no-floating-promises)": 1
   },
   "apps/local/app/features/video-posting/use-shorts-posting-reducer.ts": {
+    "eslint(no-restricted-globals)": 4,
     "local(no-unsafe-as)": 2
   },
   "apps/local/app/hooks/effect-entity.ts": {
@@ -1702,13 +1937,18 @@
     "local(no-unsafe-as)": 1,
     "typescript(no-non-null-assertion)": 5
   },
+  "apps/local/app/hooks/use-focus-revalidate.ts": {
+    "eslint(no-restricted-globals)": 3
+  },
   "apps/local/app/hooks/use-lint.ts": {
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/hooks/use-local-storage.test.ts": {
+    "eslint(no-restricted-properties)": 4,
     "local(no-unsafe-as)": 4
   },
   "apps/local/app/hooks/use-thumbnail-reducer.ts": {
+    "eslint(no-restricted-globals)": 11,
     "local(no-unsafe-as)": 2,
     "typescript(no-unsafe-assignment)": 3,
     "typescript(no-unsafe-member-access)": 1
@@ -1733,16 +1973,39 @@
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/lib/early-clicks.browser.test.tsx": {
+    "eslint(no-restricted-globals)": 1,
     "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/app/lib/early-clicks.ts": {
+    "eslint(no-restricted-globals)": 1
+  },
+  "apps/local/app/lib/filtered-newest-snapshot.test.ts": {
+    "eslint(no-restricted-globals)": 11
   },
   "apps/local/app/lib/live-channels.ts": {
     "typescript(no-unsafe-assignment)": 1
   },
+  "apps/local/app/lib/new-short.ts": {
+    "eslint(no-restricted-globals)": 1
+  },
+  "apps/local/app/lib/popup-channel.ts": {
+    "eslint(no-restricted-globals)": 2
+  },
   "apps/local/app/lib/post-confirmed.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/lib/retired-storage.ts": {
+    "eslint(no-restricted-globals)": 1
+  },
+  "apps/local/app/lib/route-toasts.test.ts": {
+    "eslint(no-restricted-properties)": 1
   },
   "apps/local/app/lib/route-toasts.ts": {
     "local(no-unsafe-as)": 1
+  },
+  "apps/local/app/lib/short-status.test.ts": {
+    "eslint(no-restricted-globals)": 1
   },
   "apps/local/app/lib/unified-line-diff.ts": {
     "typescript(no-non-null-assertion)": 11,
@@ -1760,6 +2023,9 @@
   "apps/local/app/packages/clap-step/lib/clap-step.ts": {
     "typescript(no-non-null-assertion)": 2
   },
+  "apps/local/app/packages/clap-step/tests/clap-step.ffmpeg.test.ts": {
+    "eslint(no-restricted-globals)": 1
+  },
   "apps/local/app/packages/clip-source/lib/clip-source.ts": {
     "typescript(no-non-null-assertion)": 3
   },
@@ -1767,6 +2033,7 @@
     "typescript(no-non-null-assertion)": 2
   },
   "apps/local/app/packages/clip-source/tests/clip-frame.ffmpeg.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "typescript(no-non-null-assertion)": 4
   },
   "apps/local/app/packages/clip-source/tests/clip-source.test.ts": {
@@ -1847,6 +2114,7 @@
     "local(no-unsafe-as)": 4
   },
   "apps/local/app/packages/storage/lib/move-partials.server.ts": {
+    "eslint(no-restricted-globals)": 3,
     "local(no-unsafe-as)": 5
   },
   "apps/local/app/packages/storage/lib/move-placed.server.ts": {
@@ -1870,6 +2138,9 @@
     "local(no-unsafe-as)": 1,
     "typescript(no-non-null-assertion)": 1
   },
+  "apps/local/app/packages/storage/lib/ownership.server.ts": {
+    "eslint(no-restricted-globals)": 1
+  },
   "apps/local/app/packages/storage/lib/purge-exports.server.ts": {
     "local(no-unsafe-as)": 1
   },
@@ -1877,15 +2148,18 @@
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/packages/storage/lib/real-drives.ts": {
+    "eslint(no-restricted-properties)": 1,
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/packages/storage/lib/resolve.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 4
   },
   "apps/local/app/packages/storage/lib/scan-wire.ts": {
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/packages/storage/lib/scan.server.ts": {
+    "eslint(no-restricted-globals)": 3,
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/packages/storage/lib/storage-roots.ts": {
@@ -1895,6 +2169,9 @@
   "apps/local/app/packages/storage/lib/unused-checks.server.ts": {
     "local(no-unsafe-as)": 1,
     "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/packages/storage/lib/unused-delete.server.ts": {
+    "eslint(no-restricted-globals)": 1
   },
   "apps/local/app/packages/storage/tests/bucket-files.test.ts": {
     "local(no-unsafe-as)": 2,
@@ -1909,6 +2186,7 @@
     "typescript(no-non-null-assertion)": 7
   },
   "apps/local/app/packages/storage/tests/move-partials.test.ts": {
+    "eslint(no-restricted-globals)": 3,
     "local(no-unsafe-as)": 6,
     "typescript(no-non-null-assertion)": 3
   },
@@ -1937,6 +2215,7 @@
     "typescript(no-non-null-assertion)": 15
   },
   "apps/local/app/packages/storage/tests/real-drives.test.ts": {
+    "eslint(no-restricted-globals)": 2,
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/packages/storage/tests/resolve.test.ts": {
@@ -1947,6 +2226,7 @@
     "typescript(no-non-null-assertion)": 12
   },
   "apps/local/app/packages/storage/tests/unused-delete.test.ts": {
+    "eslint(no-restricted-globals)": 5,
     "local(no-unsafe-as)": 2,
     "typescript(no-non-null-assertion)": 3
   },
@@ -1957,208 +2237,126 @@
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/root.tsx": {
+    "eslint(no-restricted-globals)": 2,
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/routes/_app._index.tsx": {
+    "eslint(no-restricted-globals)": 8,
     "local(no-unsafe-as)": 1,
     "typescript(no-non-null-assertion)": 2
   },
   "apps/local/app/routes/_app.api-tokens.tsx": {
+    "eslint(no-restricted-globals)": 5,
     "local(no-unsafe-as)": 1,
-    "typescript(no-misused-promises)": 2,
-    "typescript(no-unsafe-assignment)": 2,
-    "typescript(no-unsafe-call)": 1,
-    "typescript(no-unsafe-member-access)": 3
+    "typescript(no-misused-promises)": 2
   },
   "apps/local/app/routes/_app.archived-courses.tsx": {
-    "typescript(no-floating-promises)": 2,
-    "typescript(no-unsafe-assignment)": 2,
-    "typescript(no-unsafe-call)": 1,
-    "typescript(no-unsafe-member-access)": 7
+    "typescript(no-floating-promises)": 2
   },
   "apps/local/app/routes/_app.av-calibration.tsx": {
-    "typescript(no-unsafe-assignment)": 3,
-    "typescript(no-unsafe-member-access)": 4
+    "eslint(no-restricted-globals)": 1
   },
   "apps/local/app/routes/_app.courses.$courseId._index.tsx": {
     "local(no-unsafe-as)": 1,
     "typescript(no-floating-promises)": 2,
-    "typescript(no-non-null-assertion)": 2,
-    "typescript(no-unsafe-argument)": 15,
-    "typescript(no-unsafe-assignment)": 20,
-    "typescript(no-unsafe-call)": 5,
-    "typescript(no-unsafe-member-access)": 40,
-    "typescript(no-unsafe-return)": 4
+    "typescript(no-non-null-assertion)": 2
   },
   "apps/local/app/routes/_app.courses.$courseId.archived-lessons.tsx": {
     "typescript(no-floating-promises)": 1,
-    "typescript(no-non-null-assertion)": 1,
-    "typescript(no-unsafe-assignment)": 4,
-    "typescript(no-unsafe-call)": 2,
-    "typescript(no-unsafe-member-access)": 9
+    "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/routes/_app.courses.$courseId.changelog.tsx": {
-    "typescript(no-non-null-assertion)": 2,
-    "typescript(no-unsafe-assignment)": 1,
-    "typescript(no-unsafe-member-access)": 3
+    "typescript(no-non-null-assertion)": 2
   },
   "apps/local/app/routes/_app.courses.$courseId.publish.tsx": {
     "local(no-unsafe-as)": 2,
-    "typescript(no-non-null-assertion)": 3,
-    "typescript(no-unsafe-argument)": 5,
-    "typescript(no-unsafe-assignment)": 17,
-    "typescript(no-unsafe-member-access)": 22
+    "typescript(no-non-null-assertion)": 3
   },
   "apps/local/app/routes/_app.courses.$courseId.sections.$sectionId.tsx": {
     "typescript(no-floating-promises)": 2,
-    "typescript(no-non-null-assertion)": 2,
-    "typescript(no-unsafe-argument)": 5,
-    "typescript(no-unsafe-assignment)": 13,
-    "typescript(no-unsafe-call)": 2,
-    "typescript(no-unsafe-member-access)": 25,
-    "typescript(no-unsafe-return)": 1
-  },
-  "apps/local/app/routes/_app.imported-footage.tsx": {
-    "typescript(no-unsafe-argument)": 6,
-    "typescript(no-unsafe-assignment)": 13,
-    "typescript(no-unsafe-call)": 6,
-    "typescript(no-unsafe-member-access)": 38,
-    "typescript(no-unsafe-return)": 1
+    "typescript(no-non-null-assertion)": 2
   },
   "apps/local/app/routes/_app.pitches.$pitchId.tsx": {
     "local(no-unsafe-as)": 2,
     "typescript(no-floating-promises)": 5,
-    "typescript(no-non-null-assertion)": 1,
-    "typescript(no-unsafe-assignment)": 17,
-    "typescript(no-unsafe-call)": 4,
-    "typescript(no-unsafe-member-access)": 30,
-    "typescript(no-unsafe-return)": 1
+    "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/routes/_app.pitches._index.tsx": {
     "local(no-unsafe-as)": 2,
-    "typescript(no-floating-promises)": 6,
-    "typescript(no-unsafe-argument)": 3,
-    "typescript(no-unsafe-assignment)": 3,
-    "typescript(no-unsafe-member-access)": 2
+    "typescript(no-floating-promises)": 6
   },
   "apps/local/app/routes/_app.shorts._index.tsx": {
     "typescript(no-floating-promises)": 1,
-    "typescript(no-misused-promises)": 1,
-    "typescript(no-unsafe-argument)": 7,
-    "typescript(no-unsafe-assignment)": 6,
-    "typescript(no-unsafe-call)": 1,
-    "typescript(no-unsafe-member-access)": 14,
-    "typescript(no-unsafe-return)": 1
+    "typescript(no-misused-promises)": 1
+  },
+  "apps/local/app/routes/_app.storage.tsx": {
+    "eslint(no-restricted-globals)": 1
   },
   "apps/local/app/routes/_app.storage_.$bucketId.tsx": {
-    "typescript(no-unsafe-assignment)": 2,
-    "typescript(no-unsafe-member-access)": 2
+    "eslint(no-restricted-globals)": 1
   },
   "apps/local/app/routes/_app.streaming.$videoId.tsx": {
-    "typescript(no-non-null-assertion)": 2,
-    "typescript(no-unsafe-assignment)": 9,
-    "typescript(no-unsafe-member-access)": 7,
-    "typescript(no-unsafe-return)": 1
-  },
-  "apps/local/app/routes/_app.streaming._index.tsx": {
-    "typescript(no-unsafe-argument)": 4,
-    "typescript(no-unsafe-assignment)": 3,
-    "typescript(no-unsafe-call)": 2,
-    "typescript(no-unsafe-member-access)": 11,
-    "typescript(no-unsafe-return)": 1
+    "typescript(no-non-null-assertion)": 2
   },
   "apps/local/app/routes/_app.tsx": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/routes/_app.videos.$videoId.ai-hero.tsx": {
     "local(no-unsafe-as)": 1,
     "typescript(no-floating-promises)": 2,
-    "typescript(no-non-null-assertion)": 2,
-    "typescript(no-unsafe-argument)": 1,
-    "typescript(no-unsafe-assignment)": 14,
-    "typescript(no-unsafe-member-access)": 2
+    "typescript(no-non-null-assertion)": 2
   },
   "apps/local/app/routes/_app.videos.$videoId.animatic.tsx": {
     "local(no-unsafe-as)": 2,
-    "typescript(no-non-null-assertion)": 2,
-    "typescript(no-unsafe-argument)": 1,
-    "typescript(no-unsafe-assignment)": 11,
-    "typescript(no-unsafe-member-access)": 10
+    "typescript(no-non-null-assertion)": 2
   },
   "apps/local/app/routes/_app.videos.$videoId.edit.tsx": {
     "local(no-unsafe-as)": 1,
-    "typescript(no-non-null-assertion)": 1,
-    "typescript(no-unsafe-argument)": 1,
-    "typescript(no-unsafe-assignment)": 1,
-    "typescript(no-unsafe-member-access)": 2
+    "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/routes/_app.videos.$videoId.lesson.tsx": {
     "local(no-unsafe-as)": 1,
     "typescript(no-floating-promises)": 1,
-    "typescript(no-non-null-assertion)": 2,
-    "typescript(no-unsafe-argument)": 1,
-    "typescript(no-unsafe-assignment)": 8,
-    "typescript(no-unsafe-member-access)": 2
+    "typescript(no-non-null-assertion)": 2
   },
   "apps/local/app/routes/_app.videos.$videoId.move-to-course.tsx": {
-    "typescript(no-non-null-assertion)": 1,
-    "typescript(no-unsafe-argument)": 1,
-    "typescript(no-unsafe-assignment)": 15,
-    "typescript(no-unsafe-call)": 6,
-    "typescript(no-unsafe-member-access)": 23
+    "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/routes/_app.videos.$videoId.newsletter.tsx": {
+    "eslint(no-restricted-properties)": 1,
     "local(no-unsafe-as)": 1,
     "typescript(no-floating-promises)": 2,
-    "typescript(no-non-null-assertion)": 1,
-    "typescript(no-unsafe-assignment)": 14,
-    "typescript(no-unsafe-member-access)": 2
+    "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/routes/_app.videos.$videoId.post.tsx": {
     "local(no-unsafe-as)": 1,
     "typescript(no-floating-promises)": 3,
-    "typescript(no-non-null-assertion)": 1,
-    "typescript(no-unsafe-assignment)": 18,
-    "typescript(no-unsafe-member-access)": 2
+    "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/routes/_app.videos.$videoId.skills-changelog.tsx": {
     "local(no-unsafe-as)": 1,
     "typescript(no-floating-promises)": 2,
-    "typescript(no-non-null-assertion)": 2,
-    "typescript(no-unsafe-argument)": 1,
-    "typescript(no-unsafe-assignment)": 14,
-    "typescript(no-unsafe-member-access)": 2
+    "typescript(no-non-null-assertion)": 2
   },
   "apps/local/app/routes/_app.videos.$videoId.social.tsx": {
     "local(no-unsafe-as)": 1,
     "typescript(no-floating-promises)": 2,
-    "typescript(no-non-null-assertion)": 1,
-    "typescript(no-unsafe-assignment)": 14,
-    "typescript(no-unsafe-member-access)": 3
+    "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/routes/_app.videos.$videoId.thumbnails.tsx": {
+    "eslint(no-restricted-globals)": 2,
     "local(no-unsafe-as)": 1,
     "typescript(no-floating-promises)": 1,
-    "typescript(no-non-null-assertion)": 1,
-    "typescript(no-unsafe-argument)": 4,
-    "typescript(no-unsafe-assignment)": 16,
-    "typescript(no-unsafe-call)": 2,
-    "typescript(no-unsafe-member-access)": 18
+    "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/routes/_app.videos.$videoId.tsx": {
     "local(no-unsafe-as)": 2,
     "typescript(no-misused-promises)": 2,
-    "typescript(no-non-null-assertion)": 1,
-    "typescript(no-unsafe-argument)": 7,
-    "typescript(no-unsafe-assignment)": 19
+    "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/routes/_app.videos._index.tsx": {
-    "typescript(no-misused-promises)": 2,
-    "typescript(no-unsafe-argument)": 4,
-    "typescript(no-unsafe-assignment)": 6,
-    "typescript(no-unsafe-call)": 2,
-    "typescript(no-unsafe-member-access)": 10,
-    "typescript(no-unsafe-return)": 1
+    "typescript(no-misused-promises)": 2
   },
   "apps/local/app/routes/api.auth.ai-hero.poll.ts": {
     "local(no-unsafe-as)": 1,
@@ -2166,9 +2364,11 @@
     "typescript(no-unsafe-member-access)": 1
   },
   "apps/local/app/routes/api.auth.dropbox.callback.ts": {
+    "eslint(no-restricted-globals)": 7,
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/routes/api.auth.google.callback.ts": {
+    "eslint(no-restricted-globals)": 7,
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/routes/api.av-calibration.$calibrationId.clap-step.ts": {
@@ -2194,14 +2394,11 @@
   },
   "apps/local/app/routes/api.clips.$clipId.diagram-pin.ts": {
     "local(no-unsafe-as)": 1,
-    "typescript(no-non-null-assertion)": 1,
-    "typescript(no-unsafe-argument)": 1,
-    "typescript(no-unsafe-member-access)": 1
+    "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/routes/api.clips.$clipId.web-links.ts": {
-    "typescript(no-non-null-assertion)": 1,
-    "typescript(no-unsafe-argument)": 2,
-    "typescript(no-unsafe-member-access)": 2
+    "eslint(no-restricted-globals)": 1,
+    "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/routes/api.course-editor.ts": {
     "local(no-unsafe-as)": 1
@@ -2231,11 +2428,6 @@
   "apps/local/app/routes/api.deliverables.$deliverableId.update.ts": {
     "typescript(no-non-null-assertion)": 1
   },
-  "apps/local/app/routes/api.diagram-component-thumbnails.$componentId.ts": {
-    "typescript(no-unsafe-argument)": 2,
-    "typescript(no-unsafe-assignment)": 1,
-    "typescript(no-unsafe-member-access)": 1
-  },
   "apps/local/app/routes/api.diagram-components.$componentId.delete.ts": {
     "typescript(no-non-null-assertion)": 1
   },
@@ -2250,23 +2442,15 @@
   },
   "apps/local/app/routes/api.diagram-snapshots.$snapshotId.archive.ts": {
     "typescript(no-non-null-assertion)": 1,
-    "typescript(no-unsafe-argument)": 2,
+    "typescript(no-unsafe-argument)": 1,
     "typescript(no-unsafe-assignment)": 2,
-    "typescript(no-unsafe-call)": 2,
-    "typescript(no-unsafe-member-access)": 4
+    "typescript(no-unsafe-member-access)": 2
   },
   "apps/local/app/routes/api.diagram-snapshots.$snapshotId.ts": {
     "typescript(no-non-null-assertion)": 1
   },
-  "apps/local/app/routes/api.diagram-thumbnails.$diagramId.$contentHash.ts": {
-    "typescript(no-unsafe-argument)": 4,
-    "typescript(no-unsafe-assignment)": 1,
-    "typescript(no-unsafe-member-access)": 1
-  },
   "apps/local/app/routes/api.diagrams.$diagramId.head.ts": {
-    "typescript(no-non-null-assertion)": 2,
-    "typescript(no-unsafe-argument)": 1,
-    "typescript(no-unsafe-member-access)": 1
+    "typescript(no-non-null-assertion)": 2
   },
   "apps/local/app/routes/api.diagrams.$diagramId.restore-from-search.ts": {
     "local(no-unsafe-as)": 1,
@@ -2286,23 +2470,20 @@
   "apps/local/app/routes/api.diagrams.$diagramId.update.ts": {
     "typescript(no-non-null-assertion)": 1
   },
-  "apps/local/app/routes/api.feedback.ts": {
-    "typescript(no-non-null-assertion)": 1,
-    "typescript(no-unsafe-assignment)": 5,
-    "typescript(no-unsafe-call)": 3,
-    "typescript(no-unsafe-member-access)": 4
+  "apps/local/app/routes/api.diagrams.search.ts": {
+    "eslint(no-restricted-globals)": 2
   },
-  "apps/local/app/routes/api.jobs.events.ts": {
+  "apps/local/app/routes/api.feedback.ts": {
+    "eslint(no-restricted-globals)": 2,
+    "typescript(no-non-null-assertion)": 1,
     "typescript(no-unsafe-assignment)": 2,
-    "typescript(no-unsafe-call)": 2,
-    "typescript(no-unsafe-member-access)": 2
+    "typescript(no-unsafe-member-access)": 1
   },
   "apps/local/app/routes/api.jobs.stage-history.ts": {
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/routes/api.lessons.$lessonId.add-video.ts": {
-    "typescript(no-non-null-assertion)": 2,
-    "typescript(no-unsafe-argument)": 1
+    "typescript(no-non-null-assertion)": 2
   },
   "apps/local/app/routes/api.lessons.$lessonId.unarchive.ts": {
     "typescript(no-non-null-assertion)": 1
@@ -2311,9 +2492,7 @@
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/routes/api.links.fetch-title.ts": {
-    "typescript(no-unsafe-assignment)": 2,
-    "typescript(no-unsafe-call)": 2,
-    "typescript(no-unsafe-member-access)": 2
+    "eslint(no-restricted-globals)": 1
   },
   "apps/local/app/routes/api.links.ts": {
     "local(no-unsafe-as)": 3
@@ -2336,9 +2515,8 @@
     "local(no-unsafe-as)": 1,
     "typescript(no-unsafe-assignment)": 1
   },
-  "apps/local/app/routes/api.storage.buckets.$bucketId.files.ts": {
-    "typescript(no-unsafe-assignment)": 1,
-    "typescript(no-unsafe-member-access)": 1
+  "apps/local/app/routes/api.streaming.new-broadcast.ts": {
+    "eslint(no-restricted-globals)": 1
   },
   "apps/local/app/routes/api.teleprompter.$videoId.content.ts": {
     "typescript(no-non-null-assertion)": 1
@@ -2369,10 +2547,6 @@
   },
   "apps/local/app/routes/api.video-files.create.ts": {
     "local(no-unsafe-as)": 1
-  },
-  "apps/local/app/routes/api.video-files.read.ts": {
-    "typescript(no-unsafe-argument)": 2,
-    "typescript(no-unsafe-member-access)": 1
   },
   "apps/local/app/routes/api.videos.$videoId.autofill-chapters.ts": {
     "typescript(no-non-null-assertion)": 1
@@ -2428,6 +2602,7 @@
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/routes/api.videos.$videoId.recorder.go-live.ts": {
+    "eslint(no-restricted-globals)": 1,
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/routes/api.videos.$videoId.recorder.hide-highlight.ts": {
@@ -2437,6 +2612,7 @@
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/routes/api.videos.$videoId.recorder.record.ts": {
+    "eslint(no-restricted-globals)": 1,
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/routes/api.videos.$videoId.recorder.retry-camera.ts": {
@@ -2469,11 +2645,7 @@
   },
   "apps/local/app/routes/api.videos.$videoId.stream.ts": {
     "eslint(no-unused-vars)": 1,
-    "typescript(no-non-null-assertion)": 3,
-    "typescript(no-unsafe-argument)": 4,
-    "typescript(no-unsafe-assignment)": 4,
-    "typescript(no-unsafe-call)": 3,
-    "typescript(no-unsafe-member-access)": 9
+    "typescript(no-non-null-assertion)": 3
   },
   "apps/local/app/routes/api.videos.$videoId.unarchive.ts": {
     "typescript(no-non-null-assertion)": 1
@@ -2503,25 +2675,24 @@
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/routes/diagram-playground.$diagramId.tsx": {
+    "eslint(no-restricted-globals)": 5,
     "typescript(no-floating-promises)": 5,
-    "typescript(no-misused-promises)": 4,
-    "typescript(no-unsafe-argument)": 1,
-    "typescript(no-unsafe-assignment)": 7,
-    "typescript(no-unsafe-call)": 2,
-    "typescript(no-unsafe-member-access)": 13
+    "typescript(no-misused-promises)": 4
   },
   "apps/local/app/routes/diagram-playground._index.tsx": {
+    "eslint(no-restricted-globals)": 11,
     "typescript(no-floating-promises)": 3,
     "typescript(no-misused-promises)": 3,
-    "typescript(no-unsafe-argument)": 4,
-    "typescript(no-unsafe-assignment)": 10,
-    "typescript(no-unsafe-call)": 2,
-    "typescript(no-unsafe-member-access)": 22
+    "typescript(no-unsafe-assignment)": 1
   },
   "apps/local/app/routes/diagram-render.tsx": {
     "local(no-unsafe-as)": 4
   },
+  "apps/local/app/routes/stream-chat.tsx": {
+    "eslint(no-restricted-globals)": 4
+  },
   "apps/local/app/routes/teleprompter.tsx": {
+    "eslint(no-restricted-globals)": 10,
     "local(no-unsafe-as)": 1,
     "typescript(no-floating-promises)": 1,
     "typescript(no-misused-promises)": 2
@@ -2539,28 +2710,23 @@
     "typescript(no-non-null-assertion)": 2
   },
   "apps/local/app/routes/view-image.ts": {
-    "eslint(no-unused-vars)": 1,
-    "typescript(no-unsafe-argument)": 1,
-    "typescript(no-unsafe-assignment)": 1,
-    "typescript(no-unsafe-member-access)": 2
+    "eslint(no-unused-vars)": 1
   },
   "apps/local/app/routes/view-video.ts": {
     "eslint(no-unused-vars)": 1,
-    "typescript(no-non-null-assertion)": 1,
-    "typescript(no-unsafe-argument)": 3,
-    "typescript(no-unsafe-assignment)": 3,
-    "typescript(no-unsafe-call)": 3,
-    "typescript(no-unsafe-member-access)": 8
+    "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/services/agent-session-placement.ts": {
     "typescript(no-non-null-assertion)": 3
   },
   "apps/local/app/services/ai-hero-auth-service.ts": {
+    "eslint(no-restricted-globals)": 3,
     "local(no-unsafe-as)": 4,
     "typescript(no-unsafe-assignment)": 1,
     "typescript(no-unsafe-member-access)": 2
   },
   "apps/local/app/services/ai-hero-shortlink-service.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/services/ai-hero-upload-service.test.ts": {
@@ -2570,21 +2736,25 @@
     "typescript(no-unsafe-return)": 1
   },
   "apps/local/app/services/ai-hero-upload-service.ts": {
+    "eslint(no-restricted-globals)": 10,
     "local(no-unsafe-as)": 8
   },
   "apps/local/app/services/animatic-clip-mockup-files.test.ts": {
+    "eslint(no-restricted-properties)": 4,
     "typescript(no-non-null-assertion)": 5
   },
   "apps/local/app/services/animatic-export-service.ts": {
     "typescript(no-non-null-assertion)": 3
   },
   "apps/local/app/services/autofill-chapters-write.server.ts": {
+    "eslint(no-restricted-globals)": 1,
     "typescript(no-non-null-assertion)": 3
   },
   "apps/local/app/services/autofill-service.test.ts": {
     "typescript(no-non-null-assertion)": 16
   },
   "apps/local/app/services/autofill-service.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 1,
     "typescript(no-non-null-assertion)": 1
   },
@@ -2592,18 +2762,24 @@
     "typescript(no-non-null-assertion)": 2
   },
   "apps/local/app/services/b-roll-footage-layers.ffmpeg.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "typescript(no-non-null-assertion)": 5
   },
   "apps/local/app/services/background-removal-service.ts": {
+    "eslint(no-restricted-globals)": 1,
+    "eslint(no-restricted-properties)": 1,
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/services/broadcast-chat-live.server.ts": {
+    "eslint(no-restricted-globals)": 2,
     "local(no-unsafe-as)": 2
   },
   "apps/local/app/services/broadcast-chat-viewers.test.ts": {
+    "eslint(no-restricted-globals)": 3,
     "typescript(no-non-null-assertion)": 2
   },
   "apps/local/app/services/broadcast-chat.test.ts": {
+    "eslint(no-restricted-globals)": 9,
     "local(no-unsafe-as)": 2,
     "typescript(no-non-null-assertion)": 10
   },
@@ -2611,9 +2787,11 @@
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/services/buffer-api-service.server.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 2
   },
   "apps/local/app/services/buffer-posting-orchestration.server.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 8,
     "typescript(no-explicit-any)": 4,
     "typescript(no-non-null-assertion)": 8,
@@ -2626,6 +2804,12 @@
     "typescript(no-unsafe-assignment)": 1,
     "typescript(no-unsafe-return)": 1
   },
+  "apps/local/app/services/changelog-service-chapters.test.ts": {
+    "eslint(no-restricted-globals)": 1
+  },
+  "apps/local/app/services/changelog-service.test.ts": {
+    "eslint(no-restricted-globals)": 1
+  },
   "apps/local/app/services/changelog-service.ts": {
     "typescript(no-non-null-assertion)": 3
   },
@@ -2633,6 +2817,7 @@
     "typescript(no-non-null-assertion)": 10
   },
   "apps/local/app/services/claude-session-reader.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 3,
     "typescript(no-non-null-assertion)": 6
   },
@@ -2643,7 +2828,12 @@
     "typescript(no-non-null-assertion)": 2
   },
   "apps/local/app/services/clip-layers-export.ffmpeg.test.ts": {
+    "eslint(no-restricted-globals)": 1,
+    "eslint(no-restricted-properties)": 1,
     "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/services/clip-mockup-asset-response.test.ts": {
+    "eslint(no-restricted-properties)": 4
   },
   "apps/local/app/services/clip-mockup-copy-forward.test.ts": {
     "local(no-unsafe-as)": 1,
@@ -2651,18 +2841,24 @@
     "typescript(no-non-null-assertion)": 6,
     "typescript(no-unsafe-argument)": 2
   },
+  "apps/local/app/services/clip-mockup-daemon/client.ts": {
+    "eslint(no-restricted-properties)": 1
+  },
   "apps/local/app/services/clip-mockup-daemon/daemon.mjs": {
+    "eslint(no-restricted-properties)": 1,
     "typescript(no-unsafe-argument)": 1,
     "typescript(no-unsafe-assignment)": 1,
     "typescript(no-unsafe-call)": 1
   },
   "apps/local/app/services/clip-mockup-daemon/server.ts": {
+    "eslint(no-restricted-globals)": 4,
     "local(no-unsafe-as)": 2
   },
   "apps/local/app/services/clip-mockup-files.ts": {
     "local(no-unsafe-as)": 2
   },
   "apps/local/app/services/clip-segment-args-short.test.ts": {
+    "eslint(no-restricted-globals)": 2,
     "typescript(no-non-null-assertion)": 13,
     "typescript(no-unsafe-assignment)": 1,
     "typescript(no-unsafe-member-access)": 1
@@ -2680,18 +2876,24 @@
     "typescript(no-non-null-assertion)": 7
   },
   "apps/local/app/services/clip-service-footage-stats-copies.test.ts": {
+    "eslint(no-restricted-globals)": 2,
     "typescript(no-explicit-any)": 3,
     "typescript(no-non-null-assertion)": 5,
     "typescript(no-unsafe-argument)": 2
   },
   "apps/local/app/services/clip-service-footage-stats.test.ts": {
+    "eslint(no-restricted-globals)": 5,
     "typescript(no-non-null-assertion)": 7
   },
   "apps/local/app/services/clip-service-handler.failures.test.ts": {
     "local(no-unsafe-as)": 2
   },
   "apps/local/app/services/clip-service-handler.helpers.ts": {
+    "eslint(no-restricted-globals)": 2,
     "typescript(no-non-null-assertion)": 4
+  },
+  "apps/local/app/services/clip-service-handler.ts": {
+    "eslint(no-restricted-globals)": 1
   },
   "apps/local/app/services/clip-service-insertion-point.test.ts": {
     "local(no-unsafe-as)": 23,
@@ -2743,6 +2945,7 @@
     "typescript(no-non-null-assertion)": 5
   },
   "apps/local/app/services/clip-service-test-setup.ts": {
+    "eslint(no-restricted-properties)": 1,
     "local(no-unsafe-as)": 7,
     "typescript(no-explicit-any)": 1,
     "typescript(no-unsafe-argument)": 1
@@ -2752,6 +2955,7 @@
     "typescript(no-unsafe-assignment)": 1
   },
   "apps/local/app/services/clip-service.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 9,
     "typescript(no-non-null-assertion)": 1
   },
@@ -2759,12 +2963,14 @@
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/services/clip-transcription.server.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 2
   },
   "apps/local/app/services/clip-transcription.test.ts": {
     "local(no-unsafe-as)": 4
   },
   "apps/local/app/services/clips-race.test.ts": {
+    "eslint(no-restricted-properties)": 1,
     "local(no-unsafe-as)": 6,
     "typescript(no-explicit-any)": 7,
     "typescript(no-non-null-assertion)": 2,
@@ -2781,6 +2987,7 @@
     "typescript(no-unsafe-member-access)": 2
   },
   "apps/local/app/services/cloudinary-service.ts": {
+    "eslint(no-restricted-properties)": 1,
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/services/course-editor-service-beats.test.ts": {
@@ -2837,6 +3044,7 @@
     "typescript(no-unsafe-member-access)": 1
   },
   "apps/local/app/services/course-publish-dropbox-upload-test-setup.ts": {
+    "eslint(no-restricted-globals)": 2,
     "local(no-unsafe-as)": 2,
     "typescript(no-explicit-any)": 6,
     "typescript(no-non-null-assertion)": 9,
@@ -2878,6 +3086,7 @@
     "typescript(no-non-null-assertion)": 2
   },
   "apps/local/app/services/course-publish-service-offline-footage.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "typescript(no-non-null-assertion)": 2
   },
   "apps/local/app/services/course-publish-service-overlay-composite.test.ts": {
@@ -2939,6 +3148,7 @@
     "typescript(no-unsafe-return)": 4
   },
   "apps/local/app/services/course-publish-service-test-setup.ts": {
+    "eslint(no-restricted-globals)": 2,
     "local(no-unsafe-as)": 3,
     "typescript(no-explicit-any)": 4,
     "typescript(no-non-null-assertion)": 7,
@@ -2958,10 +3168,14 @@
   "apps/local/app/services/cover-video-opening.test.ts": {
     "typescript(no-non-null-assertion)": 3
   },
+  "apps/local/app/services/diagram-thumbnail-store.server.ts": {
+    "eslint(no-restricted-properties)": 1
+  },
   "apps/local/app/services/document-writing-agent.test.ts": {
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/services/dropbox-fetch.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/services/dropbox-http-client.test.ts": {
@@ -2978,9 +3192,11 @@
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/services/export-hash-rename.ts": {
+    "eslint(no-restricted-globals)": 1,
     "typescript(no-non-null-assertion)": 2
   },
   "apps/local/app/services/export-hash.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 3,
     "typescript(no-explicit-any)": 2,
     "typescript(no-non-null-assertion)": 16,
@@ -2992,14 +3208,40 @@
   "apps/local/app/services/export-sha256-sidecar.ts": {
     "local(no-unsafe-as)": 1
   },
+  "apps/local/app/services/fake-writer-model.ts": {
+    "eslint(no-restricted-globals)": 1,
+    "eslint(no-restricted-properties)": 2
+  },
+  "apps/local/app/services/ffmpeg-encode-commands.ts": {
+    "eslint(no-restricted-globals)": 2
+  },
+  "apps/local/app/services/ffmpeg-encode-segments.ts": {
+    "eslint(no-restricted-globals)": 1
+  },
+  "apps/local/app/services/ffmpeg-encode-slots.test.ts": {
+    "eslint(no-restricted-properties)": 3
+  },
   "apps/local/app/services/ffmpeg-error.ts": {
     "typescript(no-non-null-assertion)": 2
   },
+  "apps/local/app/services/ffmpeg-permits.test.ts": {
+    "eslint(no-restricted-properties)": 3
+  },
+  "apps/local/app/services/ffmpeg-permits.ts": {
+    "eslint(no-restricted-globals)": 2
+  },
+  "apps/local/app/services/ffmpeg-run-gpu-fallback.test.ts": {
+    "eslint(no-restricted-properties)": 3
+  },
   "apps/local/app/services/ffmpeg-run-input-cut-short.test.ts": {
+    "eslint(no-restricted-properties)": 3,
     "local(no-unsafe-as)": 1,
     "typescript(no-explicit-any)": 1,
     "typescript(no-unsafe-assignment)": 1,
     "typescript(no-unsafe-member-access)": 5
+  },
+  "apps/local/app/services/ffmpeg-stills.ffmpeg.test.ts": {
+    "eslint(no-restricted-globals)": 1
   },
   "apps/local/app/services/ffmpeg-video-logger.test.ts": {
     "local(no-unsafe-as)": 2,
@@ -3010,6 +3252,7 @@
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/services/footage-cache.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/services/footage-chunking.test.ts": {
@@ -3030,7 +3273,14 @@
     "local(no-unsafe-as)": 5
   },
   "apps/local/app/services/gpu-gate.test.ts": {
+    "eslint(no-restricted-properties)": 10,
     "local(no-unsafe-as)": 3
+  },
+  "apps/local/app/services/idle-stop.ts": {
+    "eslint(no-restricted-globals)": 4
+  },
+  "apps/local/app/services/layer.server.ts": {
+    "eslint(no-restricted-properties)": 2
   },
   "apps/local/app/services/mkv-span.ffmpeg.test.ts": {
     "typescript(no-non-null-assertion)": 5,
@@ -3040,6 +3290,8 @@
     "typescript(no-non-null-assertion)": 5
   },
   "apps/local/app/services/new-broadcast.server.test.ts": {
+    "eslint(no-restricted-globals)": 1,
+    "eslint(no-restricted-properties)": 4,
     "typescript(no-non-null-assertion)": 1,
     "typescript(no-unsafe-assignment)": 4
   },
@@ -3047,8 +3299,15 @@
     "local(no-unsafe-as)": 3
   },
   "apps/local/app/services/oauth-token-refresh.test.ts": {
+    "eslint(no-restricted-globals)": 8,
     "local(no-unsafe-as)": 1,
     "typescript(no-non-null-assertion)": 4
+  },
+  "apps/local/app/services/oauth-token-refresh.ts": {
+    "eslint(no-restricted-globals)": 4
+  },
+  "apps/local/app/services/open-folder-service.ts": {
+    "eslint(no-restricted-properties)": 1
   },
   "apps/local/app/services/overlay-composite-ffmpeg-graph.test.ts": {
     "typescript(no-non-null-assertion)": 6
@@ -3067,6 +3326,7 @@
     "typescript(no-non-null-assertion)": 4
   },
   "apps/local/app/services/pending-discard.test.ts": {
+    "eslint(no-restricted-globals)": 2,
     "local(no-unsafe-as)": 1,
     "typescript(no-explicit-any)": 3,
     "typescript(no-unsafe-argument)": 2,
@@ -3079,6 +3339,7 @@
     "local(no-unsafe-as)": 2
   },
   "apps/local/app/services/pending-recovery.test.ts": {
+    "eslint(no-restricted-globals)": 2,
     "local(no-unsafe-as)": 1,
     "typescript(no-explicit-any)": 2,
     "typescript(no-unsafe-argument)": 1
@@ -3086,16 +3347,24 @@
   "apps/local/app/services/preview-gains.test.ts": {
     "typescript(no-non-null-assertion)": 1
   },
+  "apps/local/app/services/preview-loudness-cache.ts": {
+    "eslint(no-restricted-globals)": 1
+  },
   "apps/local/app/services/recorder-client/calibration-commands.ts": {
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/services/recorder-client/client.server.ts": {
+    "eslint(no-restricted-globals)": 5,
     "local(no-unsafe-as)": 2
+  },
+  "apps/local/app/services/recorder-client/command-waiters.ts": {
+    "eslint(no-restricted-globals)": 3
   },
   "apps/local/app/services/recorder-client/existing-client.server.ts": {
     "local(no-unsafe-as)": 4
   },
   "apps/local/app/services/recorder-client/go-live-test-harness.ts": {
+    "eslint(no-restricted-globals)": 3,
     "local(no-unsafe-as)": 5
   },
   "apps/local/app/services/recorder-client/go-live.server.ts": {
@@ -3109,25 +3378,34 @@
     "local(no-unsafe-as)": 2
   },
   "apps/local/app/services/recorder-client/ingest-mic-offset.test.ts": {
+    "eslint(no-restricted-globals)": 2,
     "local(no-unsafe-as)": 2,
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/services/recorder-client/ingest.server.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 1,
     "typescript(no-non-null-assertion)": 2
   },
   "apps/local/app/services/recorder-client/ingest.test.ts": {
+    "eslint(no-restricted-properties)": 3,
     "local(no-unsafe-as)": 5,
     "typescript(no-non-null-assertion)": 15,
     "typescript(no-unsafe-assignment)": 1
   },
+  "apps/local/app/services/recorder-client/live-stream-commands.ts": {
+    "eslint(no-restricted-globals)": 1
+  },
   "apps/local/app/services/recorder-client/live.server.ts": {
+    "eslint(no-restricted-properties)": 1,
     "local(no-unsafe-as)": 2
   },
   "apps/local/app/services/recorder-client/recorder-client-busy-streaming.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "typescript(no-unsafe-assignment)": 1
   },
   "apps/local/app/services/recorder-client/recorder-client-chat-highlight.test.ts": {
+    "eslint(no-restricted-globals)": 8,
     "local(no-unsafe-as)": 3,
     "typescript(no-non-null-assertion)": 30
   },
@@ -3136,6 +3414,7 @@
     "typescript(no-unsafe-assignment)": 1
   },
   "apps/local/app/services/recorder-client/recorder-client-go-live.test.ts": {
+    "eslint(no-restricted-globals)": 6,
     "local(no-unsafe-as)": 4,
     "typescript(no-non-null-assertion)": 13
   },
@@ -3149,6 +3428,7 @@
     "typescript(no-unsafe-member-access)": 3
   },
   "apps/local/app/services/recorder-client/recorder-client-on-demand.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/services/recorder-client/recorder-client-reconnect.test.ts": {
@@ -3161,6 +3441,7 @@
     "local(no-unsafe-as)": 2
   },
   "apps/local/app/services/recorder-client/recorder-client-stream-reconnect.test.ts": {
+    "eslint(no-restricted-globals)": 8,
     "typescript(no-non-null-assertion)": 15,
     "typescript(no-unsafe-member-access)": 2,
     "typescript(no-unsafe-return)": 1
@@ -3174,10 +3455,12 @@
     "unicorn(no-useless-spread)": 5
   },
   "apps/local/app/services/recorder-client/recorder-client-test-harness.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 6,
     "typescript(no-non-null-assertion)": 2
   },
   "apps/local/app/services/recorder-client/recorder-client.test.ts": {
+    "eslint(no-restricted-globals)": 5,
     "local(no-unsafe-as)": 1,
     "typescript(no-non-null-assertion)": 8,
     "typescript(no-unsafe-assignment)": 5,
@@ -3187,6 +3470,25 @@
   "apps/local/app/services/recorder-client/recorder-watch.ts": {
     "unicorn(no-useless-spread)": 1
   },
+  "apps/local/app/services/recorder-client/service-on-demand.ts": {
+    "eslint(no-restricted-globals)": 2
+  },
+  "apps/local/app/services/recorder-client/service-process.server.ts": {
+    "eslint(no-restricted-globals)": 4,
+    "eslint(no-restricted-properties)": 1
+  },
+  "apps/local/app/services/recorder-client/stream-deck-prepare.ts": {
+    "eslint(no-restricted-globals)": 1
+  },
+  "apps/local/app/services/recorder-client/take-placer.ts": {
+    "eslint(no-restricted-globals)": 2
+  },
+  "apps/local/app/services/recorder-client/whisper-warmth.ts": {
+    "eslint(no-restricted-globals)": 2
+  },
+  "apps/local/app/services/recorder-still-gate.ts": {
+    "eslint(no-restricted-globals)": 2
+  },
   "apps/local/app/services/render-vertical-video-service.test.ts": {
     "local(no-unsafe-as)": 15,
     "typescript(no-explicit-any)": 12,
@@ -3194,10 +3496,15 @@
     "typescript(no-unsafe-argument)": 13,
     "typescript(no-unsafe-assignment)": 2
   },
+  "apps/local/app/services/render-vertical-video-service.ts": {
+    "eslint(no-restricted-globals)": 1
+  },
   "apps/local/app/services/resolve-clip-mockup-speech.ts": {
     "typescript(no-non-null-assertion)": 5
   },
   "apps/local/app/services/route-action.server.test.ts": {
+    "eslint(no-restricted-globals)": 4,
+    "eslint(no-restricted-properties)": 2,
     "local(no-unsafe-as)": 2,
     "typescript(no-non-null-assertion)": 2
   },
@@ -3217,6 +3524,7 @@
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/services/sidecar-socket.server.ts": {
+    "eslint(no-restricted-properties)": 1,
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/services/silence-detection.test.ts": {
@@ -3228,10 +3536,16 @@
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/services/slow-request-log.server.test.ts": {
+    "eslint(no-restricted-globals)": 1,
+    "eslint(no-restricted-properties)": 1,
     "local(no-unsafe-as)": 2,
     "typescript(no-non-null-assertion)": 3
   },
+  "apps/local/app/services/slow-request-log.server.ts": {
+    "eslint(no-restricted-globals)": 1
+  },
   "apps/local/app/services/still-gate.test.ts": {
+    "eslint(no-restricted-properties)": 1,
     "local(no-unsafe-as)": 3,
     "unicorn(no-useless-spread)": 1
   },
@@ -3249,7 +3563,12 @@
     "typescript(no-non-null-assertion)": 17
   },
   "apps/local/app/services/storage-root-availability.server.ts": {
+    "eslint(no-restricted-globals)": 2,
     "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/app/services/storage-roots.ts": {
+    "eslint(no-restricted-globals)": 1,
+    "eslint(no-restricted-properties)": 1
   },
   "apps/local/app/services/text-generation-service.ts": {
     "local(no-unsafe-as)": 3,
@@ -3269,18 +3588,26 @@
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/services/video-editor-loader.server.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 1
   },
+  "apps/local/app/services/video-editor-logger-service.ts": {
+    "eslint(no-restricted-globals)": 1
+  },
   "apps/local/app/services/video-export-composite.ffmpeg.test.ts": {
+    "eslint(no-restricted-globals)": 5,
     "typescript(no-non-null-assertion)": 23
   },
   "apps/local/app/services/video-files.test.ts": {
+    "eslint(no-restricted-properties)": 6,
     "local(no-unsafe-as)": 3
   },
   "apps/local/app/services/video-files.ts": {
+    "eslint(no-restricted-properties)": 1,
     "local(no-unsafe-as)": 3
   },
   "apps/local/app/services/video-posting-context.server.test.ts": {
+    "eslint(no-restricted-properties)": 8,
     "local(no-unsafe-as)": 1,
     "typescript(no-explicit-any)": 1,
     "typescript(no-non-null-assertion)": 29,
@@ -3315,18 +3642,22 @@
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/services/youtube-live-broadcast-writes.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 3
   },
   "apps/local/app/services/youtube-live-service.test.ts": {
+    "eslint(no-restricted-globals)": 2,
     "typescript(no-unsafe-assignment)": 1
   },
   "apps/local/app/services/youtube-live-service.ts": {
+    "eslint(no-restricted-globals)": 3,
     "local(no-unsafe-as)": 12
   },
   "apps/local/app/services/youtube-upload-service.test.ts": {
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/services/youtube-upload-service.ts": {
+    "eslint(no-restricted-globals)": 5,
     "local(no-unsafe-as)": 3,
     "typescript(no-unsafe-assignment)": 1,
     "typescript(no-unsafe-return)": 1
@@ -3336,13 +3667,17 @@
     "typescript(no-non-null-assertion)": 4
   },
   "apps/local/app/spacedesk-wake.ts": {
+    "eslint(no-restricted-globals)": 6,
+    "eslint(no-restricted-properties)": 1,
     "typescript(no-non-null-assertion)": 4
   },
   "apps/local/app/test-utils/autofill-service-test-setup.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 1,
     "typescript(no-non-null-assertion)": 11
   },
   "apps/local/app/test-utils/cli-frame-harness.ts": {
+    "eslint(no-restricted-properties)": 6,
     "local(no-unsafe-as)": 3,
     "typescript(no-non-null-assertion)": 1
   },
@@ -3370,12 +3705,14 @@
     "typescript(no-unsafe-argument)": 1
   },
   "apps/local/app/test-utils/fake-youtube-live.ts": {
+    "eslint(no-restricted-globals)": 2,
     "local(no-unsafe-as)": 4,
     "typescript(no-explicit-any)": 1,
     "typescript(no-non-null-assertion)": 3,
     "typescript(no-unsafe-argument)": 1
   },
   "apps/local/app/test-utils/hand-clock.ts": {
+    "eslint(no-restricted-globals)": 1,
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/test-utils/reducer-tester.ts": {
@@ -3390,55 +3727,90 @@
     "local(no-unsafe-as)": 3
   },
   "apps/local/chrome-extension/background.js": {
+    "eslint(no-restricted-globals)": 5,
     "typescript(no-unsafe-assignment)": 1,
     "typescript(no-unsafe-call)": 10,
     "typescript(no-unsafe-member-access)": 20
+  },
+  "apps/local/chrome-extension/dev-send-events.ts": {
+    "eslint(no-restricted-globals)": 8
+  },
+  "apps/local/playground.ts": {
+    "eslint(no-restricted-globals)": 5
   },
   "apps/local/recorder-service/allowed-origin.ts": {
     "local(no-unsafe-as)": 1
   },
   "apps/local/recorder-service/calibration-run.ffmpeg.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/recorder-service/camera-cfr.ffmpeg.test.ts": {
     "typescript(no-non-null-assertion)": 2
   },
   "apps/local/recorder-service/camera-writer-graph.ffmpeg.test.ts": {
+    "eslint(no-restricted-globals)": 3,
     "typescript(no-non-null-assertion)": 4
+  },
+  "apps/local/recorder-service/camera.ts": {
+    "eslint(no-restricted-globals)": 19,
+    "eslint(no-restricted-properties)": 1
   },
   "apps/local/recorder-service/capture-args.test.ts": {
     "typescript(no-non-null-assertion)": 3
   },
   "apps/local/recorder-service/card-feed.ts": {
+    "eslint(no-restricted-globals)": 6,
     "local(no-unsafe-as)": 1,
     "typescript(no-non-null-assertion)": 13
   },
   "apps/local/recorder-service/card-server.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "typescript(no-non-null-assertion)": 3
   },
   "apps/local/recorder-service/card-server.ts": {
+    "eslint(no-restricted-globals)": 12,
     "local(no-unsafe-as)": 1
   },
   "apps/local/recorder-service/chat-highlights.ts": {
+    "eslint(no-restricted-globals)": 1,
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/recorder-service/command-schema.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 1
   },
   "apps/local/recorder-service/crash-recovery.test.ts": {
     "local(no-unsafe-as)": 1
   },
+  "apps/local/recorder-service/crash-recovery.ts": {
+    "eslint(no-restricted-globals)": 3
+  },
   "apps/local/recorder-service/ffmpeg-build.test.ts": {
     "typescript(no-non-null-assertion)": 4
   },
+  "apps/local/recorder-service/footage-repair.ts": {
+    "eslint(no-restricted-globals)": 1
+  },
   "apps/local/recorder-service/frames-lost.ts": {
+    "eslint(no-restricted-globals)": 6,
     "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/recorder-service/go-live.ts": {
+    "eslint(no-restricted-globals)": 5
   },
   "apps/local/recorder-service/health.ts": {
     "local(no-unsafe-as)": 1
   },
   "apps/local/recorder-service/level-meter.ts": {
+    "eslint(no-restricted-globals)": 5,
     "typescript(no-non-null-assertion)": 2
+  },
+  "apps/local/recorder-service/load-sampler.test.ts": {
+    "eslint(no-restricted-globals)": 1
+  },
+  "apps/local/recorder-service/load-sampler.ts": {
+    "eslint(no-restricted-globals)": 1
   },
   "apps/local/recorder-service/mic-timing.ffmpeg.test.ts": {
     "typescript(no-non-null-assertion)": 1
@@ -3446,12 +3818,20 @@
   "apps/local/recorder-service/png-rgba.ts": {
     "typescript(no-non-null-assertion)": 4
   },
+  "apps/local/recorder-service/preview-encoders.ts": {
+    "eslint(no-restricted-globals)": 1
+  },
   "apps/local/recorder-service/preview-feeds.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 1,
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/recorder-service/preview-feeds.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 2
+  },
+  "apps/local/recorder-service/preview-watchdog.ts": {
+    "eslint(no-restricted-globals)": 10
   },
   "apps/local/recorder-service/recorder-service-arming.test.ts": {
     "typescript(no-non-null-assertion)": 3
@@ -3459,15 +3839,30 @@
   "apps/local/recorder-service/recorder-service-meter.test.ts": {
     "typescript(no-non-null-assertion)": 11
   },
+  "apps/local/recorder-service/recorder-service-origin.test.ts": {
+    "eslint(no-restricted-globals)": 2
+  },
   "apps/local/recorder-service/recorder-service-preview-watchdog.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "typescript(no-non-null-assertion)": 5
   },
   "apps/local/recorder-service/recorder-service-short-waking.test.ts": {
+    "eslint(no-restricted-globals)": 2,
     "typescript(no-non-null-assertion)": 2
   },
   "apps/local/recorder-service/recorder-service-short.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "typescript(no-non-null-assertion)": 3,
     "typescript(no-unsafe-assignment)": 1
+  },
+  "apps/local/recorder-service/recorder-service-shutdown.test.ts": {
+    "eslint(no-restricted-globals)": 1
+  },
+  "apps/local/recorder-service/recorder-service-still.test.ts": {
+    "eslint(no-restricted-globals)": 2
+  },
+  "apps/local/recorder-service/recorder-service-stop.test.ts": {
+    "eslint(no-restricted-globals)": 4
   },
   "apps/local/recorder-service/recorder-service-stream-deck.test.ts": {
     "typescript(no-unsafe-assignment)": 1
@@ -3476,64 +3871,134 @@
     "typescript(no-non-null-assertion)": 4
   },
   "apps/local/recorder-service/recorder-service.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 1,
     "typescript(no-non-null-assertion)": 7
   },
   "apps/local/recorder-service/recorder-service.ts": {
+    "eslint(no-restricted-globals)": 12,
     "local(no-unsafe-as)": 1,
     "unicorn(no-useless-spread)": 2
   },
   "apps/local/recorder-service/recording-session.ts": {
+    "eslint(no-restricted-globals)": 12,
     "local(no-unsafe-as)": 1
   },
   "apps/local/recorder-service/run-recorder-service.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 1
   },
+  "apps/local/recorder-service/screen-side.ts": {
+    "eslint(no-restricted-globals)": 3
+  },
+  "apps/local/recorder-service/service-process.ts": {
+    "eslint(no-restricted-globals)": 1
+  },
+  "apps/local/recorder-service/session-index.ts": {
+    "eslint(no-restricted-globals)": 2
+  },
+  "apps/local/recorder-service/still.ts": {
+    "eslint(no-restricted-globals)": 1
+  },
+  "apps/local/recorder-service/stream-deck-press.ts": {
+    "eslint(no-restricted-globals)": 1
+  },
+  "apps/local/recorder-service/stream-feeds.ts": {
+    "eslint(no-restricted-properties)": 1
+  },
+  "apps/local/recorder-service/stream-health.ts": {
+    "eslint(no-restricted-globals)": 2
+  },
   "apps/local/recorder-service/stream-side.ts": {
+    "eslint(no-restricted-globals)": 24,
     "unicorn(no-useless-spread)": 1
   },
+  "apps/local/recorder-service/take-arming.ts": {
+    "eslint(no-restricted-globals)": 5
+  },
   "apps/local/recorder-service/take-isolation.ffmpeg.test.ts": {
+    "eslint(no-restricted-globals)": 16,
     "local(no-unsafe-as)": 1,
     "typescript(no-non-null-assertion)": 13
   },
+  "apps/local/recorder-service/take-stopping.ts": {
+    "eslint(no-restricted-globals)": 4
+  },
   "apps/local/recorder-service/test-utils/fake-card-server.ts": {
+    "eslint(no-restricted-globals)": 3,
     "local(no-unsafe-as)": 2,
     "typescript(no-non-null-assertion)": 1,
     "typescript(no-unsafe-assignment)": 1
   },
   "apps/local/recorder-service/test-utils/fake-windows.ts": {
+    "eslint(no-restricted-globals)": 6,
+    "eslint(no-restricted-properties)": 1,
     "typescript(no-non-null-assertion)": 1
+  },
+  "apps/local/recorder-service/test-utils/fake-writer.ts": {
+    "eslint(no-restricted-globals)": 1
   },
   "apps/local/recorder-service/test-utils/service-harness.ts": {
     "local(no-unsafe-as)": 3
   },
   "apps/local/recorder-service/windows-clock.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "typescript(no-non-null-assertion)": 2
   },
+  "apps/local/recorder-service/windows-clock.ts": {
+    "eslint(no-restricted-globals)": 3
+  },
+  "apps/local/recorder-service/windows-launcher.ts": {
+    "eslint(no-restricted-properties)": 2
+  },
+  "apps/local/recorder-service/writer-graph.ts": {
+    "eslint(no-restricted-globals)": 4
+  },
+  "apps/local/scripts/backfill-search-text.ts": {
+    "eslint(no-restricted-globals)": 2
+  },
   "apps/local/scripts/baseline-migrations.ts": {
+    "eslint(no-restricted-globals)": 3,
     "typescript(no-unsafe-assignment)": 2,
     "typescript(no-unsafe-member-access)": 7
   },
+  "apps/local/scripts/build-if-needed.ts": {
+    "eslint(no-restricted-globals)": 5
+  },
   "apps/local/scripts/db-dump.test.ts": {
+    "eslint(no-restricted-globals)": 4,
+    "eslint(no-restricted-properties)": 1,
     "local(no-unsafe-as)": 2,
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/scripts/db-dump.ts": {
+    "eslint(no-restricted-properties)": 1,
     "typescript(no-non-null-assertion)": 2
   },
+  "apps/local/scripts/generate-assets.ts": {
+    "eslint(no-restricted-globals)": 1
+  },
   "apps/local/scripts/generate-lucide-icons.ts": {
+    "eslint(no-restricted-globals)": 4,
     "typescript(no-non-null-assertion)": 3
   },
   "apps/local/scripts/install-ffmpeg.ts": {
+    "eslint(no-restricted-globals)": 2,
     "typescript(no-non-null-assertion)": 2
   },
+  "apps/local/scripts/keep-running.test.ts": {
+    "eslint(no-restricted-properties)": 1
+  },
   "apps/local/scripts/migrate-production.ts": {
+    "eslint(no-restricted-globals)": 5,
     "local(no-unsafe-as)": 1
   },
   "apps/local/scripts/nightly-dump.ts": {
+    "eslint(no-restricted-globals)": 7,
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/scripts/preview-latency.ts": {
+    "eslint(no-restricted-globals)": 7,
     "local(no-unsafe-as)": 7,
     "typescript(no-non-null-assertion)": 8
   },
@@ -3541,6 +4006,7 @@
     "local(no-unsafe-as)": 1
   },
   "apps/local/scripts/recorder-parity.ts": {
+    "eslint(no-restricted-globals)": 5,
     "local(no-unsafe-as)": 2,
     "typescript(no-non-null-assertion)": 4
   },
@@ -3549,15 +4015,18 @@
     "typescript(no-non-null-assertion)": 6
   },
   "apps/local/scripts/recorder-scorecard/faults.ts": {
+    "eslint(no-restricted-globals)": 1,
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/scripts/recorder-scorecard/footage-analysis.ts": {
     "typescript(no-non-null-assertion)": 19
   },
   "apps/local/scripts/recorder-scorecard/main.ts": {
+    "eslint(no-restricted-globals)": 9,
     "local(no-unsafe-as)": 3
   },
   "apps/local/scripts/recorder-scorecard/metrics.test.ts": {
+    "eslint(no-restricted-globals)": 10,
     "local(no-unsafe-as)": 1,
     "typescript(no-non-null-assertion)": 7
   },
@@ -3574,13 +4043,18 @@
   "apps/local/scripts/recorder-scorecard/scenarios.ts": {
     "typescript(no-non-null-assertion)": 1
   },
+  "apps/local/scripts/recorder-scorecard/service-child.ts": {
+    "eslint(no-restricted-globals)": 3
+  },
   "apps/local/scripts/recorder-scorecard/service-control.ts": {
+    "eslint(no-restricted-globals)": 7,
     "local(no-unsafe-as)": 3
   },
   "apps/local/scripts/recorder-scorecard/sink-checks.ts": {
     "typescript(no-non-null-assertion)": 9
   },
   "apps/local/scripts/recorder-scorecard/stills.ts": {
+    "eslint(no-restricted-globals)": 3,
     "typescript(no-non-null-assertion)": 1,
     "unicorn(no-useless-spread)": 1
   },
@@ -3594,41 +4068,62 @@
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/scripts/recorder-scorecard/streamed.ts": {
+    "eslint(no-restricted-globals)": 4,
     "local(no-unsafe-as)": 1,
     "typescript(no-non-null-assertion)": 3
   },
   "apps/local/scripts/recorder-scorecard/synthetic-launcher.ts": {
+    "eslint(no-restricted-globals)": 1,
     "typescript(no-non-null-assertion)": 2
   },
   "apps/local/scripts/recorder-scorecard/takes.ts": {
+    "eslint(no-restricted-globals)": 2,
     "local(no-unsafe-as)": 2,
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/scripts/recorder-scorecard/windows.ts": {
+    "eslint(no-restricted-globals)": 5,
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/scripts/running-cvm.test.ts": {
     "local(no-unsafe-as)": 2
   },
+  "apps/local/scripts/running-cvm.ts": {
+    "eslint(no-restricted-globals)": 1
+  },
   "apps/local/scripts/screen-colour-gpu.ts": {
+    "eslint(no-restricted-globals)": 11,
     "typescript(no-non-null-assertion)": 9
+  },
+  "apps/local/scripts/script-database-url.ts": {
+    "eslint(no-restricted-globals)": 3,
+    "eslint(no-restricted-properties)": 1
   },
   "apps/local/scripts/service-token-file.test.ts": {
     "local(no-unsafe-as)": 1
   },
   "apps/local/scripts/storage-migrate-paths.ts": {
+    "eslint(no-restricted-globals)": 7,
     "local(no-unsafe-as)": 1
   },
   "apps/local/scripts/storage-relocate.ts": {
+    "eslint(no-restricted-globals)": 11,
     "local(no-unsafe-as)": 2
   },
   "apps/local/scripts/storage-rename-exports.ts": {
+    "eslint(no-restricted-globals)": 14,
     "local(no-unsafe-as)": 1
   },
   "apps/local/scripts/verify-api.ts": {
+    "eslint(no-restricted-globals)": 2,
+    "eslint(no-restricted-properties)": 1,
     "local(no-unsafe-as)": 3
   },
+  "apps/local/scripts/verify-schema-features.ts": {
+    "eslint(no-restricted-globals)": 3
+  },
   "apps/local/scripts/warn-pending-migrations.ts": {
+    "eslint(no-restricted-globals)": 3,
     "local(no-unsafe-as)": 1,
     "typescript(no-unsafe-assignment)": 1,
     "typescript(no-unsafe-member-access)": 1
@@ -3637,6 +4132,7 @@
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/scripts/windows-guard.ts": {
+    "eslint(no-restricted-globals)": 3,
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/sidecar/clip-mockup-voice-sweep.test.ts": {
@@ -3659,6 +4155,7 @@
     "typescript(no-non-null-assertion)": 2
   },
   "apps/local/sidecar/json-logger.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 1
   },
   "apps/local/sidecar/kinds/autofill.test.ts": {
@@ -3679,11 +4176,13 @@
     "local(no-unsafe-as)": 1
   },
   "apps/local/sidecar/kinds/clip-mockup-voice-final-failure.test.ts": {
+    "eslint(no-restricted-properties)": 4,
     "local(no-unsafe-as)": 4,
     "typescript(no-non-null-assertion)": 5,
     "typescript(no-unsafe-assignment)": 1
   },
   "apps/local/sidecar/kinds/clip-mockup-voice.test.ts": {
+    "eslint(no-restricted-properties)": 4,
     "local(no-unsafe-as)": 8,
     "typescript(no-non-null-assertion)": 10
   },
@@ -3691,11 +4190,13 @@
     "typescript(no-non-null-assertion)": 2
   },
   "apps/local/sidecar/kinds/duplicate-course.test.ts": {
+    "eslint(no-restricted-properties)": 8,
     "local(no-unsafe-as)": 1,
     "typescript(no-explicit-any)": 1,
     "typescript(no-non-null-assertion)": 6
   },
   "apps/local/sidecar/kinds/measure-preview-loudness.ffmpeg.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 1,
     "typescript(no-non-null-assertion)": 4,
     "typescript(no-unsafe-assignment)": 1,
@@ -3712,44 +4213,73 @@
     "typescript(no-unsafe-return)": 1
   },
   "apps/local/sidecar/kinds/storage-delete-ops.test.ts": {
+    "eslint(no-restricted-globals)": 2,
+    "eslint(no-restricted-properties)": 4,
     "local(no-unsafe-as)": 6,
     "typescript(no-explicit-any)": 1,
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/sidecar/kinds/storage-delete.test.ts": {
+    "eslint(no-restricted-properties)": 4,
     "local(no-unsafe-as)": 6,
     "typescript(no-explicit-any)": 1,
     "typescript(no-non-null-assertion)": 7
   },
   "apps/local/sidecar/kinds/storage-move.test.ts": {
+    "eslint(no-restricted-globals)": 1,
+    "eslint(no-restricted-properties)": 4,
     "local(no-unsafe-as)": 8,
     "typescript(no-explicit-any)": 1,
     "typescript(no-non-null-assertion)": 9,
     "typescript(no-unsafe-assignment)": 1
   },
   "apps/local/sidecar/kinds/transcribe-clips-requeue.test.ts": {
+    "eslint(no-restricted-globals)": 1,
+    "eslint(no-restricted-properties)": 1,
     "local(no-unsafe-as)": 3,
     "typescript(no-non-null-assertion)": 16
   },
   "apps/local/sidecar/kinds/transcribe-clips.test.ts": {
+    "eslint(no-restricted-globals)": 1,
+    "eslint(no-restricted-properties)": 1,
     "local(no-unsafe-as)": 3,
     "typescript(no-non-null-assertion)": 8
   },
   "apps/local/sidecar/kinds/transcribe-footage.test.ts": {
+    "eslint(no-restricted-properties)": 1,
     "local(no-unsafe-as)": 4,
     "typescript(no-unsafe-assignment)": 4,
     "typescript(no-unsafe-call)": 1,
     "typescript(no-unsafe-member-access)": 4
   },
   "apps/local/sidecar/kinds/upload-images.test.ts": {
+    "eslint(no-restricted-globals)": 1,
+    "eslint(no-restricted-properties)": 8,
     "local(no-unsafe-as)": 3,
     "typescript(no-non-null-assertion)": 2
   },
   "apps/local/sidecar/lanes.ts": {
     "local(no-unsafe-as)": 1
   },
+  "apps/local/sidecar/lease-renewal.ts": {
+    "eslint(no-restricted-globals)": 3
+  },
+  "apps/local/sidecar/load-repo-env.ts": {
+    "eslint(no-restricted-properties)": 1
+  },
+  "apps/local/sidecar/local-whisper-engine.test.ts": {
+    "eslint(no-restricted-globals)": 3
+  },
   "apps/local/sidecar/local-whisper-engine.ts": {
+    "eslint(no-restricted-globals)": 1,
     "typescript(no-unsafe-assignment)": 1
+  },
+  "apps/local/sidecar/local-whisper-env.test.ts": {
+    "eslint(no-restricted-properties)": 3
+  },
+  "apps/local/sidecar/local-whisper-env.ts": {
+    "eslint(no-restricted-globals)": 2,
+    "eslint(no-restricted-properties)": 1
   },
   "apps/local/sidecar/posting-kinds.test.ts": {
     "local(no-unsafe-as)": 2,
@@ -3757,6 +4287,7 @@
     "typescript(no-unsafe-argument)": 1
   },
   "apps/local/sidecar/posting-queue-failures.test.ts": {
+    "eslint(no-restricted-globals)": 2,
     "typescript(no-non-null-assertion)": 1,
     "typescript(no-unsafe-assignment)": 3
   },
@@ -3764,13 +4295,19 @@
     "local(no-unsafe-as)": 3
   },
   "apps/local/sidecar/posting-queue-test-harness.ts": {
+    "eslint(no-restricted-globals)": 6,
+    "eslint(no-restricted-properties)": 5,
     "local(no-unsafe-as)": 3,
     "typescript(no-non-null-assertion)": 4
   },
   "apps/local/sidecar/posting-queue-tick.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "typescript(no-non-null-assertion)": 6,
     "typescript(no-unsafe-assignment)": 1,
     "typescript(no-unsafe-member-access)": 3
+  },
+  "apps/local/sidecar/posting-queue-tick.ts": {
+    "eslint(no-restricted-globals)": 1
   },
   "apps/local/sidecar/publish-kind.test.ts": {
     "eslint(no-unsafe-optional-chaining)": 1,
@@ -3778,6 +4315,13 @@
     "typescript(no-explicit-any)": 1,
     "typescript(no-unsafe-argument)": 1,
     "typescript(no-unsafe-assignment)": 1
+  },
+  "apps/local/sidecar/run-sidecar.test.ts": {
+    "eslint(no-restricted-properties)": 1
+  },
+  "apps/local/sidecar/run-sidecar.ts": {
+    "eslint(no-restricted-globals)": 2,
+    "eslint(no-restricted-properties)": 6
   },
   "apps/local/sidecar/settle-retry.test.ts": {
     "local(no-unsafe-as)": 2
@@ -3790,7 +4334,11 @@
     "typescript(no-explicit-any)": 1,
     "typescript(no-unsafe-argument)": 1
   },
+  "apps/local/sidecar/sidecar-layer.ts": {
+    "eslint(no-restricted-properties)": 1
+  },
   "apps/local/sidecar/sidecar-outage.test.ts": {
+    "eslint(no-restricted-globals)": 2,
     "local(no-unsafe-as)": 2,
     "typescript(no-explicit-any)": 2,
     "typescript(no-unsafe-argument)": 2,
@@ -3811,6 +4359,7 @@
     "typescript(no-unsafe-return)": 3
   },
   "apps/local/sidecar/sidecar.ts": {
+    "eslint(no-restricted-globals)": 3,
     "unicorn(no-thenable)": 1
   },
   "apps/local/sidecar/socket-events.test.ts": {
@@ -3834,8 +4383,19 @@
   "apps/local/sidecar/yt-dlp.ts": {
     "local(no-unsafe-as)": 1
   },
+  "apps/local/stream-deck-forwarder/connection-log.ts": {
+    "eslint(no-restricted-globals)": 1
+  },
   "apps/local/stream-deck-forwarder/run-stream-deck-forwarder.test.ts": {
+    "eslint(no-restricted-globals)": 2,
     "local(no-unsafe-as)": 3
+  },
+  "apps/local/stream-deck-forwarder/run-stream-deck-forwarder.ts": {
+    "eslint(no-restricted-globals)": 6,
+    "eslint(no-restricted-properties)": 1
+  },
+  "apps/local/vite.config.ts": {
+    "eslint(no-restricted-properties)": 2
   },
   "apps/remote/routes/search.ts": {
     "local(no-unsafe-as)": 4
@@ -3844,7 +4404,13 @@
     "typescript(no-unsafe-argument)": 1,
     "typescript(no-unsafe-assignment)": 1
   },
+  "apps/remote/scripts/assert-production-source.mjs": {
+    "eslint(no-restricted-globals)": 2,
+    "eslint(no-restricted-properties)": 5
+  },
   "apps/remote/scripts/migrate-on-deploy.mjs": {
+    "eslint(no-restricted-globals)": 2,
+    "eslint(no-restricted-properties)": 4,
     "typescript(no-unsafe-assignment)": 2,
     "typescript(no-unsafe-member-access)": 1
   },
@@ -3860,12 +4426,15 @@
     "typescript(no-unsafe-member-access)": 2
   },
   "packages/core/db/connection-patience.ts": {
+    "eslint(no-restricted-globals)": 5,
     "local(no-unsafe-as)": 7
   },
   "packages/core/db/migrate-on-deploy.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 3
   },
   "packages/core/db/migrate-on-deploy.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 3
   },
   "packages/core/db/migrations.test.ts": {
@@ -3881,12 +4450,22 @@
     "typescript(no-non-null-assertion)": 2
   },
   "packages/core/db/planetscale-backup.ts": {
+    "eslint(no-restricted-globals)": 4,
     "local(no-unsafe-as)": 2
   },
   "packages/core/db/schema-feature-probes.test.ts": {
     "typescript(no-unsafe-assignment)": 2
   },
+  "packages/core/db/sql-statement-log.ts": {
+    "eslint(no-restricted-globals)": 1,
+    "eslint(no-restricted-properties)": 1
+  },
+  "packages/core/drizzle-guard.ts": {
+    "eslint(no-restricted-globals)": 1
+  },
   "packages/core/drizzle.config.ts": {
+    "eslint(no-restricted-globals)": 1,
+    "eslint(no-restricted-properties)": 1,
     "typescript(no-non-null-assertion)": 1
   },
   "packages/core/features/agent-sessions/content-rules.ts": {
@@ -3898,10 +4477,14 @@
   "packages/core/features/posting-queue/channel-failures.ts": {
     "local(no-unsafe-as)": 1
   },
+  "packages/core/features/posting-queue/goes-out-at.ts": {
+    "eslint(no-restricted-globals)": 1
+  },
   "packages/core/features/posting-queue/posting-jobs.ts": {
     "local(no-unsafe-as)": 1
   },
   "packages/core/features/posting-queue/slot-schedule.test.ts": {
+    "eslint(no-restricted-globals)": 2,
     "typescript(no-non-null-assertion)": 18
   },
   "packages/core/features/posting-queue/slot-schedule.ts": {
@@ -3948,6 +4531,9 @@
   },
   "packages/core/features/videos/video-format.ts": {
     "local(no-unsafe-as)": 2
+  },
+  "packages/core/git-worktree.test.ts": {
+    "eslint(no-restricted-properties)": 1
   },
   "packages/core/lib/extract-scene-text/index.ts": {
     "local(no-unsafe-as)": 3
@@ -4027,16 +4613,19 @@
     "typescript(no-non-null-assertion)": 5
   },
   "packages/core/services/db-agent-session-operations.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 2,
     "typescript(no-explicit-any)": 1,
     "typescript(no-non-null-assertion)": 2,
     "typescript(no-unsafe-argument)": 1
   },
   "packages/core/services/db-api-token-operations.server.ts": {
+    "eslint(no-restricted-globals)": 4,
     "local(no-unsafe-as)": 1,
     "typescript(no-non-null-assertion)": 2
   },
   "packages/core/services/db-api-token-operations.test.ts": {
+    "eslint(no-restricted-globals)": 5,
     "local(no-unsafe-as)": 1,
     "typescript(no-non-null-assertion)": 5
   },
@@ -4095,6 +4684,7 @@
     "typescript(no-unsafe-argument)": 1
   },
   "packages/core/services/db-clip-operations.server.ts": {
+    "eslint(no-restricted-globals)": 1,
     "typescript(no-non-null-assertion)": 8
   },
   "packages/core/services/db-clip-retime.server.ts": {
@@ -4117,6 +4707,7 @@
     "typescript(no-non-null-assertion)": 5
   },
   "packages/core/services/db-course-operations-list-ordering.test.ts": {
+    "eslint(no-restricted-globals)": 5,
     "local(no-unsafe-as)": 1,
     "typescript(no-explicit-any)": 1,
     "typescript(no-non-null-assertion)": 1,
@@ -4134,6 +4725,7 @@
     "typescript(no-unsafe-argument)": 1
   },
   "packages/core/services/db-deliverable-operations.server.ts": {
+    "eslint(no-restricted-globals)": 4,
     "typescript(no-non-null-assertion)": 7
   },
   "packages/core/services/db-deliverable-operations.test.ts": {
@@ -4154,12 +4746,15 @@
     "local(no-unsafe-as)": 1
   },
   "packages/core/services/db-diagram-component-operations.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 1
   },
   "packages/core/services/db-diagram-operations.server.ts": {
+    "eslint(no-restricted-globals)": 5,
     "typescript(no-non-null-assertion)": 2
   },
   "packages/core/services/db-diagram-operations.test.ts": {
+    "eslint(no-restricted-globals)": 5,
     "local(no-unsafe-as)": 1,
     "typescript(no-explicit-any)": 1,
     "typescript(no-non-null-assertion)": 4,
@@ -4174,6 +4769,7 @@
     "typescript(no-unsafe-member-access)": 1
   },
   "packages/core/services/db-diagram-search-query.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 1,
     "typescript(no-explicit-any)": 1,
     "typescript(no-non-null-assertion)": 9,
@@ -4187,12 +4783,14 @@
     "typescript(no-unsafe-member-access)": 1
   },
   "packages/core/services/db-diagram-snapshot-operations.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 1,
     "typescript(no-explicit-any)": 1,
     "typescript(no-non-null-assertion)": 10,
     "typescript(no-unsafe-argument)": 1
   },
   "packages/core/services/db-duplicate-course-drift.test.ts": {
+    "eslint(no-restricted-globals)": 4,
     "local(no-unsafe-as)": 3,
     "typescript(no-explicit-any)": 4,
     "typescript(no-non-null-assertion)": 42,
@@ -4201,12 +4799,14 @@
     "typescript(no-unsafe-member-access)": 4
   },
   "packages/core/services/db-duplicate-course.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 1,
     "typescript(no-explicit-any)": 1,
     "typescript(no-non-null-assertion)": 68,
     "typescript(no-unsafe-argument)": 1
   },
   "packages/core/services/db-duplicate-course.thumbnails.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 2,
     "typescript(no-explicit-any)": 1,
     "typescript(no-non-null-assertion)": 15,
@@ -4233,6 +4833,7 @@
     "local(no-unsafe-as)": 1
   },
   "packages/core/services/db-job-lost-runs.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 1,
     "typescript(no-explicit-any)": 1,
     "typescript(no-unsafe-argument)": 1
@@ -4241,6 +4842,7 @@
     "local(no-unsafe-as)": 3
   },
   "packages/core/services/db-job-operations.test.ts": {
+    "eslint(no-restricted-globals)": 3,
     "local(no-unsafe-as)": 1,
     "typescript(no-explicit-any)": 1,
     "typescript(no-unsafe-argument)": 1
@@ -4248,7 +4850,11 @@
   "packages/core/services/db-job-posting.server.ts": {
     "local(no-unsafe-as)": 2
   },
+  "packages/core/services/db-job-stage-history.server.ts": {
+    "eslint(no-restricted-globals)": 2
+  },
   "packages/core/services/db-job-stage-history.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 2,
     "typescript(no-explicit-any)": 2,
     "typescript(no-non-null-assertion)": 6,
@@ -4268,6 +4874,7 @@
     "typescript(no-unsafe-argument)": 1
   },
   "packages/core/services/db-lesson-section-operations.server.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 1,
     "typescript(no-non-null-assertion)": 1
   },
@@ -4277,6 +4884,9 @@
     "typescript(no-non-null-assertion)": 4,
     "typescript(no-unsafe-argument)": 1
   },
+  "packages/core/services/db-link-auth-operations.server.ts": {
+    "eslint(no-restricted-globals)": 2
+  },
   "packages/core/services/db-pitch-effort.test.ts": {
     "local(no-unsafe-as)": 1,
     "typescript(no-explicit-any)": 1,
@@ -4284,9 +4894,11 @@
     "typescript(no-unsafe-argument)": 1
   },
   "packages/core/services/db-pitch-operations.server.ts": {
+    "eslint(no-restricted-globals)": 2,
     "typescript(no-unsafe-assignment)": 1
   },
   "packages/core/services/db-pitch-operations.test.ts": {
+    "eslint(no-restricted-globals)": 2,
     "local(no-unsafe-as)": 1,
     "typescript(no-explicit-any)": 1,
     "typescript(no-non-null-assertion)": 16,
@@ -4299,13 +4911,16 @@
     "typescript(no-unsafe-argument)": 1
   },
   "packages/core/services/db-posting-queue-changes.server.ts": {
+    "eslint(no-restricted-globals)": 1,
     "typescript(no-non-null-assertion)": 3
   },
   "packages/core/services/db-posting-queue-operations.server.ts": {
+    "eslint(no-restricted-globals)": 5,
     "local(no-unsafe-as)": 1,
     "typescript(no-non-null-assertion)": 6
   },
   "packages/core/services/db-posting-queue-sidecar.server.ts": {
+    "eslint(no-restricted-globals)": 5,
     "local(no-unsafe-as)": 1,
     "typescript(no-non-null-assertion)": 3
   },
@@ -4339,6 +4954,7 @@
     "typescript(no-unsafe-return)": 3
   },
   "packages/core/services/db-service-course-structure.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 2,
     "typescript(no-explicit-any)": 2,
     "typescript(no-non-null-assertion)": 45,
@@ -4346,6 +4962,7 @@
     "typescript(no-unsafe-member-access)": 1
   },
   "packages/core/services/db-service-next-video-needing-body.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 1,
     "typescript(no-explicit-any)": 1,
     "typescript(no-non-null-assertion)": 10,
@@ -4361,6 +4978,7 @@
     "typescript(no-non-null-assertion)": 9
   },
   "packages/core/services/db-sidecar-lease.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 1,
     "typescript(no-explicit-any)": 1,
     "typescript(no-unsafe-argument)": 1
@@ -4390,12 +5008,14 @@
     "typescript(no-unsafe-argument)": 1
   },
   "packages/core/services/db-thumbnail-operations.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 1,
     "typescript(no-explicit-any)": 1,
     "typescript(no-non-null-assertion)": 7,
     "typescript(no-unsafe-argument)": 1
   },
   "packages/core/services/db-version-copy.children.test.ts": {
+    "eslint(no-restricted-globals)": 2,
     "local(no-unsafe-as)": 1,
     "typescript(no-explicit-any)": 1,
     "typescript(no-non-null-assertion)": 36,
@@ -4417,6 +5037,7 @@
     "typescript(no-non-null-assertion)": 4
   },
   "packages/core/services/db-version-copy.test.ts": {
+    "eslint(no-restricted-globals)": 2,
     "local(no-unsafe-as)": 1,
     "typescript(no-explicit-any)": 1,
     "typescript(no-non-null-assertion)": 38,
@@ -4432,6 +5053,7 @@
     "local(no-unsafe-as)": 1
   },
   "packages/core/services/db-version-slim.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 1,
     "typescript(no-explicit-any)": 1,
     "typescript(no-non-null-assertion)": 16,
@@ -4450,6 +5072,7 @@
     "typescript(no-unsafe-argument)": 1
   },
   "packages/core/services/db-video-copy.thumbnails.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 2,
     "typescript(no-non-null-assertion)": 11
   },
@@ -4460,12 +5083,14 @@
     "typescript(no-unsafe-argument)": 1
   },
   "packages/core/services/db-video-from-selection.server.ts": {
+    "eslint(no-restricted-globals)": 1,
     "typescript(no-non-null-assertion)": 1
   },
   "packages/core/services/db-video-navigation.server.ts": {
     "typescript(no-non-null-assertion)": 5
   },
   "packages/core/services/db-video-operations.copy.server.ts": {
+    "eslint(no-restricted-globals)": 1,
     "typescript(no-non-null-assertion)": 5
   },
   "packages/core/services/db-video-operations.copy.test.ts": {
@@ -4473,15 +5098,19 @@
     "typescript(no-non-null-assertion)": 14
   },
   "packages/core/services/db-video-operations.server.ts": {
+    "eslint(no-restricted-globals)": 2,
     "local(no-unsafe-as)": 2
   },
   "packages/core/services/db-video-operations.write.server.ts": {
+    "eslint(no-restricted-globals)": 9,
     "typescript(no-non-null-assertion)": 2
   },
   "packages/core/services/db-video-post-operations.server.ts": {
+    "eslint(no-restricted-globals)": 1,
     "typescript(no-non-null-assertion)": 3
   },
   "packages/core/services/db-video-post-operations.test.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 1,
     "typescript(no-explicit-any)": 1,
     "typescript(no-non-null-assertion)": 2,
@@ -4494,6 +5123,7 @@
     "typescript(no-unsafe-argument)": 1
   },
   "packages/core/services/db-writer-chat-operations.server.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 1
   },
   "packages/core/services/draft-guard.server.test.ts": {
@@ -4502,7 +5132,12 @@
     "typescript(no-non-null-assertion)": 18,
     "typescript(no-unsafe-argument)": 26
   },
+  "packages/core/services/drizzle-service.server.test.ts": {
+    "eslint(no-restricted-globals)": 2
+  },
   "packages/core/services/drizzle-service.server.ts": {
+    "eslint(no-restricted-globals)": 2,
+    "eslint(no-restricted-properties)": 1,
     "local(no-unsafe-as)": 1
   },
   "packages/core/services/lesson-move-planner.test.ts": {
@@ -4521,6 +5156,7 @@
     "typescript(no-non-null-assertion)": 6
   },
   "packages/core/services/patient-connection-pool.test.ts": {
+    "eslint(no-restricted-globals)": 3,
     "local(no-unsafe-as)": 3,
     "typescript(no-explicit-any)": 1,
     "typescript(no-non-null-assertion)": 1
@@ -4552,6 +5188,7 @@
     "typescript(no-unsafe-argument)": 5
   },
   "packages/core/test-utils/copy-round-trip.ts": {
+    "eslint(no-restricted-globals)": 3,
     "local(no-unsafe-as)": 3,
     "typescript(no-non-null-assertion)": 9
   },
@@ -4568,7 +5205,12 @@
     "unicorn(no-useless-spread)": 1
   },
   "packages/core/test-utils/test-postgres.ts": {
+    "eslint(no-restricted-globals)": 3,
+    "eslint(no-restricted-properties)": 2,
     "local(no-unsafe-as)": 2
+  },
+  "packages/core/vitest.config.ts": {
+    "eslint(no-restricted-properties)": 1
   },
   "packages/lucide-icons/generator.ts": {
     "local(no-unsafe-as)": 1,
@@ -4613,6 +5255,9 @@
   "packages/overlay-renderer/remotion/ChatCard.tsx": {
     "typescript(no-non-null-assertion)": 2
   },
+  "packages/overlay-renderer/src/card-server.ts": {
+    "eslint(no-restricted-globals)": 5
+  },
   "packages/overlay-renderer/src/cli.ts": {
     "local(no-unsafe-as)": 1
   },
@@ -4629,29 +5274,42 @@
     "typescript(no-non-null-assertion)": 9
   },
   "scripts/check-allowed-directives.ts": {
+    "eslint(no-restricted-globals)": 1,
     "local(no-unsafe-as)": 1
   },
   "scripts/check-background-jobs-network.ts": {
     "local(no-unsafe-as)": 2
   },
   "scripts/check-background-jobs.ts": {
+    "eslint(no-restricted-globals)": 3,
     "local(no-unsafe-as)": 1,
     "typescript(no-non-null-assertion)": 1
   },
   "scripts/check-complexity.ts": {
+    "eslint(no-restricted-globals)": 5,
     "local(no-unsafe-as)": 5,
     "typescript(no-unsafe-assignment)": 2,
     "typescript(no-unsafe-member-access)": 3
   },
   "scripts/check-effect-guards.ts": {
+    "eslint(no-restricted-globals)": 3,
     "local(no-unsafe-as)": 2,
     "typescript(no-non-null-assertion)": 1
+  },
+  "scripts/check-effect-tsc.ts": {
+    "eslint(no-restricted-globals)": 3
   },
   "scripts/check-frontend-state.ts": {
+    "eslint(no-restricted-globals)": 4,
     "local(no-unsafe-as)": 2,
     "typescript(no-non-null-assertion)": 1
   },
+  "scripts/check-lint-canary.ts": {
+    "eslint(no-restricted-globals)": 2
+  },
   "scripts/lint-ratchet.ts": {
+    "eslint(no-restricted-globals)": 12,
+    "eslint(no-restricted-properties)": 2,
     "local(no-unsafe-as)": 4,
     "typescript(no-non-null-assertion)": 3
   },
@@ -4661,6 +5319,13 @@
   "tests/background-jobs-guard.test.ts": {
     "local(no-unsafe-as)": 2
   },
+  "tests/is-filming.test.ts": {
+    "eslint(no-restricted-globals)": 1,
+    "eslint(no-restricted-properties)": 3
+  },
+  "tests/lint-ratchet.test.ts": {
+    "eslint(no-restricted-properties)": 1
+  },
   "tests/overlay-renderer-typescript.test.ts": {
     "local(no-unsafe-as)": 1
   },
@@ -4668,8 +5333,12 @@
     "typescript(no-unsafe-assignment)": 3
   },
   "tests/verify-cvm-run-isolation.test.ts": {
+    "eslint(no-restricted-properties)": 2,
     "typescript(no-non-null-assertion)": 1,
     "typescript(no-unsafe-assignment)": 1
+  },
+  "tests/verify-cvm-scratch-containment.test.ts": {
+    "eslint(no-restricted-properties)": 1
   },
   "tests/verify-cvm-write-ledger.test.ts": {
     "typescript(no-unsafe-assignment)": 1

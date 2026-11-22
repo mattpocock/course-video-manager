@@ -17,7 +17,7 @@ import {
   requireEveryRootOnline,
 } from "@/packages/storage/server";
 import { removeUnderBestEffort } from "./remove-best-effort";
-import { installLocationRepoRoot } from "./repo-env";
+import { installLocationRepoRoot } from "@/packages/env";
 import { readStorageRootsSync } from "./storage-roots";
 
 /**

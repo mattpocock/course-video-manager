@@ -4,7 +4,7 @@ import { showChatHighlight } from "@/services/recorder-client/chat-highlight.ser
 import { recorderClient } from "@/services/recorder-client/live.server";
 import { makeAction } from "@/services/route-action.server";
 import { cardBrowserPath } from "@/services/card-browser.server";
-import { installLocationRepoRoot } from "@/services/repo-env";
+import { installLocationRepoRoot } from "@/packages/env";
 
 const showSchema = Schema.Struct({ messageId: Schema.String });
 

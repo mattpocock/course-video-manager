@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 /**
  * The repo-root `.env`, and the one parser that reads it.
  *
- * Lives under `app/services/` rather than `app/cli/` because both sides of
+ * Lives in the env package, the owner of `process.env`, because both sides of
  * the app need it: `cvm publish` / `footage transcribe` / `course readiness`
  * load it before building a config-reading layer, and every `cvm` setting is
  * resolved through it. `app/cli/env.ts` builds its CLI-edge resolvers

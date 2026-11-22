@@ -8,7 +8,7 @@ import { CourseOperationsService } from "@/services/db-course-operations.server"
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { LinkAuthOperationsService } from "@/services/db-link-auth-operations.server";
 import { discardStrandedPendingVersion } from "@/services/pending-recovery.server";
-import { loadRepoEnv } from "@/services/repo-env";
+import { loadRepoEnv } from "@/packages/env";
 import { requireLocalMachine } from "@/cli/local-only";
 import { detail, emitObject } from "@/cli/helpers";
 import { entityIdArg } from "../entity-id";

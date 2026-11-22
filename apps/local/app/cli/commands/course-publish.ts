@@ -15,7 +15,7 @@ import { JobOperationsService } from "@cvm/core/services/db-job-operations.serve
 import { CourseOperationsService } from "@/services/db-course-operations.server";
 import { VersionOperationsService } from "@/services/db-version-operations.server";
 import { nudgeSidecar } from "@/services/sidecar-socket.server";
-import { loadRepoEnv } from "@/services/repo-env";
+import { loadRepoEnv } from "@/packages/env";
 import { NEEDS_THE_SIDECAR, requireLocalMachine } from "@/cli/local-only";
 import { detail, emitObject, notFound, parseError } from "@/cli/helpers";
 import { CliOutput } from "@/cli/output";

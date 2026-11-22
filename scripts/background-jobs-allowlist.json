@@ -235,6 +235,11 @@
       "file": "packages/core/db/planetscale-backup.ts",
       "count": 1,
       "reason": "Not app code: the PlanetScale backup before a production migrate (#2653, #2655). Only the apps/remote build step and the break-glass `pnpm db:migrate:prod` call it, and both must wait for the backup before they migrate, so it cannot be a Job."
+    },
+    {
+      "file": "apps/local/app/packages/http/lib/http-request.ts",
+      "count": 1,
+      "reason": "The fetch owner, not a call of its own: every httpRequest use is counted in the file that makes it, so each caller still answers for its own call."
     }
   ]
 }

@@ -21,8 +21,8 @@ import {
 
 const fakeEnv = vi.hoisted(() => ({}) as Record<string, string>);
 
-vi.mock("@/services/repo-env", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/services/repo-env")>();
+vi.mock("@/packages/env", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/packages/env")>();
   return {
     ...actual,
     repoEnvPath: () => undefined,

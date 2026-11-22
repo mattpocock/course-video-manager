@@ -1,7 +1,7 @@
 import { Effect, Schema } from "effect";
 import { createNewBroadcast } from "@/services/new-broadcast.server";
 import { makeAction } from "@/services/route-action.server";
-import { repoEnvPath } from "@/services/repo-env";
+import { repoEnvPath } from "@/packages/env";
 
 const newBroadcastSchema = Schema.Struct({
   title: Schema.String,

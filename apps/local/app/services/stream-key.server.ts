@@ -1,5 +1,5 @@
 import { Either, Redacted } from "effect";
-import { readEnvValue } from "@/services/repo-env";
+import { readEnvValue } from "@/packages/env";
 
 /**
  * The **Stream Key** (GLOSSARY.md): YouTube's ingest key, kept only in the

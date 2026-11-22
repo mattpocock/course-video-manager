@@ -182,6 +182,25 @@ describe("check mode", () => {
     expect(JSON.parse(readBaseline(dir))).toEqual(baseline);
   });
 
+  it("prints a diagnostic's help, where some rules put their configured message", () => {
+    const dir = makeRepo({ files: { "a.ts": "" } });
+    const config = {
+      ...CONFIG,
+      rules: {
+        "no-restricted-properties": [
+          "error",
+          { object: "Math", property: "random", message: "Use the owner." },
+        ],
+      },
+    };
+    write(dir, ".oxlintrc.json", JSON.stringify(config));
+    write(dir, "a.ts", "export const r = Math.random();\n");
+    const result = ratchet(dir);
+    expect(result.status).toBe(1);
+    expect(result.output).toContain("a.ts:1:18");
+    expect(result.output).toContain("Use the owner.");
+  });
+
   it("with file arguments, lints and compares only those files", () => {
     const dir = makeRepo({ files: { "a.ts": "", "b.ts": "" } });
     write(dir, "a.ts", debuggers(1));
