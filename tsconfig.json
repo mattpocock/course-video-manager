@@ -6,6 +6,7 @@
     "tests/**/*",
     "scripts/**/*.ts",
     "lint/**/*.ts",
+    "lint/**/*.js",
     "vitest.config.ts"
   ],
   // The canary is planted to fail lint, not to be typechecked.

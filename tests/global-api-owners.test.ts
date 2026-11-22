@@ -70,6 +70,12 @@ interface Diagnostic {
   labels: { span: { line: number } }[];
 }
 
+const isReport = (value: unknown): value is { diagnostics: Diagnostic[] } =>
+  typeof value === "object" &&
+  value !== null &&
+  "diagnostics" in value &&
+  Array.isArray(value.diagnostics);
+
 let dir: string;
 let diagnostics: Diagnostic[];
 
@@ -99,7 +105,8 @@ beforeAll(() => {
     ],
     { cwd: dir, encoding: "utf8" }
   );
-  const report: { diagnostics: Diagnostic[] } = JSON.parse(run.stdout);
+  const report: unknown = JSON.parse(run.stdout);
+  if (!isReport(report)) throw new Error(`not an Oxlint report: ${run.stdout}`);
   diagnostics = report.diagnostics.filter((d) =>
     d.code.startsWith("eslint(no-restricted-")
   );

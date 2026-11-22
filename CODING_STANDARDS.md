@@ -125,10 +125,14 @@ The cost, from this repo: `makeLoader` took `ManagedRuntime<any, any>` with an
 unconstrained `R`, so a route asking for an unprovided service type-checked
 across all 111 route modules and the Animatic page 500ed on every load.
 
-An `any` survives review only when a third-party type is genuinely `any` at the
-boundary: cast once at the edge into a named type and keep it out of exported
-signatures. A new `any` needs a reason in the PR; a file you touch should leave
-review with fewer of them than it had.
+An assertion (`as`, `<T>x`, `x!`) is a hidden `any`: narrow instead.
+`as const` and `satisfies` pass. Narrow a third-party `any` once, at the edge. A
+helper that must cast is a generic whose type parameter is constrained, never a
+bare `<T>(v: unknown): T`.
+
+Enforced by oxlint, tests too: `local/no-unsafe-as`, `no-non-null-assertion`,
+`no-explicit-any`, `ban-ts-comment`, `no-unsafe-*`. Old hits sit in
+`lint-baseline.json`; a touched file should leave review with fewer.
 
 ## Course Versions
 
@@ -325,7 +329,7 @@ It also holds the video editor's Video menu, the longest, near eight entries.
 
 When a fetcher action's sole job after success is to navigate, return
 `redirect(...)` from the action instead of returning data and navigating from a
-client-side `useEffect`. React Router handles fetcher redirects automatically.
+client-side `useEffect`.
 The `useEffect` pattern is fragile: if any dep (e.g. an inline `onOpenChange`
 prop) changes between renders, the effect re-fires and re-issues
 `navigate(...)`, cancelling and restarting the in-flight navigation in a loop.
@@ -336,8 +340,7 @@ For optimistic UI on fetcher mutations, derive the optimistic value from
 `fetcher.formData` instead of mirroring it into `useState` + syncing back with
 `useEffect`. When the fetcher is in-flight, `fetcher.formData.get("value")`
 holds the pending value; when it settles, `formData` becomes `undefined` and the
-component falls back to the revalidated loader data. Example:
-`const optimistic = (fetcher.formData?.get("value") ?? loaderValue) as MyType;`.
+component falls back to the revalidated loader data.
 
 ## Keyboard shortcuts
 
@@ -392,9 +395,8 @@ Can I simplify the parameters? Can I hide more complexity inside?
 
 ### Global APIs have one owner
 
-Raw `process.env`, `fetch`, `Date`, timers, `Math.random`, `console` and
-`localStorage` fail lint outside their owner, which the error names. Old hits
-sit in `lint-baseline.json`.
+`process.env`, `fetch`, `Date`, timers, `Math.random`, `console` and
+`localStorage` fail lint outside the owner each error names.
 
 ### Design for testability
 
