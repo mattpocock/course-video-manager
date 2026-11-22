@@ -18,6 +18,7 @@ import {
   type RunResult,
 } from "./cli-write-test-harness";
 import { fakeSpeech } from "./cli-clip-mockup-test-harness";
+import { readEnv } from "@/packages/env";
 
 // ===========================================================================
 // cvm clip-mockup capture: pages to PNGs, and nothing else
@@ -72,7 +73,7 @@ let run: (argv: ReadonlyArray<string>) => Promise<RunResult>;
 let frames: ReturnType<typeof makeTempClipMockupDir>;
 let pagesDir: string;
 const speech = fakeSpeech();
-const originalLocalMachine = process.env[LOCAL_MACHINE_ENV_KEY];
+const originalLocalMachine = readEnv(LOCAL_MACHINE_ENV_KEY);
 
 beforeAll(async () => {
   testDb = (await createTestDb()).testDb;

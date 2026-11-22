@@ -24,6 +24,7 @@ import type { JobContext } from "../job-kind";
 import { JOB_KIND_SPECS, enqueueJob } from "../job-specs";
 import { removeLocalImagesJobKind, uploadImagesJobKind } from "./upload-images";
 import { delay } from "@/packages/clock";
+import { readEnv } from "@/packages/env";
 
 let testDb: TestDb;
 let dbLayer: Layer.Layer<VideoOperationsService | JobOperationsService>;
@@ -31,8 +32,8 @@ let videoId: string;
 let folder: string;
 let filesDir: string;
 let storageRoot: string;
-const previousFilesDir = process.env.VIDEO_FILES_DIR;
-const previousRoots = process.env.STORAGE_ROOTS;
+const previousFilesDir = readEnv("VIDEO_FILES_DIR");
+const previousRoots = readEnv("STORAGE_ROOTS");
 
 beforeAll(async () => {
   const result = await createTestDb();

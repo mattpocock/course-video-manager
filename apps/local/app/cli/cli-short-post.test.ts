@@ -22,6 +22,7 @@ import {
   type RunResult,
 } from "./cli-write-test-harness";
 import { toDate, now } from "@/packages/clock";
+import { readEnv } from "@/packages/env";
 
 // ===========================================================================
 // cvm short post / cvm short queue (#2613): adding Shorts to the Posting
@@ -51,7 +52,7 @@ let page: <A, E>(
     Layer.Layer.Success<ReturnType<typeof buildWriteLayer>>
   >
 ) => Promise<A>;
-const previousMarker = process.env[LOCAL_MACHINE_ENV_KEY];
+const previousMarker = readEnv(LOCAL_MACHINE_ENV_KEY);
 
 beforeAll(async () => {
   testDb = (await createTestDb()).testDb;

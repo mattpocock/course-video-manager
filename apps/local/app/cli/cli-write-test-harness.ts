@@ -17,6 +17,7 @@ import {
   type RemoteHarnessOptions,
 } from "./cli-remote-test-harness";
 import { toDate } from "@/packages/clock";
+import { readEnv } from "@/packages/env";
 
 /**
  * Shared harness for the `cvm` WRITE-verb integration tests. Mirrors the layer
@@ -89,8 +90,8 @@ export const makeTempVideoFilesDir = (): {
   readonly dir: string;
   readonly cleanup: () => void;
 } => {
-  const previousRoots = process.env.STORAGE_ROOTS;
-  const previousLegacy = process.env.VIDEO_FILES_DIR;
+  const previousRoots = readEnv("STORAGE_ROOTS");
+  const previousLegacy = readEnv("VIDEO_FILES_DIR");
   const root = nodeFs.mkdtempSync(
     nodePath.join(os.tmpdir(), "cvm-video-files-")
   );
@@ -125,7 +126,7 @@ export const makeTempClipMockupDir = (): {
   readonly dir: string;
   readonly cleanup: () => void;
 } => {
-  const previous = process.env.STORAGE_ROOTS;
+  const previous = readEnv("STORAGE_ROOTS");
   const root = nodeFs.mkdtempSync(
     nodePath.join(os.tmpdir(), "cvm-clip-mockups-")
   );
@@ -280,7 +281,7 @@ export const useDiagramCli = () => {
   let runIn: (argv: ReadonlyArray<string>) => Promise<RunResult>;
   let dir: string;
   const saved = {
-    local: process.env[LOCAL_MACHINE_ENV_KEY],
+    local: readEnv(LOCAL_MACHINE_ENV_KEY),
     app: process.env[APP_URL_ENV_KEY],
   };
   const restoreEnv = (key: string, value: string | undefined) => {

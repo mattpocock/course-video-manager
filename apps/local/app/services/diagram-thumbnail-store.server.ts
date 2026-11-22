@@ -3,9 +3,10 @@ import { assertUnder } from "@/services/assert-under";
 import path from "node:path";
 import { Layer } from "effect";
 import { DiagramThumbnailStore } from "@/services/diagram-thumbnail-store";
+import { readEnv } from "@/packages/env";
 
 export function getDiagramThumbnailsBaseDir(): string {
-  const dir = process.env.DIAGRAM_THUMBNAILS_DIR;
+  const dir = readEnv("DIAGRAM_THUMBNAILS_DIR");
   if (!dir) {
     throw new Error("DIAGRAM_THUMBNAILS_DIR environment variable is not set");
   }

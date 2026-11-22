@@ -1,7 +1,7 @@
 import http from "node:http";
 import path from "node:path";
 import { Data, Effect } from "effect";
-import { installLocationRepoRoot } from "@/packages/env";
+import { installLocationRepoRoot, readEnv } from "@/packages/env";
 
 /**
  * The app server's side of the Sidecar's Unix socket (`apps/local/sidecar/socket.ts`).
@@ -24,7 +24,7 @@ export class SidecarUnreachableError extends Data.TaggedError(
  * a cwd walk sent its nudge to `<that folder>/.data/sidecar.sock`.
  */
 export const sidecarSocketPath = (): string =>
-  process.env.CVM_SIDECAR_SOCKET ||
+  readEnv("CVM_SIDECAR_SOCKET") ||
   path.join(
     installLocationRepoRoot() ?? process.cwd(),
     ".data",

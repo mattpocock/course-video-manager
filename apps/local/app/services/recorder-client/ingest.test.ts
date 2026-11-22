@@ -33,6 +33,7 @@ import { seedCourseVersion } from "@/test-utils/autofill-service-test-setup";
 import { ingestRecorderEvent, type AskEditor } from "./ingest.server";
 import { requireRecordableVideo } from "./record-guard.server";
 import { createRecorderEventSequencer } from "./sequencer";
+import { readEnv } from "@/packages/env";
 
 /**
  * The app server's recorder ingest on PGlite: recorder events go in, in
@@ -384,7 +385,7 @@ describe("recorder ingest", () => {
 
   it("stores a Recording Session in raw-footage/ relative to its Storage Root, found there through the resolver", async () => {
     const root = nodeFs.mkdtempSync(nodePath.join(os.tmpdir(), "ingest-root-"));
-    const previous = process.env.STORAGE_ROOTS;
+    const previous = readEnv("STORAGE_ROOTS");
     process.env.STORAGE_ROOTS = root;
     try {
       // Where the recorder service puts it: a folder of its own under the

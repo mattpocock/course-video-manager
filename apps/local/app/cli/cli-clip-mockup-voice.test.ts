@@ -27,6 +27,7 @@ import {
   voiceJobs,
 } from "./cli-clip-mockup-test-harness";
 import { now } from "@/packages/clock";
+import { readEnv } from "@/packages/env";
 
 // ===========================================================================
 // cvm clip-mockup: the voice is QUEUED, never waited for
@@ -48,7 +49,7 @@ let frames: ReturnType<typeof makeTempClipMockupDir>;
 let sourceDir: string;
 /** Refuses every line: a command that tried to voice one would fail. */
 const speech = failingSpeech();
-const originalLocalMachine = process.env[LOCAL_MACHINE_ENV_KEY];
+const originalLocalMachine = readEnv(LOCAL_MACHINE_ENV_KEY);
 
 beforeAll(async () => {
   const result = await createTestDb();

@@ -26,6 +26,7 @@ import {
 } from "@/services/course-duplicate-files";
 import type { JobContext } from "../job-kind";
 import { duplicateCourseJobKind } from "./duplicate-course";
+import { readEnv } from "@/packages/env";
 
 let testDb: TestDb;
 let dbLayer: Layer.Layer<
@@ -34,8 +35,8 @@ let dbLayer: Layer.Layer<
 let frames: { dir: string };
 let filesDir: string;
 let legacyDir: string;
-const previousFilesDir = process.env.VIDEO_FILES_DIR;
-const previousRoots = process.env.STORAGE_ROOTS;
+const previousFilesDir = readEnv("VIDEO_FILES_DIR");
+const previousRoots = readEnv("STORAGE_ROOTS");
 let storageRoot: string;
 
 beforeAll(async () => {

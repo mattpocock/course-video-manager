@@ -178,19 +178,19 @@
     "typescript(no-unsafe-assignment)": 1
   },
   "apps/local/app/cli/cli-clip-mockup-capture.test.ts": {
-    "eslint(no-restricted-properties)": 4,
+    "eslint(no-restricted-properties)": 3,
     "local(no-comments)": 16,
     "local(no-unsafe-as)": 3,
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/cli/cli-clip-mockup-chapter.order-space.test.ts": {
-    "eslint(no-restricted-properties)": 4,
+    "eslint(no-restricted-properties)": 3,
     "local(no-comments)": 46,
     "local(no-unsafe-as)": 9,
     "typescript(no-non-null-assertion)": 6
   },
   "apps/local/app/cli/cli-clip-mockup-chapter.test.ts": {
-    "eslint(no-restricted-properties)": 4,
+    "eslint(no-restricted-properties)": 3,
     "local(no-comments)": 46,
     "local(no-unsafe-as)": 3,
     "typescript(no-non-null-assertion)": 9
@@ -201,26 +201,26 @@
     "typescript(no-non-null-assertion)": 2
   },
   "apps/local/app/cli/cli-clip-mockup-html-capture.test.ts": {
-    "eslint(no-restricted-properties)": 4,
+    "eslint(no-restricted-properties)": 3,
     "local(no-comments)": 62,
     "local(no-unsafe-as)": 9,
     "typescript(no-non-null-assertion)": 15,
     "typescript(no-unsafe-member-access)": 1
   },
   "apps/local/app/cli/cli-clip-mockup-ordering.test.ts": {
-    "eslint(no-restricted-properties)": 4,
+    "eslint(no-restricted-properties)": 3,
     "local(no-comments)": 37,
     "local(no-unsafe-as)": 4,
     "typescript(no-non-null-assertion)": 14
   },
   "apps/local/app/cli/cli-clip-mockup-short.test.ts": {
-    "eslint(no-restricted-properties)": 4,
+    "eslint(no-restricted-properties)": 3,
     "local(no-comments)": 15,
     "local(no-unsafe-as)": 5,
     "typescript(no-non-null-assertion)": 21
   },
   "apps/local/app/cli/cli-clip-mockup-store-location.test.ts": {
-    "eslint(no-restricted-properties)": 7,
+    "eslint(no-restricted-properties)": 6,
     "local(no-comments)": 35,
     "local(no-unsafe-as)": 5,
     "typescript(no-non-null-assertion)": 1
@@ -230,13 +230,13 @@
     "local(no-unsafe-as)": 5
   },
   "apps/local/app/cli/cli-clip-mockup-voice.test.ts": {
-    "eslint(no-restricted-properties)": 4,
+    "eslint(no-restricted-properties)": 3,
     "local(no-comments)": 24,
     "local(no-unsafe-as)": 2,
     "typescript(no-non-null-assertion)": 17
   },
   "apps/local/app/cli/cli-clip-mockup-writes.test.ts": {
-    "eslint(no-restricted-properties)": 4,
+    "eslint(no-restricted-properties)": 3,
     "local(no-comments)": 43,
     "local(no-unsafe-as)": 8,
     "typescript(no-non-null-assertion)": 9
@@ -277,7 +277,7 @@
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/cli/cli-course-publish-placeholders.test.ts": {
-    "eslint(no-restricted-properties)": 8,
+    "eslint(no-restricted-properties)": 6,
     "local(no-comments)": 31,
     "local(no-unsafe-as)": 3,
     "typescript(no-non-null-assertion)": 1,
@@ -287,7 +287,7 @@
     "typescript(no-unsafe-return)": 1
   },
   "apps/local/app/cli/cli-course-readiness.test.ts": {
-    "eslint(no-restricted-properties)": 8,
+    "eslint(no-restricted-properties)": 6,
     "local(clip-inserts)": 2,
     "local(no-comments)": 58,
     "typescript(no-non-null-assertion)": 5,
@@ -347,11 +347,11 @@
     "typescript(no-non-null-assertion)": 10
   },
   "apps/local/app/cli/cli-file-writes.test.ts": {
-    "eslint(no-restricted-properties)": 7,
+    "eslint(no-restricted-properties)": 5,
     "local(no-comments)": 16
   },
   "apps/local/app/cli/cli-footage-writes.test.ts": {
-    "eslint(no-restricted-properties)": 10,
+    "eslint(no-restricted-properties)": 9,
     "local(no-comments)": 29,
     "local(no-unsafe-as)": 8,
     "typescript(no-non-null-assertion)": 11,
@@ -359,7 +359,7 @@
     "typescript(no-unsafe-member-access)": 4
   },
   "apps/local/app/cli/cli-footage-youtube.test.ts": {
-    "eslint(no-restricted-properties)": 10,
+    "eslint(no-restricted-properties)": 9,
     "local(no-comments)": 11,
     "local(no-unsafe-as)": 3,
     "typescript(no-unsafe-member-access)": 2
@@ -393,7 +393,7 @@
     "typescript(no-unsafe-return)": 2
   },
   "apps/local/app/cli/cli-layer.test.ts": {
-    "eslint(no-restricted-properties)": 9,
+    "eslint(no-restricted-properties)": 8,
     "local(no-comments)": 20,
     "local(no-unsafe-as)": 4,
     "typescript(no-non-null-assertion)": 2
@@ -417,7 +417,7 @@
     "typescript(no-non-null-assertion)": 4
   },
   "apps/local/app/cli/cli-local-only.test.ts": {
-    "eslint(no-restricted-properties)": 6,
+    "eslint(no-restricted-properties)": 5,
     "local(no-comments)": 22,
     "typescript(no-non-null-assertion)": 1,
     "typescript(no-unsafe-assignment)": 4,
@@ -506,14 +506,14 @@
     "typescript(no-non-null-assertion)": 28
   },
   "apps/local/app/cli/cli-short-post.test.ts": {
-    "eslint(no-restricted-properties)": 9,
+    "eslint(no-restricted-properties)": 8,
     "local(no-comments)": 24,
     "local(no-unsafe-as)": 5,
     "typescript(no-non-null-assertion)": 1,
     "typescript(no-unsafe-assignment)": 10
   },
   "apps/local/app/cli/cli-short-render.test.ts": {
-    "eslint(no-restricted-properties)": 4,
+    "eslint(no-restricted-properties)": 3,
     "local(no-comments)": 10,
     "local(no-unsafe-as)": 2,
     "typescript(no-non-null-assertion)": 1,
@@ -553,7 +553,7 @@
     "typescript(no-unsafe-member-access)": 3
   },
   "apps/local/app/cli/cli-write-test-harness.ts": {
-    "eslint(no-restricted-properties)": 16,
+    "eslint(no-restricted-properties)": 12,
     "local(no-comments)": 14,
     "local(no-unsafe-as)": 3,
     "typescript(no-non-null-assertion)": 13,
@@ -917,7 +917,7 @@
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/cli/render.test.ts": {
-    "eslint(no-restricted-properties)": 4,
+    "eslint(no-restricted-properties)": 3,
     "local(no-comments)": 2
   },
   "apps/local/app/cli/render.ts": {
@@ -5227,7 +5227,7 @@
     "local(no-comments)": 7
   },
   "apps/local/app/services/animatic-clip-mockup-files.test.ts": {
-    "eslint(no-restricted-properties)": 4,
+    "eslint(no-restricted-properties)": 3,
     "local(fs-writes)": 3,
     "local(no-comments)": 9,
     "typescript(no-non-null-assertion)": 5
@@ -5279,7 +5279,6 @@
   },
   "apps/local/app/services/background-removal-service.ts": {
     "eslint(no-restricted-globals)": 1,
-    "eslint(no-restricted-properties)": 1,
     "local(no-comments)": 1,
     "local(no-unsafe-as)": 1
   },
@@ -5370,7 +5369,7 @@
     "local(no-comments)": 7
   },
   "apps/local/app/services/clip-mockup-asset-response.test.ts": {
-    "eslint(no-restricted-properties)": 4,
+    "eslint(no-restricted-properties)": 3,
     "local(fs-writes)": 2,
     "local(no-comments)": 7
   },
@@ -5880,7 +5879,6 @@
     "local(no-comments)": 2
   },
   "apps/local/app/services/diagram-thumbnail-store.server.ts": {
-    "eslint(no-restricted-properties)": 1,
     "local(no-comments)": 6
   },
   "apps/local/app/services/document-writing-agent.test.ts": {
@@ -5980,7 +5978,7 @@
     "local(no-unsafe-as)": 1
   },
   "apps/local/app/services/fake-writer-model.ts": {
-    "eslint(no-restricted-properties)": 2,
+    "eslint(no-restricted-properties)": 1,
     "local(no-comments)": 15
   },
   "apps/local/app/services/ffmpeg-child-registry.ts": {
@@ -6095,7 +6093,7 @@
     "local(no-comments)": 8
   },
   "apps/local/app/services/gpu-gate.test.ts": {
-    "eslint(no-restricted-properties)": 10,
+    "eslint(no-restricted-properties)": 9,
     "local(fs-writes)": 3,
     "local(no-comments)": 15,
     "local(no-unsafe-as)": 3
@@ -6134,7 +6132,7 @@
     "local(no-comments)": 2
   },
   "apps/local/app/services/new-broadcast.server.test.ts": {
-    "eslint(no-restricted-properties)": 4,
+    "eslint(no-restricted-properties)": 3,
     "local(fs-writes)": 2,
     "local(no-comments)": 4,
     "typescript(no-non-null-assertion)": 1,
@@ -6304,7 +6302,7 @@
     "typescript(no-non-null-assertion)": 2
   },
   "apps/local/app/services/recorder-client/ingest.test.ts": {
-    "eslint(no-restricted-properties)": 3,
+    "eslint(no-restricted-properties)": 2,
     "local(fs-writes)": 2,
     "local(no-comments)": 22,
     "local(no-unsafe-as)": 5,
@@ -6479,7 +6477,7 @@
   },
   "apps/local/app/services/route-action.server.test.ts": {
     "eslint(no-restricted-globals)": 4,
-    "eslint(no-restricted-properties)": 2,
+    "eslint(no-restricted-properties)": 1,
     "local(no-comments)": 10,
     "local(no-unsafe-as)": 2,
     "typescript(no-non-null-assertion)": 2
@@ -6529,7 +6527,6 @@
     "local(no-comments)": 2
   },
   "apps/local/app/services/sidecar-socket.server.ts": {
-    "eslint(no-restricted-properties)": 1,
     "local(no-comments)": 8,
     "local(no-unsafe-as)": 1
   },
@@ -6663,18 +6660,17 @@
     "local(no-comments)": 2
   },
   "apps/local/app/services/video-files.test.ts": {
-    "eslint(no-restricted-properties)": 6,
+    "eslint(no-restricted-properties)": 4,
     "local(fs-writes)": 3,
     "local(no-comments)": 7,
     "local(no-unsafe-as)": 3
   },
   "apps/local/app/services/video-files.ts": {
-    "eslint(no-restricted-properties)": 1,
     "local(no-comments)": 33,
     "local(no-unsafe-as)": 3
   },
   "apps/local/app/services/video-posting-context.server.test.ts": {
-    "eslint(no-restricted-properties)": 8,
+    "eslint(no-restricted-properties)": 6,
     "local(fs-writes)": 6,
     "local(no-comments)": 5,
     "local(no-unsafe-as)": 1,
@@ -7230,7 +7226,6 @@
     "local(no-comments)": 4
   },
   "apps/local/scripts/db-dump.test.ts": {
-    "eslint(no-restricted-properties)": 1,
     "local(no-comments)": 2,
     "local(no-unsafe-as)": 2,
     "typescript(no-non-null-assertion)": 1
@@ -7547,14 +7542,14 @@
     "local(no-unsafe-as)": 1
   },
   "apps/local/sidecar/kinds/clip-mockup-voice-final-failure.test.ts": {
-    "eslint(no-restricted-properties)": 4,
+    "eslint(no-restricted-properties)": 3,
     "local(no-comments)": 11,
     "local(no-unsafe-as)": 4,
     "typescript(no-non-null-assertion)": 5,
     "typescript(no-unsafe-assignment)": 1
   },
   "apps/local/sidecar/kinds/clip-mockup-voice.test.ts": {
-    "eslint(no-restricted-properties)": 4,
+    "eslint(no-restricted-properties)": 3,
     "local(no-comments)": 12,
     "local(no-unsafe-as)": 8,
     "typescript(no-non-null-assertion)": 10
@@ -7564,7 +7559,7 @@
     "typescript(no-non-null-assertion)": 2
   },
   "apps/local/sidecar/kinds/duplicate-course.test.ts": {
-    "eslint(no-restricted-properties)": 8,
+    "eslint(no-restricted-properties)": 6,
     "local(no-comments)": 5,
     "local(no-unsafe-as)": 1,
     "typescript(no-explicit-any)": 1,
@@ -7623,7 +7618,7 @@
     "local(no-comments)": 2
   },
   "apps/local/sidecar/kinds/storage-delete-ops.test.ts": {
-    "eslint(no-restricted-properties)": 4,
+    "eslint(no-restricted-properties)": 3,
     "local(clip-inserts)": 1,
     "local(no-comments)": 3,
     "local(no-unsafe-as)": 6,
@@ -7634,7 +7629,7 @@
     "local(no-comments)": 6
   },
   "apps/local/sidecar/kinds/storage-delete.test.ts": {
-    "eslint(no-restricted-properties)": 4,
+    "eslint(no-restricted-properties)": 3,
     "local(clip-inserts)": 1,
     "local(no-comments)": 2,
     "local(no-unsafe-as)": 6,
@@ -7645,7 +7640,7 @@
     "local(no-comments)": 4
   },
   "apps/local/sidecar/kinds/storage-move.test.ts": {
-    "eslint(no-restricted-properties)": 4,
+    "eslint(no-restricted-properties)": 3,
     "local(clip-inserts)": 1,
     "local(no-comments)": 10,
     "local(no-unsafe-as)": 8,
@@ -7687,7 +7682,7 @@
     "local(no-comments)": 4
   },
   "apps/local/sidecar/kinds/upload-images.test.ts": {
-    "eslint(no-restricted-properties)": 8,
+    "eslint(no-restricted-properties)": 6,
     "local(no-comments)": 19,
     "local(no-unsafe-as)": 3,
     "typescript(no-non-null-assertion)": 2
@@ -7713,7 +7708,6 @@
     "local(no-comments)": 1
   },
   "apps/local/sidecar/load-repo-env.ts": {
-    "eslint(no-restricted-properties)": 1,
     "local(no-comments)": 1
   },
   "apps/local/sidecar/local-whisper-engine.test.ts": {
@@ -7789,7 +7783,7 @@
   },
   "apps/local/sidecar/run-sidecar.ts": {
     "eslint(no-restricted-globals)": 1,
-    "eslint(no-restricted-properties)": 6,
+    "eslint(no-restricted-properties)": 5,
     "local(no-comments)": 29
   },
   "apps/local/sidecar/settle-cancelled.ts": {

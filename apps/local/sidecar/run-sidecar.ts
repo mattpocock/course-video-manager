@@ -37,6 +37,7 @@ import {
   postingQueueTickIn,
 } from "./posting-queue-tick";
 import { now } from "@/packages/clock";
+import { readEnv } from "@/packages/env";
 
 /**
  * The sidecar's entry point (`pnpm dev` runs it as `dev:sidecar`, `pnpm start`
@@ -113,7 +114,7 @@ const main = async (): Promise<void> => {
   // Everything the run needs is read here, before any work starts.
   const socket = sidecarSocketPath();
   const logDir =
-    process.env.CVM_SIDECAR_LOG_DIR ||
+    readEnv("CVM_SIDECAR_LOG_DIR") ||
     path.join(CHECKOUT, ".data", "logs", "jobs");
   fs.mkdirSync(path.dirname(socket), { recursive: true });
   fs.mkdirSync(logDir, { recursive: true });

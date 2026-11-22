@@ -26,6 +26,7 @@ import {
   type RunResult,
   type WriteSeed,
 } from "./cli-write-test-harness";
+import { readEnv } from "@/packages/env";
 
 // ===========================================================================
 // cvm file: list / add / get / delete
@@ -44,7 +45,7 @@ let testDb: TestDb;
 let run: (argv: ReadonlyArray<string>) => Promise<RunResult>;
 let videoFiles: ReturnType<typeof makeTempVideoFilesDir>;
 let sourceDir: string;
-const originalLocalMachine = process.env[LOCAL_MACHINE_ENV_KEY];
+const originalLocalMachine = readEnv(LOCAL_MACHINE_ENV_KEY);
 
 beforeAll(async () => {
   const result = await createTestDb();
@@ -360,7 +361,7 @@ describe("an Offline Storage Root", () => {
   let roots: string | undefined;
   let offline: string;
   beforeEach(() => {
-    roots = process.env.STORAGE_ROOTS;
+    roots = readEnv("STORAGE_ROOTS");
     offline = `${nodePath.dirname(videoFiles.dir)}-offline-e`;
     process.env.STORAGE_ROOTS = `${roots},${offline}`;
   });

@@ -29,6 +29,7 @@ import {
   type WriteSeed,
 } from "./cli-write-test-harness";
 import { addArgv, updateArgv } from "./cli-clip-mockup-test-harness";
+import { readEnv } from "@/packages/env";
 
 // ===========================================================================
 // WHICH DIRECTORY A CLIP MOCKUP FRAME LANDS IN
@@ -116,7 +117,7 @@ let s: WriteSeed;
 let storeDir: string;
 let sourceDir: string;
 let root: string;
-const originalStore = process.env.STORAGE_ROOTS;
+const originalStore = readEnv("STORAGE_ROOTS");
 
 interface Mockup {
   id: string;
