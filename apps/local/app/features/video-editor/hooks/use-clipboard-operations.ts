@@ -6,7 +6,7 @@ import {
   type ChapterTimelineItem,
 } from "@/services/video-chapters";
 import { isClip, isChapter } from "../clip-utils";
-import type { TimelineItem } from "../clip-state-reducer";
+import type { ClipOnDatabase, TimelineItem } from "../clip-state-reducer";
 import { log } from "@/packages/log";
 import { after } from "@/packages/clock";
 
@@ -62,6 +62,12 @@ export const useClipboardOperations = (items: TimelineItem[]) => {
   // The same chapter list the published course.json carries, in the
   // YouTube "0:00 Chapter Name" form.
   const youtubeChapters = useMemo(() => {
+    const secondsOf = exportedClipSeconds(
+      items.filter(
+        (item): item is ClipOnDatabase =>
+          isClip(item) && item.type === "on-database"
+      )
+    );
     const timeline = items
       .map((item): ChapterTimelineItem | null => {
         if (isChapter(item)) {
@@ -69,7 +75,7 @@ export const useClipboardOperations = (items: TimelineItem[]) => {
         } else if (isClip(item) && item.type === "on-database") {
           return {
             kind: "clip",
-            durationSeconds: exportedClipSeconds(item),
+            durationSeconds: secondsOf(item),
           };
         }
         return null;

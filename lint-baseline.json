@@ -5375,7 +5375,7 @@
     "typescript(no-unsafe-member-access)": 1
   },
   "apps/local/app/services/clip-segment-args.ts": {
-    "local(no-comments)": 26
+    "local(no-comments)": 25
   },
   "apps/local/app/services/clip-service-chapters.server.ts": {
     "local(no-comments)": 3,

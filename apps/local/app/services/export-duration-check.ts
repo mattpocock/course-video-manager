@@ -12,6 +12,17 @@
  */
 
 import { FINAL_VIDEO_PADDING } from "@/features/video-editor/constants";
+import {
+  clipComposite,
+  clipLayers,
+  clipSource,
+  EXPORT_FPS,
+  exportFrameCount,
+  isUntouched,
+  type ClipComposite,
+  type ClipSourceRow,
+  type Layer,
+} from "@/packages/clip-source";
 import type { PauseType } from "./video-processing-service";
 
 /**
@@ -35,17 +46,47 @@ export const LONG_PAUSE_DURATION_IN_SECONDS = 0.18;
 export const EXPORT_DURATION_TOLERANCE_IN_SECONDS = 1;
 
 /**
- * A Clip as the database holds it, before any padding is applied.
+ * A Clip as the database holds it, before any padding is applied: its span,
+ * and the columns that say how the export draws it (`clipSource`), which
+ * decide whether its Video is rendered Clip by Clip. As with `clipSource`, a
+ * row loaded without its Recording Session and Layers answers as an OBS Clip:
+ * pass the rows the export reads (`getVideoWithClipsById`).
  *
  * `pauseType` is the raw column: a `varchar` that predates the enum and can
  * hold anything. It is narrowed to a **Pause Type** exactly once, on the way
  * into the export, by {@link paddedClipDurationsInSeconds}.
  */
-export type SourceClipDuration = {
-  sourceStartTime: number;
-  sourceEndTime: number;
-  pauseType: string | null;
-};
+export type SourceClipDuration = Pick<
+  ClipSourceRow,
+  "sourceStartTime" | "sourceEndTime"
+> &
+  Partial<
+    Pick<
+      ClipSourceRow,
+      "videoFilename" | "recordingSessionId" | "recordingSession" | "layers"
+    >
+  > & {
+    pauseType: string | null;
+  };
+
+export const needsClipSegments = (
+  clips: readonly {
+    readonly composite: ClipComposite | null;
+    readonly layers: readonly Layer[];
+  }[]
+): boolean =>
+  clips.some((clip) => clip.composite !== null || !isUntouched(clip.layers));
+
+const rowsRenderClipByClip = (clips: readonly SourceClipDuration[]): boolean =>
+  needsClipSegments(
+    clips.map((clip) => {
+      const source = clipSource({
+        ...clip,
+        videoFilename: clip.videoFilename ?? "",
+      });
+      return { composite: clipComposite(source), layers: clipLayers(source) };
+    })
+  );
 
 /** The one value the renderer acts on; everything else renders as "none". */
 const toPauseType = (rawPauseType: string | null): PauseType =>
@@ -55,34 +96,72 @@ const toPauseType = (rawPauseType: string | null): PauseType =>
  * What each Clip asks the renderer for, in the order the renderer gets them:
  * its span of source, plus the padding the final Clip carries.
  *
- * The export step feeds these to the renderer AND to the prediction below, so
- * the file that is asked for and the file that is checked for cannot differ.
+ * A Video rendered Clip by Clip — any composite, or any Clip with Layers of
+ * its own ({@link needsClipSegments}, which the export asks of its render
+ * Clips) — makes every segment a whole number of 60 fps frames
+ * (`clip-segment-args.ts`), so each Clip here is rounded up to whole frames,
+ * long Pause included: the exported file is the sum of those, not of the
+ * bare spans (499 Clips came out 2.7 s longer than the spans). An OBS-only
+ * Video of untouched Clips takes the single pass, cut at the exact spans.
+ * {@link exportedClipSecondsIn} gives the same seconds per Clip with no final
+ * padding: where whatever follows a Clip starts.
+ *
+ * The export step feeds these to the renderer AND to the prediction below,
+ * and the Chapters and Overlays are timed from them, so the file that is
+ * asked for, the file that is checked for and the times on it cannot differ.
  */
 export const paddedClipDurationsInSeconds = (
   clips: readonly SourceClipDuration[]
-): ExportClipDuration[] =>
-  clips.map((clip, index, array) => ({
-    duration:
-      clip.sourceEndTime -
-      clip.sourceStartTime +
-      (index === array.length - 1 ? FINAL_VIDEO_PADDING : 0),
-    pauseType: toPauseType(clip.pauseType),
-  }));
+): ExportClipDuration[] => {
+  const wholeFrames = rowsRenderClipByClip(clips);
+  return clips.map((clip, index, array) =>
+    askedDuration(
+      clip,
+      index === array.length - 1 ? FINAL_VIDEO_PADDING : 0,
+      wholeFrames
+    )
+  );
+};
+
+export const exportedClipSecondsIn = (
+  clips: readonly SourceClipDuration[]
+): ((clip: SourceClipDuration) => number) => {
+  const wholeFrames = rowsRenderClipByClip(clips);
+  return (clip) =>
+    clipExportDurationInSeconds(askedDuration(clip, 0, wholeFrames));
+};
+
+const askedDuration = (
+  clip: SourceClipDuration,
+  padding: number,
+  wholeFrames: boolean
+): ExportClipDuration => {
+  const pauseType = toPauseType(clip.pauseType);
+  const span = clip.sourceEndTime - clip.sourceStartTime + padding;
+  if (!wholeFrames) return { duration: span, pauseType };
+  const pause = pauseSeconds(pauseType);
+  return {
+    duration: exportFrameCount(span + pause) / EXPORT_FPS - pause,
+    pauseType,
+  };
+};
 
 /** A Clip as the export step describes it to the renderer. */
 export type ExportClipDuration = {
-  /** Seconds of source, including the final-clip padding where it applies. */
+  /**
+   * Seconds of source, including the final-clip padding where it applies,
+   * rounded up to whole frames on a Video rendered Clip by Clip.
+   */
   duration: number;
   pauseType: PauseType;
 };
 
 /** The seconds one Clip contributes to the output, long Pause included. */
-export const clipExportDurationInSeconds = (
-  clip: ExportClipDuration
-): number =>
-  clip.pauseType === "long"
-    ? clip.duration + LONG_PAUSE_DURATION_IN_SECONDS
-    : clip.duration;
+export const clipExportDurationInSeconds = (clip: ExportClipDuration): number =>
+  clip.duration + pauseSeconds(clip.pauseType);
+
+const pauseSeconds = (pauseType: PauseType): number =>
+  pauseType === "long" ? LONG_PAUSE_DURATION_IN_SECONDS : 0;
 
 /**
  * What an honest encode of these Clips produces: the concat filter's output is

@@ -55,16 +55,6 @@ export type SegmentClip = {
   readonly layers: readonly Layer[];
 };
 
-/**
- * Whether the export must render these Clips one by one: a composite, or a
- * Clip with Layers of its own. An OBS-only Video of untouched Clips takes the
- * single pass, exactly as before.
- */
-export const needsClipSegments = (
-  clips: readonly Pick<SegmentClip, "composite" | "layers">[]
-): boolean =>
-  clips.some((clip) => clip.composite !== null || !isUntouched(clip.layers));
-
 type Dimensions = { readonly width: number; readonly height: number };
 
 const FPS = EXPORT_FPS;
