@@ -139,6 +139,7 @@ WHAT NEEDS A MACHINE
     cvm course readiness    the finished videos directory (exportedness)
     cvm course publish      the same, plus ffmpeg
     cvm short render        the Sidecar's ffmpeg and finished-videos/ (the vertical file)
+    cvm video export        the same (the Exported Video, as the Export button makes it)
     cvm clip frame          raw footage and the overlay renderer (a Clip's composed frame)
   Anywhere else they are refused before doing any work — exit 7, _tag
   "LocalOnlyCommandError", with the reason in the message. That is a STOP, not
@@ -204,6 +205,10 @@ WRITES
     short render                     render a Short's vertical file into
                                      finished-videos/ and print its path
                                      (LOCAL-ONLY; a Sidecar Job)
+    video export                     export a Video as its Export button
+                                     does and wait for the Exported Video's
+                                     path (--no-wait; --timeout <s>, default
+                                     3600; LOCAL-ONLY; a Sidecar Job)
     section
             create/rename/move/      create a section in a Version, rename it,
             archive                  reorder it, or soft-delete it ('archive'

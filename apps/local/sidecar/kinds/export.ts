@@ -1,10 +1,11 @@
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 import { JOB_PARAMS } from "../job-params";
 import { CoursePublishService } from "@/services/course-publish-service";
 import type { ExportStage } from "@/services/course-publish-export-events";
 import { defineJobKind, type JobContext } from "../job-kind";
 import { makeOrderedEvents } from "../ordered-events";
 import { UPLOAD_MANAGER_POLICIES } from "../retry-policy";
+import { EXPORT_EVENTS, ExportedEvent } from "@/features/jobs/export-job";
 
 /** The stages an export reports; `queued` is the browser's, before it starts. */
 type ExportWorkStage = Exclude<ExportStage, "queued">;
@@ -30,6 +31,12 @@ const reportInOrder = (ctx: JobContext) =>
         last = info;
         events.emit("progress", { stage: info.stage, percent: info.percent });
       },
+      exported: (path: string) => {
+        events.emit(
+          EXPORT_EVENTS.exported,
+          Schema.encodeSync(ExportedEvent)({ path })
+        );
+      },
       flush: events.flush,
     };
   });
@@ -40,7 +47,8 @@ const reportInOrder = (ctx: JobContext) =>
  * driven by the sidecar, so closing the tab no longer stops it. Its stages and
  * ffmpeg percentages become `stage` / `progress` Job Events, which the Upload
  * Manager draws exactly as it drew the stream's. 3 attempts, in the default
- * lane — copied from the Upload Manager (`retry-policy.ts`).
+ * lane — copied from the Upload Manager (`retry-policy.ts`). Its last Job
+ * Event, `exported`, names the Exported Video, which `cvm video export` prints.
  */
 export const exportJobKind = defineJobKind({
   ...UPLOAD_MANAGER_POLICIES.export,
@@ -52,7 +60,10 @@ export const exportJobKind = defineJobKind({
       yield* Effect.logInfo("export: started", { videoId: params.videoId });
       const exportPath = yield* publish
         .exportVideo(params.videoId, reports.onStage, reports.onProgress)
-        .pipe(Effect.ensuring(reports.flush));
+        .pipe(
+          Effect.tap((path) => Effect.sync(() => reports.exported(path))),
+          Effect.ensuring(reports.flush)
+        );
       yield* Effect.logInfo("export: done", { exportPath });
     }),
 });
