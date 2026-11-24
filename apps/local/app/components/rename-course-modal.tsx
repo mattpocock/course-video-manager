@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { useFetcher } from "react-router";
+import { toast } from "@/components/ui/toast";
 
 export function RenameCourseModal(props: {
   courseId: string;
@@ -28,10 +29,12 @@ export function RenameCourseModal(props: {
           method="post"
           action={`/api/courses/${props.courseId}/rename-course`}
           className="space-y-4 py-4"
-          onSubmit={async (e) => {
+          onSubmit={(e) => {
             e.preventDefault();
-            await fetcher.submit(e.currentTarget);
-            props.onOpenChange(false);
+            fetcher.submit(e.currentTarget).then(
+              () => props.onOpenChange(false),
+              () => toast.error("Failed to rename the course")
+            );
           }}
         >
           <div className="space-y-2">

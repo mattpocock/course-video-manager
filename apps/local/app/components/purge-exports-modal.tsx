@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { FileX, Loader2 } from "lucide-react";
 import { useFetcher } from "react-router";
+import { toast } from "@/components/ui/toast";
 
 export function PurgeExportsModal(props: {
   repoId: string;
@@ -36,14 +37,18 @@ export function PurgeExportsModal(props: {
           method="post"
           action={`/api/courses/${props.repoId}/purge-exports`}
           className="space-y-4 py-4"
-          onSubmit={async (e) => {
+          onSubmit={(e) => {
             e.preventDefault();
             const formData = new FormData(e.currentTarget);
-            await fetcher.submit(formData, {
-              method: "post",
-              action: `/api/courses/${props.repoId}/purge-exports`,
-            });
-            props.onOpenChange(false);
+            fetcher
+              .submit(formData, {
+                method: "post",
+                action: `/api/courses/${props.repoId}/purge-exports`,
+              })
+              .then(
+                () => props.onOpenChange(false),
+                () => toast.error("Failed to purge the exports")
+              );
           }}
         >
           <input type="hidden" name="versionId" value={props.versionId} />

@@ -146,7 +146,7 @@ export function AiHeroPage({
 
   const [isCheckingExport, setIsCheckingExport] = useState(false);
 
-  const handlePostToAiHero = async () => {
+  const postToAiHero = async () => {
     if (!title.trim() || isSeoDescriptionTooLong) return;
 
     setIsCheckingExport(true);
@@ -186,6 +186,12 @@ export function AiHeroPage({
     } finally {
       setIsCheckingExport(false);
     }
+  };
+
+  const handlePostToAiHero = () => {
+    postToAiHero().catch(() => {
+      toast.error("Failed to start the AI Hero post");
+    });
   };
 
   // SEO description generation state
@@ -244,16 +250,22 @@ export function AiHeroPage({
     }
   }, []);
 
-  const handleRegenerate = async () => {
-    const text = await generateSeoDescription();
-    if (!text) return;
+  const handleRegenerate = () => {
+    generateSeoDescription().then(
+      (text) => {
+        if (!text) return;
 
-    if (seoDescription.trim()) {
-      setPendingGeneratedSeo(text);
-      setConfirmRegenerate(true);
-    } else {
-      setSeoDescription(text);
-    }
+        if (seoDescription.trim()) {
+          setPendingGeneratedSeo(text);
+          setConfirmRegenerate(true);
+        } else {
+          setSeoDescription(text);
+        }
+      },
+      () => {
+        toast.error("Failed to generate SEO description");
+      }
+    );
   };
 
   const handleConfirmRegenerate = () => {

@@ -31,7 +31,7 @@ export function AiHeroConnectCard() {
   const [copied, setCopied] = useState(false);
   const revalidator = useRevalidator();
 
-  const startDeviceFlow = async () => {
+  const runDeviceFlow = async () => {
     setError(null);
     try {
       const res = await fetch("/api/auth/ai-hero/device-code", {
@@ -57,7 +57,9 @@ export function AiHeroConnectCard() {
         const pollData = await pollRes.json();
         if (pollRes.ok && pollData.success) {
           setDeviceFlow(null);
-          revalidator.revalidate();
+          revalidator.revalidate().catch(() => {
+            setError("Connected, but failed to refresh the page");
+          });
         } else {
           setError(pollData.error || "Authorization failed");
         }
@@ -69,11 +71,23 @@ export function AiHeroConnectCard() {
     }
   };
 
+  const startDeviceFlow = () => {
+    runDeviceFlow().catch(() => {
+      setError("Failed to connect to server");
+    });
+  };
+
   const copyUserCode = () => {
     if (deviceFlow) {
-      navigator.clipboard.writeText(deviceFlow.userCode);
-      setCopied(true);
-      after(2000, () => setCopied(false));
+      navigator.clipboard.writeText(deviceFlow.userCode).then(
+        () => {
+          setCopied(true);
+          after(2000, () => setCopied(false));
+        },
+        () => {
+          setError("Failed to copy the code");
+        }
+      );
     }
   };
 

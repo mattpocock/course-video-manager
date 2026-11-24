@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useFetcher } from "react-router";
+import { toast } from "@/components/ui/toast";
 
 export function AddLinkModal(props: {
   open: boolean;
@@ -54,7 +55,7 @@ export function AddLinkModal(props: {
           method="post"
           action="/api/links"
           className="space-y-4 py-4"
-          onSubmit={async (e) => {
+          onSubmit={(e) => {
             e.preventDefault();
             const formData = new FormData(e.currentTarget);
             const url = formData.get("url") as string;
@@ -63,8 +64,10 @@ export function AddLinkModal(props: {
               return;
             }
 
-            await fetcher.submit(e.currentTarget);
-            props.onOpenChange(false);
+            fetcher.submit(e.currentTarget).then(
+              () => props.onOpenChange(false),
+              () => toast.error("Failed to add the link")
+            );
           }}
         >
           <div className="space-y-2">
@@ -86,10 +89,14 @@ export function AddLinkModal(props: {
                 try {
                   new URL(pastedText);
                   setUrlError(null);
-                  titleFetcher.submit(
-                    { url: pastedText },
-                    { method: "post", action: "/api/links/fetch-title" }
-                  );
+                  titleFetcher
+                    .submit(
+                      { url: pastedText },
+                      { method: "post", action: "/api/links/fetch-title" }
+                    )
+                    .catch(() => {
+                      toast.error("Failed to fetch the link's title");
+                    });
                 } catch {
                   // Not a valid URL, skip fetching title
                 }

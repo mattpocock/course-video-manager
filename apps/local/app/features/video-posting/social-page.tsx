@@ -55,7 +55,7 @@ export const SocialPagePanel = (props: SocialPagePanelProps) => {
   const [confirmOverwriteCaption, setConfirmOverwriteCaption] = useState(false);
   const [pendingGeneratedCaption, setPendingGeneratedCaption] = useState("");
 
-  const handleGenerateCaption = async () => {
+  const generateCaption = async () => {
     setIsGeneratingCaption(true);
     try {
       const transcriptEnabled =
@@ -91,9 +91,16 @@ export const SocialPagePanel = (props: SocialPagePanelProps) => {
       }
     } catch (error) {
       log.error("Failed to generate caption:", error);
+      toast.error("Failed to generate caption");
     } finally {
       setIsGeneratingCaption(false);
     }
+  };
+
+  const handleGenerateCaption = () => {
+    generateCaption().catch(() => {
+      toast.error("Failed to generate caption");
+    });
   };
 
   const handleConfirmOverwriteCaption = () => {
@@ -112,9 +119,7 @@ export const SocialPagePanel = (props: SocialPagePanelProps) => {
     null
   );
 
-  const handleCreateShortLink = async (
-    platform: "Newsletter" | "X" | "LinkedIn"
-  ) => {
+  const createShortLink = async (platform: "Newsletter" | "X" | "LinkedIn") => {
     setCreatingShortLink(platform);
     try {
       const response = await fetch("/api/shortlinks/find-or-create", {
@@ -145,6 +150,12 @@ export const SocialPagePanel = (props: SocialPagePanelProps) => {
     } finally {
       setCreatingShortLink(null);
     }
+  };
+
+  const handleCreateShortLink = (platform: "Newsletter" | "X" | "LinkedIn") => {
+    createShortLink(platform).catch(() => {
+      toast.error("Failed to create short link");
+    });
   };
 
   return (

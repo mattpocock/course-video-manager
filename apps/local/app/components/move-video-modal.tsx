@@ -18,6 +18,7 @@ import {
 import { ArrowRightLeft, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { useFetcher } from "react-router";
+import { toast } from "@/components/ui/toast";
 
 export function MoveVideoModal(props: {
   videoId: string;
@@ -87,16 +88,22 @@ export function MoveVideoModal(props: {
             </Button>
             <Button
               disabled={!selectedLessonId || fetcher.state === "submitting"}
-              onClick={async () => {
-                await fetcher.submit(
-                  { lessonId: selectedLessonId },
-                  {
-                    method: "post",
-                    action: `/api/videos/${props.videoId}/move-to-lesson`,
-                  }
-                );
-                props.onAfterMove?.(selectedLessonId);
-                handleOpenChange(false);
+              onClick={() => {
+                fetcher
+                  .submit(
+                    { lessonId: selectedLessonId },
+                    {
+                      method: "post",
+                      action: `/api/videos/${props.videoId}/move-to-lesson`,
+                    }
+                  )
+                  .then(
+                    () => {
+                      props.onAfterMove?.(selectedLessonId);
+                      handleOpenChange(false);
+                    },
+                    () => toast.error("Failed to move the video")
+                  );
               }}
             >
               {fetcher.state === "submitting" ? (

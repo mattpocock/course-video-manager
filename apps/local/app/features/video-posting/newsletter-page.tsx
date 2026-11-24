@@ -60,7 +60,7 @@ export const NewsletterPagePanel = (props: NewsletterPagePanelProps) => {
     return "";
   });
 
-  const handleGenerate = async () => {
+  const generate = async () => {
     setIsGenerating(true);
     try {
       const transcriptEnabled =
@@ -136,7 +136,13 @@ export const NewsletterPagePanel = (props: NewsletterPagePanelProps) => {
     }
   };
 
-  const handleCopyAndOpenKit = async () => {
+  const handleGenerate = () => {
+    generate().catch(() => {
+      toast.error("Failed to generate newsletter");
+    });
+  };
+
+  const copyAndOpenKit = async () => {
     try {
       const html = await marked.parse(newsletterContent);
       const blob = new Blob([html], { type: "text/html" });
@@ -155,6 +161,12 @@ export const NewsletterPagePanel = (props: NewsletterPagePanelProps) => {
       log.error("Failed to copy as rich text:", error);
       toast.error("Failed to copy newsletter");
     }
+  };
+
+  const handleCopyAndOpenKit = () => {
+    copyAndOpenKit().catch(() => {
+      toast.error("Failed to copy newsletter");
+    });
   };
 
   return (

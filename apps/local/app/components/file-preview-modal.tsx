@@ -2,6 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { useEffect, useState } from "react";
 import { FileIcon, ClipboardIcon, CheckIcon } from "lucide-react";
 import { after } from "@/packages/clock";
+import { toast } from "@/components/ui/toast";
 
 type FilePreviewModalProps = {
   isOpen: boolean;
@@ -128,7 +129,11 @@ export function FilePreviewModal({
       }
     };
 
-    fetchFileContent();
+    fetchFileContent().catch((err: unknown) => {
+      setError(
+        err instanceof Error ? err.message : "Failed to load file content"
+      );
+    });
   }, [isOpen, videoId, filePath]);
 
   // Cleanup image URLs when modal closes or content changes
@@ -153,14 +158,16 @@ export function FilePreviewModal({
               <button
                 type="button"
                 className="text-muted-foreground hover:text-foreground p-1 shrink-0"
-                onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(fileContent.content);
-                    setCopied(true);
-                    after(2000, () => setCopied(false));
-                  } catch {
-                    // Clipboard access denied
-                  }
+                onClick={() => {
+                  navigator.clipboard.writeText(fileContent.content).then(
+                    () => {
+                      setCopied(true);
+                      after(2000, () => setCopied(false));
+                    },
+                    () => {
+                      toast.error("Failed to copy the file to clipboard");
+                    }
+                  );
                 }}
               >
                 {copied ? (

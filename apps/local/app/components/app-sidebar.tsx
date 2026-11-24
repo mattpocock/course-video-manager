@@ -41,6 +41,7 @@ import { useEffect, useMemo } from "react";
 import type { appSidebarReducer } from "./app-sidebar-reducer";
 import { useAppSidebarReducer } from "./use-app-sidebar-reducer";
 import { NEW_SHORT_ACTION, newShortFormData } from "@/lib/new-short";
+import { toast } from "@/components/ui/toast";
 import {
   NEW_STREAM_VIDEO_ACTION,
   newStreamVideoFormData,
@@ -220,10 +221,11 @@ export function AppSidebar({ variant }: AppSidebarProps) {
         href="/pitches"
         active={onPitchesPath}
         onAdd={() => {
-          createPitchFetcher.submit(
-            {},
-            { method: "post", action: "/api/pitches/create" }
-          );
+          createPitchFetcher
+            .submit({}, { method: "post", action: "/api/pitches/create" })
+            .catch(() => {
+              toast.error("Failed to create a pitch");
+            });
         }}
         addDisabled={createPitchFetcher.state !== "idle"}
       />
@@ -242,10 +244,14 @@ export function AppSidebar({ variant }: AppSidebarProps) {
         href="/shorts"
         active={onShortsPath}
         onAdd={() => {
-          createShortFetcher.submit(newShortFormData(), {
-            method: "post",
-            action: NEW_SHORT_ACTION,
-          });
+          createShortFetcher
+            .submit(newShortFormData(), {
+              method: "post",
+              action: NEW_SHORT_ACTION,
+            })
+            .catch(() => {
+              toast.error("Failed to create a Short");
+            });
         }}
         addDisabled={createShortFetcher.state !== "idle"}
       />
@@ -256,10 +262,14 @@ export function AppSidebar({ variant }: AppSidebarProps) {
         href="/streaming"
         active={location.pathname.startsWith("/streaming")}
         onAdd={() => {
-          void createStreamVideoFetcher.submit(newStreamVideoFormData(), {
-            method: "post",
-            action: NEW_STREAM_VIDEO_ACTION,
-          });
+          createStreamVideoFetcher
+            .submit(newStreamVideoFormData(), {
+              method: "post",
+              action: NEW_STREAM_VIDEO_ACTION,
+            })
+            .catch(() => {
+              toast.error("Failed to create a stream video");
+            });
         }}
         addDisabled={createStreamVideoFetcher.state !== "idle"}
       />

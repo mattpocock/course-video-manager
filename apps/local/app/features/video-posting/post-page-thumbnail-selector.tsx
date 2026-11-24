@@ -7,6 +7,7 @@ import { CheckIcon, ImageIcon, PlusIcon } from "lucide-react";
 import { ContextMenu, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { EntityMenuContent } from "@/features/action-menu/action-menu";
 import { useThumbnailMenu } from "@/features/thumbnail-editor/thumbnail-menu";
+import { toast } from "@/components/ui/toast";
 
 export function ThumbnailSelector({
   videoId,
@@ -24,7 +25,12 @@ export function ThumbnailSelector({
 }) {
   const navigate = useNavigate();
   const thumbnailMenu = useThumbnailMenu({
-    onEdit: () => navigate(`/videos/${videoId}/thumbnails`),
+    onEdit: () => {
+      Promise.resolve(navigate(`/videos/${videoId}/thumbnails`)).catch(() => {
+        toast.error("Failed to open the Thumbnails page");
+      });
+    },
+
     onDelete: onDeleteThumbnail,
   });
 

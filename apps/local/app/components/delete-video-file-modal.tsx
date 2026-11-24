@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Loader2, Trash2 } from "lucide-react";
 import { useFetcher } from "react-router";
+import { toast } from "@/components/ui/toast";
 
 export function DeleteVideoFileModal(props: {
   videoId: string;
@@ -34,14 +35,18 @@ export function DeleteVideoFileModal(props: {
           method="post"
           action="/api/video-files/delete"
           className="space-y-4 py-4"
-          onSubmit={async (e) => {
+          onSubmit={(e) => {
             e.preventDefault();
             const formData = new FormData(e.currentTarget);
-            await fetcher.submit(formData, {
-              method: "post",
-              action: "/api/video-files/delete",
-            });
-            props.onOpenChange(false);
+            fetcher
+              .submit(formData, {
+                method: "post",
+                action: "/api/video-files/delete",
+              })
+              .then(
+                () => props.onOpenChange(false),
+                () => toast.error("Failed to delete the file")
+              );
           }}
         >
           <input type="hidden" name="videoId" value={props.videoId} />

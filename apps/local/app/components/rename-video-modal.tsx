@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { useFetcher } from "react-router";
+import { toast } from "@/components/ui/toast";
 
 export function RenameVideoModal(props: {
   videoId: string;
@@ -29,16 +30,20 @@ export function RenameVideoModal(props: {
           method="post"
           action={`/api/videos/${props.videoId}/rename`}
           className="space-y-4 py-4"
-          onSubmit={async (e) => {
+          onSubmit={(e) => {
             e.preventDefault();
             const formData = new FormData(e.currentTarget);
             const newName = formData.get("name") as string;
-            await fetcher.submit(e.currentTarget);
-            if (props.onRename) {
-              props.onRename(newName);
-            } else {
-              props.onOpenChange(false);
-            }
+            fetcher.submit(e.currentTarget).then(
+              () => {
+                if (props.onRename) {
+                  props.onRename(newName);
+                } else {
+                  props.onOpenChange(false);
+                }
+              },
+              () => toast.error("Failed to rename the video")
+            );
           }}
         >
           <div className="space-y-2">

@@ -12,6 +12,7 @@ import { useVideoCopyOptions } from "@/features/video-editor/hooks/use-video-cop
 import { Loader2 } from "lucide-react";
 import { useRef, useState } from "react";
 import { useFetcher } from "react-router";
+import { toast } from "@/components/ui/toast";
 
 export function CopyVideoModal(props: {
   videoId: string;
@@ -66,7 +67,7 @@ export function CopyVideoModal(props: {
           method="post"
           action={`/api/videos/${props.videoId}/copy`}
           className="space-y-4 py-4"
-          onSubmit={async (e) => {
+          onSubmit={(e) => {
             e.preventDefault();
             const formData = new FormData(e.currentTarget);
 
@@ -90,12 +91,16 @@ export function CopyVideoModal(props: {
               renameOld: formData.get("renameOld") === "on",
             });
 
-            await fetcher.submit(e.currentTarget);
-            if (props.onCopy) {
-              props.onCopy();
-            } else {
-              props.onOpenChange(false);
-            }
+            fetcher.submit(e.currentTarget).then(
+              () => {
+                if (props.onCopy) {
+                  props.onCopy();
+                } else {
+                  props.onOpenChange(false);
+                }
+              },
+              () => toast.error("Failed to copy the video")
+            );
           }}
         >
           {props.redirectTo && (

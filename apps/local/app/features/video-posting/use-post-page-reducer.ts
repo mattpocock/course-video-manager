@@ -123,10 +123,14 @@ export function usePostPageReducer({
         );
       },
       "delete-thumbnail": (_state, effect) => {
-        deleteThumbnailFetcher.submit(null, {
-          method: "post",
-          action: `/api/thumbnails/${effect.thumbnailId}/delete`,
-        });
+        deleteThumbnailFetcher
+          .submit(null, {
+            method: "post",
+            action: `/api/thumbnails/${effect.thumbnailId}/delete`,
+          })
+          .catch(() => {
+            toast.error("Failed to delete the thumbnail");
+          });
       },
       "check-export": (_state, effect, dispatch) => {
         fetch(`/api/videos/${effect.videoId}/export-file-exists`)

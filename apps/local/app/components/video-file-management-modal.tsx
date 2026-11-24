@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2 } from "lucide-react";
 import { useFetcher } from "react-router";
+import { toast } from "@/components/ui/toast";
 import { useEffect, useState } from "react";
 
 export function VideoFileManagementModal(props: {
@@ -39,14 +40,18 @@ export function VideoFileManagementModal(props: {
           method="post"
           action={actionUrl}
           className="space-y-4 py-4"
-          onSubmit={async (e) => {
+          onSubmit={(e) => {
             e.preventDefault();
             const formData = new FormData(e.currentTarget);
-            await fetcher.submit(formData, {
-              method: "post",
-              action: actionUrl,
-            });
-            props.onOpenChange(false);
+            fetcher
+              .submit(formData, {
+                method: "post",
+                action: actionUrl,
+              })
+              .then(
+                () => props.onOpenChange(false),
+                () => toast.error("Failed to save the file")
+              );
           }}
         >
           <input type="hidden" name="videoId" value={props.videoId} />

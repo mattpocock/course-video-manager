@@ -16,12 +16,12 @@ export function RemountCommand(props: { command: string }) {
       <Button
         variant="outline"
         size="sm"
-        onClick={() =>
+        onClick={() => {
           navigator.clipboard.writeText(props.command).then(
             () => toast.success("Remount command copied"),
             () => toast.error("Failed to copy the remount command")
-          )
-        }
+          );
+        }}
       >
         <CopyIcon className="size-3.5" />
         Copy

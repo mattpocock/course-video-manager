@@ -2,6 +2,8 @@ import { lazy, Suspense, useCallback, useEffect, useRef } from "react";
 import type { OnMount } from "@monaco-editor/react";
 import type * as Monaco from "monaco-editor";
 import { useEffectReducer } from "@/hooks/use-effect-reducer";
+import { toast } from "@/components/ui/toast";
+
 import {
   createInitialMarkdownEditorSyncState,
   markdownEditorSyncReducer,
@@ -144,16 +146,18 @@ export function MarkdownMonacoEditor({
       });
       registerPrettierFormatter(monaco);
 
-      editor.addCommand(
-        monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
-        async () => {
-          const formatAction = editor.getAction("editor.action.formatDocument");
-          if (formatAction) {
-            await formatAction.run();
-          }
-          onSave?.(editor.getValue());
+      editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+        const save = () => onSave?.(editor.getValue());
+        const formatAction = editor.getAction("editor.action.formatDocument");
+        if (!formatAction) {
+          save();
+          return;
         }
-      );
+        formatAction.run().then(save, () => {
+          toast.error("Failed to format the document; saved it unformatted");
+          save();
+        });
+      });
 
       onMount?.(editor, monaco);
     },

@@ -24,6 +24,7 @@ import { ImageIcon, Loader2Icon, SparklesIcon, Trash2Icon } from "lucide-react";
 import type { CourseStructure } from "@/components/video-context-panel";
 import type { SectionWithWordCount } from "@/features/article-writer/types";
 import { log } from "@/packages/log";
+import { toast } from "@/components/ui/toast";
 
 export function ImageUploadDropdown({
   videoId,
@@ -187,16 +188,22 @@ export function SeoDescriptionField({
     }
   }, []);
 
-  const handleRegenerate = async () => {
-    const text = await generate();
-    if (!text) return;
+  const handleRegenerate = () => {
+    generate().then(
+      (text) => {
+        if (!text) return;
 
-    if (description.trim()) {
-      setPendingGenerated(text);
-      setConfirmRegenerate(true);
-    } else {
-      onDescriptionChange(text);
-    }
+        if (description.trim()) {
+          setPendingGenerated(text);
+          setConfirmRegenerate(true);
+        } else {
+          onDescriptionChange(text);
+        }
+      },
+      () => {
+        toast.error("Failed to generate description");
+      }
+    );
   };
 
   return (

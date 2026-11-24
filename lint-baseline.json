@@ -956,9 +956,7 @@
   },
   "apps/local/app/components/add-link-modal.tsx": {
     "local(no-comments)": 1,
-    "local(no-unsafe-as)": 1,
-    "typescript(no-floating-promises)": 1,
-    "typescript(no-misused-promises)": 1
+    "local(no-unsafe-as)": 1
   },
   "apps/local/app/components/add-standalone-video-modal.tsx": {
     "local(no-comments)": 3
@@ -971,22 +969,16 @@
   },
   "apps/local/app/components/app-sidebar.tsx": {
     "local(no-comments)": 7,
-    "local(no-unsafe-as)": 1,
-    "typescript(no-floating-promises)": 2
+    "local(no-unsafe-as)": 1
   },
   "apps/local/app/components/confirm-delete-dialog.tsx": {
     "local(no-comments)": 2
   },
   "apps/local/app/components/copy-transcript-modal.tsx": {
-    "local(no-comments)": 3,
-    "typescript(no-misused-promises)": 1
+    "local(no-comments)": 3
   },
   "apps/local/app/components/copy-video-modal.tsx": {
-    "local(no-comments)": 7,
-    "typescript(no-misused-promises)": 1
-  },
-  "apps/local/app/components/delete-video-file-modal.tsx": {
-    "typescript(no-misused-promises)": 1
+    "local(no-comments)": 7
   },
   "apps/local/app/components/dependency-selector.tsx": {
     "local(no-comments)": 2,
@@ -1002,9 +994,7 @@
   },
   "apps/local/app/components/file-preview-modal.tsx": {
     "eslint(no-restricted-globals)": 1,
-    "local(no-comments)": 2,
-    "typescript(no-floating-promises)": 1,
-    "typescript(no-misused-promises)": 1
+    "local(no-comments)": 1
   },
   "apps/local/app/components/footage-stats.tsx": {
     "local(no-comments)": 4
@@ -1017,26 +1007,14 @@
   },
   "apps/local/app/components/markdown-monaco-editor.tsx": {
     "local(no-comments)": 6,
-    "typescript(no-misused-promises)": 1,
     "typescript(no-unsafe-argument)": 1,
     "typescript(no-unsafe-member-access)": 2
   },
-  "apps/local/app/components/move-video-modal.tsx": {
-    "typescript(no-misused-promises)": 1
-  },
-  "apps/local/app/components/purge-exports-modal.tsx": {
-    "typescript(no-misused-promises)": 1
-  },
   "apps/local/app/components/remount-command.tsx": {
-    "local(no-comments)": 1,
-    "typescript(no-misused-promises)": 1
-  },
-  "apps/local/app/components/rename-course-modal.tsx": {
-    "typescript(no-misused-promises)": 1
+    "local(no-comments)": 1
   },
   "apps/local/app/components/rename-video-modal.tsx": {
-    "local(no-unsafe-as)": 1,
-    "typescript(no-misused-promises)": 1
+    "local(no-unsafe-as)": 1
   },
   "apps/local/app/components/ui/command.tsx": {
     "local(no-comments)": 2
@@ -1067,8 +1045,7 @@
     "local(no-comments)": 13
   },
   "apps/local/app/components/video-file-management-modal.tsx": {
-    "local(no-comments)": 2,
-    "typescript(no-misused-promises)": 1
+    "local(no-comments)": 2
   },
   "apps/local/app/components/video-file-paste-modal.tsx": {
     "local(no-comments)": 3,
@@ -3725,8 +3702,6 @@
   },
   "apps/local/app/features/video-posting/ai-hero-components.tsx": {
     "eslint(no-restricted-globals)": 2,
-    "typescript(no-floating-promises)": 2,
-    "typescript(no-misused-promises)": 1,
     "typescript(no-unsafe-argument)": 2,
     "typescript(no-unsafe-assignment)": 6,
     "typescript(no-unsafe-member-access)": 7
@@ -3735,7 +3710,6 @@
     "eslint(no-restricted-globals)": 4,
     "local(no-comments)": 17,
     "local(no-unsafe-as)": 1,
-    "typescript(no-misused-promises)": 3,
     "typescript(no-unsafe-assignment)": 2,
     "typescript(no-unsafe-member-access)": 1
   },
@@ -3749,15 +3723,12 @@
     "eslint(no-restricted-globals)": 1,
     "local(no-comments)": 2,
     "local(no-unsafe-as)": 1,
-    "typescript(no-floating-promises)": 2,
-    "typescript(no-misused-promises)": 1,
     "typescript(no-unsafe-assignment)": 1,
     "typescript(no-unsafe-member-access)": 1
   },
   "apps/local/app/features/video-posting/newsletter-page.tsx": {
     "eslint(no-restricted-globals)": 2,
     "local(no-comments)": 9,
-    "typescript(no-misused-promises)": 2,
     "typescript(no-unsafe-assignment)": 1
   },
   "apps/local/app/features/video-posting/post-page-reducer.test.ts": {
@@ -3768,8 +3739,7 @@
   },
   "apps/local/app/features/video-posting/post-page-thumbnail-selector.tsx": {
     "eslint(no-unused-expressions)": 1,
-    "local(no-comments)": 1,
-    "typescript(no-misused-promises)": 1
+    "local(no-comments)": 1
   },
   "apps/local/app/features/video-posting/post-page.tsx": {
     "local(no-comments)": 7
@@ -3814,29 +3784,25 @@
     "eslint(no-restricted-globals)": 1,
     "local(no-comments)": 3,
     "local(no-unsafe-as)": 1,
-    "typescript(no-misused-promises)": 1,
     "typescript(no-unsafe-assignment)": 1,
     "typescript(no-unsafe-member-access)": 1
   },
   "apps/local/app/features/video-posting/skills-changelog-page.tsx": {
     "eslint(no-restricted-globals)": 3,
     "local(no-comments)": 4,
-    "typescript(no-misused-promises)": 5,
     "typescript(no-unsafe-assignment)": 1
   },
   "apps/local/app/features/video-posting/social-page.tsx": {
     "eslint(no-restricted-globals)": 2,
     "local(no-comments)": 6,
     "local(no-unsafe-as)": 1,
-    "typescript(no-misused-promises)": 3,
     "typescript(no-unsafe-argument)": 2,
     "typescript(no-unsafe-assignment)": 3,
     "typescript(no-unsafe-member-access)": 2
   },
   "apps/local/app/features/video-posting/use-post-page-reducer.ts": {
     "eslint(no-restricted-globals)": 2,
-    "local(no-comments)": 7,
-    "typescript(no-floating-promises)": 1
+    "local(no-comments)": 7
   },
   "apps/local/app/features/video-posting/use-shorts-posting-reducer.ts": {
     "eslint(no-restricted-globals)": 4,

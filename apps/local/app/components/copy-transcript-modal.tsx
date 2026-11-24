@@ -117,14 +117,16 @@ export function CopyTranscriptModal(
   const isCourse = props.mode === "course";
   const label = isCourse ? "Course" : "Section";
 
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(preview);
-      toast(`${label} transcript copied to clipboard`);
-      props.onOpenChange(false);
-    } catch {
-      toast.error("Failed to copy transcript to clipboard");
-    }
+  const handleCopy = () => {
+    navigator.clipboard.writeText(preview).then(
+      () => {
+        toast(`${label} transcript copied to clipboard`);
+        props.onOpenChange(false);
+      },
+      () => {
+        toast.error("Failed to copy transcript to clipboard");
+      }
+    );
   };
 
   return (
