@@ -41,6 +41,8 @@ export const NEEDS_THE_APP_AND_A_BROWSER =
   "it draws the Diagram as a PNG with the headless browser installed on this machine, through the Course Video Manager app running on it";
 export const NEEDS_THE_SIDECAR_TO_RENDER =
   "it queues a vertical render for this machine's Sidecar, which reads raw footage with ffmpeg and writes the finished videos directory on this machine's disk";
+export const NEEDS_THE_SIDECAR_TO_EXPORT =
+  "it queues an Export for this machine's Sidecar, which reads raw footage with ffmpeg and writes the finished videos directory on this machine's disk";
 export const NEEDS_THE_SIDECAR_TO_POST =
   "it adds Shorts to the Posting Queue, which only this machine's Sidecar posts from: it renders each Short with ffmpeg at its Posting Slot and uploads it";
 export const NEEDS_THE_SIDECAR_TO_CHANGE_THE_QUEUE =

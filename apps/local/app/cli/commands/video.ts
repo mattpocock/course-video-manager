@@ -44,6 +44,7 @@ import {
 } from "./video.help";
 import { agentSessionsCommand } from "./video.agent-sessions";
 import { chaptersCommand } from "./video.chapters";
+import { exportCommand } from "./video.export";
 
 // ---------------------------------------------------------------------------
 // Shared fetch — return undefined for an absent row (CLI owns not-found).
@@ -652,6 +653,7 @@ export const videoCommand = Command.make("video").pipe(
     updateCmd,
     archiveCmd,
     unarchiveCmd,
+    exportCommand,
     agentSessionsCommand,
   ])
 );
