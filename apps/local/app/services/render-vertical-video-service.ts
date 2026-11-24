@@ -1,4 +1,4 @@
-import { needsClipSegments } from "./clip-segment-args";
+import { needsClipSegments } from "./export-duration-check";
 import { clipExportDurationInSeconds } from "./export-duration-check";
 import { FileSystem } from "@effect/platform";
 import { NodeContext } from "@effect/platform-node";

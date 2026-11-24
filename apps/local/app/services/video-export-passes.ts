@@ -12,11 +12,13 @@ import {
   type VideoFormat,
 } from "@/features/videos/video-format";
 import type { PauseType } from "./video-processing-service";
-import { clipExportDurationInSeconds } from "./export-duration-check";
+import {
+  clipExportDurationInSeconds,
+  needsClipSegments,
+} from "./export-duration-check";
 import type { RenderedOverlay } from "./overlay-compositing";
 import { removeBestEffort } from "@/services/remove-best-effort";
 import type { ClipComposite, Layer } from "@/packages/clip-source";
-import { needsClipSegments } from "./clip-segment-args";
 
 /**
  * The ffmpeg passes that turn one Video's Clips into a finished file: the

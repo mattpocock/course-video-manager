@@ -1,6 +1,7 @@
 import {
   clipExportDurationInSeconds,
   paddedClipDurationsInSeconds,
+  type SourceClipDuration,
 } from "@/services/export-duration-check";
 
 /**
@@ -16,11 +17,8 @@ import {
  */
 
 /** A Clip as the timeline sees it: what it contributes to the flattened Video. */
-export type TimelineClip = {
+export type TimelineClip = SourceClipDuration & {
   id: string;
-  sourceStartTime: number;
-  sourceEndTime: number;
-  pauseType: string | null;
 };
 
 /** One Clip's span on the flattened timeline, in seconds from the Video's start. */

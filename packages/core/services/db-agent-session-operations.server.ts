@@ -16,6 +16,8 @@ import { Effect } from "effect";
 import { requireDraftVersionForVideo } from "./draft-guard.server.js";
 import { transactionalizeWrites } from "./with-db-transaction.server.js";
 import { insertInChunks } from "./copy-child-rows.js";
+import { clipLayersRelation } from "./clip-layers-relation.js";
+import { clipRecordingSessionRelation } from "./clip-recording-session-relation.js";
 import {
   fromEntryColumns,
   toEntryColumns,
@@ -107,6 +109,29 @@ const createAgentSessionOperations = (db: Database) => {
         )
         .where(and(eq(clips.videoId, videoId), eq(clips.archived, false)))
         .orderBy(asc(clips.order))
+    );
+
+  const placementClipsOf = (videoId: string) =>
+    makeDbCall(() =>
+      db.query.clips.findMany({
+        columns: {
+          id: true,
+          order: true,
+          videoFilename: true,
+          sourceStartTime: true,
+          sourceEndTime: true,
+          pauseType: true,
+          scene: true,
+          sceneOverride: true,
+          recordingSessionId: true,
+        },
+        where: and(eq(clips.videoId, videoId), eq(clips.archived, false)),
+        orderBy: asc(clips.order),
+        with: {
+          recordingSession: clipRecordingSessionRelation,
+          layers: clipLayersRelation,
+        },
+      })
     );
 
   const clipIdsOf = (videoId: string) =>
@@ -273,7 +298,7 @@ const createAgentSessionOperations = (db: Database) => {
     videoId: string
   ) {
     yield* requireVideo(videoId);
-    const cut = yield* liveClipsOf(videoId);
+    const cut = yield* placementClipsOf(videoId);
     const rows = yield* makeDbCall(() =>
       db
         .select({
@@ -305,9 +330,7 @@ const createAgentSessionOperations = (db: Database) => {
     );
     return {
       videoId,
-      clips: cut.map(
-        ({ videoFilename: _f, recordingSessionStartedAt: _s, ...clip }) => clip
-      ),
+      clips: cut,
       entries: rows.map(
         ({
           kind,

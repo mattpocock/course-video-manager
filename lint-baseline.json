@@ -5375,7 +5375,7 @@
     "typescript(no-unsafe-member-access)": 1
   },
   "apps/local/app/services/clip-segment-args.ts": {
-    "local(no-comments)": 26
+    "local(no-comments)": 24
   },
   "apps/local/app/services/clip-service-chapters.server.ts": {
     "local(no-comments)": 3,
@@ -6573,7 +6573,7 @@
     "local(no-comments)": 11
   },
   "apps/local/app/services/video-chapters.ts": {
-    "local(no-comments)": 7,
+    "local(no-comments)": 5,
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/services/video-editor-loader.server.ts": {

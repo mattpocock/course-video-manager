@@ -6,12 +6,15 @@
  */
 export const EXPORT_FPS = 60;
 
-const EPSILON = 1e-6;
+export const EXPORT_FRAME_EPSILON = 1e-6;
 
 /** Whole frames that cover `seconds`: a part frame counts as one. */
 export const exportFrameCount = (seconds: number): number =>
-  Math.ceil(seconds * EXPORT_FPS - EPSILON);
+  Math.ceil(seconds * EXPORT_FPS - EXPORT_FRAME_EPSILON);
 
 /** The frame on screen `seconds` in: the last one begun. */
 export const exportFrameAt = (seconds: number): number =>
-  Math.floor(seconds * EXPORT_FPS + EPSILON);
+  Math.floor(seconds * EXPORT_FPS + EXPORT_FRAME_EPSILON);
+
+export const wholeExportFrameSeconds = (seconds: number): number =>
+  exportFrameCount(seconds) / EXPORT_FPS;

@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, beforeEach } from "vitest";
+import { Schema } from "effect";
 import * as schema from "@/db/schema";
 import {
   createTestDb,
@@ -37,6 +38,36 @@ beforeEach(async () => {
   s = await seedIntegration(testDb);
 });
 
+const insertClips = async (
+  rows: (typeof schema.clips.$inferInsert)[]
+): Promise<void> => {
+  await testDb.insert(schema.clips).values(rows);
+};
+
+const insertVideo = async (title: string): Promise<string> => {
+  const [video] = await testDb
+    .insert(schema.videos)
+    .values({ title, originalFootagePath: "f.mp4" })
+    .returning();
+  if (!video) throw new Error("no video inserted");
+  return video.id;
+};
+
+const insertRecordingSession = async (videoId: string): Promise<string> => {
+  const [session] = await testDb
+    .insert(schema.recordingSessions)
+    .values({
+      videoId,
+      cameraFilePath: "/rec/s1/camera.mkv",
+      screenFilePath: "/rec/s1/screen.mkv",
+      micFilePath: "/rec/s1/mic.mkv",
+      status: "stopped",
+    })
+    .returning();
+  if (!session) throw new Error("no recording session inserted");
+  return session.id;
+};
+
 describe("video chapters", () => {
   it("gives each Chapter's start, skipping archived Clips, with an Intro at 0:00", async () => {
     const { stdout, exitCode } = await run([
@@ -62,7 +93,7 @@ describe("video chapters", () => {
       .insert(schema.videos)
       .values({ title: "paused.mp4", originalFootagePath: "f.mp4" })
       .returning();
-    await testDb.insert(schema.clips).values([
+    await insertClips([
       {
         videoId: video!.id,
         videoFilename: "a.mp4",
@@ -96,6 +127,44 @@ describe("video chapters", () => {
     ]);
     expect(out.exportDurationSeconds).toBeCloseTo(
       69.9 + LONG_PAUSE_DURATION_IN_SECONDS + FINAL_VIDEO_PADDING
+    );
+  });
+
+  it("times a Video exported Clip by Clip in the whole frames its file holds", async () => {
+    const videoId = await insertVideo("recorded.mp4");
+    const sessionId = await insertRecordingSession(videoId);
+    await insertClips(
+      Array.from({ length: 31 }, (_, i) => ({
+        videoId,
+        videoFilename: "/rec/s1/mic.mkv",
+        sourceStartTime: 0,
+        sourceEndTime: i < 30 ? 1.005 : 2,
+        order: `a${String(i).padStart(2, "0")}`,
+        text: "words",
+        recordingSessionId: sessionId,
+      }))
+    );
+    await testDb
+      .insert(schema.chapters)
+      .values({ videoId, name: "Last", order: "a29V" });
+
+    const { stdout, exitCode } = await run(["video", "chapters", videoId]);
+    expect(exitCode).toBe(0);
+    const out = Schema.decodeUnknownSync(
+      Schema.Struct({
+        exportDurationSeconds: Schema.Number,
+        chapters: Schema.Unknown,
+      })
+    )(JSON.parse(stdout));
+    expect(out.chapters).toEqual([
+      { title: "Intro", startTime: 0, timestamp: "0:00" },
+      { title: "Last", startTime: 30, timestamp: "0:30" },
+    ]);
+    const thirtyClipsOf61Frames = (30 * 61) / 60;
+    const lastClipOf146Frames = 146 / 60;
+    expect(out.exportDurationSeconds).toBeCloseTo(
+      thirtyClipsOf61Frames + lastClipOf146Frames,
+      6
     );
   });
 

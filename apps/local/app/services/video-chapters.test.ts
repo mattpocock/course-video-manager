@@ -2,21 +2,23 @@ import { describe, expect, it } from "vitest";
 import {
   buildVideoChapters,
   buildVideoChaptersFromRows,
-  exportedClipSeconds,
   toYouTubeChapters,
   type ChapterTimelineItem,
 } from "./video-chapters";
-import { LONG_PAUSE_DURATION_IN_SECONDS } from "./export-duration-check";
+import {
+  exportedClipSecondsIn,
+  LONG_PAUSE_DURATION_IN_SECONDS,
+} from "./export-duration-check";
+import { obsClipRow, recorderClipRow } from "@/test-utils/source-clip-rows";
 
 const clip = (
   order: string,
   duration: number,
   pauseType: string | null = "none"
-) => ({
+) => ({ ...obsClipRow(duration), order, pauseType });
+const recorderClip = (order: string, duration: number) => ({
+  ...recorderClipRow(duration),
   order,
-  sourceStartTime: 0,
-  sourceEndTime: duration,
-  pauseType,
 });
 const chapter = (order: string, name: string) => ({ order, name });
 
@@ -127,6 +129,20 @@ describe("buildVideoChaptersFromRows", () => {
     ]);
   });
 
+  it("times a Video exported Clip by Clip in whole 60 fps frames: 120 × 1.005 s Clips (61 frames each) end at 122 s, not 120.6 s", () => {
+    const clips = Array.from({ length: 120 }, (_, i) =>
+      recorderClip(`a${String(i).padStart(3, "0")}`, 1.005)
+    );
+    const result = buildVideoChaptersFromRows(
+      [...clips, recorderClip("b1", 5)],
+      [chapter("b0", "After 120 Clips")]
+    );
+    expect(result).toEqual([
+      { title: "Intro", startTime: 0 },
+      { title: "After 120 Clips", startTime: 122 },
+    ]);
+  });
+
   it("adds nothing for any Pause Type but long", () => {
     const result = buildVideoChaptersFromRows(
       [clip("a0", 10, null), clip("a1", 10, "short"), clip("a3", 5)],
@@ -139,13 +155,14 @@ describe("buildVideoChaptersFromRows", () => {
   });
 });
 
-describe("exportedClipSeconds", () => {
+describe("exportedClipSecondsIn", () => {
   it("is the source span, plus the long Pause for a long-Pause Clip", () => {
-    const span = { sourceStartTime: 3, sourceEndTime: 10 };
-    expect(exportedClipSeconds({ ...span, pauseType: "none" })).toBe(7);
-    expect(exportedClipSeconds({ ...span, pauseType: "long" })).toBeCloseTo(
-      7 + LONG_PAUSE_DURATION_IN_SECONDS
-    );
+    const span = { ...obsClipRow(10), sourceStartTime: 3 };
+    const plain = { ...span, pauseType: "none" };
+    const paused = { ...span, pauseType: "long" };
+    const secondsOf = exportedClipSecondsIn([plain, paused]);
+    expect(secondsOf(plain)).toBe(7);
+    expect(secondsOf(paused)).toBeCloseTo(7 + LONG_PAUSE_DURATION_IN_SECONDS);
   });
 });
 
