@@ -3,7 +3,6 @@ import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { copyClipMockupAssetsForVideo } from "@/services/clip-mockup-copy-forward.server";
 import { copyVideoFilesDirectory } from "@/services/video-files";
 import { makeAction } from "@/services/route-action.server";
-import { redirect } from "react-router";
 
 const copyVideoSchema = Schema.Struct({
   name: Schema.String.pipe(
@@ -13,13 +12,6 @@ const copyVideoSchema = Schema.Struct({
   copyBeats: Schema.optional(Schema.String),
   copyScript: Schema.optional(Schema.String),
   renameOld: Schema.optional(Schema.String),
-  /**
-   * Where to send the user once the copy lands, with `{id}` standing in for the
-   * new video's id. Surfaces that show the source video (the editor) follow the
-   * user onto the copy; the tree views omit it and stay put. Mirrors
-   * `api.videos.create`.
-   */
-  redirectTo: Schema.optional(Schema.String),
 });
 
 export const action = makeAction({
@@ -27,7 +19,7 @@ export const action = makeAction({
   errors: { InvalidClipMockupPathError: 400 },
   effect: ({ params, payload }) =>
     Effect.gen(function* () {
-      const { name, copyClips, copyBeats, copyScript, renameOld, redirectTo } =
+      const { name, copyClips, copyBeats, copyScript, renameOld } =
         yield* Schema.decodeUnknown(copyVideoSchema)(payload);
 
       const videoOps = yield* VideoOperationsService;
@@ -57,14 +49,6 @@ export const action = makeAction({
         newVideoId,
       });
       yield* copyVideoFilesDirectory(sourceVideo.lineageId, newVideo.lineageId);
-
-      if (
-        redirectTo &&
-        redirectTo.startsWith("/") &&
-        !redirectTo.includes("//")
-      ) {
-        return redirect(redirectTo.replace("{id}", newVideoId)) as never;
-      }
 
       return { success: true, newVideoId };
     }),

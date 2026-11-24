@@ -3951,9 +3951,7 @@
     "local(no-comments)": 12
   },
   "apps/local/app/lib/post-confirmed.ts": {
-    "eslint(no-restricted-globals)": 1,
-    "local(no-comments)": 1,
-    "local(no-unsafe-as)": 1
+    "local(no-comments)": 1
   },
   "apps/local/app/lib/retired-storage.ts": {
     "local(no-comments)": 6
@@ -4950,8 +4948,7 @@
     "typescript(no-non-null-assertion)": 1
   },
   "apps/local/app/routes/api.videos.$videoId.copy.ts": {
-    "local(no-comments)": 8,
-    "local(no-unsafe-as)": 1,
+    "local(no-comments)": 7,
     "typescript(no-non-null-assertion)": 2
   },
   "apps/local/app/routes/api.videos.$videoId.export-file-exists.ts": {
