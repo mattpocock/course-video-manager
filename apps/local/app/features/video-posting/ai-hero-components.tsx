@@ -19,6 +19,7 @@ import {
   XCircleIcon,
 } from "lucide-react";
 import { after } from "@/packages/clock";
+import { toastOnReject } from "@/components/ui/toast";
 
 export function AiHeroConnectCard() {
   const [deviceFlow, setDeviceFlow] = useState<{
@@ -57,9 +58,10 @@ export function AiHeroConnectCard() {
         const pollData = await pollRes.json();
         if (pollRes.ok && pollData.success) {
           setDeviceFlow(null);
-          revalidator.revalidate().catch(() => {
-            setError("Connected, but failed to refresh the page");
-          });
+          toastOnReject(
+            revalidator.revalidate(),
+            "Connected, but failed to refresh the page"
+          );
         } else {
           setError(pollData.error || "Authorization failed");
         }
@@ -72,21 +74,17 @@ export function AiHeroConnectCard() {
   };
 
   const startDeviceFlow = () => {
-    runDeviceFlow().catch(() => {
-      setError("Failed to connect to server");
-    });
+    toastOnReject(runDeviceFlow(), "Failed to connect to server");
   };
 
   const copyUserCode = () => {
     if (deviceFlow) {
-      navigator.clipboard.writeText(deviceFlow.userCode).then(
-        () => {
+      toastOnReject(
+        navigator.clipboard.writeText(deviceFlow.userCode).then(() => {
           setCopied(true);
           after(2000, () => setCopied(false));
-        },
-        () => {
-          setError("Failed to copy the code");
-        }
+        }),
+        "Failed to copy the code"
       );
     }
   };

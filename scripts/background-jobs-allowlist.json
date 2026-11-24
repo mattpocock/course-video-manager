@@ -207,6 +207,12 @@
       "reason": "Browser: POSTs a form to the route action it is handed (a path on the app itself), and resolves only on a confirmed save. Not outbound."
     },
     {
+      "file": "apps/local/app/lib/post-action.ts",
+      "count": 1,
+      "reason": "Browser: a modal's submit (useActionSubmit) POSTs a form to the route action it is handed (a path on the app itself) while the modal waits, and rejects with the action's own error. Not outbound."
+    },
+
+    {
       "file": "apps/local/app/features/thumbnail-editor/use-recorder-still.ts",
       "count": 1,
       "reason": "Interactive: the thumbnail camera on a CVM recorder Video fetches one still (a JPEG) from the local recorder service when the author presses Capture, while the modal waits."

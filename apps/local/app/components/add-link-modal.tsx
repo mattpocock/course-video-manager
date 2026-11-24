@@ -10,13 +10,14 @@ import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useFetcher } from "react-router";
-import { toast } from "@/components/ui/toast";
+import { useActionSubmit } from "@/hooks/use-action-submit";
+import { toastOnReject } from "@/components/ui/toast";
 
 export function AddLinkModal(props: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const fetcher = useFetcher();
+  const { submit, pending } = useActionSubmit();
   const titleFetcher = useFetcher<{ title: string | null }>();
   const [urlError, setUrlError] = useState<string | null>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
@@ -51,7 +52,7 @@ export function AddLinkModal(props: {
         <DialogHeader>
           <DialogTitle>Add Link</DialogTitle>
         </DialogHeader>
-        <fetcher.Form
+        <form
           method="post"
           action="/api/links"
           className="space-y-4 py-4"
@@ -64,9 +65,11 @@ export function AddLinkModal(props: {
               return;
             }
 
-            fetcher.submit(e.currentTarget).then(
-              () => props.onOpenChange(false),
-              () => toast.error("Failed to add the link")
+            toastOnReject(
+              submit("/api/links", formData).then(() =>
+                props.onOpenChange(false)
+              ),
+              "Failed to add the link"
             );
           }}
         >
@@ -89,14 +92,13 @@ export function AddLinkModal(props: {
                 try {
                   new URL(pastedText);
                   setUrlError(null);
-                  titleFetcher
-                    .submit(
+                  toastOnReject(
+                    titleFetcher.submit(
                       { url: pastedText },
                       { method: "post", action: "/api/links/fetch-title" }
-                    )
-                    .catch(() => {
-                      toast.error("Failed to fetch the link's title");
-                    });
+                    ),
+                    "Failed to fetch the link's title"
+                  );
                 } catch {
                   // Not a valid URL, skip fetching title
                 }
@@ -137,15 +139,15 @@ export function AddLinkModal(props: {
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={fetcher.state === "submitting"}>
-              {fetcher.state === "submitting" ? (
+            <Button type="submit" disabled={pending}>
+              {pending ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 "Add Link"
               )}
             </Button>
           </div>
-        </fetcher.Form>
+        </form>
       </DialogContent>
     </Dialog>
   );

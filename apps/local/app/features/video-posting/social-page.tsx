@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useLocalStorage } from "@/hooks/use-local-storage";
-import { toast } from "@/components/ui/toast";
+import { toast, toastError, toastOnReject } from "@/components/ui/toast";
+
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -91,16 +92,14 @@ export const SocialPagePanel = (props: SocialPagePanelProps) => {
       }
     } catch (error) {
       log.error("Failed to generate caption:", error);
-      toast.error("Failed to generate caption");
+      toastError(error, "Failed to generate caption");
     } finally {
       setIsGeneratingCaption(false);
     }
   };
 
   const handleGenerateCaption = () => {
-    generateCaption().catch(() => {
-      toast.error("Failed to generate caption");
-    });
+    toastOnReject(generateCaption(), "Failed to generate caption");
   };
 
   const handleConfirmOverwriteCaption = () => {
@@ -153,9 +152,7 @@ export const SocialPagePanel = (props: SocialPagePanelProps) => {
   };
 
   const handleCreateShortLink = (platform: "Newsletter" | "X" | "LinkedIn") => {
-    createShortLink(platform).catch(() => {
-      toast.error("Failed to create short link");
-    });
+    toastOnReject(createShortLink(platform), "Failed to create short link");
   };
 
   return (

@@ -2,8 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useRef } from "react";
 import type { OnMount } from "@monaco-editor/react";
 import type * as Monaco from "monaco-editor";
 import { useEffectReducer } from "@/hooks/use-effect-reducer";
-import { toast } from "@/components/ui/toast";
-
+import { toastOnReject } from "@/components/ui/toast";
 import {
   createInitialMarkdownEditorSyncState,
   markdownEditorSyncReducer,
@@ -153,10 +152,10 @@ export function MarkdownMonacoEditor({
           save();
           return;
         }
-        formatAction.run().then(save, () => {
-          toast.error("Failed to format the document; saved it unformatted");
-          save();
-        });
+        toastOnReject(
+          formatAction.run().finally(save),
+          "Failed to format the document; saved it unformatted"
+        );
       });
 
       onMount?.(editor, monaco);

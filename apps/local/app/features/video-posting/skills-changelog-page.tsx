@@ -2,7 +2,7 @@
 
 import { useContext, useEffect, useState } from "react";
 import { hasLocalStorage } from "@/hooks/use-local-storage";
-import { toast } from "@/components/ui/toast";
+import { toast, toastOnReject } from "@/components/ui/toast";
 import { UploadContext } from "@/features/upload-manager/upload-context";
 import { findVideoJobRow } from "@/features/jobs/jobs-selectors";
 import { Input } from "@/components/ui/input";
@@ -174,9 +174,7 @@ export function SkillsChangelogPage({
   };
 
   const handlePost = () => {
-    post().catch(() => {
-      toast.error("Failed to start the Skills Changelog post");
-    });
+    toastOnReject(post(), "Failed to start the Skills Changelog post");
   };
 
   const [justCopied, setJustCopied] = useState(false);
@@ -185,14 +183,12 @@ export function SkillsChangelogPage({
   const handleCopyFullNewsletter = () => {
     const fullSlug = `${SLUG_PREFIX}${stripPrefix(slugSuffix.trim()) || "<slug>"}`;
     const text = buildFullNewsletter(newsletterCopy, fullSlug);
-    navigator.clipboard.writeText(text).then(
-      () => {
+    toastOnReject(
+      navigator.clipboard.writeText(text).then(() => {
         setJustCopied(true);
         after(1500, () => setJustCopied(false));
-      },
-      () => {
-        toast.error("Failed to copy to clipboard");
-      }
+      }),
+      "Failed to copy to clipboard"
     );
   };
 
@@ -207,14 +203,12 @@ export function SkillsChangelogPage({
       newsletterPreviewText,
       newsletterCopy,
     });
-    navigator.clipboard.writeText(text).then(
-      () => {
+    toastOnReject(
+      navigator.clipboard.writeText(text).then(() => {
         setJustCopiedAll(true);
         after(1500, () => setJustCopiedAll(false));
-      },
-      () => {
-        toast.error("Failed to copy to clipboard");
-      }
+      }),
+      "Failed to copy to clipboard"
     );
   };
 

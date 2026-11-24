@@ -17,8 +17,8 @@ import {
 } from "@/components/ui/select";
 import { ArrowRightLeft, Loader2 } from "lucide-react";
 import { useState } from "react";
-import { useFetcher } from "react-router";
-import { toast } from "@/components/ui/toast";
+import { useActionSubmit } from "@/hooks/use-action-submit";
+import { toastOnReject } from "@/components/ui/toast";
 
 export function MoveVideoModal(props: {
   videoId: string;
@@ -32,7 +32,7 @@ export function MoveVideoModal(props: {
   onOpenChange: (open: boolean) => void;
   onAfterMove?: (targetLessonId: string) => void;
 }) {
-  const fetcher = useFetcher();
+  const { submit, pending } = useActionSubmit();
   const [selectedLessonId, setSelectedLessonId] = useState<string>("");
 
   const handleOpenChange = (open: boolean) => {
@@ -87,30 +87,20 @@ export function MoveVideoModal(props: {
               Cancel
             </Button>
             <Button
-              disabled={!selectedLessonId || fetcher.state === "submitting"}
+              disabled={!selectedLessonId || pending}
               onClick={() => {
-                fetcher
-                  .submit(
-                    { lessonId: selectedLessonId },
-                    {
-                      method: "post",
-                      action: `/api/videos/${props.videoId}/move-to-lesson`,
-                    }
-                  )
-                  .then(
-                    () => {
-                      props.onAfterMove?.(selectedLessonId);
-                      handleOpenChange(false);
-                    },
-                    () => toast.error("Failed to move the video")
-                  );
+                toastOnReject(
+                  submit(`/api/videos/${props.videoId}/move-to-lesson`, {
+                    lessonId: selectedLessonId,
+                  }).then(() => {
+                    props.onAfterMove?.(selectedLessonId);
+                    handleOpenChange(false);
+                  }),
+                  "Failed to move the video"
+                );
               }}
             >
-              {fetcher.state === "submitting" ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                "Move"
-              )}
+              {pending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Move"}
             </Button>
           </div>
         </div>

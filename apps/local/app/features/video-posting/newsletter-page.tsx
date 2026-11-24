@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { hasLocalStorage, useLocalStorage } from "@/hooks/use-local-storage";
-import { toast } from "@/components/ui/toast";
+import { toast, toastOnReject } from "@/components/ui/toast";
+
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -137,9 +138,7 @@ export const NewsletterPagePanel = (props: NewsletterPagePanelProps) => {
   };
 
   const handleGenerate = () => {
-    generate().catch(() => {
-      toast.error("Failed to generate newsletter");
-    });
+    toastOnReject(generate(), "Failed to generate newsletter");
   };
 
   const copyAndOpenKit = async () => {
@@ -164,9 +163,7 @@ export const NewsletterPagePanel = (props: NewsletterPagePanelProps) => {
   };
 
   const handleCopyAndOpenKit = () => {
-    copyAndOpenKit().catch(() => {
-      toast.error("Failed to copy newsletter");
-    });
+    toastOnReject(copyAndOpenKit(), "Failed to copy newsletter");
   };
 
   return (

@@ -27,7 +27,7 @@ import {
   Play,
 } from "lucide-react";
 import { use, useMemo, useState } from "react";
-import { toast } from "@/components/ui/toast";
+import { toast, toastOnReject } from "@/components/ui/toast";
 
 type FilterProps = {
   priorityFilter: number[];
@@ -118,14 +118,12 @@ export function CopyTranscriptModal(
   const label = isCourse ? "Course" : "Section";
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(preview).then(
-      () => {
+    toastOnReject(
+      navigator.clipboard.writeText(preview).then(() => {
         toast(`${label} transcript copied to clipboard`);
         props.onOpenChange(false);
-      },
-      () => {
-        toast.error("Failed to copy transcript to clipboard");
-      }
+      }),
+      "Failed to copy transcript to clipboard"
     );
   };
 
