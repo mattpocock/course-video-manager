@@ -1,5 +1,6 @@
 import { sortByOrder } from "@/lib/sort-by-order";
 import { formatDuration } from "@/lib/format-duration";
+import { EXPORT_FRAME_EPSILON } from "@/packages/clip-source";
 import {
   exportedClipSecondsIn,
   type SourceClipDuration,
@@ -32,32 +33,13 @@ export type VideoChapter = {
 /**
  * One item of a Video's timeline, in timeline order. A Clip's
  * `durationSeconds` is what it adds to the exported video: build them with
- * {@link exportedClipSeconds}.
+ * {@link exportedClipSecondsIn}.
  */
 export type ChapterTimelineItem =
   { kind: "clip"; durationSeconds: number } | { kind: "chapter"; name: string };
 
-/**
- * A Clip as the chapter list needs it: its span of source, its Pause, and
- * how the export draws it (which decides whether the Video is exported Clip
- * by Clip, in whole frames).
- */
-export type ChapterClip = SourceClipDuration;
-
-/**
- * The seconds a Clip of these adds to the exported video, read from the
- * export's own duration rule, so a Chapter's timestamp and the exported file
- * cannot drift apart. Asked of the whole Video: one CVM-recorder Clip makes
- * the export render every Clip in whole frames. The final Clip's padding is
- * left out on purpose: it trails the last Clip, so it moves no Chapter, and
- * counting it would keep a Chapter that has no Clip below it.
- */
-export const exportedClipSeconds = (
-  clips: readonly ChapterClip[]
-): ((clip: ChapterClip) => number) => exportedClipSecondsIn(clips);
-
 const floorPastFloatNoise = (seconds: number): number =>
-  Math.floor(seconds + 1e-6);
+  Math.floor(seconds + EXPORT_FRAME_EPSILON);
 
 /**
  * The chapter list for a timeline that is ALREADY in timeline order — the
@@ -94,10 +76,10 @@ export const buildVideoChapters = (
  * database: each carries its `order`, and the two lists share one order.
  */
 export const buildVideoChaptersFromRows = (
-  clips: (ChapterClip & { order: string })[],
+  clips: (SourceClipDuration & { order: string })[],
   chapters: { order: string; name: string }[]
 ): VideoChapter[] => {
-  const secondsOf = exportedClipSeconds(clips);
+  const secondsOf = exportedClipSecondsIn(clips);
   const timeline = sortByOrder([
     ...clips.map((clip) => ({
       order: clip.order,

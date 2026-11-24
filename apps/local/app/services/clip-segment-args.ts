@@ -2,6 +2,7 @@ import {
   compositeFiles,
   EXPORT_FPS,
   exportFrameCount,
+  wholeExportFrameSeconds,
   footageLayers,
   isUntouched,
   type ClipComposite,
@@ -32,7 +33,7 @@ import { BITEXACT_ARGS, LANDSCAPE_VIDEO_ENCODE_ARGS } from "./ffmpeg-error";
  *
  * Two things keep the joined file CFR 60 with the sound on the picture:
  * - Each segment is a whole number of frames, picture and sound alike
- *   ({@link wholeFrameSeconds}). The concat demuxer starts the next segment
+ *   (`wholeExportFrameSeconds`, 800 samples at 48 kHz a frame). The concat demuxer starts the next segment
  *   where the last one ends; a picture rounded up to its frame over sound cut
  *   at the exact duration opens a gap of a few ms at every join, which the
  *   AAC encode closes by sliding the sound earlier.
@@ -58,10 +59,6 @@ export type SegmentClip = {
 type Dimensions = { readonly width: number; readonly height: number };
 
 const FPS = EXPORT_FPS;
-
-/** A duration rounded up to whole 60 fps frames (800 samples at 48 kHz). */
-const wholeFrameSeconds = (seconds: number): number =>
-  exportFrameCount(seconds) / FPS;
 
 /** The extension of a segment file: QuickTime, which carries PCM. */
 export const SEGMENT_EXTENSION = ".mov";
@@ -105,7 +102,7 @@ export const clipSegmentArgs = (
   dims: Dimensions,
   outputFile: string
 ): string[] => {
-  const duration = wholeFrameSeconds(clip.duration);
+  const duration = wholeExportFrameSeconds(clip.duration);
   const { inputs, graph } = segmentGraph(clip, dims, duration);
   return [
     "-y",
@@ -147,7 +144,7 @@ export const clipSegmentFrameArgs = (
   const { inputs, graph } = segmentGraph(
     clip,
     dims,
-    wholeFrameSeconds(clip.duration)
+    wholeExportFrameSeconds(clip.duration)
   );
   return [
     "-y",

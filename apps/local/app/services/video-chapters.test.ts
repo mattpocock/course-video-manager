@@ -2,38 +2,23 @@ import { describe, expect, it } from "vitest";
 import {
   buildVideoChapters,
   buildVideoChaptersFromRows,
-  exportedClipSeconds,
   toYouTubeChapters,
   type ChapterTimelineItem,
 } from "./video-chapters";
-import { LONG_PAUSE_DURATION_IN_SECONDS } from "./export-duration-check";
+import {
+  exportedClipSecondsIn,
+  LONG_PAUSE_DURATION_IN_SECONDS,
+} from "./export-duration-check";
+import { obsClipRow, recorderClipRow } from "@/test-utils/source-clip-rows";
 
 const clip = (
   order: string,
   duration: number,
   pauseType: string | null = "none"
-) => ({
-  order,
-  videoFilename: "obs.mp4",
-  sourceStartTime: 0,
-  sourceEndTime: duration,
-  pauseType,
-});
-
+) => ({ ...obsClipRow(duration), order, pauseType });
 const recorderClip = (order: string, duration: number) => ({
-  ...clip(order, duration),
-  recordingSessionId: "s1",
-  recordingSession: {
-    id: "s1",
-    cameraFilePath: "camera.mkv",
-    screenFilePath: "screen.mkv",
-    micFilePath: "mic.mkv",
-    micOffsetMs: 0,
-    micEq: null,
-    format: "landscape" as const,
-    screenCaptured: true,
-    sceneEvents: [{ fileTime: 0, scene: "Camera" as const }],
-  },
+  ...recorderClipRow(duration),
+  order,
 });
 const chapter = (order: string, name: string) => ({ order, name });
 
@@ -170,16 +155,12 @@ describe("buildVideoChaptersFromRows", () => {
   });
 });
 
-describe("exportedClipSeconds", () => {
+describe("exportedClipSecondsIn", () => {
   it("is the source span, plus the long Pause for a long-Pause Clip", () => {
-    const span = {
-      videoFilename: "obs.mp4",
-      sourceStartTime: 3,
-      sourceEndTime: 10,
-    };
+    const span = { ...obsClipRow(10), sourceStartTime: 3 };
     const plain = { ...span, pauseType: "none" };
     const paused = { ...span, pauseType: "long" };
-    const secondsOf = exportedClipSeconds([plain, paused]);
+    const secondsOf = exportedClipSecondsIn([plain, paused]);
     expect(secondsOf(plain)).toBe(7);
     expect(secondsOf(paused)).toBeCloseTo(7 + LONG_PAUSE_DURATION_IN_SECONDS);
   });

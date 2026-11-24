@@ -57,4 +57,10 @@ export {
 } from "./lib/layers";
 export { clipFaceAreas } from "./lib/face-areas";
 export { clampCrop, type ScreenCrop } from "./lib/screen-crop";
-export { EXPORT_FPS, exportFrameAt, exportFrameCount } from "./lib/frame-grid";
+export {
+  EXPORT_FPS,
+  EXPORT_FRAME_EPSILON,
+  exportFrameAt,
+  exportFrameCount,
+  wholeExportFrameSeconds,
+} from "./lib/frame-grid";

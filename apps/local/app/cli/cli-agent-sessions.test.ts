@@ -19,6 +19,13 @@ import {
   type WriteSeed,
 } from "./cli-write-test-harness";
 import { toDate } from "@/packages/clock";
+import { Effect, Layer } from "effect";
+import { DrizzleService } from "@/services/drizzle-service.server";
+import { VersionOperationsService } from "@/services/db-version-operations.server";
+import {
+  buildCourseJson,
+  placeholderFloorFromBand,
+} from "@/packages/course-json";
 
 // ===========================================================================
 // cvm video agent-sessions set | get | clear. Every session file here is a
@@ -129,6 +136,54 @@ const visibleFromOf = async () =>
     (await getEntries()).map((e) => [e.text ?? e.tool, e.visibleFrom])
   );
 
+const courseJsonVisibleFrom = async () => {
+  const [version] = await testDb.select().from(schema.courseVersions);
+  if (!version) throw new Error("no course version seeded");
+  await testDb
+    .update(schema.videos)
+    .set({ body: "body", description: "description" })
+    .where(eq(schema.videos.id, s.lessonVideoId));
+  const manifest = await Effect.runPromise(
+    Effect.gen(function* () {
+      const versionOps = yield* VersionOperationsService;
+      const tree = yield* versionOps.getCourseWithSectionsByVersion({
+        repoId: version.repoId,
+        versionId: version.id,
+      });
+      return yield* buildCourseJson({
+        courseId: version.repoId,
+        courseVersionId: version.id,
+        courseName: tree.name,
+        assetBasePath: "versions/test-assets",
+        sections: tree.sections,
+        videoAssets: new Map([
+          [s.lessonVideoId, { sha256: "a".repeat(64), bytes: 1 }],
+        ]),
+        includeTodoLessons: true,
+        placeholderFloor: placeholderFloorFromBand("none"),
+        storageRoots: [],
+      });
+    }).pipe(
+      Effect.provide(
+        VersionOperationsService.Default.pipe(
+          Layer.provide(
+            Layer.succeed(DrizzleService, DrizzleService.make(testDb))
+          )
+        )
+      )
+    )
+  );
+  const video = manifest.sections
+    .flatMap((section) => section.lessons)
+    .flatMap((lesson) =>
+      lesson.type === "explainer" ? [lesson.explainer] : []
+    )
+    .find((v) => v.id === s.lessonVideoLineageId);
+  return (video?.sessionExtract?.sessions ?? []).flatMap((session) =>
+    session.entries.map((entry) => entry.visibleFrom)
+  );
+};
+
 beforeAll(async () => {
   testDb = (await createTestDb()).testDb;
   run = makeRun(buildWriteLayer(testDb));
@@ -230,6 +285,30 @@ describe("cvm video agent-sessions", () => {
         visibleFrom: 20,
       },
     ]);
+  });
+
+  it("times entries as course.json does on a Video rendered Clip by Clip, in whole frames", async () => {
+    await run([
+      "video",
+      "agent-sessions",
+      "set",
+      "--session",
+      writeSession("s.jsonl", SESSION),
+      s.lessonVideoId,
+    ]);
+    await testDb
+      .update(schema.clips)
+      .set({ sourceEndTime: 20.005 })
+      .where(eq(schema.clips.id, clips.c1));
+
+    const fromGet = (await getEntries()).map((e) => e.visibleFrom);
+    const c3StartIn601PlusThe600FramesOfC2 = 20.017;
+    expect(fromGet).toEqual([
+      2,
+      c3StartIn601PlusThe600FramesOfC2,
+      c3StartIn601PlusThe600FramesOfC2,
+    ]);
+    expect(await courseJsonVisibleFrom()).toEqual(fromGet);
   });
 
   it("follows the current cut: an insert, an in-point trim, a reorder and an out-point trim", async () => {

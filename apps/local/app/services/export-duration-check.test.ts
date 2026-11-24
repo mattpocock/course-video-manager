@@ -7,6 +7,7 @@ import {
   paddedClipDurationsInSeconds,
 } from "./export-duration-check";
 import { FINAL_VIDEO_PADDING } from "@/features/video-editor/constants";
+import { obsClipRow, recorderClipRow } from "@/test-utils/source-clip-rows";
 
 const verdict = (expected: number, actual: number) =>
   isExportUnacceptablyShort({
@@ -78,36 +79,13 @@ describe("expectedExportDurationInSeconds", () => {
   });
 });
 
-const recorderClip = (seconds: number) => ({
-  videoFilename: "camera.mkv",
-  sourceStartTime: 0,
-  sourceEndTime: seconds,
-  pauseType: "none",
-  recordingSessionId: "s1",
-  recordingSession: {
-    id: "s1",
-    cameraFilePath: "camera.mkv",
-    screenFilePath: "screen.mkv",
-    micFilePath: "mic.mkv",
-    micOffsetMs: 0,
-    micEq: null,
-    format: "landscape" as const,
-    screenCaptured: true,
-    sceneEvents: [{ fileTime: 0, scene: "Camera" as const }],
-  },
-});
-
-const obsClip = (seconds: number) => ({
-  videoFilename: "obs.mp4",
-  sourceStartTime: 0,
-  sourceEndTime: seconds,
-  pauseType: "none",
-});
-
 describe("the export's timeline (paddedClipDurationsInSeconds)", () => {
   it("gives each Clip of a segmented Video whole 60 fps frames (1.01 s is 61 frames; with the 0.42 s final padding, 86)", () => {
     const expected = expectedExportDurationInSeconds(
-      paddedClipDurationsInSeconds([recorderClip(1.01), recorderClip(1.01)])
+      paddedClipDurationsInSeconds([
+        recorderClipRow(1.01),
+        recorderClipRow(1.01),
+      ])
     );
     const firstOf61Frames = 61 / 60;
     const lastWithPaddingOf86Frames = 86 / 60;
@@ -119,7 +97,7 @@ describe("the export's timeline (paddedClipDurationsInSeconds)", () => {
 
   it("counts frames the same way for every Clip once one of them is a recorder Clip", () => {
     const expected = expectedExportDurationInSeconds(
-      paddedClipDurationsInSeconds([obsClip(1.01), recorderClip(1.01)])
+      paddedClipDurationsInSeconds([obsClipRow(1.01), recorderClipRow(1.01)])
     );
     expect(expected).toBeCloseTo((61 + 86) / 60, 9);
   });
@@ -127,8 +105,8 @@ describe("the export's timeline (paddedClipDurationsInSeconds)", () => {
   it("whole-frames a long Pause together with its Clip (1.18 s is 71 frames)", () => {
     const expected = expectedExportDurationInSeconds(
       paddedClipDurationsInSeconds([
-        { ...recorderClip(1), pauseType: "long" },
-        recorderClip(1),
+        { ...recorderClipRow(1), pauseType: "long" },
+        recorderClipRow(1),
       ])
     );
     expect(expected).toBeCloseTo((71 + 86) / 60, 9);
@@ -136,7 +114,7 @@ describe("the export's timeline (paddedClipDurationsInSeconds)", () => {
 
   it("leaves an OBS-only Video, cut in one pass, to its exact spans", () => {
     const expected = expectedExportDurationInSeconds(
-      paddedClipDurationsInSeconds([obsClip(1.01), obsClip(1.01)])
+      paddedClipDurationsInSeconds([obsClipRow(1.01), obsClipRow(1.01)])
     );
     expect(expected).toBeCloseTo(1.01 + 1.01 + FINAL_VIDEO_PADDING, 9);
   });

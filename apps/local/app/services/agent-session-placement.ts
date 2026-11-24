@@ -2,6 +2,7 @@ import { isScreenClip } from "@cvm/core/features/agent-sessions/anchor-entries";
 import {
   clipExportDurationInSeconds,
   paddedClipDurationsInSeconds,
+  type SourceClipDuration,
 } from "./export-duration-check";
 
 /**
@@ -20,15 +21,13 @@ import {
  * - On a Clip not in the cut (archived): not at all.
  *
  * A Clip starts where the export puts it: after every earlier Clip's length,
- * each long Pause included (`clipExportDurationInSeconds`).
+ * each long Pause included, in whole frames on a Video rendered Clip by Clip
+ * (`paddedClipDurationsInSeconds`).
  */
 
 /** A live Clip of the Video, in video order. */
-export type PlacementClip = {
+export type PlacementClip = SourceClipDuration & {
   readonly id: string;
-  readonly sourceStartTime: number;
-  readonly sourceEndTime: number;
-  readonly pauseType: string | null;
   readonly scene: string | null;
   readonly sceneOverride: string | null;
 };
