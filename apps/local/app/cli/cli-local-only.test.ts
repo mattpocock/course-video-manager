@@ -144,6 +144,17 @@ describe("on a box that is not the author's", () => {
     expect(result.stdout).toBe("");
   });
 
+  it("refuses cvm video export", async () => {
+    const result = await run(["video", "export", s.standaloneActiveId]);
+
+    expect(result.exitCode).toBe(7);
+    expect(failureOf(result)).toMatchObject({
+      _tag: "LocalOnlyCommandError",
+      command: "cvm video export",
+    });
+    expect(result.stdout).toBe("");
+  });
+
   it("refuses cvm clip frame", async () => {
     const result = await run(["clip", "frame", "--at", "1", "clip_1"]);
 
