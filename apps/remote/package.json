@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "The deployed RPC API: a Hono app that exposes the domain operations to a cvm running anywhere, authenticated with a bearer token. No filesystem, no ffmpeg, no OBS — it is the transport and nothing else.",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "exports": {
     "./*": "./*.ts"
