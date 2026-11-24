@@ -77,8 +77,9 @@ const enqueued = (
  * The server answered with a live Job that already does this work, and added
  * none: the request is dropped (its id will never be on the stream), and
  * whoever asked follows the live Job instead. Only a kind with one live Job
- * per piece of work (`transcribe-clips`) is answered this way, and nothing
- * waits on one.
+ * per piece of work (`transcribe-clips`, `export`) is answered this way. What
+ * waited on the dropped request (a post after its export) waits on the live
+ * Job instead.
  */
 const joined = (
   state: jobsReducer.State,
@@ -88,8 +89,10 @@ const joined = (
 ): jobsReducer.State => {
   if (!state.jobs[id]) return state;
   exec({ type: "report-job-joined", id, jobId });
+  const { [id]: waiting = [], ...held } = state.held;
+  for (const enqueue of waiting) exec({ ...enqueue, dependsOn: jobId });
   const { [id]: _dropped, ...jobs } = state.jobs;
-  return { ...state, jobs };
+  return { ...state, held, jobs };
 };
 
 /** An enqueue that failed: it, and every Job held on it, fails here. */

@@ -65,7 +65,10 @@ const spec = <A, I>(
 
 export const JOB_KIND_SPECS = {
   noop: spec(RETRYING_JOB_POLICY, JOB_PARAMS.noop),
-  export: spec(UPLOAD_MANAGER_POLICIES.export, JOB_PARAMS.export),
+  export: {
+    ...spec(UPLOAD_MANAGER_POLICIES.export, JOB_PARAMS.export),
+    coveredBy: () => true,
+  },
   // A second press while one is queued or running joins it: both would
   // render the same file to the same address.
   "export-animatic": {

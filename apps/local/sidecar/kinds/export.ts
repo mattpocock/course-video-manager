@@ -1,11 +1,11 @@
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 import { JOB_PARAMS } from "../job-params";
 import { CoursePublishService } from "@/services/course-publish-service";
 import type { ExportStage } from "@/services/course-publish-export-events";
 import { defineJobKind, type JobContext } from "../job-kind";
 import { makeOrderedEvents } from "../ordered-events";
 import { UPLOAD_MANAGER_POLICIES } from "../retry-policy";
-import { EXPORT_EVENTS } from "@/features/jobs/export-job";
+import { EXPORT_EVENTS, ExportedEvent } from "@/features/jobs/export-job";
 
 /** The stages an export reports; `queued` is the browser's, before it starts. */
 type ExportWorkStage = Exclude<ExportStage, "queued">;
@@ -32,7 +32,10 @@ const reportInOrder = (ctx: JobContext) =>
         events.emit("progress", { stage: info.stage, percent: info.percent });
       },
       exported: (path: string) => {
-        events.emit(EXPORT_EVENTS.exported, { path });
+        events.emit(
+          EXPORT_EVENTS.exported,
+          Schema.encodeSync(ExportedEvent)({ path })
+        );
       },
       flush: events.flush,
     };

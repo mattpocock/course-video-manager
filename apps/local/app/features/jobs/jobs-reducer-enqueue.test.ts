@@ -155,6 +155,25 @@ describe("an enqueue the server answers with another Job", () => {
     ]);
   });
 
+  it("sends what waited on the dropped request on, waiting on the live Job instead", () => {
+    const POST_ID = "6b0c1f5e-0000-4000-8000-0000000000bb";
+    const tester = newTester()
+      .send(requestPost())
+      .send(requestPost(POST_ID, JOB_ID));
+    tester
+      .resetExec()
+      .send({ type: "enqueue-succeeded", id: JOB_ID, answeredBy: LIVE_ID });
+
+    expect(tester.getState().held).toEqual({});
+    expect(tester.getEffects()).toContainEqual(
+      expect.objectContaining({
+        type: "enqueue-job",
+        id: POST_ID,
+        dependsOn: LIVE_ID,
+      })
+    );
+  });
+
   it("an answer naming the Job asked for is no join", () => {
     const tester = newTester().send(requestPost());
     tester

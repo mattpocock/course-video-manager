@@ -1,8 +1,10 @@
+import path from "node:path";
 import { Command, Options } from "@effect/cli";
 import { Effect, Logger, LogLevel } from "effect";
 import { VideoOperationsService } from "@/services/db-video-operations.server";
 import { nudgeSidecar } from "@/services/sidecar-socket.server";
-import { EXPORT_JOB_KIND } from "@/features/jobs/export-job";
+import { EXPORT_JOB_KIND, exportJobLogPath } from "@/features/jobs/export-job";
+import { installLocationRepoRoot } from "@/packages/env";
 import {
   NEEDS_THE_SIDECAR_TO_EXPORT,
   requireLocalMachine,
@@ -12,16 +14,12 @@ import { CliOutput } from "@/cli/output";
 import { draftIdArg } from "../entity-id";
 import { enqueueJob, JOB_KIND_SPECS } from "../../../sidecar/job-specs";
 import { withFootageJobs } from "./footage-jobs";
-import { jobLogPath, waitForExport } from "./video-export-wait";
+import { waitForExport } from "./video-export-wait";
 import { EXPORT_HELP } from "./video.export.help";
 
 const DEFAULT_TIMEOUT_SECONDS = 3_600;
 
 const POLL_MS = 1_000;
-
-const EXPORT_JOINING_A_LIVE_EXPORT = {
-  [EXPORT_JOB_KIND]: { ...JOB_KIND_SPECS.export, coveredBy: () => true },
-};
 
 const noWaitOption = Options.boolean("no-wait").pipe(
   Options.withDescription(
@@ -58,6 +56,7 @@ export const exportCommand = Command.make(
         Effect.catchTag("NotFoundError", () => notFound("video", videoId))
       );
 
+      const repoRoot = installLocationRepoRoot() ?? path.resolve();
       const run = Effect.gen(function* () {
         const job = yield* enqueueJob({
           id: null,
@@ -67,7 +66,7 @@ export const exportCommand = Command.make(
           dependsOn: null,
           subject: { type: "video", id: videoId },
           attemptsSpent: 0,
-          registry: EXPORT_JOINING_A_LIVE_EXPORT,
+          registry: JOB_KIND_SPECS,
         });
         yield* nudgeSidecar().pipe(Logger.withMinimumLogLevel(LogLevel.None));
 
@@ -76,13 +75,14 @@ export const exportCommand = Command.make(
             videoId,
             jobId: job.id,
             status: job.status,
-            log: jobLogPath(job.id),
+            log: exportJobLogPath(repoRoot, job.id),
           });
         }
 
         const out = yield* CliOutput;
         const path = yield* waitForExport({
           jobId: job.id,
+          log: exportJobLogPath(repoRoot, job.id),
           pollMs: POLL_MS,
           timeoutMs: timeout * 1_000,
           onWaiting: (line) => out.stderr(JSON.stringify(line) + "\n"),

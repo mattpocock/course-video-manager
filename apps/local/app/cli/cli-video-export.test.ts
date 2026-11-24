@@ -7,7 +7,7 @@ import {
   afterAll,
   vi,
 } from "vitest";
-import { Deferred, Effect, Fiber, Layer, Logger, LogLevel } from "effect";
+import { Data, Deferred, Effect, Fiber, Layer, Logger, LogLevel } from "effect";
 import { NodeContext } from "@effect/platform-node";
 import { fromPartial } from "@total-typescript/shoehorn";
 import os from "node:os";
@@ -27,7 +27,11 @@ import { exportJobKind } from "../../sidecar/kinds/export";
 import { LOCAL_MACHINE_ENV_KEY } from "./env";
 import { buildWriteLayer, one, type RunResult } from "./cli-write-test-harness";
 
-type ExportOutcome = "exported" | "fails" | "hangs";
+type ExportOutcome = "exported" | "fails" | "breaks" | "hangs";
+
+class FfmpegCrashedError extends Data.TaggedError("FfmpegCrashedError")<{
+  readonly message: string;
+}> {}
 
 let outcome: ExportOutcome = "exported";
 let release: Deferred.Deferred<void> | null = null;
@@ -43,6 +47,9 @@ const fakePublish = Layer.succeed(
           return yield* new ExportError({
             message: "ffmpeg exited with code 1 while concatenating clips",
           });
+        }
+        if (outcome === "breaks") {
+          return yield* new FfmpegCrashedError({ message: "ffmpeg crashed" });
         }
         if (outcome === "hangs" && release) {
           yield* Deferred.await(release);
@@ -180,10 +187,17 @@ describe("video export", () => {
     const r = await run(["video", "export", "--no-wait", videoId]);
 
     expect(r.exitCode).toBe(0);
-    const queued = one<{ jobId: string; status: string; videoId: string }>(
-      r.stdout
-    );
+    const queued = one<{
+      jobId: string;
+      status: string;
+      videoId: string;
+      log: string;
+    }>(r.stdout);
     expect(queued).toMatchObject({ status: "queued", videoId });
+    expect(nodePath.isAbsolute(queued.log)).toBe(true);
+    expect(queued.log.endsWith(`.data/logs/jobs/${queued.jobId}.jsonl`)).toBe(
+      true
+    );
     expect(await getJob(queued.jobId)).toMatchObject({
       kind: "export",
       params: { videoId },
@@ -202,6 +216,19 @@ describe("video export", () => {
       _tag: "ExportError",
       message: "ffmpeg exited with code 1 while concatenating clips",
     });
+  });
+
+  it("names a failure the Export has no tag for, after its last attempt, as ExportJobFailedError", async () => {
+    outcome = "breaks";
+    const r = await run(["video", "export", videoId]);
+
+    expect(r.exitCode).toBe(4);
+    expect(one(r.stderr.trim())).toMatchObject({
+      _tag: "ExportJobFailedError",
+      failedWith: "FfmpegCrashedError",
+      message: "ffmpeg crashed",
+    });
+    expect(exported).toEqual([videoId, videoId, videoId]);
   });
 
   it("gives up waiting at --timeout, and asking again joins the same Export", async () => {
