@@ -7,7 +7,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Loader2, Trash2 } from "lucide-react";
-import { useFetcher } from "react-router";
+import { useActionSubmit } from "@/hooks/use-action-submit";
+import { toastOnReject } from "@/components/ui/toast";
 
 export function DeleteVideoFileModal(props: {
   videoId: string;
@@ -15,7 +16,7 @@ export function DeleteVideoFileModal(props: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const fetcher = useFetcher();
+  const { submit, pending } = useActionSubmit();
 
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
@@ -30,18 +31,19 @@ export function DeleteVideoFileModal(props: {
             be undone.
           </DialogDescription>
         </DialogHeader>
-        <fetcher.Form
+        <form
           method="post"
           action="/api/video-files/delete"
           className="space-y-4 py-4"
-          onSubmit={async (e) => {
+          onSubmit={(e) => {
             e.preventDefault();
             const formData = new FormData(e.currentTarget);
-            await fetcher.submit(formData, {
-              method: "post",
-              action: "/api/video-files/delete",
-            });
-            props.onOpenChange(false);
+            toastOnReject(
+              submit("/api/video-files/delete", formData).then(() =>
+                props.onOpenChange(false)
+              ),
+              "Failed to delete the file"
+            );
           }}
         >
           <input type="hidden" name="videoId" value={props.videoId} />
@@ -54,19 +56,15 @@ export function DeleteVideoFileModal(props: {
             >
               Cancel
             </Button>
-            <Button
-              type="submit"
-              variant="destructive"
-              disabled={fetcher.state === "submitting"}
-            >
-              {fetcher.state === "submitting" ? (
+            <Button type="submit" variant="destructive" disabled={pending}>
+              {pending ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 "Delete File"
               )}
             </Button>
           </div>
-        </fetcher.Form>
+        </form>
       </DialogContent>
     </Dialog>
   );

@@ -41,6 +41,8 @@ import { useEffect, useMemo } from "react";
 import type { appSidebarReducer } from "./app-sidebar-reducer";
 import { useAppSidebarReducer } from "./use-app-sidebar-reducer";
 import { NEW_SHORT_ACTION, newShortFormData } from "@/lib/new-short";
+import { toastOnReject } from "@/components/ui/toast";
+
 import {
   NEW_STREAM_VIDEO_ACTION,
   newStreamVideoFormData,
@@ -102,9 +104,14 @@ export function AppSidebar({ variant }: AppSidebarProps) {
         return void navigate(`/courses/${courseId}/publish`);
       case "archive":
       case "unarchive":
-        return void archiveCourseFetcher.submit(
-          { archived: action === "archive" ? "true" : "false" },
-          { method: "post", action: `/api/courses/${courseId}/archive` }
+        return toastOnReject(
+          archiveCourseFetcher.submit(
+            { archived: action === "archive" ? "true" : "false" },
+            { method: "post", action: `/api/courses/${courseId}/archive` }
+          ),
+          action === "archive"
+            ? "Failed to archive the course"
+            : "Failed to unarchive the course"
         );
     }
   };
@@ -220,9 +227,12 @@ export function AppSidebar({ variant }: AppSidebarProps) {
         href="/pitches"
         active={onPitchesPath}
         onAdd={() => {
-          createPitchFetcher.submit(
-            {},
-            { method: "post", action: "/api/pitches/create" }
+          toastOnReject(
+            createPitchFetcher.submit(
+              {},
+              { method: "post", action: "/api/pitches/create" }
+            ),
+            "Failed to create a pitch"
           );
         }}
         addDisabled={createPitchFetcher.state !== "idle"}
@@ -242,10 +252,13 @@ export function AppSidebar({ variant }: AppSidebarProps) {
         href="/shorts"
         active={onShortsPath}
         onAdd={() => {
-          createShortFetcher.submit(newShortFormData(), {
-            method: "post",
-            action: NEW_SHORT_ACTION,
-          });
+          toastOnReject(
+            createShortFetcher.submit(newShortFormData(), {
+              method: "post",
+              action: NEW_SHORT_ACTION,
+            }),
+            "Failed to create a Short"
+          );
         }}
         addDisabled={createShortFetcher.state !== "idle"}
       />
@@ -256,10 +269,13 @@ export function AppSidebar({ variant }: AppSidebarProps) {
         href="/streaming"
         active={location.pathname.startsWith("/streaming")}
         onAdd={() => {
-          void createStreamVideoFetcher.submit(newStreamVideoFormData(), {
-            method: "post",
-            action: NEW_STREAM_VIDEO_ACTION,
-          });
+          toastOnReject(
+            createStreamVideoFetcher.submit(newStreamVideoFormData(), {
+              method: "post",
+              action: NEW_STREAM_VIDEO_ACTION,
+            }),
+            "Failed to create a stream video"
+          );
         }}
         addDisabled={createStreamVideoFetcher.state !== "idle"}
       />

@@ -8,7 +8,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
-import { useFetcher } from "react-router";
+import { useActionSubmit } from "@/hooks/use-action-submit";
+import { toastOnReject } from "@/components/ui/toast";
 
 export function RenameVideoModal(props: {
   videoId: string;
@@ -17,7 +18,7 @@ export function RenameVideoModal(props: {
   onOpenChange: (open: boolean) => void;
   onRename?: (newName: string) => void;
 }) {
-  const fetcher = useFetcher();
+  const { submit, pending } = useActionSubmit();
 
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
@@ -25,20 +26,26 @@ export function RenameVideoModal(props: {
         <DialogHeader>
           <DialogTitle>Rename Video</DialogTitle>
         </DialogHeader>
-        <fetcher.Form
+        <form
           method="post"
           action={`/api/videos/${props.videoId}/rename`}
           className="space-y-4 py-4"
-          onSubmit={async (e) => {
+          onSubmit={(e) => {
             e.preventDefault();
             const formData = new FormData(e.currentTarget);
             const newName = formData.get("name") as string;
-            await fetcher.submit(e.currentTarget);
-            if (props.onRename) {
-              props.onRename(newName);
-            } else {
-              props.onOpenChange(false);
-            }
+            toastOnReject(
+              submit(`/api/videos/${props.videoId}/rename`, formData).then(
+                () => {
+                  if (props.onRename) {
+                    props.onRename(newName);
+                  } else {
+                    props.onOpenChange(false);
+                  }
+                }
+              ),
+              "Failed to rename the video"
+            );
           }}
         >
           <div className="space-y-2">
@@ -59,14 +66,10 @@ export function RenameVideoModal(props: {
               Cancel
             </Button>
             <Button type="submit">
-              {fetcher.state === "submitting" ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                "Save"
-              )}
+              {pending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
             </Button>
           </div>
-        </fetcher.Form>
+        </form>
       </DialogContent>
     </Dialog>
   );

@@ -1,6 +1,6 @@
 import { CopyIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { toast } from "@/components/ui/toast";
+import { toast, toastOnReject } from "@/components/ui/toast";
 
 /**
  * The command that remounts an Offline Storage Root, as a code block Matt can
@@ -16,12 +16,14 @@ export function RemountCommand(props: { command: string }) {
       <Button
         variant="outline"
         size="sm"
-        onClick={() =>
-          navigator.clipboard.writeText(props.command).then(
-            () => toast.success("Remount command copied"),
-            () => toast.error("Failed to copy the remount command")
-          )
-        }
+        onClick={() => {
+          toastOnReject(
+            navigator.clipboard
+              .writeText(props.command)
+              .then(() => toast.success("Remount command copied")),
+            "Failed to copy the remount command"
+          );
+        }}
       >
         <CopyIcon className="size-3.5" />
         Copy

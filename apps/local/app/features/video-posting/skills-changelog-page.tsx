@@ -2,7 +2,7 @@
 
 import { useContext, useEffect, useState } from "react";
 import { hasLocalStorage } from "@/hooks/use-local-storage";
-import { toast } from "@/components/ui/toast";
+import { toast, toastOnReject } from "@/components/ui/toast";
 import { UploadContext } from "@/features/upload-manager/upload-context";
 import { findVideoJobRow } from "@/features/jobs/jobs-selectors";
 import { Input } from "@/components/ui/input";
@@ -113,7 +113,7 @@ export function SkillsChangelogPage({
 
   const [isCheckingExport, setIsCheckingExport] = useState(false);
 
-  const handlePost = async () => {
+  const post = async () => {
     if (
       !title.trim() ||
       !slugSuffix.trim() ||
@@ -173,22 +173,26 @@ export function SkillsChangelogPage({
     }
   };
 
+  const handlePost = () => {
+    toastOnReject(post(), "Failed to start the Skills Changelog post");
+  };
+
   const [justCopied, setJustCopied] = useState(false);
   const [justCopiedAll, setJustCopiedAll] = useState(false);
 
-  const handleCopyFullNewsletter = async () => {
+  const handleCopyFullNewsletter = () => {
     const fullSlug = `${SLUG_PREFIX}${stripPrefix(slugSuffix.trim()) || "<slug>"}`;
     const text = buildFullNewsletter(newsletterCopy, fullSlug);
-    try {
-      await navigator.clipboard.writeText(text);
-      setJustCopied(true);
-      after(1500, () => setJustCopied(false));
-    } catch {
-      toast.error("Failed to copy to clipboard");
-    }
+    toastOnReject(
+      navigator.clipboard.writeText(text).then(() => {
+        setJustCopied(true);
+        after(1500, () => setJustCopied(false));
+      }),
+      "Failed to copy to clipboard"
+    );
   };
 
-  const handleCopyEverything = async () => {
+  const handleCopyEverything = () => {
     const fullSlug = `${SLUG_PREFIX}${stripPrefix(slugSuffix.trim()) || "<slug>"}`;
     const text = buildSkillsChangelogPayload({
       title,
@@ -199,13 +203,13 @@ export function SkillsChangelogPage({
       newsletterPreviewText,
       newsletterCopy,
     });
-    try {
-      await navigator.clipboard.writeText(text);
-      setJustCopiedAll(true);
-      after(1500, () => setJustCopiedAll(false));
-    } catch {
-      toast.error("Failed to copy to clipboard");
-    }
+    toastOnReject(
+      navigator.clipboard.writeText(text).then(() => {
+        setJustCopiedAll(true);
+        after(1500, () => setJustCopiedAll(false));
+      }),
+      "Failed to copy to clipboard"
+    );
   };
 
   if (!aiHero.connected) {

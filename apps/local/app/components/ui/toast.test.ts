@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { isValidElement, type MouseEvent } from "react";
-import { toast, toastError, ToastText } from "./toast";
+import { toast, toastError, toastOnReject, ToastText } from "./toast";
 
 type SonnerToast = typeof import("sonner").toast;
 type Show = SonnerToast["success"];
@@ -111,5 +111,32 @@ describe("toastError", () => {
   it("falls back when the thrown value has no message", () => {
     toastError({ weird: true }, "Failed to upload images");
     expect(textOf(lastErrorCall().title)).toBe("Failed to upload images");
+  });
+});
+
+describe("toastOnReject", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("shows the rejection's message", async () => {
+    toastOnReject(Promise.reject(new Error("Course name taken")), "Failed");
+    await vi.waitFor(() =>
+      expect(textOf(lastErrorCall().title)).toBe("Course name taken")
+    );
+  });
+
+  it("falls back when the rejection has no message", async () => {
+    toastOnReject(Promise.reject(new Error("")), "Failed to rename the course");
+    await vi.waitFor(() =>
+      expect(textOf(lastErrorCall().title)).toBe("Failed to rename the course")
+    );
+  });
+
+  it("shows nothing when the promise resolves", async () => {
+    toastOnReject(Promise.resolve("done"), "Failed");
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(vi.mocked(sonnerToast.error)).not.toHaveBeenCalled();
   });
 });

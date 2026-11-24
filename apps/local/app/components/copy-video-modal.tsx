@@ -11,7 +11,17 @@ import { Label } from "@/components/ui/label";
 import { useVideoCopyOptions } from "@/features/video-editor/hooks/use-video-copy-options";
 import { Loader2 } from "lucide-react";
 import { useRef, useState } from "react";
-import { useFetcher } from "react-router";
+import { useNavigate } from "react-router";
+import { useActionSubmit } from "@/hooks/use-action-submit";
+import { toastOnReject } from "@/components/ui/toast";
+
+const newVideoIdOf = (answer: unknown): string | null =>
+  typeof answer === "object" &&
+  answer !== null &&
+  "newVideoId" in answer &&
+  typeof answer.newVideoId === "string"
+    ? answer.newVideoId
+    : null;
 
 export function CopyVideoModal(props: {
   videoId: string;
@@ -26,13 +36,14 @@ export function CopyVideoModal(props: {
    * Where to send the user once the copy lands, with `{id}` standing in for the
    * new video's id — or `null` to stay put. Lets a surface that is *showing*
    * the source video (the editor) follow the user onto the copy; the tree
-   * views, which show the new video where it lands, pass `null`. The action
-   * performs the navigation itself, so there is no client-side effect to
-   * re-fire.
+   * views, which show the new video where it lands, pass `null`. The modal
+   * navigates in the submit's own callback, not in an effect, so nothing
+   * re-fires.
    */
   redirectTo: string | null;
 }) {
-  const fetcher = useFetcher();
+  const { submit, pending } = useActionSubmit();
+  const navigate = useNavigate();
   const [options, setOptions] = useVideoCopyOptions();
   const copyClipsDisabled = props.clipCount === 0;
   const copyBeatsDisabled = props.beatCount === 0;
@@ -62,11 +73,11 @@ export function CopyVideoModal(props: {
         <DialogHeader>
           <DialogTitle>Copy Video</DialogTitle>
         </DialogHeader>
-        <fetcher.Form
+        <form
           method="post"
           action={`/api/videos/${props.videoId}/copy`}
           className="space-y-4 py-4"
-          onSubmit={async (e) => {
+          onSubmit={(e) => {
             e.preventDefault();
             const formData = new FormData(e.currentTarget);
 
@@ -90,18 +101,25 @@ export function CopyVideoModal(props: {
               renameOld: formData.get("renameOld") === "on",
             });
 
-            await fetcher.submit(e.currentTarget);
-            if (props.onCopy) {
-              props.onCopy();
-            } else {
-              props.onOpenChange(false);
-            }
+            const { redirectTo } = props;
+            toastOnReject(
+              submit(`/api/videos/${props.videoId}/copy`, formData).then(
+                (answer) => {
+                  if (props.onCopy) {
+                    props.onCopy();
+                  } else {
+                    props.onOpenChange(false);
+                  }
+                  const newVideoId = newVideoIdOf(answer);
+                  return redirectTo && newVideoId
+                    ? navigate(redirectTo.replace("{id}", newVideoId))
+                    : undefined;
+                }
+              ),
+              "Failed to copy the video"
+            );
           }}
         >
-          {props.redirectTo && (
-            <input type="hidden" name="redirectTo" value={props.redirectTo} />
-          )}
-
           <div className="space-y-2">
             <Label htmlFor="copy-video-name">New Video Name</Label>
             <Input
@@ -185,14 +203,10 @@ export function CopyVideoModal(props: {
               Cancel
             </Button>
             <Button type="submit">
-              {fetcher.state === "submitting" ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                "Copy"
-              )}
+              {pending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Copy"}
             </Button>
           </div>
-        </fetcher.Form>
+        </form>
       </DialogContent>
     </Dialog>
   );

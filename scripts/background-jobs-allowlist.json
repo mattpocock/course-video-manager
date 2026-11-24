@@ -202,9 +202,9 @@
       "reason": "Browser: the Upload Manager's Retry, Cancel, Dismiss and stage history, each a call to the app's own route by the href job-wire.ts names (/api/jobs/…). Not outbound."
     },
     {
-      "file": "apps/local/app/lib/post-confirmed.ts",
+      "file": "apps/local/app/lib/post-action.ts",
       "count": 1,
-      "reason": "Browser: POSTs a form to the route action it is handed (a path on the app itself), and resolves only on a confirmed save. Not outbound."
+      "reason": "Browser: POSTs a form to the route action it is handed (a path on the app itself) while the author waits, for a modal's submit (useActionSubmit) and a confirmed save (postConfirmed), and rejects with the action's own error. Not outbound."
     },
     {
       "file": "apps/local/app/features/thumbnail-editor/use-recorder-still.ts",

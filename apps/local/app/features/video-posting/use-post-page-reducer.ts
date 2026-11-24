@@ -1,7 +1,8 @@
 import { useContext, useEffect, useRef } from "react";
 import { useFetcher } from "react-router";
 import { useEffectReducer } from "@/hooks/use-effect-reducer";
-import { toast } from "@/components/ui/toast";
+import { toast, toastOnReject } from "@/components/ui/toast";
+
 import { readStored, writeStored } from "@/hooks/use-local-storage";
 import { UploadContext } from "@/features/upload-manager/upload-context";
 import { findVideoJobRow } from "@/features/jobs/jobs-selectors";
@@ -123,10 +124,13 @@ export function usePostPageReducer({
         );
       },
       "delete-thumbnail": (_state, effect) => {
-        deleteThumbnailFetcher.submit(null, {
-          method: "post",
-          action: `/api/thumbnails/${effect.thumbnailId}/delete`,
-        });
+        toastOnReject(
+          deleteThumbnailFetcher.submit(null, {
+            method: "post",
+            action: `/api/thumbnails/${effect.thumbnailId}/delete`,
+          }),
+          "Failed to delete the thumbnail"
+        );
       },
       "check-export": (_state, effect, dispatch) => {
         fetch(`/api/videos/${effect.videoId}/export-file-exists`)

@@ -156,3 +156,12 @@ export function toastError(error: unknown, fallback: string): string | number {
         : fallback;
   return toast.error(message);
 }
+
+export function toastOnReject(
+  promise: Promise<unknown> | void,
+  fallback: string
+): void {
+  promise?.catch((error: unknown) => {
+    toastError(error, fallback);
+  });
+}

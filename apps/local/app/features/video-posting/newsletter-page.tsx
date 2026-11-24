@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { hasLocalStorage, useLocalStorage } from "@/hooks/use-local-storage";
-import { toast } from "@/components/ui/toast";
+import { toast, toastOnReject } from "@/components/ui/toast";
+
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -60,7 +61,7 @@ export const NewsletterPagePanel = (props: NewsletterPagePanelProps) => {
     return "";
   });
 
-  const handleGenerate = async () => {
+  const generate = async () => {
     setIsGenerating(true);
     try {
       const transcriptEnabled =
@@ -136,7 +137,11 @@ export const NewsletterPagePanel = (props: NewsletterPagePanelProps) => {
     }
   };
 
-  const handleCopyAndOpenKit = async () => {
+  const handleGenerate = () => {
+    toastOnReject(generate(), "Failed to generate newsletter");
+  };
+
+  const copyAndOpenKit = async () => {
     try {
       const html = await marked.parse(newsletterContent);
       const blob = new Blob([html], { type: "text/html" });
@@ -155,6 +160,10 @@ export const NewsletterPagePanel = (props: NewsletterPagePanelProps) => {
       log.error("Failed to copy as rich text:", error);
       toast.error("Failed to copy newsletter");
     }
+  };
+
+  const handleCopyAndOpenKit = () => {
+    toastOnReject(copyAndOpenKit(), "Failed to copy newsletter");
   };
 
   return (

@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useLocalStorage } from "@/hooks/use-local-storage";
-import { toast } from "@/components/ui/toast";
+import { toast, toastError, toastOnReject } from "@/components/ui/toast";
+
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -55,7 +56,7 @@ export const SocialPagePanel = (props: SocialPagePanelProps) => {
   const [confirmOverwriteCaption, setConfirmOverwriteCaption] = useState(false);
   const [pendingGeneratedCaption, setPendingGeneratedCaption] = useState("");
 
-  const handleGenerateCaption = async () => {
+  const generateCaption = async () => {
     setIsGeneratingCaption(true);
     try {
       const transcriptEnabled =
@@ -91,9 +92,14 @@ export const SocialPagePanel = (props: SocialPagePanelProps) => {
       }
     } catch (error) {
       log.error("Failed to generate caption:", error);
+      toastError(error, "Failed to generate caption");
     } finally {
       setIsGeneratingCaption(false);
     }
+  };
+
+  const handleGenerateCaption = () => {
+    toastOnReject(generateCaption(), "Failed to generate caption");
   };
 
   const handleConfirmOverwriteCaption = () => {
@@ -112,9 +118,7 @@ export const SocialPagePanel = (props: SocialPagePanelProps) => {
     null
   );
 
-  const handleCreateShortLink = async (
-    platform: "Newsletter" | "X" | "LinkedIn"
-  ) => {
+  const createShortLink = async (platform: "Newsletter" | "X" | "LinkedIn") => {
     setCreatingShortLink(platform);
     try {
       const response = await fetch("/api/shortlinks/find-or-create", {
@@ -145,6 +149,10 @@ export const SocialPagePanel = (props: SocialPagePanelProps) => {
     } finally {
       setCreatingShortLink(null);
     }
+  };
+
+  const handleCreateShortLink = (platform: "Newsletter" | "X" | "LinkedIn") => {
+    toastOnReject(createShortLink(platform), "Failed to create short link");
   };
 
   return (

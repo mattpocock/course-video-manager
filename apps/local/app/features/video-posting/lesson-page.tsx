@@ -3,6 +3,8 @@
 import { useCallback, useState } from "react";
 import { useFetcher, useRevalidator } from "react-router";
 import { postConfirmed } from "@/lib/post-confirmed";
+import { toastOnReject } from "@/components/ui/toast";
+
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -38,9 +40,12 @@ export function LessonPage({
 
   const persistBody = useCallback(
     (newValue: string) => {
-      bodyFetcher.submit(
-        { intent: "updateBody", body: newValue },
-        { method: "post" }
+      toastOnReject(
+        bodyFetcher.submit(
+          { intent: "updateBody", body: newValue },
+          { method: "post" }
+        ),
+        "Failed to save the body"
       );
     },
     [bodyFetcher]
@@ -48,9 +53,12 @@ export function LessonPage({
 
   const persistDescription = useCallback(
     (newValue: string) => {
-      descriptionFetcher.submit(
-        { intent: "updateDescription", description: newValue },
-        { method: "post" }
+      toastOnReject(
+        descriptionFetcher.submit(
+          { intent: "updateDescription", description: newValue },
+          { method: "post" }
+        ),
+        "Failed to save the SEO description"
       );
     },
     [descriptionFetcher]
@@ -94,7 +102,7 @@ export function LessonPage({
     ? String(bodyFetcher.formData.get("body") ?? "")
     : (body ?? "");
 
-  const handleGenerateSeo = useCallback(async () => {
+  const generateSeo = useCallback(async () => {
     setIsGeneratingSeo(true);
     setGenerateError(null);
     try {
@@ -127,6 +135,10 @@ export function LessonPage({
       setIsGeneratingSeo(false);
     }
   }, [videoId, optimisticDescription, persistDescription]);
+
+  const handleGenerateSeo = useCallback(() => {
+    toastOnReject(generateSeo(), "Failed to generate SEO description");
+  }, [generateSeo]);
 
   return (
     <div className="space-y-6 max-w-3xl">

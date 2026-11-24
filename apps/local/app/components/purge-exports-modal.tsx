@@ -7,7 +7,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { FileX, Loader2 } from "lucide-react";
-import { useFetcher } from "react-router";
+import { useActionSubmit } from "@/hooks/use-action-submit";
+import { toastOnReject } from "@/components/ui/toast";
 
 export function PurgeExportsModal(props: {
   repoId: string;
@@ -16,7 +17,7 @@ export function PurgeExportsModal(props: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const fetcher = useFetcher();
+  const { submit, pending } = useActionSubmit();
 
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
@@ -32,18 +33,20 @@ export function PurgeExportsModal(props: {
             can be re-exported later.
           </DialogDescription>
         </DialogHeader>
-        <fetcher.Form
+        <form
           method="post"
           action={`/api/courses/${props.repoId}/purge-exports`}
           className="space-y-4 py-4"
-          onSubmit={async (e) => {
+          onSubmit={(e) => {
             e.preventDefault();
             const formData = new FormData(e.currentTarget);
-            await fetcher.submit(formData, {
-              method: "post",
-              action: `/api/courses/${props.repoId}/purge-exports`,
-            });
-            props.onOpenChange(false);
+            toastOnReject(
+              submit(
+                `/api/courses/${props.repoId}/purge-exports`,
+                formData
+              ).then(() => props.onOpenChange(false)),
+              "Failed to purge the exports"
+            );
           }}
         >
           <input type="hidden" name="versionId" value={props.versionId} />
@@ -56,14 +59,14 @@ export function PurgeExportsModal(props: {
               Cancel
             </Button>
             <Button type="submit" variant="destructive">
-              {fetcher.state === "submitting" ? (
+              {pending ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 "Purge Exports"
               )}
             </Button>
           </div>
-        </fetcher.Form>
+        </form>
       </DialogContent>
     </Dialog>
   );

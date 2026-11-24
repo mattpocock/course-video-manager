@@ -8,7 +8,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
-import { useFetcher } from "react-router";
+import { useActionSubmit } from "@/hooks/use-action-submit";
+import { toastOnReject } from "@/components/ui/toast";
 
 export function RenameCourseModal(props: {
   courseId: string;
@@ -16,7 +17,7 @@ export function RenameCourseModal(props: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const fetcher = useFetcher();
+  const { submit, pending } = useActionSubmit();
 
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
@@ -24,14 +25,19 @@ export function RenameCourseModal(props: {
         <DialogHeader>
           <DialogTitle>Rename Course</DialogTitle>
         </DialogHeader>
-        <fetcher.Form
+        <form
           method="post"
           action={`/api/courses/${props.courseId}/rename-course`}
           className="space-y-4 py-4"
-          onSubmit={async (e) => {
+          onSubmit={(e) => {
             e.preventDefault();
-            await fetcher.submit(e.currentTarget);
-            props.onOpenChange(false);
+            toastOnReject(
+              submit(
+                `/api/courses/${props.courseId}/rename-course`,
+                new FormData(e.currentTarget)
+              ).then(() => props.onOpenChange(false)),
+              "Failed to rename the course"
+            );
           }}
         >
           <div className="space-y-2">
@@ -52,14 +58,10 @@ export function RenameCourseModal(props: {
               Cancel
             </Button>
             <Button type="submit">
-              {fetcher.state === "submitting" ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                "Save"
-              )}
+              {pending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
             </Button>
           </div>
-        </fetcher.Form>
+        </form>
       </DialogContent>
     </Dialog>
   );

@@ -250,6 +250,39 @@ The two promise rules ratchet per directory with `overrides`, for example once
 > violation are counted per file in `lint-baseline.json`, which
 > `scripts/lint-ratchet.ts` keeps shrink-only. A fix needs no new override
 > or promotion; `--write` locks it in.
+>
+> - **Per-directory pass 4 (2026-11-24): `components` and
+>   `features/video-posting` cleared.** Re-measured on main at 95 (50
+>   floating / 45 misused), unchanged since pass 3: `components` 16,
+>   `features/video-posting` 22, `.tsx` routes 57. Fixed all 38 in the first
+>   two; `lint-baseline.json` no longer lists a promise rule in either. Every
+>   rejection now goes through one helper, `toastOnReject(promise,
+fallback)` in `components/ui/toast.tsx`, which shows the caught error
+>   with `toastError`. The eight modals that submitted with a fetcher and
+>   then closed (rename course and video, copy, move, purge exports, delete
+>   and edit a video file, add link) closed on a failed action too: a
+>   `fetcher.submit` resolves either way, and the failure went to the root
+>   ErrorBoundary. They now submit with `useActionSubmit`
+>   (`hooks/use-action-submit.ts`, over `lib/post-action.ts`, with a test). It
+>   POSTs, rejects with the action's own message on a non-2xx and
+>   revalidates on success. A modal closes only on success; on a failure it
+>   stays open and toasts the action's error. Copy no longer has the action
+>   redirect: it navigates to the new Video from the answer's `newVideoId`.
+>   Sidebar creates and archive, autosaves, the post page's thumbnail
+>   delete, the Thumbnails navigate and the clipboard copies hand their
+>   promise to `toastOnReject`. Before, the file preview's Copy swallowed a
+>   denied clipboard and the AI Hero device code's Copy said "copied" either
+>   way. Async handlers with their own `try`/`catch` (post, generate, short
+>   link) keep their body, and their sync wrapper passes the promise to
+>   `toastOnReject`, so one failure shows one toast. The SEO Regenerate
+>   buttons and the SEO auto-generate on the AI Hero and Skills Changelog
+>   pages used to drop or only log a failed generate; they now toast it, and
+>   so does the social caption's generate. The Markdown editor's Ctrl+S now
+>   saves even if the format action rejects, and toasts; before, a rejection
+>   skipped the save. Remaining: `.tsx` routes only, 57 (41 floating / 16
+>   misused): `_app.videos` 17, `_app.pitches` 11, `diagram-playground` 15
+>   (`$diagramId` 9, `_index` 6), `_app.courses` 5, `teleprompter` 3,
+>   `_app.api-tokens` 2, `_app.archived-courses` 2, `_app.shorts` 2.
 
 **Phase 3 — custom guards.** Add `scripts/check-effect-boundaries.sh` in the
 style of the existing guards.
