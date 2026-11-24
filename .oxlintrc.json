@@ -572,7 +572,6 @@
         "apps/local/app/features/video-editor/composite-playback-reducer.ts",
         "apps/local/app/features/video-editor/hooks/use-keyboard-shortcuts.ts",
         "apps/local/app/features/video-editor/preloadable-clip.tsx",
-        "apps/local/app/features/video-editor/recorder-session-reducer.ts",
         "apps/local/app/features/video-editor/suggestions-reducer.ts",
         "apps/local/app/features/video-posting/ai-hero-page.tsx",
         "apps/local/app/features/video-posting/newsletter-page.tsx",
